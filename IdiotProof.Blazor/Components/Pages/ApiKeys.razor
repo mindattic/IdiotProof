@@ -4,12 +4,10 @@
 @using IdiotProof.Engine.Settings
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.Extensions.Configuration
 @attribute [Authorize]
 @inject UserKeyService UserKeyService
 @inject IHttpClientFactory HttpClientFactory
 @inject AuthenticationStateProvider AuthStateProvider
-@inject IConfiguration Configuration
 
 <PageTitle>API Keys — IdiotProof</PageTitle>
 
@@ -17,8 +15,10 @@
 <div class="alert alert-warning d-flex align-items-start gap-2 mb-4" role="alert">
     <i class="bi bi-shield-exclamation fs-4 flex-shrink-0" aria-hidden="true"></i>
     <div>
-        <strong>Security Notice:</strong> API keys are stored locally in your AppData folder and never transmitted to any third party.
-        Keys are masked in this interface. Treat your live broker keys like passwords — never share them.
+        <strong>Security Notice:</strong> keys are stored only in MindAttic.Vault on this machine
+        (<code>%APPDATA%\MindAttic\Brokers</code> and <code>Tokens</code>), never in the database, and a stored key is never sent
+        back to this page (only its first characters). Leave a field blank to keep what is stored.
+        Treat your live broker keys like passwords — never share them.
     </div>
 </div>
 
@@ -65,15 +65,14 @@
                 <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Test Connection
             </button>
         </div>
-        @if (paperVaultActive)
-        {
-            <div class="alert alert-warning small py-2 mb-2" role="alert">
-                <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
-                A key from <code>%APPDATA%\MindAttic\Brokers\providers.json</code> is overriding the field below for
-                actual order routing — editing/testing here won't change what Paper strategies actually trade against
-                until that Vault entry is also updated.
-            </div>
-        }
+        <div class="small text-muted mb-2">
+            Stored: <code>@paperStored</code>
+            @if (paperHasStored)
+            {
+                <button class="btn btn-link btn-sm text-danger p-0 ms-2" type="button" @onclick="() => RemoveAlpaca(isPaper: true)"
+                        aria-label="Remove the stored paper Alpaca keys from Vault">Remove</button>
+            }
+        </div>
         <div role="status" aria-live="polite" aria-atomic="true">
         @if (!string.IsNullOrEmpty(alpacaPaperTestResult))
         {
@@ -89,7 +88,7 @@
                            type="@(showAlpacaPaperKey ? "text" : "password")"
                            @bind="alpacaPaperKeyId"
                            autocomplete="off"
-                           placeholder="PK..." />
+                           placeholder="@(paperHasStored ? "keep stored key" : "PK...")" />
                     <button class="btn btn-outline-secondary"
                             type="button"
                             @onclick="() => showAlpacaPaperKey = !showAlpacaPaperKey"
@@ -107,7 +106,7 @@
                            type="@(showAlpacaPaperSecret ? "text" : "password")"
                            @bind="alpacaPaperSecret"
                            autocomplete="off"
-                           placeholder="••••••••••••" />
+                           placeholder="@(paperHasStored ? "keep stored secret" : "secret")" />
                     <button class="btn btn-outline-secondary"
                             type="button"
                             @onclick="() => showAlpacaPaperSecret = !showAlpacaPaperSecret"
@@ -134,15 +133,14 @@
             These authorize <strong>real-money</strong> trades on your live Alpaca account. Only strategies
             explicitly switched to Live mode (with re-authentication) will ever use them.
         </div>
-        @if (liveVaultActive)
-        {
-            <div class="alert alert-warning small py-2 mb-2" role="alert">
-                <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
-                A key from <code>%APPDATA%\MindAttic\Brokers\providers.json</code> is overriding the field below for
-                actual order routing — editing/testing here won't change what Live strategies actually trade against
-                until that Vault entry is also updated.
-            </div>
-        }
+        <div class="small text-muted mb-2">
+            Stored: <code>@liveStored</code>
+            @if (liveHasStored)
+            {
+                <button class="btn btn-link btn-sm text-danger p-0 ms-2" type="button" @onclick="() => RemoveAlpaca(isPaper: false)"
+                        aria-label="Remove the stored live Alpaca keys from Vault">Remove</button>
+            }
+        </div>
         <div role="status" aria-live="polite" aria-atomic="true">
         @if (!string.IsNullOrEmpty(alpacaLiveTestResult))
         {
@@ -158,7 +156,7 @@
                            type="@(showAlpacaLiveKey ? "text" : "password")"
                            @bind="alpacaLiveKeyId"
                            autocomplete="off"
-                           placeholder="AK..." />
+                           placeholder="@(liveHasStored ? "keep stored key" : "AK...")" />
                     <button class="btn btn-outline-secondary"
                             type="button"
                             @onclick="() => showAlpacaLiveKey = !showAlpacaLiveKey"
@@ -176,7 +174,7 @@
                            type="@(showAlpacaLiveSecret ? "text" : "password")"
                            @bind="alpacaLiveSecret"
                            autocomplete="off"
-                           placeholder="••••••••••••" />
+                           placeholder="@(liveHasStored ? "keep stored secret" : "secret")" />
                     <button class="btn btn-outline-secondary"
                             type="button"
                             @onclick="() => showAlpacaLiveSecret = !showAlpacaLiveSecret"
@@ -207,7 +205,7 @@
                        type="@(showClaudeKey ? "text" : "password")"
                        @bind="claudeKey"
                        autocomplete="off"
-                       placeholder="sk-ant-..." />
+                       placeholder="@(claudeStored is null ? "sk-ant-..." : "keep stored key (" + claudeStored + ")")" />
                 <button class="btn btn-outline-secondary"
                         type="button"
                         @onclick="() => showClaudeKey = !showClaudeKey"
@@ -217,8 +215,12 @@
                 </button>
             </div>
             <div class="form-text text-muted small" id="claude-key-scope">
-                Stored encrypted for your account only. The Monitor uses it to vote on your strategies;
+                Stored in Vault for your account only (Tokens bucket). The Monitor uses it to vote on your strategies;
                 it never becomes another user's key or the app's shared key.
+                @if (claudeStored is not null)
+                {
+                    <button class="btn btn-link btn-sm text-danger p-0 ms-1" type="button" @onclick="RemoveClaude" aria-label="Remove the stored Claude key">Remove</button>
+                }
             </div>
         </div>
         <div class="col-md-4">
@@ -237,7 +239,7 @@
             </div>
         </div>
     </div>
-    @if (llmVotingEnabled && string.IsNullOrWhiteSpace(claudeKey))
+    @if (llmVotingEnabled && string.IsNullOrWhiteSpace(claudeKey) && claudeStored is null)
     {
         <div class="alert alert-warning small py-1 mt-2" role="alert">
             LLM voting is enabled but no API key is set here. The Monitor will vote on the host's shared Claude key if one is configured; otherwise voting is skipped.
@@ -247,6 +249,8 @@
 </section>
 
 @code {
+    // Typed-in values only: stored secrets are never loaded into these fields (IP-T330), so a
+    // secret never travels back to the browser. Blank = keep what Vault holds.
     private string alpacaPaperKeyId = "";
     private string alpacaPaperSecret = "";
     private bool showAlpacaPaperKey;
@@ -269,8 +273,13 @@
     private string saveMessage = "";
     private bool routeToMyAlpaca;
     private string? loadedDataFeed;
-    private bool paperVaultActive;
-    private bool liveVaultActive;
+
+    // What Vault holds, masked (first characters of the key id only).
+    private string paperStored = "not set";
+    private string liveStored = "not set";
+    private bool paperHasStored;
+    private bool liveHasStored;
+    private string? claudeStored;
 
     private Guid? userId;
 
@@ -280,38 +289,41 @@
         var rawId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         userId = Guid.TryParse(rawId, out var uid) ? uid : null;
         if (userId is null) return;
+        await LoadAsync();
+    }
 
-        var keys = await UserKeyService.GetOrCreateAsync(userId.Value);
-        alpacaPaperKeyId  = keys.AlpacaApiKeyId ?? "";
-        alpacaPaperSecret = keys.AlpacaApiSecretKey ?? "";
-        alpacaLiveKeyId   = keys.AlpacaLiveApiKeyId ?? "";
-        alpacaLiveSecret  = keys.AlpacaLiveApiSecretKey ?? "";
-        claudeKey      = keys.ClaudeApiKey ?? "";
-        claudeModel    = string.IsNullOrWhiteSpace(keys.ClaudeModel) ? "claude-sonnet-5" : keys.ClaudeModel;
+    private async Task LoadAsync()
+    {
+        var keys = await UserKeyService.GetOrCreateAsync(userId!.Value);
+        claudeModel      = string.IsNullOrWhiteSpace(keys.ClaudeModel) ? "claude-sonnet-5" : keys.ClaudeModel;
         llmVotingEnabled = keys.LlmVotingEnabled;
         routeToMyAlpaca  = string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase);
         loadedDataFeed   = keys.DefaultDataFeed;
 
-        // UserBrokerResolver/AccountSummaryService both prefer a Vault-stored
-        // pair (MindAttic.Vault's Brokers bucket) over whatever's saved here —
-        // surface that so editing/testing a key on this page doesn't give
-        // false confidence about what actually routes real orders.
-        var (paperVaultKeyId, paperVaultSecret) = AlpacaVaultKeys.Resolve(Configuration, isPaper: true);
-        var (liveVaultKeyId, liveVaultSecret) = AlpacaVaultKeys.Resolve(Configuration, isPaper: false);
-        paperVaultActive = !string.IsNullOrWhiteSpace(paperVaultKeyId) && !string.IsNullOrWhiteSpace(paperVaultSecret);
-        liveVaultActive = !string.IsNullOrWhiteSpace(liveVaultKeyId) && !string.IsNullOrWhiteSpace(liveVaultSecret);
+        var vault = UserKeyService.Vault;
+        paperHasStored = keys.AlpacaApiKeyId is not null;
+        liveHasStored  = keys.AlpacaLiveApiKeyId is not null;
+        paperStored = paperHasStored ? $"{Mask(keys.AlpacaApiKeyId)} (Vault Brokers/{vault.AlpacaEntry(userId.Value, true)})" : "not set";
+        liveStored  = liveHasStored ? $"{Mask(keys.AlpacaLiveApiKeyId)} (Vault Brokers/{vault.AlpacaEntry(userId.Value, false)})" : "not set";
+        claudeStored = keys.ClaudeApiKey is null ? null : Mask(keys.ClaudeApiKey);
     }
+
+    private static string Mask(string? value) =>
+        string.IsNullOrEmpty(value) ? "" : value.Length <= 8 ? "***" : value[..4] + "...";
 
     private async Task TestAlpaca(bool isPaper)
     {
-        var keyId  = isPaper ? alpacaPaperKeyId  : alpacaLiveKeyId;
-        var secret = isPaper ? alpacaPaperSecret : alpacaLiveSecret;
-
         void SetResult(string msg, bool ok)
         {
             if (isPaper) { alpacaPaperTestResult = msg; alpacaPaperTestOk = ok; }
             else         { alpacaLiveTestResult  = msg; alpacaLiveTestOk  = ok; }
         }
+        if (userId is null) return;
+
+        // Typed values when given, else what Vault holds.
+        var stored = await UserKeyService.GetOrCreateAsync(userId.Value);
+        var keyId  = Pick(isPaper ? alpacaPaperKeyId : alpacaLiveKeyId, isPaper ? stored.AlpacaApiKeyId : stored.AlpacaLiveApiKeyId);
+        var secret = Pick(isPaper ? alpacaPaperSecret : alpacaLiveSecret, isPaper ? stored.AlpacaApiSecretKey : stored.AlpacaLiveApiSecretKey);
 
         if (string.IsNullOrWhiteSpace(keyId) || string.IsNullOrWhiteSpace(secret))
         {
@@ -327,14 +339,7 @@
             client.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", secret);
             var baseUrl = isPaper ? "https://paper-api.alpaca.markets" : "https://api.alpaca.markets";
             var resp = await client.GetAsync($"{baseUrl}/v2/account");
-            if (resp.IsSuccessStatusCode)
-            {
-                SetResult("Connected!", true);
-            }
-            else
-            {
-                SetResult($"Failed: HTTP {(int)resp.StatusCode} — check your keys.", false);
-            }
+            SetResult(resp.IsSuccessStatusCode ? "Connected!" : $"Failed: HTTP {(int)resp.StatusCode} — check your keys.", resp.IsSuccessStatusCode);
         }
         catch (Exception ex)
         {
@@ -342,51 +347,83 @@
         }
     }
 
+    private static string? Pick(string typed, string? stored) =>
+        string.IsNullOrWhiteSpace(typed) ? stored : typed.Trim();
+
     private async Task SaveAll()
     {
         if (userId is null) return;
 
-        var existing = await UserKeyService.GetOrCreateAsync(userId.Value);
-        var keys = new UserApiKeys
-        {
-            UserId                 = userId.Value,
-            AlpacaApiKeyId         = alpacaPaperKeyId,
-            AlpacaApiSecretKey     = alpacaPaperSecret,
-            AlpacaLiveApiKeyId     = alpacaLiveKeyId,
-            AlpacaLiveApiSecretKey = alpacaLiveSecret,
-            ClaudeApiKey       = claudeKey,
-            ClaudeModel        = claudeModel,
-            LlmVotingEnabled   = llmVotingEnabled,
-            // SaveAsync overwrites the WHOLE row — omitting these silently
-            // reset the user's broker routing to the class defaults on every
-            // unrelated key edit, which also made the per-user
-            // Alpaca routing (docs/BIBLE.md §4.4) unreachable: nothing ever set "alpaca".
-            DefaultBroker      = routeToMyAlpaca ? "alpaca" : "Sandbox",
-            DefaultDataFeed    = string.IsNullOrWhiteSpace(loadedDataFeed) ? "Mock" : loadedDataFeed,
-            // Same whole-row-overwrite hazard as DefaultBroker above: this page
-            // has no OAuth UI, so omitting these silently erased whatever the
-            // /connect/alpaca flow had stored the next time a user hit Save All.
-            AlpacaOAuthAccessToken  = existing.AlpacaOAuthAccessToken,
-            AlpacaOAuthRefreshToken = existing.AlpacaOAuthRefreshToken,
-            AlpacaOAuthScope        = existing.AlpacaOAuthScope,
-        };
-
-        // Guarded: an unhandled exception here (Data Protection key-ring
-        // issue, SQL blip) used to tear down the whole circuit — the user got
-        // the generic error banner and lost everything they had typed.
+        // Guarded: an unhandled exception here (Vault file locked, SQL blip) used to tear down
+        // the whole circuit — the user got the generic error banner and lost what they typed.
         try
         {
+            var keys = await UserKeyService.GetOrCreateAsync(userId.Value);
+            // A typed half replaces just that half of the stored pair; blank keeps what is stored.
+            keys.AlpacaApiKeyId         = Pick(alpacaPaperKeyId, keys.AlpacaApiKeyId);
+            keys.AlpacaApiSecretKey     = Pick(alpacaPaperSecret, keys.AlpacaApiSecretKey);
+            keys.AlpacaLiveApiKeyId     = Pick(alpacaLiveKeyId, keys.AlpacaLiveApiKeyId);
+            keys.AlpacaLiveApiSecretKey = Pick(alpacaLiveSecret, keys.AlpacaLiveApiSecretKey);
+            keys.ClaudeApiKey           = Pick(claudeKey, keys.ClaudeApiKey);
+            keys.ClaudeModel            = claudeModel;
+            keys.LlmVotingEnabled       = llmVotingEnabled;
+            keys.DefaultBroker          = routeToMyAlpaca ? "alpaca" : "Sandbox";
+            keys.DefaultDataFeed        = string.IsNullOrWhiteSpace(loadedDataFeed) ? "Mock" : loadedDataFeed;
+            // OAuth tokens and scope come back from GetOrCreateAsync untouched, so Save keeps them.
+
             await UserKeyService.SaveAsync(userId.Value, keys);
-            saveMessage = "Keys saved successfully.";
+            ClearTyped();
+            await LoadAsync();
+            saveMessage = "Keys saved to Vault.";
         }
         catch (Exception ex)
         {
             saveMessage = $"Save failed: {ex.Message}";
         }
 
-        // The Claude key is stored ONLY on this user's encrypted UserApiKeys
-        // row. It is never written to the Vault LLM keyring: that keyring is
-        // the host key every user falls back to, and the host key changes only
-        // through Vault or configuration, never from a user page.
+        // The Claude key is stored ONLY under this user's own Vault Tokens entry. It is never
+        // written to the Vault LLM keyring: that keyring is the host key every user falls back
+        // to, and the host key changes only through Vault or configuration, never from a user page.
+    }
+
+    private async Task RemoveAlpaca(bool isPaper)
+    {
+        if (userId is null) return;
+        try
+        {
+            var keys = await UserKeyService.GetOrCreateAsync(userId.Value);
+            if (isPaper) { keys.AlpacaApiKeyId = null; keys.AlpacaApiSecretKey = null; }
+            else { keys.AlpacaLiveApiKeyId = null; keys.AlpacaLiveApiSecretKey = null; }
+            await UserKeyService.SaveAsync(userId.Value, keys);
+            await LoadAsync();
+            saveMessage = $"{(isPaper ? "Paper" : "Live")} keys removed from Vault.";
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Remove failed: {ex.Message}";
+        }
+    }
+
+    private async Task RemoveClaude()
+    {
+        if (userId is null) return;
+        try
+        {
+            var keys = await UserKeyService.GetOrCreateAsync(userId.Value);
+            keys.ClaudeApiKey = null;
+            await UserKeyService.SaveAsync(userId.Value, keys);
+            claudeKey = "";
+            await LoadAsync();
+            saveMessage = "Claude key removed from Vault.";
+        }
+        catch (Exception ex)
+        {
+            saveMessage = $"Remove failed: {ex.Message}";
+        }
+    }
+
+    private void ClearTyped()
+    {
+        alpacaPaperKeyId = alpacaPaperSecret = alpacaLiveKeyId = alpacaLiveSecret = claudeKey = "";
     }
 }

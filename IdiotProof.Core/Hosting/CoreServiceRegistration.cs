@@ -105,7 +105,10 @@ public static class CoreServiceRegistration
         services.AddSingleton<IStaticCatalogSource>(StaticCatalogSource.Default);
 
         // ── Keys, risk (broker routing is AddIdiotProofTrading: it needs the BrokerRouter) ──
+        // Account secrets live only in MindAttic.Vault (IP-T330); SQL keeps the non-secret choices.
+        services.AddSingleton(_ => new AccountSecretVault(configuration));
         services.AddSingleton<UserKeyService>();
+        services.AddSingleton<VaultSecretMigration>();
         services.AddSingleton<UserClaudeKeyResolver>();
         services.AddSingleton<LiveModeElevationService>();
         services.AddSingleton<RiskGuardianService>();

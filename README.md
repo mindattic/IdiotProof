@@ -127,7 +127,7 @@ The endpoint-by-endpoint map, with the test that fails when an Alpaca endpoint h
 
 ### Security and privacy
 
-- **Secrets live in MindAttic.Vault**, not in the repo and not in the database: Alpaca keys in the `Brokers` bucket (`alpaca-paper`, `alpaca-live`), LLM keys in `LLM`, the Hub key (`idiotproof-hub`) in `Tokens`. Vault entries win over anything stored elsewhere; moving the last per-user copies out of the `UserApiKeys` table is ticket IP-T330.
+- **Secrets live in MindAttic.Vault**, not in the repo and not in the database (IP-T330): Alpaca keys in the `Brokers` bucket (the machine owner's `alpaca-paper`/`alpaca-live`; every other user's `idiotproof-<userId>-alpaca-paper|live`), each user's Claude key and Alpaca OAuth tokens in `Tokens` (`idiotproof-<userId>-claude`, `...-alpaca-oauth-access|refresh`), host LLM keys in `LLM`, the Hub key (`idiotproof-hub`) in `Tokens`. The owner is `IdiotProof:VaultOwner`, else `IDIOTPROOF_OWNER`, else `Hub:DefaultOwner`, else the CLI's saved `users use` owner. The `UserApiKeys` table keeps only non-secret choices (routing opt-in, feed, model); nothing reads a secret from it. Legacy rows that still hold encrypted secrets are moved once with `idiotproof keys migrate-to-vault` (a dry run) and `idiotproof keys migrate-to-vault --apply` (copies what Vault lacks, verifies what both have, then clears the SQL columns; conflicts are reported and left alone). Account numbers are masked to their last four digits in the command ledger.
 - **The Hub listens on loopback only** (`127.0.0.1:5910`) and every `/api/op` call must carry the `X-IdiotProof-Key` header from Vault; nothing is exposed to the network.
 - **Account data never reaches the docs.** This repository and its documentation site are public: no account numbers, balances, positions or keys appear in the README, `docs/` or the generated references (examples use placeholders), and a test scans them for key-shaped strings and account numbers.
 - An owner's Alpaca account is only touched after they opt in (`DefaultBroker = alpaca`, IP-LAW-3); otherwise every order goes to the Sandbox simulator and account reads say so.
@@ -354,7 +354,7 @@ Verbs (the key services, by call site):
 SQL Server (LocalDB by default)                ← canonical runtime state, shared by Blazor + Monitor + ResearchScanner
 └── IdiotProof database
     ├── AuthUsers, ...                          (MindAttic.Authentication — Argon2id, sessions, MFA scaffolding)
-    ├── UserApiKeys                             (per-user encrypted broker/data keys)
+    ├── UserApiKeys                             (per-user routing opt-in, feed, Claude model; secrets live in Vault)
     ├── Strategies                              (UUIDv7 id, OwnerUserId, Title, ScriptJson canonical, ScriptText view, IsActive, BrokerMode, PositionQty, ...)
     ├── UserPreferences                         (Theme, ActiveAccountId, OpenStrategyTabs, RiskGuardian config, UiStateJson)
     ├── LearningArticles                        (Slug, Category, Title, BodyMarkdown, Order — seeded by LearningContentSeeder)
@@ -381,8 +381,8 @@ Settings overlay chain (`IdiotProof.Engine.Settings.AppSettings`, applied by eve
 
 Credentials:
 
-- Claude and other LLM keys for the host: `%APPDATA%\MindAttic\LLM\providers.json` (the canonical MindAttic keyring) or configuration; that is the only way to change the host key. A Claude key pasted into the API Keys page is stored encrypted for that user only and is used for that user's own requests: the Monitor's LLM gate on their strategies, the Describe tab, the Gapper transcript reader and Research analysis (`SignedInClaudeKey`: their key, then the host key, else a "no key configured" message). The scheduled research scan uses the host key.
-- Alpaca keys: `%APPDATA%\MindAttic\Brokers\providers.json` with `alpaca-paper` and `alpaca-live` entries.
+- Claude and other LLM keys for the host: `%APPDATA%\MindAttic\LLM\providers.json` (the canonical MindAttic keyring) or configuration; that is the only way to change the host key. A Claude key pasted into the API Keys page is stored in that user's own Vault Tokens entry only and is used for that user's own requests: the Monitor's LLM gate on their strategies, the Describe tab, the Gapper transcript reader and Research analysis (`SignedInClaudeKey`: their key, then the host key, else a "no key configured" message). The scheduled research scan uses the host key.
+- Alpaca keys: `%APPDATA%\MindAttic\Brokers\providers.json` with `alpaca-paper` and `alpaca-live` entries (the owner's), plus `idiotproof-<userId>-alpaca-paper|live` for any other user. Set them with `idiotproof keys set alpaca-paper|alpaca-live` or the API Keys page; never in SQL.
 - A Development-only `.env` at `%APPDATA%\MindAttic\IdiotProof\.env` prefills `DEV_USERNAME` and `DEV_PASSWORD` on the Login page; it is never loaded outside `Development`. See `.env.example`.
 
 ## IdiotScript
@@ -563,7 +563,7 @@ The console is Windows-Service-ready (`AddWindowsService`): `sc.exe create Idiot
 | `Options.razor` | The manual options section (`/options`, see [BIBLE §4.4](docs/BIBLE.md#IP-§4)), deliberately separate from the strategy pipeline. Sandbox, Paper and Live account switch; options chain (calls, strike, puts) with per-cell breakeven and a real-vs-hype (intrinsic vs extrinsic) meter; a plain-English order ticket; open option positions with a real/hype split bar and an informational take-profit callout. Live orders reuse the 5-minute password elevation, and the ticket locks itself per action when the account's `options_trading_level` does not allow it. Host logic in `Services/OptionsTradingService.cs`. |
 | `Backtest.razor` | Backtest a saved strategy over one day (Alpaca bars when keyed, Mock otherwise): summary, P&L and a per-candle condition table. |
 | `ActivityLog.razor` | Audit trail viewer. |
-| `ApiKeys.razor` | Per-user broker, data and Claude key entry (each stored only on the signed-in user's encrypted `UserApiKeys` row, never in the Vault keyring), live-mode danger modal. |
+| `ApiKeys.razor` | Per-user broker and Claude key entry, written to that user's own Vault entries (never SQL, never the host LLM keyring); stored keys are never sent back to the page, only a masked prefix (blank field = keep). |
 | `Settings.razor` | Preferences, theme and the six RiskGuardian limits. |
 | `Login.razor`, `Register.razor`, `ForgotPassword.razor`, `ResetPassword.razor`, `ForgotUsername.razor` | Auth flows against `MindAttic.Authentication`; `ForgotPassword` (`MaForgotPassword`) and `ResetPassword` (`MaResetPassword`, at `/account/reset`) are the self-service reset. |
 | `LiveChart.razor` | Live chart surface. |

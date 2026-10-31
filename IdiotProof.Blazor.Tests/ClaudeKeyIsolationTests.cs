@@ -15,8 +15,8 @@ using MindAttic.Vault.Credentials;
 namespace IdiotProof.Blazor.Tests;
 
 /// <summary>
-/// A Claude key saved on the API Keys page belongs to that user alone: it lands on their encrypted
-/// UserApiKeys row and nowhere else — not in the Vault LLM keyring (the host key every user falls
+/// A Claude key saved on the API Keys page belongs to that user alone: it lands in their own Vault
+/// Tokens entry (IP-T330) and nowhere else — not in the Vault LLM keyring (the host key every user falls
 /// back to) and not in any other user's resolution. Drives the real page through bUnit with an
 /// in-memory database and a throwaway Vault LLM directory.
 /// </summary>
@@ -27,6 +27,13 @@ public sealed class ClaudeKeyIsolationTests
 
     private string vaultDir = null!;
     private string? previousVaultEnv;
+    private string accountVaultDir = null!;
+
+    /// <summary>A throwaway account-secret Vault (Brokers + Tokens), never the real APPDATA one.</summary>
+    private AccountSecretVault NewAccountVault() => new(
+        new BrokerCredentialStore(Path.Combine(accountVaultDir, "Brokers")),
+        new TokenStore(Path.Combine(accountVaultDir, "Tokens")),
+        configuration: null, () => null);
 
     [SetUp]
     public void SetUp()
@@ -36,6 +43,7 @@ public sealed class ClaudeKeyIsolationTests
         Directory.CreateDirectory(vaultDir);
         previousVaultEnv = Environment.GetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar);
         Environment.SetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar, vaultDir);
+        accountVaultDir = Path.Combine(Path.GetTempPath(), $"ip-account-vault-{Guid.NewGuid():N}");
     }
 
     [TearDown]
@@ -43,6 +51,7 @@ public sealed class ClaudeKeyIsolationTests
     {
         Environment.SetEnvironmentVariable(LlmCredentialStore.DirectoryEnvVar, previousVaultEnv);
         try { Directory.Delete(vaultDir, recursive: true); } catch { /* best effort */ }
+        try { Directory.Delete(accountVaultDir, recursive: true); } catch { /* best effort */ }
     }
 
     [Test]
@@ -57,6 +66,7 @@ public sealed class ClaudeKeyIsolationTests
         var userKeys = new UserKeyService(
             dbServices.GetRequiredService<IDbContextFactory<AppDbContext>>(),
             new EphemeralDataProtectionProvider(),
+            NewAccountVault(),
             NullLogger<UserKeyService>.Instance);
 
         using var ctx = new BunitContext();
@@ -70,10 +80,12 @@ public sealed class ClaudeKeyIsolationTests
         var page = ctx.Render<ApiKeys>();
         page.Find("#claude-key").Change(AliceKey);
         await page.Find("button[aria-label='Save all API keys and connection settings']").ClickAsync(new());
-        page.WaitForAssertion(() => Assert.That(page.Markup, Does.Contain("Keys saved successfully.")));
+        page.WaitForAssertion(() => Assert.That(page.Markup, Does.Contain("Keys saved to Vault.")));
 
-        // Her own row has it.
+        // Her own Vault entry has it, and the page never echoes it back.
         Assert.That((await userKeys.GetOrCreateAsync(alice)).ClaudeApiKey, Is.EqualTo(AliceKey));
+        Assert.That(File.ReadAllText(Path.Combine(accountVaultDir, "Tokens", "tokens.json")), Does.Contain($"idiotproof-{alice:N}-claude"));
+        Assert.That(page.Markup, Does.Not.Contain(AliceKey), "a stored key is never rendered back into the page");
 
         // The host key did not change: nothing was written to the Vault LLM keyring.
         var settings = new AppSettings();
@@ -101,7 +113,7 @@ public sealed class ClaudeKeyIsolationTests
             .AddDbContextFactory<AppDbContext>(o => o.UseInMemoryDatabase($"keys-{Guid.NewGuid():N}"))
             .BuildServiceProvider();
         ctx.Services.AddSingleton(new UserKeyService(dbServices.GetRequiredService<IDbContextFactory<AppDbContext>>(),
-            new EphemeralDataProtectionProvider(), NullLogger<UserKeyService>.Instance));
+            new EphemeralDataProtectionProvider(), NewAccountVault(), NullLogger<UserKeyService>.Instance));
         ctx.Services.AddHttpClient();
         ctx.Services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         ctx.AddAuthorization().SetAuthorized("bob@example.com")

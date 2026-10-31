@@ -70,10 +70,7 @@ public sealed class OptionsTradingService(
         if (!string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase))
             return (null, null, "Alpaca routing isn't enabled on the API Keys page");
 
-        var (vaultKeyId, vaultSecret) = AlpacaVaultKeys.Resolve(configuration, isPaper);
-        if (!string.IsNullOrWhiteSpace(vaultKeyId) && !string.IsNullOrWhiteSpace(vaultSecret))
-            return (vaultKeyId, vaultSecret, null);
-
+        // The user's own Vault pair (IP-T330), filled by UserKeyService.
         var (id, sec) = isPaper
             ? (keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey)
             : (keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey);

@@ -9,7 +9,8 @@ namespace IdiotProof.Core.Ledger;
 /// whose property name says it is a secret (key, secret, password, token, …) and any string that
 /// looks like a credential on its own (Anthropic/OpenAI <c>sk-</c> keys, Alpaca <c>PK…</c>/<c>AK…</c>
 /// key ids, long opaque base64/hex blobs), wherever it appears. Redaction keeps a short prefix so a
-/// ledger reader can still tell which key was used without being able to use it.
+/// ledger reader can still tell which key was used without being able to use it. Account numbers
+/// (<c>account_number</c>, <c>--account-number</c>, IP-T330) keep only their last four digits.
 /// </summary>
 public static partial class SecretRedactor
 {
@@ -25,6 +26,17 @@ public static partial class SecretRedactor
         // "keys" alone is a noun in our CLI ("keys status"), and a "symbol"/"ticker" is never secret.
         return n != "keys" && SecretNameParts.Any(n.Contains);
     }
+
+    /// <summary>True for property names that carry a brokerage or bank account number (<c>account_number</c>, <c>accountNumber</c>, <c>--account-number</c>).</summary>
+    public static bool IsAccountNumberName(string name)
+    {
+        var n = name.TrimStart('-').Replace("-", "").Replace("_", "").ToLowerInvariant();
+        return n.EndsWith("accountnumber") || n.EndsWith("accountno") || n is "acctnumber" or "acctno";
+    }
+
+    /// <summary>An account number as <c>***1234</c> (last four only); short values become <see cref="Mask"/>.</summary>
+    public static string MaskAccountNumber(string value) =>
+        value.Length <= 4 ? Mask : Mask + value[^4..];
 
     /// <summary>True when a bare value looks like a credential regardless of where it sits.</summary>
     public static bool LooksLikeSecret(string value) =>
@@ -52,9 +64,19 @@ public static partial class SecretRedactor
         {
             var token = argv[i];
             var eq = token.IndexOf('=');
+            if (token.StartsWith("--") && eq > 0 && IsAccountNumberName(token[..eq]))
+            {
+                result.Add(token[..(eq + 1)] + MaskAccountNumber(token[(eq + 1)..]));
+                continue;
+            }
             if (token.StartsWith("--") && eq > 0 && IsSecretName(token[..eq]))
             {
                 result.Add(token[..(eq + 1)] + Mask);
+                continue;
+            }
+            if (i > 0 && argv[i - 1].StartsWith("--") && !argv[i - 1].Contains('=') && IsAccountNumberName(argv[i - 1]) && !token.StartsWith("--"))
+            {
+                result.Add(MaskAccountNumber(token));
                 continue;
             }
             if (i > 0 && argv[i - 1].StartsWith("--") && !argv[i - 1].Contains('=') && IsSecretName(argv[i - 1]) && !token.StartsWith("--"))
@@ -73,7 +95,9 @@ public static partial class SecretRedactor
         {
             case JsonObject obj:
                 foreach (var (name, child) in obj.ToList())
-                    obj[name] = Redact(child?.DeepClone(), IsSecretName(name));
+                    obj[name] = IsAccountNumberName(name) && child is JsonValue v
+                        ? JsonValue.Create(MaskAccountNumber(v.ToJsonString().Trim('"')))
+                        : Redact(child?.DeepClone(), IsSecretName(name));
                 return obj;
             case JsonArray arr:
                 for (var i = 0; i < arr.Count; i++)

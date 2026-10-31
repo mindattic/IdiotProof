@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Brokers;
-using Microsoft.Extensions.Configuration;
 
 namespace IdiotProof.Blazor.Services;
 
@@ -32,7 +31,6 @@ public enum BrokerChoice
 public sealed class UserBrokerResolver(
     UserKeyService userKeys,
     BrokerRouter globalRouter,
-    IConfiguration configuration,
     ILogger<UserBrokerResolver> logger)
 {
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
@@ -87,18 +85,12 @@ public sealed class UserBrokerResolver(
         // Paper and Live are separate Alpaca accounts with separate key pairs.
         var isPaper = mode != "live";
 
-        // MindAttic.Vault's Brokers bucket (alpaca-paper/alpaca-live in
-        // %APPDATA%\MindAttic\Brokers\providers.json) overrides DB-stored
-        // UserApiKeys when present — the documented architecture rule, wired
-        // in here for the first time. Falls back to the DB-decrypted pair
-        // when Vault doesn't have this mode's keys.
-        var (vaultKeyId, vaultSecret) = AlpacaVaultKeys.Resolve(configuration, isPaper);
-        var usingVault = !string.IsNullOrWhiteSpace(vaultKeyId) && !string.IsNullOrWhiteSpace(vaultSecret);
-        var (keyId, secret) = usingVault
-            ? (vaultKeyId!, vaultSecret!)
-            : isPaper
-                ? (keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey)
-                : (keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey);
+        // The pair comes from MindAttic.Vault only (IP-T330): UserKeyService fills it from this
+        // user's own Brokers entry (the owner's alpaca-paper/alpaca-live, everyone else's
+        // idiotproof-{id}-alpaca-paper|live) — never another user's, never SQL.
+        var (keyId, secret) = isPaper
+            ? (keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey)
+            : (keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey);
 
         // Vault supplies the CREDENTIAL PAIR, not the opt-in — a user who has
         // never flipped "Route my orders to this Alpaca account" (DefaultBroker

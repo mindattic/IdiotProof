@@ -10,9 +10,9 @@ public sealed class AlpacaAccessException(string message) : Exception(message);
 
 /// <summary>
 /// Builds an <see cref="AlpacaApi"/> for an owner's Paper or Live account, behind the same consent
-/// gate and key precedence as <see cref="UserBrokerResolver"/>: the owner must have opted into
-/// Alpaca routing (DefaultBroker = alpaca, IP-LAW-3), and a complete MindAttic.Vault Brokers pair
-/// wins over the DB-stored pair. Market data needs no consent: <see cref="ForDataAsync"/> falls back
+/// gate as <see cref="UserBrokerResolver"/>: the owner must have opted into Alpaca routing
+/// (DefaultBroker = alpaca, IP-LAW-3), and the pair is the owner's own MindAttic.Vault Brokers
+/// entry (IP-T330; SQL is never read). Market data needs no consent: <see cref="ForDataAsync"/> falls back
 /// to the Hub's own keys. Callers dispose the returned client. Tests subclass it and override both
 /// methods to hand back an <see cref="AlpacaApi"/> over a scripted <see cref="HttpMessageHandler"/>.
 /// </summary>
@@ -28,19 +28,21 @@ public class AlpacaApiFactory(UserKeyService userKeys, IConfiguration configurat
         if (!string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase))
             throw new AlpacaAccessException("Alpaca routing is off for this user (still on Sandbox). Opt in first (API Keys page, or `idiotproof keys opt-in alpaca`).");
 
-        var (vaultKeyId, vaultSecret) = AlpacaVaultKeys.Resolve(configuration, isPaper);
-        var (keyId, secret) = !string.IsNullOrWhiteSpace(vaultKeyId) && !string.IsNullOrWhiteSpace(vaultSecret)
-            ? (vaultKeyId, vaultSecret)
-            : isPaper ? (keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey) : (keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey);
+        // Vault only (IP-T330): this owner's own Brokers entry, never SQL, never another user's pair.
+        var (keyId, secret) = isPaper ? (keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey) : (keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey);
         if (string.IsNullOrWhiteSpace(keyId) || string.IsNullOrWhiteSpace(secret))
-        {
-            var (paperStored, liveStored) = await userKeys.GetKeyPresenceAsync(ownerUserId, ct);
-            throw new AlpacaAccessException((isPaper ? paperStored : liveStored)
-                ? "The key is stored but could not be decrypted (DataProtection key-ring mismatch)."
-                : $"No {(isPaper ? "paper" : "live")} Alpaca keys configured.");
-        }
+            throw new AlpacaAccessException(
+                $"No {(isPaper ? "paper" : "live")} Alpaca keys in Vault (Brokers entry '{userKeys.Vault.AlpacaEntry(ownerUserId, isPaper)}'). " +
+                $"Set them with `idiotproof keys set alpaca-{(isPaper ? "paper" : "live")}` or on the API Keys page.");
         return new AlpacaApi(keyId, secret, isPaper);
     }
+
+    /// <summary>
+    /// A client over an explicit key pair, with no consent gate because nothing routes orders through
+    /// it: `keys set` validates a new pair and `keys probe` round-trips a stored one with a read-only
+    /// <c>GET /v2/account</c>. Tests override it to return a client over a scripted handler.
+    /// </summary>
+    public virtual AlpacaApi ForKeys(string keyId, string secret, bool isPaper) => new(keyId, secret, isPaper);
 
     /// <summary>
     /// A client for the Market Data API: the owner's paper keys when usable, else the Hub's own

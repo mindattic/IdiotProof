@@ -6,133 +6,173 @@ using Microsoft.Extensions.Logging;
 namespace IdiotProof.Blazor.Services;
 
 /// <summary>
-/// Loads and saves per-user API keys, encrypting sensitive fields with IDataProtector.
+/// Loads and saves a user's broker/LLM settings. Since IP-T330 the secrets (Alpaca paper/live
+/// pairs, Alpaca OAuth tokens, the Claude key) live only in MindAttic.Vault through
+/// <see cref="AccountSecretVault"/>; the <c>UserApiKeys</c> row keeps only the non-secret choices
+/// (routing opt-in, data feed, Claude model, voting toggle, OAuth scope); nothing here ever writes a
+/// secret column. Reads never fall back to SQL: a secret still sitting in a legacy column is
+/// invisible until <see cref="VaultSecretMigration"/> (<c>idiotproof keys migrate-to-vault</c>)
+/// moves it and clears the column.
 /// </summary>
 public sealed class UserKeyService(
     IDbContextFactory<AppDbContext> dbFactory,
     IDataProtectionProvider dpProvider,
+    AccountSecretVault vault,
     ILogger<UserKeyService> logger)
 {
-    private readonly IDataProtector protector = dpProvider.CreateProtector("IdiotProof.UserApiKeys.v1");
+    /// <summary>The DataProtection purpose the legacy SQL secret columns were encrypted under.</summary>
+    public const string ProtectorPurpose = "IdiotProof.UserApiKeys.v1";
 
+    private readonly IDataProtector protector = dpProvider.CreateProtector(ProtectorPurpose);
+
+    /// <summary>The Vault this service reads and writes.</summary>
+    public AccountSecretVault Vault => vault;
+
+    /// <summary>The user's settings with secrets filled from Vault (a defaults object when the user has no row).</summary>
     public async Task<UserApiKeys> GetOrCreateAsync(Guid userId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var row = await db.UserApiKeys.FirstOrDefaultAsync(k => k.UserId == userId, ct);
-        if (row is null)
-            return new UserApiKeys { UserId = userId };
+        var row = await db.UserApiKeys.AsNoTracking().FirstOrDefaultAsync(k => k.UserId == userId, ct);
+        var keys = row is null ? new UserApiKeys { UserId = userId } : NonSecret(row);
+        FillFromVault(keys);
+        return keys;
+    }
 
-        return Decrypt(row);
+    /// <summary>Whether Vault holds a complete paper / live Alpaca pair for this user.</summary>
+    public Task<(bool PaperKeyStored, bool LiveKeyStored)> GetKeyPresenceAsync(Guid userId, CancellationToken ct = default)
+    {
+        var (pk, ps) = vault.GetAlpaca(userId, isPaper: true);
+        var (lk, ls) = vault.GetAlpaca(userId, isPaper: false);
+        return Task.FromResult((pk is not null && ps is not null, lk is not null && ls is not null));
     }
 
     /// <summary>
-    /// Whether a (still-encrypted) Paper/Live Alpaca key pair is actually stored
-    /// for this user, independent of whether it currently decrypts. Lets a
-    /// caller tell "never configured" apart from "stored but decrypt is
-    /// failing" (see the DataProtection key-ring mismatch note in
-    /// <see cref="Unprotect"/>) instead of both looking identical.
+    /// Saves the whole settings object: secrets to Vault (a blank secret removes it; a half
+    /// Alpaca pair is refused), everything else to the SQL row, whose secret columns are nulled.
     /// </summary>
-    public async Task<(bool PaperKeyStored, bool LiveKeyStored)> GetKeyPresenceAsync(Guid userId, CancellationToken ct = default)
-    {
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var row = await db.UserApiKeys.FirstOrDefaultAsync(k => k.UserId == userId, ct);
-        if (row is null) return (false, false);
-        return (
-            !string.IsNullOrWhiteSpace(row.AlpacaApiKeyId) && !string.IsNullOrWhiteSpace(row.AlpacaApiSecretKey),
-            !string.IsNullOrWhiteSpace(row.AlpacaLiveApiKeyId) && !string.IsNullOrWhiteSpace(row.AlpacaLiveApiSecretKey));
-    }
-
     public async Task SaveAsync(Guid userId, UserApiKeys keys, CancellationToken ct = default)
     {
+        WritePair(userId, isPaper: true, keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey);
+        WritePair(userId, isPaper: false, keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey);
+        vault.SetToken(userId, AccountToken.Claude, keys.ClaudeApiKey);
+        vault.SetToken(userId, AccountToken.AlpacaOAuthAccess, keys.AlpacaOAuthAccessToken);
+        vault.SetToken(userId, AccountToken.AlpacaOAuthRefresh, keys.AlpacaOAuthRefreshToken);
+        await SavePreferencesAsync(userId, keys, ct);
+    }
+
+    /// <summary>
+    /// Saves only the non-secret columns (routing opt-in, feed, model, voting, scope). Legacy secret
+    /// columns are left exactly as they are: only <see cref="VaultSecretMigration"/> clears them,
+    /// and only after it has verified Vault holds the same value.
+    /// </summary>
+    public async Task SavePreferencesAsync(Guid userId, UserApiKeys keys, CancellationToken ct = default)
+    {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var row = await db.UserApiKeys.FirstOrDefaultAsync(k => k.UserId == userId, ct);
-
-        var encrypted = Encrypt(keys);
-        encrypted.UserId = userId;
-
         if (row is null)
         {
-            db.UserApiKeys.Add(encrypted);
+            row = new UserApiKeys { UserId = userId };
+            db.UserApiKeys.Add(row);
         }
-        else
-        {
-            encrypted.Id = row.Id;
-            db.Entry(row).CurrentValues.SetValues(encrypted);
-        }
-
+        row.LlmVotingEnabled = keys.LlmVotingEnabled;
+        row.ClaudeModel      = keys.ClaudeModel;
+        row.DefaultBroker    = keys.DefaultBroker;
+        row.DefaultDataFeed  = keys.DefaultDataFeed;
+        row.AlpacaOAuthScope = keys.AlpacaOAuthScope;
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>
-    /// Returns all users who have at least one real data feed key configured.
-    /// Used by the strategy execution service to find active users.
-    /// </summary>
+    /// <summary>Sets or clears just the <c>DefaultBroker</c> routing opt-in ("alpaca" or "Sandbox").</summary>
+    public async Task SetDefaultBrokerAsync(Guid userId, string defaultBroker, CancellationToken ct = default)
+    {
+        var keys = await GetOrCreateAsync(userId, ct);
+        keys.DefaultBroker = defaultBroker;
+        await SavePreferencesAsync(userId, keys, ct);
+    }
+
+    /// <summary>Every user with a settings row, secrets filled from Vault.</summary>
     public async Task<List<(Guid UserId, UserApiKeys Keys)>> GetAllActiveUsersAsync(CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var rows = await db.UserApiKeys.ToListAsync(ct);
-        return rows
-            .Select(r => (r.UserId, Decrypt(r)))
-            .ToList();
+        var rows = await db.UserApiKeys.AsNoTracking().ToListAsync(ct);
+        return rows.Select(r =>
+        {
+            var k = NonSecret(r);
+            FillFromVault(k);
+            return (r.UserId, k);
+        }).ToList();
     }
 
-    private UserApiKeys Encrypt(UserApiKeys k) => new()
+    /// <summary>Which legacy SQL secret columns still hold ciphertext for this user (names only, never values).</summary>
+    public async Task<IReadOnlyList<string>> GetLegacyDbSecretColumnsAsync(Guid userId, CancellationToken ct = default)
     {
-        UserId             = k.UserId,
-        AlpacaApiKeyId     = Protect(k.AlpacaApiKeyId),
-        AlpacaApiSecretKey = Protect(k.AlpacaApiSecretKey),
-        AlpacaLiveApiKeyId     = Protect(k.AlpacaLiveApiKeyId),
-        AlpacaLiveApiSecretKey = Protect(k.AlpacaLiveApiSecretKey),
-        ClaudeApiKey       = Protect(k.ClaudeApiKey),
-        LlmVotingEnabled   = k.LlmVotingEnabled,
-        ClaudeModel        = k.ClaudeModel,
-        DefaultBroker      = k.DefaultBroker,
-        DefaultDataFeed    = k.DefaultDataFeed,
-        AlpacaOAuthAccessToken  = Protect(k.AlpacaOAuthAccessToken),
-        AlpacaOAuthRefreshToken = Protect(k.AlpacaOAuthRefreshToken),
-        AlpacaOAuthScope        = k.AlpacaOAuthScope
-    };
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var row = await db.UserApiKeys.AsNoTracking().FirstOrDefaultAsync(k => k.UserId == userId, ct);
+        return row is null ? [] : LegacySecretColumns(row);
+    }
 
-    private UserApiKeys Decrypt(UserApiKeys k) => new()
+    /// <summary>The names of the secret columns that are non-empty on <paramref name="row"/>.</summary>
+    public static IReadOnlyList<string> LegacySecretColumns(UserApiKeys row)
     {
-        Id                 = k.Id,
-        UserId             = k.UserId,
-        AlpacaApiKeyId     = Unprotect(k.AlpacaApiKeyId, k.UserId, nameof(k.AlpacaApiKeyId)),
-        AlpacaApiSecretKey = Unprotect(k.AlpacaApiSecretKey, k.UserId, nameof(k.AlpacaApiSecretKey)),
-        AlpacaLiveApiKeyId     = Unprotect(k.AlpacaLiveApiKeyId, k.UserId, nameof(k.AlpacaLiveApiKeyId)),
-        AlpacaLiveApiSecretKey = Unprotect(k.AlpacaLiveApiSecretKey, k.UserId, nameof(k.AlpacaLiveApiSecretKey)),
-        ClaudeApiKey       = Unprotect(k.ClaudeApiKey, k.UserId, nameof(k.ClaudeApiKey)),
-        LlmVotingEnabled   = k.LlmVotingEnabled,
-        ClaudeModel        = k.ClaudeModel,
-        DefaultBroker      = k.DefaultBroker,
-        DefaultDataFeed    = k.DefaultDataFeed,
-        AlpacaOAuthAccessToken  = Unprotect(k.AlpacaOAuthAccessToken, k.UserId, nameof(k.AlpacaOAuthAccessToken)),
-        AlpacaOAuthRefreshToken = Unprotect(k.AlpacaOAuthRefreshToken, k.UserId, nameof(k.AlpacaOAuthRefreshToken)),
-        AlpacaOAuthScope        = k.AlpacaOAuthScope
-    };
+        var names = new List<string>();
+        if (!string.IsNullOrEmpty(row.AlpacaApiKeyId)) names.Add(nameof(row.AlpacaApiKeyId));
+        if (!string.IsNullOrEmpty(row.AlpacaApiSecretKey)) names.Add(nameof(row.AlpacaApiSecretKey));
+        if (!string.IsNullOrEmpty(row.AlpacaLiveApiKeyId)) names.Add(nameof(row.AlpacaLiveApiKeyId));
+        if (!string.IsNullOrEmpty(row.AlpacaLiveApiSecretKey)) names.Add(nameof(row.AlpacaLiveApiSecretKey));
+        if (!string.IsNullOrEmpty(row.ClaudeApiKey)) names.Add(nameof(row.ClaudeApiKey));
+        if (!string.IsNullOrEmpty(row.AlpacaOAuthAccessToken)) names.Add(nameof(row.AlpacaOAuthAccessToken));
+        if (!string.IsNullOrEmpty(row.AlpacaOAuthRefreshToken)) names.Add(nameof(row.AlpacaOAuthRefreshToken));
+        return names;
+    }
 
-    private string? Protect(string? value) =>
-        string.IsNullOrEmpty(value) ? value : protector.Protect(value);
+    /// <summary>
+    /// Decrypts one legacy SQL secret column (for <see cref="VaultSecretMigration"/> only).
+    /// Null when empty; throws when the ciphertext no longer decrypts.
+    /// </summary>
+    internal string? UnprotectLegacy(string? value) =>
+        string.IsNullOrEmpty(value) ? null : protector.Unprotect(value);
 
-    private string? Unprotect(string? value, Guid userId, string field)
+    /// <summary>Encrypts a value the way the legacy columns were written (tests seed legacy rows with it).</summary>
+    public string ProtectLegacy(string value) => protector.Protect(value);
+
+    private void WritePair(Guid userId, bool isPaper, string? keyId, string? secret)
     {
-        if (string.IsNullOrEmpty(value)) return value;
-        try { return protector.Unprotect(value); }
-        catch (Exception ex)
+        var hasId = !string.IsNullOrWhiteSpace(keyId);
+        var hasSecret = !string.IsNullOrWhiteSpace(secret);
+        if (hasId && hasSecret)
         {
-            // A stored key that no longer decrypts is a routing hazard, not a
-            // cosmetic blank: the UI renders an empty field (looks like
-            // "never configured") while UserBrokerResolver silently falls
-            // back to the global broker — a user who thinks live trading
-            // routes to THEIR Alpaca account is trading a different one. The
-            // usual cause is a DataProtection key-ring mismatch between the
-            // Blazor host and the Monitor (DataProtection:KeyRingPath must
-            // point both processes at the same directory).
-            logger.LogError(ex,
-                "Failed to decrypt {Field} for user {UserId} — DataProtection key-ring mismatch? " +
-                "Broker routing will fall back to the global default until the key is re-entered.",
-                field, userId);
-            return null;
+            var (curId, curSecret) = vault.GetAlpaca(userId, isPaper);
+            if (curId != keyId!.Trim() || curSecret != secret!.Trim()) vault.SetAlpaca(userId, isPaper, keyId, secret!);
+        }
+        else if (!hasId && !hasSecret)
+        {
+            if (vault.RemoveAlpaca(userId, isPaper))
+                logger.LogInformation("Removed the {Mode} Alpaca pair from Vault for user {UserId}.", isPaper ? "paper" : "live", userId);
+        }
+        else
+        {
+            throw new ArgumentException($"The {(isPaper ? "paper" : "live")} Alpaca pair needs both the key id and the secret.");
         }
     }
+
+    private void FillFromVault(UserApiKeys keys)
+    {
+        (keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey) = vault.GetAlpaca(keys.UserId, isPaper: true);
+        (keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey) = vault.GetAlpaca(keys.UserId, isPaper: false);
+        keys.ClaudeApiKey = vault.GetToken(keys.UserId, AccountToken.Claude);
+        keys.AlpacaOAuthAccessToken = vault.GetToken(keys.UserId, AccountToken.AlpacaOAuthAccess);
+        keys.AlpacaOAuthRefreshToken = vault.GetToken(keys.UserId, AccountToken.AlpacaOAuthRefresh);
+    }
+
+    /// <summary>A copy carrying only the non-secret columns (every secret column null).</summary>
+    private static UserApiKeys NonSecret(UserApiKeys k) => new()
+    {
+        Id               = k.Id,
+        UserId           = k.UserId,
+        LlmVotingEnabled = k.LlmVotingEnabled,
+        ClaudeModel      = k.ClaudeModel,
+        DefaultBroker    = k.DefaultBroker,
+        DefaultDataFeed  = k.DefaultDataFeed,
+        AlpacaOAuthScope = k.AlpacaOAuthScope,
+    };
 }

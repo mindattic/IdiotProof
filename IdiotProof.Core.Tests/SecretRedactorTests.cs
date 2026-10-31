@@ -63,6 +63,32 @@ public sealed class SecretRedactorTests
     }
 
     [Test]
+    public void RedactJson_AccountNumbers_KeepOnlyTheLastFour()
+    {
+        var json = """{"account_number":"PA3PG9SP46WU","nested":{"accountNumber":252673877,"bank_account_number":"000123456789"},"symbol":"AAPL"}""";
+
+        var redacted = SecretRedactor.RedactJson(json)!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(redacted, Does.Not.Contain("PA3PG9SP46WU"));
+            Assert.That(redacted, Does.Contain("***46WU"));
+            Assert.That(redacted, Does.Not.Contain("252673877"));
+            Assert.That(redacted, Does.Contain("***3877"));
+            Assert.That(redacted, Does.Not.Contain("000123456789"));
+            Assert.That(redacted, Does.Contain("\"symbol\":\"AAPL\""));
+        });
+    }
+
+    [Test]
+    public void RedactArgv_AccountNumberFlags_KeepOnlyTheLastFour()
+    {
+        var redacted = SecretRedactor.RedactArgv(["ach", "add", "--account-number", "000123456789", "--account_number=PA3PG9SP46WU"]);
+
+        Assert.That(redacted, Is.EqualTo(new[] { "ach", "add", "--account-number", "***6789", "--account_number=***46WU" }));
+    }
+
+    [Test]
     public void RedactJson_InvalidJson_IsTreatedAsOneValue()
     {
         Assert.That(SecretRedactor.RedactJson("not json at all"), Is.EqualTo("not json at all"));

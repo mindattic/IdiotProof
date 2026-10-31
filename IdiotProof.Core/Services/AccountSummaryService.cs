@@ -2,7 +2,6 @@ using System.Globalization;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Brokers;
 using IdiotProof.Models;
-using Microsoft.Extensions.Configuration;
 
 namespace IdiotProof.Blazor.Services;
 
@@ -31,11 +30,11 @@ public sealed record AccountDetail(
         Account.TryGetValue(field, out var s) && decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : null;
 }
 
-public sealed class AccountSummaryService(UserKeyService userKeys, IConfiguration configuration)
+public sealed class AccountSummaryService(UserKeyService userKeys)
 {
     /// <summary>
     /// The full Paper or Live account (fields + positions), behind the same consent gate and
-    /// Vault-over-DB key rule as <see cref="GetSummaryAsync"/>. Never throws for a broker or key
+    /// Vault-only key rule as <see cref="GetSummaryAsync"/>. Never throws for a broker or key
     /// problem; the reason comes back in <see cref="AccountDetail.Error"/>.
     /// </summary>
     public async Task<AccountDetail> GetDetailAsync(Guid userId, bool isPaper, CancellationToken ct = default)
@@ -56,16 +55,14 @@ public sealed class AccountSummaryService(UserKeyService userKeys, IConfiguratio
 
         var optedIntoAlpaca = string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase);
         var (keyId, secret, stored) = isPaper
-            ? EffectivePair(AlpacaVaultKeys.Resolve(configuration, isPaper: true), keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey, paperStored, optedIntoAlpaca)
-            : EffectivePair(AlpacaVaultKeys.Resolve(configuration, isPaper: false), keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey, liveStored, optedIntoAlpaca);
+            ? EffectivePair(keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey, paperStored, optedIntoAlpaca)
+            : EffectivePair(keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey, liveStored, optedIntoAlpaca);
 
         if (string.IsNullOrWhiteSpace(keyId) || string.IsNullOrWhiteSpace(secret))
         {
             var error = !optedIntoAlpaca
                 ? "Alpaca routing is off for this user (still on Sandbox) — opt in on the API Keys page."
-                : stored
-                    ? "Key is stored but could not be decrypted (DataProtection key-ring mismatch)."
-                    : $"No {(isPaper ? "paper" : "live")} Alpaca keys configured.";
+                : $"No {(isPaper ? "paper" : "live")} Alpaca keys in Vault (`idiotproof keys set alpaca-{(isPaper ? "paper" : "live")}` or the API Keys page).";
             return new AccountDetail(isPaper, stored, error, empty, []);
         }
 
@@ -116,15 +113,12 @@ public sealed class AccountSummaryService(UserKeyService userKeys, IConfiguratio
         // both misleading and would disagree with what's actually trading.
         var optedIntoAlpaca = string.Equals(keys.DefaultBroker, "alpaca", StringComparison.OrdinalIgnoreCase);
 
-        // MindAttic.Vault's Brokers bucket (alpaca-paper/alpaca-live) overrides
-        // DB-stored UserApiKeys when present — same rule as UserBrokerResolver,
-        // so this summary reflects the account that's really being traded on.
-        // A Vault pair is used only when BOTH its fields are present — never
-        // mix a Vault key with a DB-decrypted secret (or vice versa).
+        // The pairs come from this user's own MindAttic.Vault Brokers entries (IP-T330), the
+        // same ones UserBrokerResolver trades on, so the summary shows the account really traded.
         var (paperKeyId, paperSecret, paperStoredOrVaulted) = EffectivePair(
-            AlpacaVaultKeys.Resolve(configuration, isPaper: true), keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey, paperStored, optedIntoAlpaca);
+            keys.AlpacaApiKeyId, keys.AlpacaApiSecretKey, paperStored, optedIntoAlpaca);
         var (liveKeyId, liveSecret, liveStoredOrVaulted) = EffectivePair(
-            AlpacaVaultKeys.Resolve(configuration, isPaper: false), keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey, liveStored, optedIntoAlpaca);
+            keys.AlpacaLiveApiKeyId, keys.AlpacaLiveApiSecretKey, liveStored, optedIntoAlpaca);
 
         var paperTask = FetchAsync(paperKeyId, paperSecret, paperStoredOrVaulted, isPaper: true, ct);
         var liveTask = FetchAsync(liveKeyId, liveSecret, liveStoredOrVaulted, isPaper: false, ct);
@@ -133,28 +127,15 @@ public sealed class AccountSummaryService(UserKeyService userKeys, IConfiguratio
     }
 
     private static (string? KeyId, string? Secret, bool Stored) EffectivePair(
-        (string? KeyId, string? Secret) vault, string? dbKeyId, string? dbSecret, bool dbStored, bool optedIntoAlpaca)
-    {
-        if (!optedIntoAlpaca) return (null, null, false);
-
-        var vaultUsable = !string.IsNullOrWhiteSpace(vault.KeyId) && !string.IsNullOrWhiteSpace(vault.Secret);
-        return vaultUsable
-            ? (vault.KeyId, vault.Secret, true)
-            : (dbKeyId, dbSecret, dbStored);
-    }
+        string? keyId, string? secret, bool stored, bool optedIntoAlpaca) =>
+        optedIntoAlpaca ? (keyId, secret, stored) : (null, null, false);
 
     private static async Task<AccountSnapshot> FetchAsync(string? keyId, string? secret, bool keyStored, bool isPaper, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(keyId) || string.IsNullOrWhiteSpace(secret))
         {
-            // A key IS stored (ciphertext present in SQL, or a Vault entry
-            // exists) but came back empty — a DataProtection key-ring
-            // mismatch, not "never configured". Reporting this as "not
-            // configured" would send the user to re-type a key that isn't
-            // actually missing.
-            var error = keyStored
-                ? "Key is stored but could not be decrypted (DataProtection key-ring mismatch) — see server logs, or re-enter it on the API Keys page."
-                : null;
+            // Not configured (or not opted in): no error, just an empty card.
+            string? error = null;
             return new AccountSnapshot(isPaper, keyStored, error, null, null, 0, 0m, 0m);
         }
 
