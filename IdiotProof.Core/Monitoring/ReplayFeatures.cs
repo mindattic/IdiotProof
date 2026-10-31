@@ -19,12 +19,14 @@ public static class ReplayFeatures
         JsonElement root;
         try { root = JsonDocument.Parse(run.DataJson).RootElement; }
         catch { return (trades, bars); }
+        // Valid JSON that isn't an object (e.g. "[]") carries no replay: empty, not a throw.
+        if (root.ValueKind != JsonValueKind.Object) return (trades, bars);
 
         int condTotal = root.TryGetProperty("conditions", out var cs) && cs.ValueKind == JsonValueKind.Array ? cs.GetArrayLength() : 0;
 
         var barByEt = new Dictionary<string, JsonElement>();
         if (root.TryGetProperty("bars", out var barr) && barr.ValueKind == JsonValueKind.Array)
-            foreach (var b in barr.EnumerateArray())
+            foreach (var b in barr.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Object))
             {
                 var et = Str(b, "et");
                 barByEt[et] = b;
@@ -42,7 +44,7 @@ public static class ReplayFeatures
             }
 
         if (root.TryGetProperty("payoffs", out var ps) && ps.ValueKind == JsonValueKind.Array)
-            foreach (var p in ps.EnumerateArray())
+            foreach (var p in ps.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Object))
             {
                 var entryEt = Str(p, "entryEt"); var exitEt = Str(p, "exitEt");
                 var entryPx = Dbl(p, "entryPx"); var pnl = Dbl(p, "pnlPct");
