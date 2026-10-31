@@ -166,12 +166,13 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     /// branching strategy the tolerant parser can't reconstruct) is skipped and
     /// reported — never regressed. Touches ScriptJson + UpdatedUtc only, so live
     /// position bookkeeping is preserved. Pass <paramref name="apply"/>=false for
-    /// a dry run.
+    /// a dry run. <paramref name="ownerUserId"/> limits the sweep to one user's rows
+    /// (the CLI/MCP <c>strategy resync-canon</c>); null sweeps every row (the Monitor CLI).
     /// </summary>
-    public async Task<CanonResyncResult> ResyncCanonFromTextAsync(bool apply, CancellationToken ct = default)
+    public async Task<CanonResyncResult> ResyncCanonFromTextAsync(bool apply, CancellationToken ct = default, Guid? ownerUserId = null)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var all = await db.Strategies.ToListAsync(ct);
+        var all = await db.Strategies.Where(s => ownerUserId == null || s.OwnerUserId == ownerUserId).ToListAsync(ct);
         var notes = new List<string>();
         int changed = 0, skipped = 0;
 
