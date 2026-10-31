@@ -174,20 +174,69 @@ public sealed class SignificanceScorer(
         return updated;
     }
 
-    private static double ComputeScore(
+    /// <summary>
+    /// Loads <paramref name="claimId"/> and its inputs and returns every component of its
+    /// significance score (the same arithmetic <see cref="ScoreAsync"/> uses), so a person can
+    /// see why a claim ranks where it does. Null when the claim does not exist. Does not persist.
+    /// </summary>
+    public async Task<SignificanceBreakdown?> ExplainAsync(
+        Guid claimId,
+        IReadOnlyCollection<string> watchlistSymbols,
+        CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var claim = await db.ResearchClaims.FindAsync([claimId], ct);
+        if (claim is null) return null;
+
+        var trustScore = await db.SourceTrustScores.FindAsync([claim.SourceName], ct);
+        var correlation = await correlationSvc.FindSimilarOutcomesAsync(claimId, ct: ct);
+        return Explain(claim, trustScore?.ConfidencePct, correlation, watchlistSymbols, DateTime.UtcNow);
+    }
+
+    /// <summary>The pure breakdown of one claim's score at <paramref name="nowUtc"/>.</summary>
+    public static SignificanceBreakdown Explain(
         ResearchClaim claim,
-        double? confidencePct,
+        double? sourceConfidencePct,
         CorrelationResult correlation,
-        IReadOnlyCollection<string> watchlistSymbols)
+        IReadOnlyCollection<string> watchlistSymbols,
+        DateTime nowUtc)
     {
         var magnitudeScore = MagnitudeScore(claim.Magnitude);
         var confidenceMultiplier = ConfidenceMultiplier(claim.HasHappenedAlready, claim.TriggerConfidence);
         var historyBonus = HistoryBonus(correlation.WithOutcomes, correlation.BullishCount, correlation.BearishCount);
-        var sourceBonus = SourceBonus(confidencePct);
-        var watchlistBonus = WatchlistBonus(IsWatchlistMatch(claim, watchlistSymbols));
-        var daysOld = (DateTime.UtcNow - claim.CreatedUtc).TotalDays;
+        var sourceBonus = SourceBonus(sourceConfidencePct);
+        var watchlistMatch = IsWatchlistMatch(claim, watchlistSymbols);
+        var watchlistBonus = WatchlistBonus(watchlistMatch);
+        var daysOld = Math.Max(0, (nowUtc - claim.CreatedUtc).TotalDays);
         var recencyMultiplier = RecencyMultiplier(daysOld);
 
-        return Combine(magnitudeScore, confidenceMultiplier, historyBonus, sourceBonus, watchlistBonus, recencyMultiplier);
+        return new SignificanceBreakdown(
+            magnitudeScore, confidenceMultiplier, historyBonus, sourceBonus, watchlistBonus, recencyMultiplier,
+            Combine(magnitudeScore, confidenceMultiplier, historyBonus, sourceBonus, watchlistBonus, recencyMultiplier),
+            sourceConfidencePct, watchlistMatch, daysOld, correlation);
     }
+
+    private static double ComputeScore(
+        ResearchClaim claim,
+        double? confidencePct,
+        CorrelationResult correlation,
+        IReadOnlyCollection<string> watchlistSymbols) =>
+        Explain(claim, confidencePct, correlation, watchlistSymbols, DateTime.UtcNow).Score;
 }
+
+/// <summary>
+/// Every input and component of one claim's <see cref="ResearchClaim.SignificanceScore"/>:
+/// <c>Score = clamp((Magnitude × Confidence + History + Source + Watchlist) × Recency, 0, 100)</c>.
+/// </summary>
+public sealed record SignificanceBreakdown(
+    double MagnitudeScore,
+    double ConfidenceMultiplier,
+    double HistoryBonus,
+    double SourceBonus,
+    double WatchlistBonus,
+    double RecencyMultiplier,
+    double Score,
+    double? SourceConfidencePct,
+    bool WatchlistMatch,
+    double DaysOld,
+    CorrelationResult Correlation);
