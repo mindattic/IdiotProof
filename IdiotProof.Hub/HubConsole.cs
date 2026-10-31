@@ -53,6 +53,15 @@ public static class HubConsole
             }
         }
         output = Console.Out;
+
+        // The runtime prints an unhandled exception straight to the native stderr, past the tee, so
+        // `idiotproof hub start` would never see a startup crash in the log; write it ourselves.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            try { Console.Error.WriteLine($"Unhandled exception: {e.ExceptionObject}"); }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
+        };
     }
 
     /// <summary>The startup banner under the logo: where it listens and that commands echo below.</summary>

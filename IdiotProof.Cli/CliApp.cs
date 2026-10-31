@@ -418,11 +418,14 @@ public sealed class CliApp(CliEnvironment env)
         if (health is { ProcessId: > 0 } && !all)
         {
             // Graceful first: the Hub shuts itself down (drains, stops the Monitor, releases the lease).
+            // Wait for the PROCESS to exit, not just for HTTP to stop answering: the web server stops
+            // first, then in-flight work drains and the Monitor releases its lease (up to the Hub's
+            // 60 s shutdown timeout). Killing it early would strand the lease.
             if (await client.TryRequestShutdownAsync())
             {
-                for (var i = 0; i < 40 && await client.TryGetHealthAsync() is not null; i++)
+                for (var i = 0; i < 260 && env.HubProcesses.FindHubProcessIds().Contains(health.ProcessId); i++)
                     await Task.Delay(250);
-                if (await client.TryGetHealthAsync() is null)
+                if (!env.HubProcesses.FindHubProcessIds().Contains(health.ProcessId))
                 {
                     await env.Out.WriteLineAsync($"Hub at {client.BaseUrl}: process {health.ProcessId} shut down on request.");
                     return CliExitCodes.Ok;
@@ -430,7 +433,7 @@ public sealed class CliApp(CliEnvironment env)
             }
             var what = env.HubProcesses.Stop(health.ProcessId, TimeSpan.FromSeconds(10));
             await env.Out.WriteLineAsync($"Hub at {client.BaseUrl}: {what}.");
-            return CliExitCodes.Ok;
+            return StopSucceeded(what) ? CliExitCodes.Ok : CliExitCodes.Failed;
         }
 
         var ids = env.HubProcesses.FindHubProcessIds();
@@ -446,10 +449,19 @@ public sealed class CliApp(CliEnvironment env)
                 $"(pid {string.Join(", ", ids)}) — on another port? Use --hub <url> to pick one, or `{Program} hub stop --all`.");
             return CliExitCodes.Failed;
         }
+        var allStopped = true;
         foreach (var id in ids)
-            await env.Out.WriteLineAsync($"{HubProcessControl.ProcessName}: {env.HubProcesses.Stop(id, TimeSpan.FromSeconds(10))}.");
-        return CliExitCodes.Ok;
+        {
+            var what = env.HubProcesses.Stop(id, TimeSpan.FromSeconds(10));
+            allStopped &= StopSucceeded(what);
+            await env.Out.WriteLineAsync($"{HubProcessControl.ProcessName}: {what}.");
+        }
+        return allStopped ? CliExitCodes.Ok : CliExitCodes.Failed;
     }
+
+    /// <summary>False for the <see cref="IHubProcessControl.Stop"/> outcomes that leave a Hub running.</summary>
+    private static bool StopSucceeded(string what) =>
+        !what.Contains("did not exit", StringComparison.Ordinal) && !what.Contains("left alone", StringComparison.Ordinal);
 
     /// <summary><c>agent export [--out &lt;dir&gt;] [--check]</c>: regenerate the command, tool and catalog references (IP-T272).</summary>
     private async Task<int> AgentExportAsync(IReadOnlyList<string> args, GlobalFlags flags)
@@ -505,9 +517,9 @@ public sealed class CliApp(CliEnvironment env)
     {
         var lines = 40;
         var at = args.ToList().IndexOf("--lines");
-        if (at >= 0 && (at + 1 >= args.Count || !int.TryParse(args[at + 1], out lines) || lines <= 0))
+        if (at >= 0 && (at + 1 >= args.Count || !int.TryParse(args[at + 1], out lines) || lines <= 0 || lines > 100_000))
         {
-            await env.Err.WriteLineAsync("Usage error: --lines needs a positive number.");
+            await env.Err.WriteLineAsync("Usage error: --lines needs a number from 1 to 100000.");
             return CliExitCodes.Usage;
         }
 

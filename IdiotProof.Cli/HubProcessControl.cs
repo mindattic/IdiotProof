@@ -92,7 +92,8 @@ public sealed class HubProcessControl : IHubProcessControl
         {
             using var stream = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             var text = new StreamReader(stream).ReadToEnd();
-            return text.Contains("Unhandled exception", StringComparison.Ordinal) || text.Contains("is already in use", StringComparison.Ordinal);
+            return text.Contains("Unhandled exception", StringComparison.Ordinal) || text.Contains("is already in use", StringComparison.Ordinal)
+                || text.Contains("already running on port", StringComparison.Ordinal);
         }
         catch (IOException) { return false; }
         catch (UnauthorizedAccessException) { return false; }

@@ -45,6 +45,10 @@ if (HubHosting.WindowLogPath(isService, Environment.GetEnvironmentVariable(HubCo
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)) is { } windowLog)
     Environment.SetEnvironmentVariable(HubConsole.LogEnvVar, windowLog);
 
+// The visible, money-green window (IP-T331): paint, title and log tee before anything prints,
+// including the port-taken message below, which `idiotproof hub start` reads from the log.
+HubConsole.Start();
+
 // One Hub per port (IP-T77): say who already has it and exit before touching the database.
 var port = HubWire.ResolvePort();
 if (HubInstanceGuard.IsPortInUse(port))
@@ -53,9 +57,6 @@ if (HubInstanceGuard.IsPortInUse(port))
     Console.Error.WriteLine(HubInstanceGuard.PortTakenMessage(port, running));
     return HubInstanceGuard.PortTakenExitCode;
 }
-
-// The visible, money-green window (IP-T331): paint, title and log tee before anything prints.
-HubConsole.Start();
 
 Console.WriteLine();
 Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
