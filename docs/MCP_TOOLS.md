@@ -3538,8 +3538,8 @@ Store an Alpaca paper/live key pair (checked, then probed) or your Claude key in
 
 CLI equivalent: idiotproof keys set <target> [--key-id <string>] --secret <string> [--force]
 Examples:
-  idiotproof keys set alpaca-paper --key-id PKXXXXXXXXXXXXXXXXXX --secret <secret>
-  idiotproof keys set alpaca-live --key-id AKXXXXXXXXXXXXXXXXXX --secret <secret>
+  idiotproof keys set alpaca-paper --key-id PK...your-paper-key-id --secret <secret>
+  idiotproof keys set alpaca-live --key-id AK...your-live-key-id --secret <secret>
   idiotproof keys set claude --secret <sk-ant-key>
 
 Changes saved state. Times are US Eastern.

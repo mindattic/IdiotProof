@@ -7224,11 +7224,11 @@
       ],
       "examples": [
         {
-          "command_line": "idiotproof keys set alpaca-paper --key-id PKXXXXXXXXXXXXXXXXXX --secret \u003Csecret\u003E",
+          "command_line": "idiotproof keys set alpaca-paper --key-id PK...your-paper-key-id --secret \u003Csecret\u003E",
           "description": null
         },
         {
-          "command_line": "idiotproof keys set alpaca-live --key-id AKXXXXXXXXXXXXXXXXXX --secret \u003Csecret\u003E",
+          "command_line": "idiotproof keys set alpaca-live --key-id AK...your-live-key-id --secret \u003Csecret\u003E",
           "description": null
         },
         {

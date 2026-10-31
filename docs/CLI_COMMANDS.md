@@ -1736,8 +1736,8 @@ Parameters:
       --force            Store even when the key id prefix looks wrong or Alpaca rejects the pair. (default: false)
 
 Examples:
-  idiotproof keys set alpaca-paper --key-id PKXXXXXXXXXXXXXXXXXX --secret <secret>
-  idiotproof keys set alpaca-live --key-id AKXXXXXXXXXXXXXXXXXX --secret <secret>
+  idiotproof keys set alpaca-paper --key-id PK...your-paper-key-id --secret <secret>
+  idiotproof keys set alpaca-live --key-id AK...your-live-key-id --secret <secret>
   idiotproof keys set claude --secret <sk-ant-key>
 ```
 

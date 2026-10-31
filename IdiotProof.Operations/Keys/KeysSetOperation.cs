@@ -30,8 +30,8 @@ public sealed record KeysSetArgs
 /// writes SQL, never echoes the secret; routing is still off until <c>keys opt-in alpaca</c>.
 /// </summary>
 [Operation("keys set", Summary = "Store an Alpaca paper/live key pair (checked, then probed) or your Claude key in MindAttic.Vault.", Risk = OperationRisk.Write)]
-[Example("idiotproof keys set alpaca-paper --key-id PKXXXXXXXXXXXXXXXXXX --secret <secret>")]
-[Example("idiotproof keys set alpaca-live --key-id AKXXXXXXXXXXXXXXXXXX --secret <secret>")]
+[Example("idiotproof keys set alpaca-paper --key-id PK...your-paper-key-id --secret <secret>")]
+[Example("idiotproof keys set alpaca-live --key-id AK...your-live-key-id --secret <secret>")]
 [Example("idiotproof keys set claude --secret <sk-ant-key>")]
 public sealed class KeysSetOperation : IOperation<KeysSetArgs>
 {
