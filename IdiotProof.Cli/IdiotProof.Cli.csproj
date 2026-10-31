@@ -16,4 +16,10 @@
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Operations\IdiotProof.Operations.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- `agent export` renders docs/MCP_TOOLS.md with the MCP server's own renderer (IP-T272);
+         compiled in rather than referenced, since the MCP server is an exe. -->
+    <Compile Include="..\IdiotProof.Mcp\ToolSpec.cs" Link="Mcp\ToolSpec.cs" />
+    <Compile Include="..\IdiotProof.Mcp\ToolDocs.cs" Link="Mcp\ToolDocs.cs" />
+  </ItemGroup>
 </Project>

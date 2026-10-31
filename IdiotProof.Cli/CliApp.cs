@@ -54,6 +54,7 @@ public sealed class CliApp(CliEnvironment env)
             {
                 "version" => await VersionAsync(client, flags, ct),
                 "agent bootstrap" => await BootstrapAsync(client, flags, ct),
+                "agent export" => await AgentExportAsync(localArgs, flags),
                 "hub status" => await HubStatusAsync(client, flags, ct),
                 "hub start" => await HubStartAsync(client, ct),
                 "hub stop" => await HubStopAsync(client, localArgs),
@@ -388,6 +389,56 @@ public sealed class CliApp(CliEnvironment env)
         foreach (var id in ids)
             await env.Out.WriteLineAsync($"{HubProcessControl.ProcessName}: {env.HubProcesses.Stop(id, TimeSpan.FromSeconds(10))}.");
         return CliExitCodes.Ok;
+    }
+
+    /// <summary><c>agent export [--out &lt;dir&gt;] [--check]</c>: regenerate the command, tool and catalog references (IP-T272).</summary>
+    private async Task<int> AgentExportAsync(IReadOnlyList<string> args, GlobalFlags flags)
+    {
+        var list = args.ToList();
+        var check = list.Remove("--check");
+        string? outDir = null;
+        var at = list.IndexOf("--out");
+        if (at >= 0)
+        {
+            if (at + 1 >= list.Count)
+            {
+                await env.Err.WriteLineAsync("Usage error: --out needs a folder (the repo root that holds docs/).");
+                return CliExitCodes.Usage;
+            }
+            outDir = list[at + 1];
+            list.RemoveRange(at, 2);
+        }
+        if (list.Count > 0)
+        {
+            await env.Err.WriteLineAsync($"Usage error: unexpected '{list[0]}'. Usage: {Program} agent export [--out <dir>] [--check]");
+            return CliExitCodes.Usage;
+        }
+
+        var root = outDir ?? HubProcessControl.FindRepoRoot(env.BaseDirectory) ?? HubProcessControl.FindRepoRoot(Environment.CurrentDirectory);
+        if (root is null)
+        {
+            await env.Err.WriteLineAsync("Not inside the IdiotProof checkout; pass --out <repo folder>.");
+            return CliExitCodes.Failed;
+        }
+
+        var files = AgentExport.Write(ReflectedCatalog.Value, root, check);
+        var stale = files.Count(f => f.Changed);
+        if (flags.Json)
+        {
+            await env.Out.WriteLineAsync(JsonSerializer.Serialize(new { Root = root, Check = check, Files = files }, OperationJson.Indented));
+        }
+        else
+        {
+            foreach (var f in files)
+            {
+                var state = !f.Changed ? "up to date" : check ? "STALE" : "written";
+                await env.Out.WriteLineAsync($"{f.RelativePath,-36} {f.Operations,4} operations  {state}");
+            }
+            await env.Out.WriteLineAsync(check
+                ? stale == 0 ? "All generated references are current." : $"{stale} file(s) stale: run `{Program} agent export`."
+                : $"Exported to {root}.");
+        }
+        return check && stale > 0 ? CliExitCodes.Failed : CliExitCodes.Ok;
     }
 
     private async Task<int> HubLogsAsync(IReadOnlyList<string> args)

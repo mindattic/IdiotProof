@@ -29,6 +29,14 @@ public static class LocalCommands
             $"{Program} agent bootstrap [--json]",
             "Works with the Hub down. Start every agent session with it.",
             [$"{Program} agent bootstrap", $"{Program} agent bootstrap --json"]),
+        Entry("agent export", "Regenerate docs/CLI_COMMANDS.md, docs/MCP_TOOLS.md and docs/agent/operation-catalog.json from the catalog.",
+            $"{Program} agent export [--out <dir>] [--check] [--json]",
+            """
+            Renders the operation catalog built into this CLI. Writes into the repo checkout the CLI
+            runs from (or --out <dir>), only files whose text changed. --check writes nothing and
+            exits 1 when any file is stale.
+            """,
+            [$"{Program} agent export", $"{Program} agent export --check"]),
         Entry("hub status", "Is the Hub running? Version, start time (ET), Monitor, database, operations.",
             $"{Program} hub status [--json]",
             "Exit 0 when the Hub answers, 1 when it does not.",
