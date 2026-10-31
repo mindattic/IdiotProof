@@ -1,15 +1,20 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Builds and deploys IdiotProof (Monitor console + Blazor web server) to
-    C:\Apps\IdiotProof\, and optionally starts both. The one script for
-    publishing and launching IdiotProof.
+    Builds and deploys IdiotProof (the Hub, its CLI and MCP server, the Monitor shim and the
+    Blazor web server) to C:\Apps\IdiotProof\, and optionally starts the Hub and Blazor. The one
+    script for publishing and launching IdiotProof. Agents never run it unless the user asks:
+    the app may be trading real money.
 
 .DESCRIPTION
     Publishes (Release, framework-dependent):
-      IdiotProof.Monitor -> C:\Apps\IdiotProof\Monitor\idiotproof-monitor.exe
+      IdiotProof.Hub     -> C:\Apps\IdiotProof\Hub\idiotproof-hub.exe      (hosts the Monitor + every operation)
+      IdiotProof.Cli     -> C:\Apps\IdiotProof\Cli\idiotproof.exe          (the `idiotproof` command line)
+      IdiotProof.Mcp     -> C:\Apps\IdiotProof\Mcp\idiotproof-mcp.exe      (MCP server for Claude)
+      IdiotProof.Monitor -> C:\Apps\IdiotProof\Monitor\idiotproof-monitor.exe (shim: runs the Hub, IP-T81)
       IdiotProof.Blazor  -> C:\Apps\IdiotProof\Blazor\IdiotProof.Blazor.exe
-    and writes two generated files:
+    puts C:\Apps\IdiotProof\Cli on the user PATH (once; idempotent) so `idiotproof` resolves
+    anywhere, and writes three generated files:
       Blazor\run.bat  runs the Blazor exe with ASPNETCORE_URLS preset to
                       http://localhost:5100, so it never collides with the dev
                       server (65025/65026).
@@ -22,6 +27,12 @@
                       calling this script (deploying first if nothing is there yet).
                       Written on every run of this script, so an existing install
                       picks up launcher changes without a republish.
+      start.bat       (C:\Apps\IdiotProof\start.bat) the launch half of run.bat with no
+                      menu: starts the Hub (which hosts the Monitor) and Blazor.
+
+    A running deployed Hub is asked to stop gracefully (`idiotproof hub stop`: drain the
+    running operations, stop the Monitor loop, release the leader lease) before it is
+    republished; only if it does not exit is it ended.
 
     Without -Force a component is republished only when its deployed exe or
     the launcher run.bat is missing, or a source file of the component (its project plus
@@ -32,13 +43,13 @@
     in the generated run.bat.
 
 .PARAMETER Force
-    Republish both components with a clean bin/obj rebuild even if nothing looks changed.
+    Republish every component with a clean bin/obj rebuild even if nothing looks changed.
 
 .PARAMETER Launch
-    After deploying, start the Monitor and Blazor and open the browser (same as run.bat's Run).
+    After deploying, start the Hub (hosting the Monitor) and Blazor and open the browser (same as run.bat's Run).
 
 .PARAMETER LauncherOnly
-    Only (re)write C:\Apps\IdiotProof\run.bat, then exit: no build, nothing stopped.
+    Only (re)write C:\Apps\IdiotProof\run.bat and start.bat, then exit: no build, nothing stopped.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File run.ps1 -Force
@@ -61,6 +72,27 @@ $launcherBat = Join-Path $deployDir 'run.bat'
 $sourceExts = @('.cs', '.csproj', '.razor', '.cshtml', '.css', '.js', '.json', '.props', '.targets', '.resx')
 
 $components = @(
+    [pscustomobject]@{
+        Name    = 'Hub'
+        Proj    = Join-Path $repo 'IdiotProof.Hub\IdiotProof.Hub.csproj'
+        OutDir  = Join-Path $deployDir 'Hub'
+        ExeName = 'idiotproof-hub.exe'
+        Extra   = @()
+    },
+    [pscustomobject]@{
+        Name    = 'Cli'
+        Proj    = Join-Path $repo 'IdiotProof.Cli\IdiotProof.Cli.csproj'
+        OutDir  = Join-Path $deployDir 'Cli'
+        ExeName = 'idiotproof.exe'
+        Extra   = @()
+    },
+    [pscustomobject]@{
+        Name    = 'Mcp'
+        Proj    = Join-Path $repo 'IdiotProof.Mcp\IdiotProof.Mcp.csproj'
+        OutDir  = Join-Path $deployDir 'Mcp'
+        ExeName = 'idiotproof-mcp.exe'
+        Extra   = @()
+    },
     [pscustomobject]@{
         Name    = 'Monitor'
         Proj    = Join-Path $repo 'IdiotProof.Monitor\IdiotProof.Monitor.csproj'
@@ -133,6 +165,17 @@ function Stop-Deployed($c) {
     $name  = [System.IO.Path]::GetFileNameWithoutExtension($c.ExeName)
     $procs = @(Get-Process $name -ErrorAction SilentlyContinue |
         Where-Object { $_.Path -and $_.Path -ieq $exe })
+    # The Hub hosts the Monitor: ask it to stop gracefully first (drain operations, finish the
+    # tick, release the SQL leader lease) via the deployed CLI's `hub stop`, then wait for it.
+    if ($procs.Count -gt 0 -and $c.Name -eq 'Hub') {
+        $cli = Join-Path $deployDir 'Cli\idiotproof.exe'
+        if (Test-Path $cli) {
+            Write-Host '  Asking the running Hub to stop gracefully...' -ForegroundColor DarkYellow
+            & $cli hub stop | Out-Host
+            foreach ($p in $procs) { $null = $p.WaitForExit(60000) }
+            $procs = @($procs | Where-Object { -not $_.HasExited })
+        }
+    }
     if ($procs.Count -gt 0) {
         $procs | Stop-Process -Force
         Write-Host "  Stopped running $($c.Name) ($($procs.Count) process(es))" -ForegroundColor DarkYellow
