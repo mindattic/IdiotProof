@@ -50,20 +50,28 @@ rolls over.
   the idea, sell the hype".
 
 ## 3. What it is NOT {#IP-§3}
-- **Not a charting terminal.** It does not stream tick charts for manual discretionary trading;
-  the chart/ghost-overlay work is [planned, not built](#IP-§7).
+- **Not a charting terminal.** It draws static ASCII charts (`market chart`, `account history`)
+  and a web live chart, but it is not a streaming tick-chart workstation for discretionary
+  trading; the ghost-overlay work is [planned, not built](#IP-§7).
 - **Not multi-broker today.** The build is **Alpaca-only** (plus the simulated Sandbox).
   `IBrokerClient` is the seam a future broker would implement; no other adapter exists.
 - **Not a direct-to-vendor LLM client.** No feature code calls an Anthropic/OpenAI SDK directly;
   all LLM traffic routes through MindAttic.Legion and all keys resolve through MindAttic.Vault.
-- **Not a gate-bypassing autotrader.** The Monitor places orders only through
-  `BrokerRouter`/`IBrokerClient` after all three gates clear, never around the Risk Guardian.
-  Exit orders are risk-reducing: they skip the LLM panel by design but are always audit-logged.
-- **Not an options autotrader.** Options orders are manual and user-initiated on `/options`;
-  the DSL, Monitor, `RiskGuardian` and `Conditions` catalog know nothing about options.
-- **Not a desktop app.** `IdiotProof.Blazor` (Blazor Server) is the only UI host.
-- **Not a research daemon.** `IdiotProof.ResearchScanner` runs one pass and exits; it is fired
-  by a Windows Scheduled Task and never shares the Monitor's trading loop.
+- **Not a gate-bypassing autotrader.** Every order, automated or by hand, goes through the
+  Hub's `TransactionGateway` ([IP-LAW-12](#IP-LAW-12)); automated entries clear all three gates,
+  never around the Risk Guardian. Exit orders are risk-reducing: they skip the LLM panel by design
+  but are always audit-logged.
+- **Not an agent that moves real money on its own.** An assistant drives IdiotProof through the
+  CLI or MCP, but a Live action only previews and returns a confirmation code; it happens only when
+  the person approves and the code comes back ([IP-LAW-13](#IP-LAW-13)).
+- **Not an options autotrader.** Options orders are manual and user-initiated (`/options`, or
+  `options buy|sell|spread|close|exercise` from the CLI/MCP); the DSL, Monitor, `RiskGuardian` and
+  `Conditions` catalog know nothing about options.
+- **Not a desktop app.** Its front doors are the `idiotproof` CLI, the `idiotproof` MCP server
+  and the `IdiotProof.Blazor` web app, all over the one Hub ([§4](#IP-§4)); the Hub runs headless
+  as a console window or a Windows Service.
+- **Not a research daemon.** `IdiotProof.ResearchScanner` (and `research scan`) runs one pass and
+  exits; it is fired by a scheduler job and never shares the Monitor's trading loop.
 
 ## 4. Architecture canon {#IP-§4}
 
@@ -518,13 +526,48 @@ Test projects and what they pin:
   entry, skipped without it, refuses any host but `paper-api.alpaca.markets`) sends a never-fillable
   1-share short and a never-fillable `sell_to_close`, reads each back and cancels it.
 
-Not proven by the solution test run: the Blazor UI flows and the live LLM voting round-trip.
+**Hub, CLI and MCP (Epic W, 2026-10-30/31).** Each ticket landed with its own tests, run per
+ticket (`dotnet test <project> --filter ...`) plus `CatalogCompletenessTests`; the whole solution
+has not been re-run since the 2026-10-03 record above.
+- `IdiotProof.Core.Tests` — the money path: `TransactionGatewayTests` (gate order, Live hold and
+  confirm, audit), `MoneyPathLawTests` (no production broker call outside the gateway,
+  [IP-LAW-12](#IP-LAW-12)/[IP-LAW-13](#IP-LAW-13)), `ConfirmationStoreTests` (single use, 120 s,
+  owner- and intent-bound), `MonitorGatewayParityTests`, `OptionsGatewayTests`,
+  `GatewayDiaryTests`, `MonitorHostingTests`, `MonitorPauseFlagTests`, `OwnerResolverTests`,
+  `SecretRedactorTests`, `CoreServiceRegistrationTests`, plus the services moved from Blazor
+  (research, LLM voting, Claude keys, repositories, `UserBrokerResolver*Tests`).
+- `IdiotProof.Operations.Tests` — the operation framework (`OperationCatalogTests`,
+  `ArgsBinderTests`, `OperationDispatcherTests`, `OperationContractTests`,
+  `CatalogCompletenessTests`: every operation documented, examples bind, JSON and argv round-trip),
+  one fixture per operation family run against scripted Alpaca `HttpMessageHandler`s or in-memory
+  services (account, orders, positions, options, crypto, market, reference, strategies, gapper,
+  replay, risk, LLM, research, diary, audit, ledger, keys, settings, users, monitor, DSL), the
+  knowledge index and `docs *` (`Docs/*Tests`), and `AlpacaCoverageTests` (every endpoint in
+  [docs/ALPACA_COVERAGE.md](ALPACA_COVERAGE.md) has an existing operation, every called path is
+  inventoried).
+- `IdiotProof.Cli.Tests` — exit codes, argv/global flags, stdin `-` values, help with the Hub up
+  or down, local commands, owner defaults, `AgentExportTests`, and `PublicDocsPrivacyTests` (no
+  key-shaped string or account id in README.md or docs/).
+- `IdiotProof.Mcp.Tests` — one tool per operation with the catalog's schema, confirmation input
+  on money tools, risk hints, Hub-down errors (`McpToolTests`), and the doc resources
+  (`DocResourceTests`).
+
+Not proven by the solution test run: the Blazor UI flows and the live LLM voting round-trip; a
+Live CLI/MCP order confirmed end to end against a real Live account (the confirm path is proven
+against scripted brokers only, by design: no test touches real money).
 The Cypress suite (`tests/IdiotProof.Cypress/cypress/e2e/`, specs 01–09) runs deterministically
 with `IDIOTPROOF_FAKE_LLM=1` (the Development-only `FakeLlmHandler` intercepts Legion calls
 server-side) but needs a live server run to graduate the E-stories to ✅; `08_options.cy.ts` has
 been run green. MonitorWorker itself has no host-level harness test.
 
 ## 7. Active frontier {#IP-§7}
+- **Hub follow-through (Epic W tail)** — the Blazor front door on the Hub's identity adapters
+  (`IOwnerContext` from the auth claim, `IClaudeKeyContext`), CommandLedger rows on the Activity
+  page and the stamp on strategy detail (IP-T279/T280/T283/T284); streaming through the Hub
+  (`/api/stream`, `orders stream` trade updates, `market watch`, `market stream status`;
+  IP-T324/T325/T326/T206); the `alpaca raw` escape hatch (IP-T327); `options exercise` /
+  `do-not-exercise` routed through the gateway (IP-T337); the `IdiotProof.Blazor.*` →
+  `IdiotProof.Core.*` namespace rename (IP-T49).
 - **Options, phase 2** — the fill-and-close half of a real paper round-trip during market hours
   (IP-US-U10); extract the duplicated Live elevation modal into one shared component; then option
   legs in the strict-JSON strategy schema (v2), IV/Greeks conditions in the `Conditions` catalog,
