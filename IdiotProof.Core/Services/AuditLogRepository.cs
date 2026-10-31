@@ -144,23 +144,7 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-        var totalCount = await db.AuditLogs.CountAsync(ct);
-        if (totalCount <= minKeep) return 0;
-
-        var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
-        var keepCount = await db.AuditLogs.CountAsync(a => a.TimestampUtc >= cutoff, ct);
-
-        if (keepCount < minKeep)
-        {
-            // Fewer than minKeep recent rows — walk back to keep exactly minKeep total.
-            var anchor = await db.AuditLogs
-                .OrderByDescending(a => a.TimestampUtc)
-                .Skip(minKeep - 1)
-                .Select(a => (DateTime?)a.TimestampUtc)
-                .FirstOrDefaultAsync(ct);
-            if (anchor is null) return 0;
-            cutoff = anchor.Value;
-        }
+        if (await PruneCutoffAsync(db, retentionDays, minKeep, DateTime.UtcNow, ct) is not { } cutoff) return 0;
 
         // Delete in small batches rather than one unbounded DELETE. A single
         // statement deleting many thousands of rows crosses SQL Server's
@@ -180,6 +164,31 @@ public sealed class AuditLogRepository(IDbContextFactory<AppDbContext> dbFactory
             if (deleted < batchSize) break;
         }
         return totalDeleted;
+    }
+
+    /// <summary>
+    /// The timestamp below which <see cref="PruneAsync"/> deletes rows, or null when nothing may be
+    /// deleted (the table holds no more than <paramref name="minKeep"/> rows). Normally
+    /// <paramref name="nowUtc"/> minus the retention window; when fewer than <paramref name="minKeep"/>
+    /// rows are that recent, it walks back to the <paramref name="minKeep"/>-th newest row so exactly
+    /// <paramref name="minKeep"/> survive. Separate from the SQL Server-only batched DELETE so it can be
+    /// tested on any provider.
+    /// </summary>
+    internal static async Task<DateTime?> PruneCutoffAsync(AppDbContext db, int retentionDays, int minKeep, DateTime nowUtc, CancellationToken ct = default)
+    {
+        var totalCount = await db.AuditLogs.CountAsync(ct);
+        if (totalCount <= minKeep) return null;
+
+        var cutoff = nowUtc.AddDays(-retentionDays);
+        var keepCount = await db.AuditLogs.CountAsync(a => a.TimestampUtc >= cutoff, ct);
+        if (keepCount >= minKeep) return cutoff;
+
+        // Fewer than minKeep recent rows — walk back to keep exactly minKeep total.
+        return await db.AuditLogs
+            .OrderByDescending(a => a.TimestampUtc)
+            .Skip(minKeep - 1)
+            .Select(a => (DateTime?)a.TimestampUtc)
+            .FirstOrDefaultAsync(ct);
     }
 
     private static readonly string[] ErrorCategories = ["strategy-error", "order-rejected"];
