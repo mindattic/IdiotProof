@@ -12,10 +12,12 @@ updated: 2026-10-31
 > README says how to build/run; this says how to think about the system.
 
 ## 1. The one sentence {#IP-§1}
-IdiotProof turns a plain-English trade idea into a runnable DSL strategy that a 24/7 console
-Monitor evaluates against live market data, fires only when every condition matches, an LLM
-voter panel approves, and the Risk Guardian clears it — then places the order through the
-broker router and manages the position to its exit. The flagship flow is the **Gapper**
+IdiotProof turns a plain-English trade idea into a runnable DSL strategy that the Monitor,
+running 24/7 inside the IdiotProof Hub, evaluates against live market data, fires only when
+every condition matches, an LLM voter panel approves, and the Risk Guardian clears it — then
+places the order through the Hub's transaction gateway and manages the position to its exit.
+A person (or an assistant on their behalf) drives all of it through the `idiotproof` CLI, its
+MCP tools or the web app. The flagship flow is the **Gapper**
 ([§4.4](#IP-§4)): buy the premarket gap at 4AM, sell it off before the 9:30 bell once momentum
 rolls over.
 

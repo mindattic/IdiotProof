@@ -1,32 +1,42 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-10-30 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-10-31 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
 ## The one sentence
-IdiotProof turns a plain-English trade idea into a runnable DSL strategy that a 24/7 console
-Monitor evaluates against live market data, fires only when every condition matches, an LLM
-voter panel approves, and the Risk Guardian clears it — then places the order through the
-broker router and manages the position to its exit. The flagship flow is the **Gapper**
+IdiotProof turns a plain-English trade idea into a runnable DSL strategy that the Monitor,
+running 24/7 inside the IdiotProof Hub, evaluates against live market data, fires only when
+every condition matches, an LLM voter panel approves, and the Risk Guardian clears it — then
+places the order through the Hub's transaction gateway and manages the position to its exit.
+A person (or an assistant on their behalf) drives all of it through the `idiotproof` CLI, its
+MCP tools or the web app. The flagship flow is the **Gapper**
 ([§4.4](#IP-§4)): buy the premarket gap at 4AM, sell it off before the 9:30 bell once momentum
 rolls over.
 
 ## What it is NOT
-- **Not a charting terminal.** It does not stream tick charts for manual discretionary trading;
-  the chart/ghost-overlay work is [planned, not built](#IP-§7).
+- **Not a charting terminal.** It draws static ASCII charts (`market chart`, `account history`)
+  and a web live chart, but it is not a streaming tick-chart workstation for discretionary
+  trading; the ghost-overlay work is [planned, not built](#IP-§7).
 - **Not multi-broker today.** The build is **Alpaca-only** (plus the simulated Sandbox).
   `IBrokerClient` is the seam a future broker would implement; no other adapter exists.
 - **Not a direct-to-vendor LLM client.** No feature code calls an Anthropic/OpenAI SDK directly;
   all LLM traffic routes through MindAttic.Legion and all keys resolve through MindAttic.Vault.
-- **Not a gate-bypassing autotrader.** The Monitor places orders only through
-  `BrokerRouter`/`IBrokerClient` after all three gates clear, never around the Risk Guardian.
-  Exit orders are risk-reducing: they skip the LLM panel by design but are always audit-logged.
-- **Not an options autotrader.** Options orders are manual and user-initiated on `/options`;
-  the DSL, Monitor, `RiskGuardian` and `Conditions` catalog know nothing about options.
-- **Not a desktop app.** `IdiotProof.Blazor` (Blazor Server) is the only UI host.
-- **Not a research daemon.** `IdiotProof.ResearchScanner` runs one pass and exits; it is fired
-  by a Windows Scheduled Task and never shares the Monitor's trading loop.
+- **Not a gate-bypassing autotrader.** Every order, automated or by hand, goes through the
+  Hub's `TransactionGateway` ([IP-LAW-12](#IP-LAW-12)); automated entries clear all three gates,
+  never around the Risk Guardian. Exit orders are risk-reducing: they skip the LLM panel by design
+  but are always audit-logged.
+- **Not an agent that moves real money on its own.** An assistant drives IdiotProof through the
+  CLI or MCP, but a Live action only previews and returns a confirmation code; it happens only when
+  the person approves and the code comes back ([IP-LAW-13](#IP-LAW-13)).
+- **Not an options autotrader.** Options orders are manual and user-initiated (`/options`, or
+  `options buy|sell|spread|close|exercise` from the CLI/MCP); the DSL, Monitor, `RiskGuardian` and
+  `Conditions` catalog know nothing about options.
+- **Not a desktop app.** Its front doors are the `idiotproof` CLI, the `idiotproof` MCP server
+  and the `IdiotProof.Blazor` web app, all over the one Hub ([§4](#IP-§4)); the Hub runs headless
+  as a console window or a Windows Service.
+- **Not a research daemon.** `IdiotProof.ResearchScanner` (and `research scan`) runs one pass and
+  exits; it is fired by a scheduler job and never shares the Monitor's trading loop.
 
 ## The Laws
 This bible **inherits** the org-wide laws in
@@ -212,6 +222,6 @@ Live mutations that move money (funding, transfers) use the same `ConfirmationSt
   addition or deletion logged in `IdiotProof.Core/Catalogs/sp-index-events.json`, Pending until effective.
 
 ## Status index (USER_STORIES.md)
-- done: 51
+- done: 62
 - partial: 39
-- planned: 14
+- planned: 16
