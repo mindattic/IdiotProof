@@ -101,6 +101,8 @@ builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(o => { o.SingleLine = true; o.TimestampFormat = null; o.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Disabled; });
 builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
 builder.Logging.AddFilter("IdiotProof", LogLevel.Warning);
+// …and durably to the Hub's own MindAttic.Log database, with one entry per command (IP-T78).
+builder.Logging.AddHubLogDatabase();
 
 var app = builder.Build();
 

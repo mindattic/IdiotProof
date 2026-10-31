@@ -66,6 +66,15 @@ public static class HubEndpoints
                     ? await next(ctx)
                     : Results.Json(new { error = "hub_key_required", message = $"Missing or wrong {HubWire.KeyHeader}." }, statusCode: 401));
 
+        // Tail of the Hub's log (IP-T78): ?source=window (default) is the window mirror
+        // (IDIOTPROOF_HUB_LOG), ?source=db the MindAttic.Log database. Key-guarded: commands and
+        // Monitor warnings are in there.
+        app.MapGet(HubLogs.LogsPath, (int? lines, string? source) => HubLogs.Tail(lines, source))
+            .AddEndpointFilter(async (ctx, next) =>
+                HubKey.Matches(settings.Key, ctx.HttpContext.Request.Headers[HubWire.KeyHeader].FirstOrDefault())
+                    ? await next(ctx)
+                    : Results.Json(new { error = "hub_key_required", message = $"Missing or wrong {HubWire.KeyHeader}." }, statusCode: 401));
+
         app.MapPost(HubWire.OperationPath, RunOperationAsync)
             .AddEndpointFilter(async (ctx, next) =>
             {
@@ -88,6 +97,7 @@ public static class HubEndpoints
         IDbContextFactory<AppDbContext> dbFactory,
         CommandLedgerRepository ledger,
         HubSettings settings,
+        ILoggerFactory loggers,
         CancellationToken ct)
     {
         var started = Stopwatch.StartNew();
@@ -146,6 +156,9 @@ public static class HubEndpoints
 
         HubConsole.CommandOut(caller, name, result.Status.ToString().ToLowerInvariant(), result.ExitCode,
             started.ElapsedMilliseconds, result.IsOk ? null : result.Message);
+        loggers.CreateLogger(HubLogs.CommandsCategory).LogInformation(
+            "{Caller} {Operation} -> {Status} ({ExitCode}) in {DurationMs}ms{Detail}",
+            caller, name, result.Status, result.ExitCode, started.ElapsedMilliseconds, result.IsOk ? "" : ": " + result.Message);
         return Respond(result, name, request.Output);
     }
 
