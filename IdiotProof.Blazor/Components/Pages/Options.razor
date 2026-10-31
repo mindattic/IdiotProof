@@ -438,17 +438,19 @@
 
     private async Task PlaceAsync(OptionOrderIntent intent)
     {
-        if (resolution is null || placing) return;
+        if (resolution is null || userId is null || placing) return;
         placing = true;
         showConfirm = false;
         // Pin the broker AND its label before the network call: the mode buttons are disabled
         // while placing, but the toast must describe the account the order actually went to,
-        // never whatever the page happens to point at when the response arrives.
-        var client = resolution.Client;
+        // never whatever the page happens to point at when the response arrives. The order goes
+        // through the TransactionGateway pinned to that same resolution (validated, audited;
+        // Live only while this user's password elevation is open — checked on the server).
+        var pinned = resolution;
         var label = BrokerLabel;
         try
         {
-            var result = await client.PlaceOrderAsync(new OrderRequest
+            var outcome = await OptionsSvc.PlaceOrderAsync(userId.Value, pinned, new OrderRequest
             {
                 Symbol = intent.Contract.OccSymbol,
                 AssetClass = AssetClass.Option,
@@ -459,11 +461,17 @@
                 LimitPrice = intent.LimitPrice,
                 TimeInForce = "DAY",
                 PositionIntent = intent.PositionIntent,
-            });
+            }, ElevationSvc);
 
-            Toasts.Show(result.IsSuccess ? $"{label}: {result.Message}" : $"{label} order rejected: {result.Message}",
-                result.IsSuccess ? ToastKind.Success : ToastKind.Error);
-            if (result.IsSuccess)
+            var placed = outcome.Status == IdiotProof.Core.Trading.GatewayStatus.Placed;
+            var why = outcome.Verdicts.FirstOrDefault(v => !v.Passed)?.Detail ?? outcome.Order?.Message ?? outcome.Message;
+            Toasts.Show(placed
+                    ? $"{label}: {outcome.Order?.Message ?? outcome.Message}"
+                    : outcome.Status == IdiotProof.Core.Trading.GatewayStatus.Rejected
+                        ? $"{label} order rejected: {why}"
+                        : $"{label} order not sent: {why}",
+                placed ? ToastKind.Success : ToastKind.Error);
+            if (placed)
             {
                 pendingIntent = null;
                 ticketInitialSide = null;
