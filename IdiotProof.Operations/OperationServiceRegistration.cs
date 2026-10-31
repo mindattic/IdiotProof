@@ -27,6 +27,10 @@ public static class OperationServiceRegistration
         services.TryAddSingleton<OperationDispatcher>();
         services.TryAddScoped<OperationOwner>();
         foreach (var descriptor in catalog.Operations) services.TryAddScoped(descriptor.OperationType);
+
+        // The knowledge index behind `docs *` (IP-T266): one per host, warmed in the background at start.
+        services.TryAddSingleton(_ => Docs.KnowledgeService.Shared);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<Microsoft.Extensions.Hosting.IHostedService, Docs.KnowledgeWarmup>());
         return services;
     }
 }
