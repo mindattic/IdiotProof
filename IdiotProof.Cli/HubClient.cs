@@ -93,6 +93,23 @@ public sealed class HubClient : IDisposable
     /// Runs one operation on the Hub. Never throws for transport problems: they come back as a
     /// <see cref="HubCallKind"/> with a message a person can act on.
     /// </summary>
+    /// <summary>Asks the Hub to shut down gracefully; true when it accepted.</summary>
+    public async Task<bool> TryRequestShutdownAsync(CancellationToken ct = default)
+    {
+        var key = keySource();
+        if (string.IsNullOrWhiteSpace(key)) return false;
+        try
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, HubWire.ShutdownPath);
+            message.Headers.Add(HubWire.KeyHeader, key);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(5));
+            using var response = await http.SendAsync(message, timeout.Token);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { return false; }
+    }
+
     public async Task<HubCallResult> RunAsync(HubOperationRequest request, TextWriter stderr, CancellationToken ct = default)
     {
         if (await TryGetHealthAsync(ct) is null)

@@ -22,6 +22,9 @@ public static class HubWire
     public const string CatalogPath = "/api/catalog";
     public const string OperationPath = "/api/op";
 
+    /// <summary>Key-guarded POST that stops the Hub gracefully (drains, stops the Monitor, releases the lease).</summary>
+    public const string ShutdownPath = "/api/shutdown";
+
     public static int ResolvePort() =>
         int.TryParse(Environment.GetEnvironmentVariable(PortEnvVar), out var p) && p is > 0 and < 65536 ? p : DefaultPort;
 

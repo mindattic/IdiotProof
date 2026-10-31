@@ -26,6 +26,9 @@ using Microsoft.EntityFrameworkCore;
 //
 // Run:  dotnet run --project IdiotProof.Hub       Stop: Ctrl+C (graceful)
 
+// The visible, money-green window (IP-T331): paint, title and log tee before anything prints.
+HubConsole.Start();
+
 Console.WriteLine();
 Console.WriteLine(IdiotProof.Shared.Branding.AsciiBanner);
 Console.WriteLine();
@@ -59,7 +62,8 @@ builder.Services.AddScoped<IOwnerContext, OperationOwnerContext>();
 builder.Services.AddScoped<IClaudeKeyContext, OwnerClaudeKeyContext>();
 
 builder.Logging.ClearProviders();
-builder.Logging.AddSimpleConsole(o => { o.SingleLine = true; o.TimestampFormat = null; });
+// No ANSI colors: they'd paint over the green window and litter the log file.
+builder.Logging.AddSimpleConsole(o => { o.SingleLine = true; o.TimestampFormat = null; o.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Disabled; });
 builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
 builder.Logging.AddFilter("IdiotProof", LogLevel.Warning);
 
@@ -75,8 +79,7 @@ using (var scope = app.Services.CreateScope())
 
 app.MapHubEndpoints();
 
-Console.WriteLine($"  Hub listening on http://127.0.0.1:{port}  ·  {app.Services.GetRequiredService<OperationCatalog>().Operations.Count} operations"
-    + (settings.MonitorHosted ? "  ·  Monitor hosted" : "  ·  Monitor NOT hosted (IDIOTPROOF_HUB_MONITOR=0)"));
+HubConsole.Banner(port, app.Services.GetRequiredService<OperationCatalog>().Operations.Count, settings.MonitorHosted);
 
 try
 {

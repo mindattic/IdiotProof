@@ -356,6 +356,17 @@ public sealed class CliApp(CliEnvironment env)
         var health = await client.TryGetHealthAsync();
         if (health is { ProcessId: > 0 } && !all)
         {
+            // Graceful first: the Hub shuts itself down (drains, stops the Monitor, releases the lease).
+            if (await client.TryRequestShutdownAsync())
+            {
+                for (var i = 0; i < 40 && await client.TryGetHealthAsync() is not null; i++)
+                    await Task.Delay(250);
+                if (await client.TryGetHealthAsync() is null)
+                {
+                    await env.Out.WriteLineAsync($"Hub at {client.BaseUrl}: process {health.ProcessId} shut down on request.");
+                    return CliExitCodes.Ok;
+                }
+            }
             var what = env.HubProcesses.Stop(health.ProcessId, TimeSpan.FromSeconds(10));
             await env.Out.WriteLineAsync($"Hub at {client.BaseUrl}: {what}.");
             return CliExitCodes.Ok;

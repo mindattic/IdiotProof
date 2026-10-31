@@ -52,6 +52,19 @@ public static class HubEndpoints
         app.MapGet(HubWire.CatalogPath, (OperationCatalog catalog) =>
             Results.Content(catalog.ToJson(), "application/json"));
 
+        // `idiotproof hub stop`: the window belongs to the terminal host, so a close request can't
+        // reach the Hub; this asks it to shut down the same way Ctrl+C in its window would.
+        app.MapPost(HubWire.ShutdownPath, (IHostApplicationLifetime lifetime) =>
+            {
+                HubConsole.Line($"*** Shutdown requested by `idiotproof hub stop` (PID {Environment.ProcessId}) ***");
+                lifetime.StopApplication();
+                return Results.Accepted();
+            })
+            .AddEndpointFilter(async (ctx, next) =>
+                HubKey.Matches(settings.Key, ctx.HttpContext.Request.Headers[HubWire.KeyHeader].FirstOrDefault())
+                    ? await next(ctx)
+                    : Results.Json(new { error = "hub_key_required", message = $"Missing or wrong {HubWire.KeyHeader}." }, statusCode: 401));
+
         app.MapPost(HubWire.OperationPath, RunOperationAsync)
             .AddEndpointFilter(async (ctx, next) =>
                 HubKey.Matches(settings.Key, ctx.HttpContext.Request.Headers[HubWire.KeyHeader].FirstOrDefault())
@@ -94,6 +107,11 @@ public static class HubEndpoints
             return Results.Json(new { error = "usage", message = "Send argv or operation." }, statusCode: 400);
         }
 
+        var caller = request.Caller.ToString().ToLowerInvariant();
+        HubConsole.CommandIn(caller, name, rest is not null
+            ? string.Join(' ', SecretRedactor.RedactArgv(rest))
+            : SecretRedactor.RedactJson(request.Args?.GetRawText()) is { } json && json != "{}" ? json : "");
+
         // Owner: the caller's explicit choice, else the Hub's default, else the lone user.
         var owner = await OwnerResolver.ResolveAsync(dbFactory, request.OwnerId ?? settings.DefaultOwner, ct);
         var info = Invocation(request, owner.OwnerId, owner.Error);
@@ -106,7 +124,7 @@ public static class HubEndpoints
         {
             OwnerUserId = owner.OwnerId,
             Operation = name.Length > 64 ? name[..64] : name,
-            Caller = request.Caller.ToString().ToLowerInvariant(),
+            Caller = caller,
             ArgsJson = rest is not null
                 ? JsonSerializer.Serialize(SecretRedactor.RedactArgv(rest))
                 : request.Args?.GetRawText(),
@@ -116,6 +134,8 @@ public static class HubEndpoints
             DurationMs = (int)started.ElapsedMilliseconds,
         }, CancellationToken.None);
 
+        HubConsole.CommandOut(caller, name, result.Status.ToString().ToLowerInvariant(), result.ExitCode,
+            started.ElapsedMilliseconds, result.IsOk ? null : result.Message);
         return Respond(result, name, request.Output);
     }
 
