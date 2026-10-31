@@ -16,6 +16,11 @@ internal sealed class FakeHub : HttpMessageHandler
     public List<string?> KeysSeen { get; } = [];
     public Func<HubOperationRequest, HubOperationResponse> OnOp { get; set; } = r => Ok("pong");
 
+    /// <summary>The raw server-sent-events body /api/stream answers with (IP-T324); null = 404, as an older Hub.</summary>
+    public Func<HubOperationRequest, string>? OnStream { get; set; }
+
+    public List<HubOperationRequest> StreamRequests { get; } = [];
+
     public static HubOperationResponse Ok(string text) => Respond(OperationResult.Ok(human: text), "hub ping", OutputMode.Human);
 
     public static HubOperationResponse Respond(OperationResult result, string name, OutputMode output) => new()
@@ -59,6 +64,11 @@ internal sealed class FakeHub : HttpMessageHandler
                 Requests.Add(op);
                 if (OpDelay > TimeSpan.Zero) await Task.Delay(OpDelay, ct);
                 return Json(OnOp(op));
+            case HubWire.StreamPath:
+                if (OnStream is null) return new HttpResponseMessage(HttpStatusCode.NotFound);
+                var streamOp = JsonSerializer.Deserialize<HubOperationRequest>(await request.Content!.ReadAsStringAsync(ct), OperationJson.Options)!;
+                StreamRequests.Add(streamOp);
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(OnStream(streamOp), Encoding.UTF8, "text/event-stream") };
             default:
                 return new HttpResponseMessage(HttpStatusCode.NotFound);
         }

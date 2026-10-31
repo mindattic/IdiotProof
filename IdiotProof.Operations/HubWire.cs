@@ -22,6 +22,19 @@ public static class HubWire
     public const string CatalogPath = "/api/catalog";
     public const string OperationPath = "/api/op";
 
+    /// <summary>
+    /// The streaming twin of <see cref="OperationPath"/> (IP-T324): the same request body, answered
+    /// as server-sent events: a <see cref="StreamLineEvent"/> per pushed line, then one
+    /// <see cref="StreamResultEvent"/> carrying the <see cref="HubOperationResponse"/>.
+    /// </summary>
+    public const string StreamPath = "/api/stream";
+
+    /// <summary>SSE event name for a pushed line (data: a <see cref="Streaming.StreamLine"/> as JSON).</summary>
+    public const string StreamLineEvent = "line";
+
+    /// <summary>SSE event name for the final result (data: a <see cref="HubOperationResponse"/> as JSON).</summary>
+    public const string StreamResultEvent = "result";
+
     /// <summary>Key-guarded POST that stops the Hub gracefully (drains, stops the Monitor, releases the lease).</summary>
     public const string ShutdownPath = "/api/shutdown";
 

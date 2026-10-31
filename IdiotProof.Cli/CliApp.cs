@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using IdiotProof.Operations;
+using IdiotProof.Operations.Streaming;
 
 namespace IdiotProof.Cli;
 
@@ -105,6 +106,11 @@ public sealed class CliApp(CliEnvironment env)
             Width = env.Width,
         };
 
+        // A streaming operation (IP-T324) prints its lines as they happen; Ctrl+C stops it. --json
+        // keeps the one-envelope contract, so it gets the bounded window from /api/op instead.
+        if (!flags.Json && IsStreaming(argv))
+            return await StreamAsync(client, request, flags, ct);
+
         var result = await client.RunAsync(request, env.Err, ct);
         if (result.Kind == HubCallKind.HubDown)
         {
@@ -129,6 +135,32 @@ public sealed class CliApp(CliEnvironment env)
             await env.Out.WriteLineAsync($"To execute, run: {ConfirmCommand(rest, flags, code)}");
             if (usesStdin) await env.Out.WriteLineAsync("  (pipe the same input again for the '-' argument)");
         }
+        return response.ExitCode;
+    }
+
+    /// <summary>True when the operation argv names is marked <see cref="StreamingAttribute"/> in the catalog built into this CLI.</summary>
+    internal static bool IsStreaming(IReadOnlyList<string> argv) =>
+        ReflectedCatalog.Value.TryResolve(argv, out var descriptor, out _) && StreamingAttribute.IsOn(descriptor!.OperationType);
+
+    private async Task<int> StreamAsync(HubClient client, HubOperationRequest request, GlobalFlags flags, CancellationToken ct)
+    {
+        var result = await client.StreamAsync(request, async line =>
+        {
+            await env.Out.WriteLineAsync(line.Text.TrimEnd());
+            await env.Out.FlushAsync(CancellationToken.None);
+        }, ct);
+
+        if (result.Kind == HubCallKind.Cancelled)
+        {
+            await env.Err.WriteLineAsync("Stopped.");
+            return CliExitCodes.Ok;
+        }
+        if (result.Kind != HubCallKind.Completed || result.Response is null)
+            return await ClientErrorAsync(flags, CliExitCodes.Failed, ErrorCode(result.Kind), result.Error ?? "The Hub stream failed.");
+
+        var response = result.Response;
+        var output = response.ExitCode == CliExitCodes.Usage ? env.Err : env.Out;
+        if (response.Text.Length > 0) await output.WriteLineAsync(response.Text.TrimEnd());
         return response.ExitCode;
     }
 

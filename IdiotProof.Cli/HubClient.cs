@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using IdiotProof.Operations;
+using IdiotProof.Operations.Streaming;
 
 namespace IdiotProof.Cli;
 
@@ -181,6 +182,91 @@ public sealed class HubClient : IDisposable
             {
                 return new HubCallResult(HubCallKind.HttpError, null, $"Unreadable Hub response ({ex.Message}): {Shorten(body)}");
             }
+        }
+    }
+
+    /// <summary>
+    /// Runs a streaming operation on <see cref="HubWire.StreamPath"/> (IP-T324): each pushed line
+    /// goes to <paramref name="onLine"/> as it arrives, and the final <c>result</c> event is the
+    /// response. Ctrl+C (<paramref name="ct"/>) closes the connection, which stops the operation on
+    /// the Hub; that comes back as <see cref="HubCallKind.Cancelled"/>. No call ceiling: a stream
+    /// runs until it ends or is stopped.
+    /// </summary>
+    public async Task<HubCallResult> StreamAsync(HubOperationRequest request, Func<StreamLine, Task> onLine, CancellationToken ct = default)
+    {
+        if (await TryGetHealthAsync(ct) is null)
+            return ct.IsCancellationRequested
+                ? new HubCallResult(HubCallKind.Cancelled, null, "Stopped.")
+                : new HubCallResult(HubCallKind.HubDown, null, NotRunningMessage);
+
+        var key = keySource();
+        if (string.IsNullOrWhiteSpace(key))
+            return new HubCallResult(HubCallKind.NoKey, null,
+                $"No Hub key found. Set {HubWire.KeyEnvVar} to the Hub's key, or restart the Hub as this user (`{OperationDescriptor.ProgramName} hub start`).");
+
+        using var message = new HttpRequestMessage(HttpMethod.Post, HubWire.StreamPath)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(request, OperationJson.Options), Encoding.UTF8, "application/json"),
+        };
+        message.Headers.Add(HubWire.KeyHeader, key);
+        message.Headers.Accept.ParseAdd("text/event-stream");
+
+        try
+        {
+            using var response = await http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+                return new HubCallResult(HubCallKind.Unauthorized, null, $"The Hub rejected this CLI's key ({HubWire.KeyHeader}).");
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return new HubCallResult(HubCallKind.HttpError, null, "This Hub has no streaming endpoint (an older build); restart it on the current build.");
+            if (!response.IsSuccessStatusCode)
+                return new HubCallResult(HubCallKind.HttpError, null,
+                    $"The Hub answered {(int)response.StatusCode} {response.ReasonPhrase}: {Shorten(await response.Content.ReadAsStringAsync(CancellationToken.None))}");
+
+            await using var body = await response.Content.ReadAsStreamAsync(ct);
+            using var reader = new StreamReader(body, Encoding.UTF8);
+            string? eventName = null;
+            var data = new StringBuilder();
+            while (await reader.ReadLineAsync(ct) is { } line)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (line.Length == 0)
+                {
+                    if (eventName == HubWire.StreamLineEvent && data.Length > 0)
+                    {
+                        var pushed = JsonSerializer.Deserialize<StreamLine>(data.ToString(), OperationJson.Options);
+                        if (pushed is not null) await onLine(pushed);
+                    }
+                    else if (eventName == HubWire.StreamResultEvent && data.Length > 0)
+                    {
+                        var parsed = JsonSerializer.Deserialize<HubOperationResponse>(data.ToString(), OperationJson.Options);
+                        return parsed is null
+                            ? new HubCallResult(HubCallKind.HttpError, null, "The Hub sent an empty result.")
+                            : new HubCallResult(HubCallKind.Completed, parsed, null);
+                    }
+                    eventName = null;
+                    data.Clear();
+                }
+                else if (line.StartsWith("event:", StringComparison.Ordinal)) eventName = line[6..].Trim();
+                else if (line.StartsWith("data:", StringComparison.Ordinal)) data.Append(line[5..].TrimStart());
+                // ':' comment lines are heartbeats.
+            }
+            return new HubCallResult(HubCallKind.HttpError, null, "The Hub closed the stream without a result (did it stop?).");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return new HubCallResult(HubCallKind.Cancelled, null, "Stopped.");
+        }
+        catch (HttpRequestException ex)
+        {
+            return new HubCallResult(HubCallKind.HubDown, null, $"{NotRunningMessage} ({ex.Message})");
+        }
+        catch (IOException ex) when (!ct.IsCancellationRequested)
+        {
+            return new HubCallResult(HubCallKind.HttpError, null, $"The stream from the Hub broke: {ex.Message}");
+        }
+        catch (JsonException ex)
+        {
+            return new HubCallResult(HubCallKind.HttpError, null, $"Unreadable stream event ({ex.Message}).");
         }
     }
 

@@ -56,6 +56,13 @@ public sealed class OperationContext
 
     public CancellationToken CancellationToken { get; init; }
 
+    /// <summary>
+    /// Where a streaming operation pushes lines as they happen (the Hub's <c>/api/stream</c>
+    /// response); null when the caller wants one result, and streams return a bounded window
+    /// (<see cref="Streaming.OperationStream"/>).
+    /// </summary>
+    public Streaming.IStreamSink? Sink { get; init; }
+
     /// <summary>The clock; tests substitute a fixed one. Defaults to the system clock.</summary>
     public TimeProvider Clock { get; init; } = TimeProvider.System;
 

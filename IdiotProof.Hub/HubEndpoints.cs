@@ -6,6 +6,8 @@ using IdiotProof.Core.Identity;
 using IdiotProof.Core.Ledger;
 using IdiotProof.Operations;
 using IdiotProof.Operations.Hosting;
+using IdiotProof.Operations.Streaming;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 
 namespace IdiotProof.Hub;
@@ -75,6 +77,21 @@ public static class HubEndpoints
                     ? await next(ctx)
                     : Results.Json(new { error = "hub_key_required", message = $"Missing or wrong {HubWire.KeyHeader}." }, statusCode: 401));
 
+        // Streaming twin of /api/op (IP-T324): same body, answered as server-sent events.
+        app.MapPost(HubWire.StreamPath, RunStreamAsync)
+            .AddEndpointFilter(async (ctx, next) =>
+            {
+                var inFlight = ctx.HttpContext.RequestServices.GetRequiredService<InFlightOperations>();
+                if (!inFlight.TryEnter())
+                    return Results.Json(new { error = "shutting_down", message = "The Hub is shutting down; retry once it is back." }, statusCode: 503);
+                try { return await next(ctx); }
+                finally { inFlight.Exit(); }
+            })
+            .AddEndpointFilter(async (ctx, next) =>
+                HubKey.Matches(settings.Key, ctx.HttpContext.Request.Headers[HubWire.KeyHeader].FirstOrDefault())
+                    ? await next(ctx)
+                    : Results.Json(new { error = "hub_key_required", message = $"Missing or wrong {HubWire.KeyHeader}." }, statusCode: 401));
+
         app.MapPost(HubWire.OperationPath, RunOperationAsync)
             .AddEndpointFilter(async (ctx, next) =>
             {
@@ -100,13 +117,83 @@ public static class HubEndpoints
         ILoggerFactory loggers,
         CancellationToken ct)
     {
-        var started = Stopwatch.StartNew();
+        var (request, error) = await ReadRequestAsync(http, ct);
+        if (error is not null) return error;
+        var (name, result) = await ExecuteAsync(request!, null, dispatcher, dbFactory, ledger, settings, loggers, ct);
+        return Respond(result, name, request!.Output);
+    }
 
+    /// <summary>
+    /// <c>POST /api/stream</c> (IP-T324): runs the operation with an <see cref="SseStreamSink"/> so a
+    /// streaming operation's lines reach the caller as they happen, then sends the usual response
+    /// as the final <c>result</c> event. A closed connection (Ctrl+C) cancels the operation.
+    /// </summary>
+    private static async Task<IResult> RunStreamAsync(
+        HttpContext http,
+        OperationDispatcher dispatcher,
+        IDbContextFactory<AppDbContext> dbFactory,
+        CommandLedgerRepository ledger,
+        HubSettings settings,
+        ILoggerFactory loggers)
+    {
+        var ct = http.RequestAborted;
+        var (request, error) = await ReadRequestAsync(http.Request, ct);
+        if (error is not null) return error;
+
+        http.Response.StatusCode = 200;
+        http.Response.ContentType = "text/event-stream; charset=utf-8";
+        http.Response.Headers.CacheControl = "no-cache";
+        http.Response.Headers["X-Accel-Buffering"] = "no";
+        http.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
+        await http.Response.Body.FlushAsync(ct);
+
+        var sink = new SseStreamSink(http.Response.Body);
+        using var heartbeat = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        var beating = Task.Run(async () =>
+        {
+            try { while (await heartbeat.WaitForNextTickAsync(ct)) await sink.WriteHeartbeatAsync(ct); }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException or ObjectDisposedException) { }
+        }, CancellationToken.None);
+
+        var (name, result) = await ExecuteAsync(request!, sink, dispatcher, dbFactory, ledger, settings, loggers, ct);
+        heartbeat.Dispose();
+        await beating;
+        if (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await sink.WriteEventAsync(HubWire.StreamResultEvent,
+                    JsonSerializer.Serialize(BuildResponse(result, name, request!.Output), OperationJson.Options), ct);
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or IOException) { /* the caller left */ }
+        }
+        return Results.Empty;
+    }
+
+    private static async Task<(HubOperationRequest? Request, IResult? Error)> ReadRequestAsync(HttpRequest http, CancellationToken ct)
+    {
         // The wire contract is OperationJson's (snake_case, kebab-case enums), shared with every client.
         HubOperationRequest? request;
         try { request = await JsonSerializer.DeserializeAsync<HubOperationRequest>(http.Body, OperationJson.Options, ct); }
-        catch (JsonException ex) { return Results.Json(new { error = "bad_request", message = ex.Message }, statusCode: 400); }
-        if (request is null) return Results.Json(new { error = "bad_request", message = "Empty request." }, statusCode: 400);
+        catch (JsonException ex) { return (null, Results.Json(new { error = "bad_request", message = ex.Message }, statusCode: 400)); }
+        if (request is null) return (null, Results.Json(new { error = "bad_request", message = "Empty request." }, statusCode: 400));
+        if (request.Argv is not { Count: > 0 } && string.IsNullOrWhiteSpace(request.Operation))
+            return (null, Results.Json(new { error = "usage", message = "Send argv or operation." }, statusCode: 400));
+        return (request, null);
+    }
+
+    /// <summary>Resolve, log, run and ledger one call; <paramref name="sink"/> is set only for a streaming call.</summary>
+    private static async Task<(string Name, OperationResult Result)> ExecuteAsync(
+        HubOperationRequest request,
+        IStreamSink? sink,
+        OperationDispatcher dispatcher,
+        IDbContextFactory<AppDbContext> dbFactory,
+        CommandLedgerRepository ledger,
+        HubSettings settings,
+        ILoggerFactory loggers,
+        CancellationToken ct)
+    {
+        var started = Stopwatch.StartNew();
 
         // Which operation is this? The CLI sends argv (name first), the MCP server a name + JSON.
         string name;
@@ -114,17 +201,13 @@ public static class HubEndpoints
         if (request.Argv is { Count: > 0 } argv)
         {
             if (!dispatcher.Catalog.TryResolve(argv, out var descriptor, out var tail))
-                return Respond(await dispatcher.DispatchArgvAsync(argv, Invocation(request, null, null), ct), string.Join(' ', argv.Take(2)), request.Output);
+                return (string.Join(' ', argv.Take(2)), await dispatcher.DispatchArgvAsync(argv, Invocation(request, null, null, sink), ct));
             name = descriptor!.Name;
             rest = tail;
         }
-        else if (!string.IsNullOrWhiteSpace(request.Operation))
-        {
-            name = dispatcher.Catalog.Find(request.Operation)?.Name ?? request.Operation;
-        }
         else
         {
-            return Results.Json(new { error = "usage", message = "Send argv or operation." }, statusCode: 400);
+            name = dispatcher.Catalog.Find(request.Operation!)?.Name ?? request.Operation!;
         }
 
         var caller = request.Caller.ToString().ToLowerInvariant();
@@ -134,7 +217,7 @@ public static class HubEndpoints
 
         // Owner: the caller's explicit choice, else the Hub's default, else the lone user.
         var owner = await OwnerResolver.ResolveAsync(dbFactory, request.OwnerId ?? settings.DefaultOwner, ct);
-        var info = Invocation(request, owner.OwnerId, owner.Error);
+        var info = Invocation(request, owner.OwnerId, owner.Error, sink);
 
         var result = rest is not null
             ? await dispatcher.DispatchAsync(name, rest, info, ct)
@@ -159,11 +242,12 @@ public static class HubEndpoints
         loggers.CreateLogger(HubLogs.CommandsCategory).LogInformation(
             "{Caller} {Operation} -> {Status} ({ExitCode}) in {DurationMs}ms{Detail}",
             caller, name, result.Status, result.ExitCode, started.ElapsedMilliseconds, result.IsOk ? "" : ": " + result.Message);
-        return Respond(result, name, request.Output);
+        return (name, result);
     }
 
-    private static OperationInvocation Invocation(HubOperationRequest request, Guid? ownerId, string? ownerError) => new()
+    private static OperationInvocation Invocation(HubOperationRequest request, Guid? ownerId, string? ownerError, IStreamSink? sink = null) => new()
     {
+        Sink = sink,
         Caller = request.Caller,
         Output = request.Output,
         OwnerId = ownerId,
@@ -174,14 +258,16 @@ public static class HubEndpoints
     };
 
     private static IResult Respond(OperationResult result, string name, OutputMode output) =>
-        Results.Json(new HubOperationResponse
-        {
-            Operation = name,
-            Status = result.Status.ToString(),
-            ExitCode = result.ExitCode,
-            Text = result.Render(output),
-            Envelope = JsonSerializer.SerializeToElement(result.ToEnvelope(), OperationJson.Options),
-        }, OperationJson.Options);
+        Results.Json(BuildResponse(result, name, output), OperationJson.Options);
+
+    private static HubOperationResponse BuildResponse(OperationResult result, string name, OutputMode output) => new()
+    {
+        Operation = name,
+        Status = result.Status.ToString(),
+        ExitCode = result.ExitCode,
+        Text = result.Render(output),
+        Envelope = JsonSerializer.SerializeToElement(result.ToEnvelope(), OperationJson.Options),
+    };
 
     private static readonly JsonElement EmptyObject = JsonDocument.Parse("{}").RootElement.Clone();
 

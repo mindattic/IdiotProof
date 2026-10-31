@@ -29,6 +29,9 @@ public sealed record OperationInvocation
 
     /// <summary>Terminal width, when the CLI knows it.</summary>
     public int? Width { get; init; }
+
+    /// <summary>The live line sink for a streaming call (<c>/api/stream</c>); null for one-result calls.</summary>
+    public Streaming.IStreamSink? Sink { get; init; }
 }
 
 /// <summary>
@@ -132,6 +135,7 @@ public sealed class OperationDispatcher(
                 Width = info.Width,
                 ConfirmationCode = info.ConfirmationCode,
                 CancellationToken = ct,
+                Sink = info.Sink,
                 Clock = services.GetService<TimeProvider>() ?? TimeProvider.System,
                 Descriptor = descriptor,
             };
