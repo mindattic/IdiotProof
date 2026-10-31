@@ -22,6 +22,9 @@ public sealed partial class KnowledgeIndex
 
     public IReadOnlyList<KnowledgeEntry> Entries => entries;
 
+    /// <summary>Symbol → <c>path:line</c> and the source text for callers (IP-T263); null when no checkout was scanned.</summary>
+    public SourceMap? Sources { get; set; }
+
     /// <summary>Sources that could not be read (missing file, tickets CLI absent); never fatal.</summary>
     public IReadOnlyList<string> Warnings => warnings;
 

@@ -53,6 +53,7 @@ public sealed partial class KnowledgeIndexBuilder(string repoRoot)
         IndexDocs(index);
         IndexStories(index);
         ct.ThrowIfCancellationRequested();
+        index.Sources = ScanSources(index, ct);
         IndexXmlDocs(index);
         ct.ThrowIfCancellationRequested();
         return index;

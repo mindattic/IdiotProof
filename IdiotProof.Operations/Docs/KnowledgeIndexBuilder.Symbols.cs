@@ -19,14 +19,36 @@ public sealed partial class KnowledgeIndexBuilder
             index.Warn("no IdiotProof XML doc files found (build the solution to produce them)");
             return;
         }
+        var documentedTypes = new HashSet<string>(StringComparer.Ordinal);
         foreach (var m in members)
         {
             var text = m.Remarks.Length == 0 ? m.Summary : $"{m.Summary}\n\n{m.Remarks}";
-            index.Add(new KnowledgeEntry(KnowledgeKind.Symbol, m.MemberId, m.DisplayName, text, m.Assembly + ".xml", 0)
+            var at = index.Sources?.Find(m.FullName);
+            if (m.KindLetter == 'T') documentedTypes.Add(m.FullName);
+            index.Add(new KnowledgeEntry(KnowledgeKind.Symbol, m.MemberId, m.DisplayName, text, at?.Path ?? m.Assembly + ".xml", at?.Line ?? 0)
             {
                 Parent = m.KindLetter == 'T' ? null : "T:" + m.FullName[..Math.Max(0, m.FullName.LastIndexOf('.'))],
             });
         }
+
+        // Undocumented types still get an entry, so `docs explain` can at least say where they live.
+        if (index.Sources is not { } sources) return;
+        foreach (var type in sources.TypeNames.Where(t => !documentedTypes.Contains(t)).ToList())
+        {
+            var at = sources.Find(type)!;
+            index.Add(new KnowledgeEntry(KnowledgeKind.Symbol, "T:" + type, XmlDocs.DisplayName("T:" + type), "", at.Path, at.Line));
+        }
+    }
+
+    /// <summary>IP-T263: symbol → path:line for the whole checkout, scanned once per build.</summary>
+    internal SourceMap? ScanSources(KnowledgeIndex index, CancellationToken ct)
+    {
+        if (!Directory.Exists(RepoRoot))
+        {
+            index.Warn($"source checkout {RepoRoot} not found; symbols have no path:line");
+            return null;
+        }
+        return SourceMap.Scan(RepoRoot, ct);
     }
 
     private IEnumerable<string> DefaultXmlDocDirectories()
