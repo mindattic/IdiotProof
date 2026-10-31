@@ -95,8 +95,9 @@ builder.Services.AddSignalR(o =>
 builder.Services.AddScoped<IOwnerContext, SignedInOwnerContext>();
 // The requesting user's Claude key (their own, then the host's) for Describe, the Gapper
 // transcript reader and Research; resolved per call, never cached across users.
-builder.Services.AddScoped<SignedInClaudeKey>();
-builder.Services.AddScoped<IClaudeKeyContext>(sp => sp.GetRequiredService<SignedInClaudeKey>());
+// The same OwnerClaudeKeyContext the Hub uses, over the signed-in owner above; the resolver
+// takes the user's own key, then the host key from the MindAttic Vault keyring (IP-T330).
+builder.Services.AddScoped<IClaudeKeyContext, OwnerClaudeKeyContext>();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddSingleton<LogAlertService>();
 // Pusher singletons: registered as both injectable singleton and hosted service so

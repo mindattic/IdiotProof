@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using IdiotProof.Blazor.Auth;
 using IdiotProof.Blazor.Data;
 using IdiotProof.Blazor.Services;
 using IdiotProof.Core.Catalogs;
@@ -49,7 +50,7 @@ public sealed class UserClaudeKeyRoutingTests
     public async Task SignedInKey_IsResolvedPerCall_ForWhoeverIsSignedIn()
     {
         ClaimsPrincipal current = SignedIn(Alice);
-        var signedIn = new SignedInClaudeKey(() => Task.FromResult(current), Resolver(HostKey));
+        var signedIn = new OwnerClaudeKeyContext(new SignedInOwnerContext(() => Task.FromResult(current)), Resolver(HostKey));
 
         var asAlice = await signedIn.ResolveAsync();
         current = SignedIn(Bob);
@@ -159,7 +160,7 @@ public sealed class UserClaudeKeyRoutingTests
     // ── Helpers ──
 
     private static Task<SignalVotingCredentials> KeyFor(Guid user, string? hostKey = HostKey) =>
-        new SignedInClaudeKey(() => Task.FromResult(SignedIn(user)), Resolver(hostKey)).ResolveAsync();
+        new OwnerClaudeKeyContext(new SignedInOwnerContext(() => Task.FromResult(SignedIn(user))), Resolver(hostKey)).ResolveAsync();
 
     private static LegionClient Legion(FakeAnthropic vendor) => new(new HttpClient(vendor), options: null);
 

@@ -6,7 +6,7 @@
 @attribute [Authorize]
 @implements IDisposable
 @inject ResearchService ResearchSvc
-@inject SignedInClaudeKey ClaudeKey
+@inject IdiotProof.Core.Identity.IClaudeKeyContext ClaudeKey
 @inject ClaimCorrelationService CorrelationSvc
 @inject AppSettings AppSettings
 @inject AuthenticationStateProvider AuthState
