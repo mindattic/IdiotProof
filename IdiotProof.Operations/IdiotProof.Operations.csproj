@@ -12,6 +12,13 @@
     <InternalsVisibleTo Include="IdiotProof.Operations.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <!-- MailKit's MimeKit pins System.Security.Cryptography.Pkcs transitively at its 10.0.0 floor,
+         inside the vulnerable range for CVE-2026-84008/70162/96958/96959/96960 (NU1902/NU1903),
+         fixed in 10.0.13 — pin to 10.0.14, matching IdiotProof.Core's direct reference. A direct
+         reference wins over the transitive floor. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Core\IdiotProof.Core.csproj" />
     <!-- AsciiCandleChart and friends: the shared ASCII renderers every chart is drawn with. -->
     <ProjectReference Include="..\..\MindAttic.Helpers\MindAttic.Helpers\MindAttic.Helpers.csproj" />

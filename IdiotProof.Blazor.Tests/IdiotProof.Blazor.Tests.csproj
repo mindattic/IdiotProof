@@ -13,6 +13,12 @@
     <PackageReference Include="NUnit" Version="4.3.2" />
     <PackageReference Include="bunit" Version="2.11.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.12" />
+    <!-- MailKit's MimeKit (via the Blazor project reference) pins System.Security.Cryptography.Pkcs
+         transitively at its 10.0.0 floor, inside the vulnerable range for
+         CVE-2026-84008/70162/96958/96959/96960 (NU1902/NU1903), fixed in 10.0.13 — pin to 10.0.14,
+         matching IdiotProof.Core's direct reference. A direct reference wins over the transitive
+         floor. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
     <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
     <PackageReference Include="NUnit.Analyzers" Version="4.7.0">
       <PrivateAssets>all</PrivateAssets>

@@ -8,6 +8,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>IdiotProof.Hub</RootNamespace>
     <AssemblyName>idiotproof-hub</AssemblyName>
+    <!-- The Hub's money-green console window gets its own taskbar/exe icon (IdiotProof.Hub/run.ps1's Desktop shortcut reads it off the exe). -->
+    <ApplicationIcon>..\assets\hub.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="IdiotProof.Hub.Tests" />
@@ -16,6 +18,11 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.*" />
     <!-- The Hub's durable log: %APPDATA%\MindAttic\Logging\IdiotProof.Hub\MindAttic.Log.db (IP-T78). -->
     <PackageReference Include="MindAttic.Log" Version="3.0.0" />
+    <!-- MailKit's MimeKit pins System.Security.Cryptography.Pkcs transitively at its 10.0.0 floor,
+         inside the vulnerable range for CVE-2026-84008/70162/96958/96959/96960 (NU1902/NU1903),
+         fixed in 10.0.13 — pin to 10.0.14, matching IdiotProof.Core's direct reference. A direct
+         reference wins over the transitive floor. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legion voter-panel config (repo root): a deployed host has no repo checkout. -->

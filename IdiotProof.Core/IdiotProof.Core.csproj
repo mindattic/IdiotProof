@@ -37,8 +37,11 @@
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.*" />
     <!-- Microsoft.Data.SqlClient (via EFCore.SqlServer) pins this transitively at 10.0.7, inside
-         the vulnerable range for CVE-2026-50527 (NU1903); first patched in 10.0.10. -->
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
+         the vulnerable range for CVE-2026-50527 (NU1903); first patched in 10.0.10. 10.0.10 itself
+         was later found vulnerable to CVE-2026-84008/70162/96958/96959/96960 (NU1902/NU1903),
+         fixed in 10.0.13 — pin to 10.0.14, the latest 10.x patch, which also lifts the transitive
+         System.Security.Cryptography.Pkcs dependency to 10.0.14. -->
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.14" />
     <!-- Premarket-fade alert emailing (EmailSmsAlertSender) — same email-to-SMS gateway approach as
          MindAttic.Psst, without that assembly's net10.0-windows sound-effect dependency. -->
     <PackageReference Include="MailKit" Version="4.16.0" />

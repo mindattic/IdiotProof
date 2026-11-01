@@ -77,7 +77,13 @@ public static class CoreServiceRegistration
         // ── SQL ──
         var connectionString = ResolveConnectionString(configuration);
         services.AddSingleton(new IdiotProofDatabase(connectionString));
-        services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connectionString));
+        // Retries transient SQL errors (SqlServerTransientExceptionDetector's list includes -2,
+        // the "Execution Timeout Expired" the Monitor's pause-flag poll hit under heavy local
+        // load) instead of surfacing them straight to a caller that already assumes a lost read
+        // just means "not paused" (MonitorPauseFlag.IsPausedAsync). Safe repo-wide: nothing here
+        // opens an explicit BeginTransactionAsync for EF's execution strategy to conflict with.
+        services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connectionString,
+            sql => sql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorNumbersToAdd: null)));
         services.AddScoped<AppDbContext>(sp => sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
         // ── Engine: storage, AppSettings overlay chain, workspaces, audit logger ──
