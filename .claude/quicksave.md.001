@@ -1,0 +1,63 @@
+# Quicksave — post-crash recovery orientation (no mid-work lost)
+_Printed: 2026-10-10_
+
+## Current task
+There is no unfinished work here. The computer crashed with this repo clean except for two
+local commits that had never been pushed to `origin/main`. Both are now pushed. This quicksave
+exists purely so a fresh session typing "do" or "recover" gets real orientation instead of
+"nothing to restore."
+
+## Decisions locked this session
+- Pushed `main` to `origin/main` (was ahead by 2 commits — `2cf530a` and `992a5bc`).
+- This repo already had the quicksave/quickload RECOVER trio (`.claude\commands\quicksave.md`,
+  `.claude\commands\quickload.md`, `.claude\hooks\quickload-on-do.ps1`), byte-identical to the
+  ChiMesh template. Extended the hook's trigger regex from `(do|do it)` to
+  `(do|do it|recover)` so typing "recover" works identically to "do". Matching prose mentions of
+  "do" in all three files now also say "do" or "recover".
+
+## State / where we are
+- `git status`: clean working tree, `main` up to date with `origin/main`.
+- Last 5 commits (most recent first):
+  - `992a5bc` Route Monitor replay pages and ML dataset through MindAttic.Export
+  - `44d06f4` Verify the short-order shape against the Alpaca paper account
+  - `7b0c5d7` Monitor: write the replay archive and dataset into MindAttic.Web
+  - `2cf530a` Use the signed-in user's Claude key for Describe, Gapper transcripts and Research
+  - `87a038d` Keep a user's Claude key on that user's row only
+- IdiotProof turns a plain-English trade idea into a runnable IdiotScript DSL strategy that the
+  `IdiotProof.Monitor` console evaluates 24/7 against live Alpaca data, firing only when all
+  strategy conditions, an LLM voter quorum (via MindAttic.Legion) and the `RiskGuardian` all
+  agree (the three gates, IP-LAW-1). Per `docs/BIBLE.digest.md`: Alpaca-only broker, Sandbox is
+  always the safe default, canonical strategy storage is strict JSON (IdiotScript text is just a
+  human-readable view). Status index: 51 done / 39 partial / 14 planned user stories.
+  `docs/BIBLE.md` is authoritative; this project's own `CLAUDE.md`/`AGENTS.md` forward to the
+  shared `mindattic-agent-standard` protocol and this repo's own docs.
+- Last full test run recorded in the README (2026-10-03, .NET 10 SDK): all projects green,
+  including the large combinatorial `IdiotProof.Strategies.Tests` suite (34,681 passing cases).
+
+## Open questions / pending
+- No open questions from this session — it was pure git hygiene (verify clean, push, wire
+  recover). Nothing was mid-edit when the crash hit.
+
+## Next concrete steps
+1. Re-run the full suite to confirm nothing regressed across the crash: `dotnet build
+   IdiotProof.slnx` then `dotnet test IdiotProof.slnx`.
+2. Consider adopting `MindAttic.Log` here the way Automata and MindAttic.Launcher just did
+   (crash-safety, SQL Server Category column, locale-safe timestamps) — none of the 5
+   crash-recovered repos has it yet, and IdiotProof just finished wiring `MindAttic.Export`
+   (Monitor replay pages + ML dataset), so `MindAttic.Log` is the natural next shared-infra
+   piece to roll in.
+3. Per `docs/USER_STORIES.md`, the next *planned* (not yet started, ⬜) epics are Epic G
+   (strategy ghost overlay + branching visualization — needs a `Chart.razor` component and a
+   candle feed into the UI, neither wired yet) and Epic H (tooling hardening: a Roslyn-based
+   IdiotScript parser with exact line/column diagnostics, replacing the tolerant regex parser).
+   Epic G is the bigger, more valuable one if UI work is next on deck.
+
+## Anchors
+- Files: `docs/BIBLE.md` / `docs/BIBLE.digest.md` (authoritative laws + architecture canon,
+  regenerate via `tools/codex.ps1` — do not hand-edit the digest), `docs/USER_STORIES.md`
+  (epic/story status), `README.md`, `AGENTS.md`.
+- Names / ids: `IdiotProof.Monitor` (24/7 evaluator), `RiskGuardian`, `StrategyScriptGenerator`
+  (Describe tab, reflects the real DSL types per IP-LAW-4), `legion.json` (LLM voter panel
+  config), Epic G / Epic H in USER_STORIES.md.
+- Commands to re-run: `dotnet build IdiotProof.slnx`; `dotnet test IdiotProof.slnx`;
+  `dotnet run --project IdiotProof.Blazor`; `dotnet run --project IdiotProof.Monitor`.
