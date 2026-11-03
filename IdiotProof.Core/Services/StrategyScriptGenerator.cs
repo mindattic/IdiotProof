@@ -19,6 +19,8 @@ namespace IdiotProof.Core.Services;
 /// </summary>
 public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings appSettings, ILogger<StrategyScriptGenerator> logger)
 {
+    internal const string UnsupportedMarker = "UNSUPPORTED:";
+
     /// <summary>
     /// Single-shot generation. Returns the raw IdiotScript text Claude produced,
     /// stripped of any explanatory prose / fence markers. Caller is responsible
@@ -51,6 +53,10 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
             var script = StripCodeFence(content).Trim();
             if (string.IsNullOrWhiteSpace(script))
                 return new GenerationResult(false, "", "LLM returned an empty response.");
+            if (script.StartsWith(UnsupportedMarker, StringComparison.OrdinalIgnoreCase))
+                return new GenerationResult(false, "",
+                    "The DSL can't express part of this request, so no strategy was made: "
+                    + script[UnsupportedMarker.Length..].Trim());
 
             return new GenerationResult(true, script, null);
         }
@@ -188,7 +194,17 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         sb.AppendLine("Static `Conditions` catalog (for use inside .If / .ElseIf branching expressions):");
         AppendVerbCatalog(sb, typeof(Conditions), staticOnly: true);
         sb.AppendLine();
-        sb.AppendLine("If the user's description is ambiguous, prefer conservative defaults: paper-mode-friendly, RTH session, ADX>20 regime filter, simple Long/Short, fixed-price stop and target. If a verb the user implies isn't in the catalog, pick the closest existing verb.");
+        sb.AppendLine("Dip-then-reclaim example (\"buy once it dips to 275.60 or below, then reclaims 276.10, with 2 higher lows\"):");
+        sb.AppendLine("  Stock.Ticker(\"GOOG\")");
+        sb.AppendLine("      .DippedTo(275.60)");
+        sb.AppendLine("      .BreaksAbove(276.10)");
+        sb.AppendLine("      .HigherLows(2)");
+        sb.AppendLine("      .Long()");
+        sb.AppendLine("      .StopLossPercent(8)");
+        sb.AppendLine("      .Build();");
+        sb.AppendLine();
+        sb.AppendLine("If the user's description is ambiguous about a setting it does not mention, prefer conservative defaults: paper-mode-friendly, RTH session, ADX>20 regime filter, simple Long/Short, fixed-price stop and target.");
+        sb.AppendLine($"NEVER drop, weaken or approximate a condition the user stated. Every price level, count, order of events and threshold they gave must appear in the chain. If any part of the request cannot be expressed with the catalog verbs, output nothing but one line starting with `{UnsupportedMarker}` that names the part that cannot be expressed.");
         return sb.ToString();
     }
 

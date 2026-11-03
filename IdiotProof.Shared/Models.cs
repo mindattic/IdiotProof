@@ -129,6 +129,21 @@ public sealed class IndicatorSnapshot
     public bool? HasHigherLow { get; set; }
     public bool? HasLowerHigh { get; set; }
 
+    /// <summary>
+    /// How many pivot lows in a row each sat above the one before, counted back from the newest
+    /// pivot (0 = the newest pivot is not a higher low). A chain that runs up out of a dip starts at
+    /// the dip's own pivot, since the dip is lower than anything before it. Null until a pivot exists.
+    /// Used by HigherLows(n).
+    /// </summary>
+    public int? ConsecutiveHigherLows { get; set; }
+
+    /// <summary>
+    /// Lowest low of the bars in the window that share the newest bar's ET calendar day: the
+    /// session-so-far low (premarket included) in the backtesters, bounded by the trailing 4-hour
+    /// window in the Monitor. Comes from the candle feed, not SQL. Used by DippedTo(level).
+    /// </summary>
+    public double? SessionLow { get; set; }
+
     // RSI
     public double? Rsi { get; set; }
     public bool? HasBullishDivergence { get; set; }

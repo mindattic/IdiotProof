@@ -146,6 +146,8 @@ public static class StrategyNarrator
             IndicatorType.RsiBearishDivergence => "RSI shows a bearish divergence",
             IndicatorType.HigherLow => "price has made a higher low",
             IndicatorType.LowerHigh => "price has made a lower high",
+            IndicatorType.HigherLows => $"price has made at least {p1 ?? "?"} higher lows in a row",
+            IndicatorType.DippedTo => $"price has traded at or below {(i.Parameter is { } d ? $"${Num(d)}" : "?")} at some point today",
             IndicatorType.MacdBullish => "MACD is bullish (above its signal line)",
             IndicatorType.MacdBearish => "MACD is bearish (below its signal line)",
             IndicatorType.GapUp => $"it gapped up at least {(i.Parameter is { } g ? Pct(g) : "3%")}",

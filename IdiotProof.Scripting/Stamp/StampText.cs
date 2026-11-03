@@ -92,6 +92,8 @@ internal static class StampText
             IndicatorType.RsiBearishDivergence => "bearish RSI divergence",
             IndicatorType.HigherLow => "higher low printed",
             IndicatorType.LowerHigh => "lower high printed",
+            IndicatorType.HigherLows => $"{P(1)} higher lows in a row",
+            IndicatorType.DippedTo => $"traded at or below {P(0)} today",
             IndicatorType.MacdBullish => "MACD above its signal line",
             IndicatorType.MacdBearish => "MACD below its signal line",
             IndicatorType.GapUp => $"gapped up at least {Pct(p ?? 3)}",

@@ -98,6 +98,10 @@ public static class ScriptParser
             // meant the strategy did not do what its name/script said.
             case "ishigherlow": b.IsHigherLow(); break;
             case "islowerhigh": b.IsLowerHigh(); break;
+            case "higherlows": case "ishigherlows":
+                if (nums.Count >= 1) b.HigherLows((int)nums[0]); else b.IsHigherLow(); break;
+            case "dippedto": case "hasdippedto":
+                if (nums.Count >= 1) b.DippedTo((double)nums[0]); break;
 
             // RSI
             case "isrsioversold":          b.IsRsiOversold(nums.Count >= 1 ? (double)nums[0] : 30); break;

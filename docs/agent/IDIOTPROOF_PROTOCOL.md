@@ -51,6 +51,14 @@ idiotproof agent bootstrap --json     # the same, machine-readable
 7. **Read before you write.** Prefer read operations (`list`, `show`, `status`, `preview`) to
    answer questions. Use `--json` when you will parse the output; show people the human text.
 8. **No secrets in chat.** For `keys set`, pass `--secret -` so the value is read from stdin; never echo a key back.
+9. **A strategy says everything the person said, or it isn't made.** Every price level, count,
+   order of events ("dips to X, *then* reclaims Y") and threshold in the request must appear in
+   the script. Before `strategy create`, put each part of the request next to the verb that
+   carries it. If any part has no verb (check `dsl verbs`), tell the person which part can't be
+   expressed and stop. Never arm a strategy that drops, weakens or approximates a condition,
+   and never swap in a "closest" verb without the person's explicit yes to the weaker version.
+   Example: "dips to 275.60, then reclaims 276.10, with at least 2 higher lows" is
+   `.DippedTo(275.60).BreaksAbove(276.10).HigherLows(2)`, not `.BreaksAbove(276.10).IsHigherLow()`.
 
 ## 3. Intent → operation
 

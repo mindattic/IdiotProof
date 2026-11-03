@@ -449,6 +449,24 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>At least <paramref name="count"/> higher lows in a row: each of the last
+    /// count+1 pivot lows sits above the one before. A chain rising out of a dip starts at
+    /// the dip, so these are the higher lows of the bounce.</summary>
+    public StrategyBuilder HigherLows(int count)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.HigherLows, count));
+        return this;
+    }
+
+    /// <summary>Sticky dip gate: true once price has traded at or below <paramref name="price"/>
+    /// at any point today (ET, premarket included) and stays true for the rest of the day.
+    /// Pair it with BreaksAbove for "dip to X, then reclaim Y".</summary>
+    public StrategyBuilder DippedTo(double price)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.DippedTo, price));
+        return this;
+    }
+
     /// <summary>Newest pivot high below the prior pivot high — a lower high
     /// (weakening rally), the failed-high short tell.</summary>
     public StrategyBuilder IsLowerHigh()
@@ -1047,7 +1065,8 @@ public enum IndicatorType
     MacdBullish, MacdBearish,
     GapUp, GapDown,
     VolumeAbove,
-    AtSupport, AtResistance
+    AtSupport, AtResistance,
+    HigherLows, DippedTo
 }
 
 /// <summary>
@@ -1179,6 +1198,8 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
             IndicatorType.VolumeAbove          => "IsVolumeAbove",
             IndicatorType.AtSupport            => "IsAtSupport",
             IndicatorType.AtResistance         => "IsAtResistance",
+            IndicatorType.HigherLows           => "HigherLows",
+            IndicatorType.DippedTo             => "DippedTo",
             _                                  => $"Is{Type}"
         };
 
@@ -1254,6 +1275,10 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
                                               && Math.Abs((s.Price - sl) / sl) * 100.0 <= (Parameter ?? 0.5),
         IndicatorType.AtResistance       => s.RecentSwingHigh is { } sh
                                               && Math.Abs((s.Price - sh) / sh) * 100.0 <= (Parameter ?? 0.5),
+        IndicatorType.HigherLows         => Parameter is { } need && need >= 1
+                                              && s.ConsecutiveHigherLows is { } rising && rising >= (int)need,
+        IndicatorType.DippedTo           => Parameter is { } dipLevel
+                                              && s.SessionLow is { } sessionLow && sessionLow <= dipLevel,
         // Fail closed on anything unrecognized: a condition this evaluator
         // doesn't understand must block the fire, never wave it through
         // (IP-LAW-1 — same doctrine as the gap conditions above).
@@ -1818,6 +1843,8 @@ public sealed class ConditionFactory
     public ICondition IsRsiBullishDivergence() => new IndicatorCondition(IndicatorType.RsiBullishDivergence);
     public ICondition IsRsiBearishDivergence() => new IndicatorCondition(IndicatorType.RsiBearishDivergence);
     public ICondition IsHigherLow() => new IndicatorCondition(IndicatorType.HigherLow);
+    public ICondition HigherLows(int count) => new IndicatorCondition(IndicatorType.HigherLows, count);
+    public ICondition DippedTo(double price) => new IndicatorCondition(IndicatorType.DippedTo, price);
     public ICondition IsLowerHigh() => new IndicatorCondition(IndicatorType.LowerHigh);
     public ICondition IsMacdBullish() => new IndicatorCondition(IndicatorType.MacdBullish);
     public ICondition IsMacdBearish() => new IndicatorCondition(IndicatorType.MacdBearish);
@@ -1888,6 +1915,8 @@ public static class Conditions
     public static ICondition IsRsiBullishDivergence => new IndicatorCondition(IndicatorType.RsiBullishDivergence);
     public static ICondition IsRsiBearishDivergence => new IndicatorCondition(IndicatorType.RsiBearishDivergence);
     public static ICondition IsHigherLow => new IndicatorCondition(IndicatorType.HigherLow);
+    public static ICondition HigherLows(int count) => new IndicatorCondition(IndicatorType.HigherLows, count);
+    public static ICondition DippedTo(double price) => new IndicatorCondition(IndicatorType.DippedTo, price);
     public static ICondition IsLowerHigh => new IndicatorCondition(IndicatorType.LowerHigh);
 
     // ── MACD ──

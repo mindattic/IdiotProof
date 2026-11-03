@@ -1,5 +1,6 @@
 using IdiotProof.Indicators;
 using IdiotProof.Models;
+using IdiotProof.Scripting;
 using IdiotProof.Shared;
 
 namespace IdiotProof.Strategies;
@@ -80,6 +81,20 @@ public static class IndicatorSnapshotBuilder
         }
         snapshot.WindowHigh = (double)winHi;
         snapshot.WindowLow = (double)winLo;
+
+        // Session-so-far low: only bars on the newest bar's ET day, so yesterday's after-hours
+        // can't satisfy today's DippedTo.
+        var sessionDay = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.SpecifyKind(lastBar.EndUtc, DateTimeKind.Utc), MarketTime.Eastern));
+        decimal sessLo = decimal.MaxValue;
+        for (int i = n - 1; i >= 0; i--)
+        {
+            var day = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(
+                DateTime.SpecifyKind(candles[i].EndUtc, DateTimeKind.Utc), MarketTime.Eastern));
+            if (day != sessionDay) break;
+            if (candles[i].Low < sessLo) sessLo = candles[i].Low;
+        }
+        snapshot.SessionLow = sessLo == decimal.MaxValue ? null : (double)sessLo;
 
         // VWAP
         var vwap = VWAP.Calculate(candles);
@@ -181,6 +196,7 @@ public static class IndicatorSnapshotBuilder
             if (n > 2 * piv + 1)
             {
                 decimal? oldLo = null, newLo = null, oldHi = null, newHi = null;
+                int? risingLows = null;
                 for (int i = piv; i < n - piv; i++)
                 {
                     bool isLow = true, isHigh = true;
@@ -189,11 +205,16 @@ public static class IndicatorSnapshotBuilder
                         if (candles[j].Low  < candles[i].Low)  isLow  = false;
                         if (candles[j].High > candles[i].High) isHigh = false;
                     }
-                    if (isLow)  { oldLo = newLo; newLo = candles[i].Low; }
+                    if (isLow)
+                    {
+                        risingLows = newLo is { } prevLo && candles[i].Low > prevLo ? (risingLows ?? 0) + 1 : 0;
+                        oldLo = newLo; newLo = candles[i].Low;
+                    }
                     if (isHigh) { oldHi = newHi; newHi = candles[i].High; }
                 }
                 if (oldLo is { } a && newLo is { } b) snapshot.HasHigherLow = b > a;
                 if (oldHi is { } c && newHi is { } d) snapshot.HasLowerHigh = d < c;
+                snapshot.ConsecutiveHigherLows = risingLows;
 
                 // RSI divergence — reuse the same pivot scan but also track RSI
                 // at each pivot. Classic divergence: price and RSI disagree at

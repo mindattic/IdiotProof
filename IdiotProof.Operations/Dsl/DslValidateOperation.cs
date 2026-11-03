@@ -108,6 +108,10 @@ public sealed class DslValidateOperation : IOperation<DslTextArgs>
             catch (Exception ex) when (ex is not OperationCanceledException) { script = c.GetType().Name + " (" + ex.Message + ")"; }
             if (!PreFirePhases.Contains(c.Phase))
                 yield return new("error", c.Phase.ToString(), "phase", $"{script} is a {c.Phase} verb but sits with the entry conditions; only Filters and Entry are checked before a fire");
+            if (c is IndicatorCondition { Type: IndicatorType.HigherLows, Parameter: var hl } && (hl is null || hl < 1 || hl != Math.Floor(hl.Value)))
+                yield return new("error", c.Phase.ToString(), "count", $"{script} needs a whole count of 1 or more: it would never pass");
+            if (c is IndicatorCondition { Type: IndicatorType.DippedTo, Parameter: var dip } && dip is not > 0)
+                yield return new("error", c.Phase.ToString(), "level", $"{script} needs a positive price level: it would never pass");
             if (DslGlossary.Find(DslVerbsOperation.NameOf(script)) is null)
                 yield return new("warn", c.Phase.ToString(), "glossary", $"{DslVerbsOperation.NameOf(script)} has no glossary entry (it won't be explained on the strategy card)");
         }

@@ -82,6 +82,10 @@ public static class DslGlossary
         // ── Swing structure ──────────────────────────────────────────────────
         ["IsHigherLow"] = new("IsHigherLow", "bi-graph-up-arrow", Green, "Higher Low",
             "The newest swing low sits above the prior swing low — \"the bottom is likely in,\" a double-bottom buy tell."),
+        ["HigherLows"] = new("HigherLows", "bi-bar-chart-steps", Green, "Higher Lows",
+            "At least N higher lows in a row: each of the last N+1 swing lows sits above the one before. A chain rising out of a dip starts at the dip, so these are the bounce's higher lows."),
+        ["DippedTo"] = new("DippedTo", "bi-arrow-down-circle", Green, "Dipped To",
+            "Sticky dip gate: price has traded at or below this level at some point today (ET, premarket included) and the gate stays true for the rest of the day. Pair with BreaksAbove for \"dip to X, then reclaim Y\"."),
         ["IsLowerHigh"] = new("IsLowerHigh", "bi-graph-down-arrow", Red, "Lower High",
             "The newest swing high sits below the prior swing high — a weakening rally, the failed-high short tell."),
         ["IsAtSupport"] = new("IsAtSupport", "bi-shield-check", Green, "At Support",
