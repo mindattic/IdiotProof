@@ -327,6 +327,54 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
         };
     }
 
+    public bool SupportsOrderQueries => true;
+
+    public async Task<IReadOnlyList<BrokerOrder>> GetOrdersAsync(string symbol, bool openOnly, DateTime? afterUtc = null, CancellationToken ct = default)
+    {
+        var query = $"/v2/orders?status={(openOnly ? "open" : "all")}&limit=100&direction=desc&nested=false&symbols={Uri.EscapeDataString(symbol.Trim().ToUpperInvariant())}";
+        if (afterUtc is { } after)
+            query += "&after=" + Uri.EscapeDataString(after.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture));
+        using var response = await httpClient.GetAsync(query, ct).ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Alpaca orders request failed ({(int)response.StatusCode} {response.StatusCode}): {Clip(content)}");
+        return ParseOrders(content);
+    }
+
+    internal static IReadOnlyList<BrokerOrder> ParseOrders(string json)
+    {
+        static string? Str(JsonElement e, string name) =>
+            e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        static decimal? Dec(JsonElement e, string name) =>
+            Str(e, name) is { } s && decimal.TryParse(s, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;
+        static DateTime? Utc(JsonElement e, string name) =>
+            Str(e, name) is { } s && DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var t) ? t : null;
+
+        using var doc = JsonDocument.Parse(json);
+        var orders = new List<BrokerOrder>();
+        if (doc.RootElement.ValueKind != JsonValueKind.Array) return orders;
+        foreach (var o in doc.RootElement.EnumerateArray())
+        {
+            orders.Add(new BrokerOrder
+            {
+                Id = Str(o, "id") ?? "",
+                ClientOrderId = Str(o, "client_order_id"),
+                Symbol = Str(o, "symbol") ?? "",
+                Side = string.Equals(Str(o, "side"), "buy", StringComparison.OrdinalIgnoreCase) ? OrderSide.Buy : OrderSide.Sell,
+                Type = Str(o, "type") ?? Str(o, "order_type") ?? "",
+                Status = Str(o, "status") ?? "",
+                Quantity = Dec(o, "qty") ?? 0m,
+                FilledQuantity = Dec(o, "filled_qty") ?? 0m,
+                FilledAvgPrice = Dec(o, "filled_avg_price"),
+                StopPrice = Dec(o, "stop_price"),
+                SubmittedUtc = Utc(o, "submitted_at"),
+                FilledUtc = Utc(o, "filled_at"),
+            });
+        }
+        return orders;
+    }
+
     private static (int Ok, int Failed) CountCancelStatuses(string content)
     {
         try

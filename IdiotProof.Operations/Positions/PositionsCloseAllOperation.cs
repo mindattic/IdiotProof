@@ -28,7 +28,10 @@ public sealed class PositionsCloseAllOperation : IOperation<PositionsCloseAllArg
         var plans = positions.OrderBy(p => p.Symbol, StringComparer.Ordinal)
             .Select(p => PositionExits.Plan(owner, args.Mode, p, null, null, $"{caller} positions close-all"))
             .ToList();
-        var before = args.CancelOrders ? new[] { PositionExits.CancelAllOrders(owner, args.Mode, $"{caller} positions close-all --cancel-orders") } : [];
+        IReadOnlyList<OrderIntent> before = args.CancelOrders
+            ? [PositionExits.CancelAllOrders(owner, args.Mode, $"{caller} positions close-all --cancel-orders")]
+            : await PositionExits.ProtectiveStopCancelsAsync(ctx, owner, args.Mode,
+                plans.Where(p => p.Intent is not null).Select(p => p.Position.Symbol), $"{caller} positions close-all");
         return await PositionExits.RunAsync(plans, args.Mode, args.Preview,
             $"close all{(args.CancelOrders ? " + cancel orders" : "")} · {args.Mode}", ctx, before);
     }

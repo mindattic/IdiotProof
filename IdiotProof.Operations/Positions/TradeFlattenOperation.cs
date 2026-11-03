@@ -44,8 +44,10 @@ public sealed class TradeFlattenOperation : IOperation<TradeFlattenArgs>
             if (held is null)
                 return OperationResult.Ok(new { s.Id, closed = 0, booked = s.PositionQty },
                     $"{s.Symbol} '{s.Title}' books {s.PositionQty} shares but the {mode} account holds none — nothing to sell. See `idiotproof positions reconcile`.");
-            var plan = PositionExits.Plan(owner, mode, held, s.PositionQty, s.Id, $"{caller} flatten strategy {StrategyRefs.ShortGuid(s.Id)} {s.Symbol}");
-            return await PositionExits.RunAsync([plan], mode, args.Preview, $"flatten strategy {StrategyRefs.ShortGuid(s.Id)} {s.Symbol} · {mode}", ctx);
+            var note = $"{caller} flatten strategy {StrategyRefs.ShortGuid(s.Id)} {s.Symbol}";
+            var plan = PositionExits.Plan(owner, mode, held, s.PositionQty, s.Id, note);
+            var before = await PositionExits.ProtectiveStopCancelsAsync(ctx, owner, mode, [s.Symbol], note);
+            return await PositionExits.RunAsync([plan], mode, args.Preview, $"flatten strategy {StrategyRefs.ShortGuid(s.Id)} {s.Symbol} · {mode}", ctx, before);
         }
 
         var accountMode = args.Mode ?? BrokerMode.Paper;
@@ -56,13 +58,16 @@ public sealed class TradeFlattenOperation : IOperation<TradeFlattenArgs>
             if (held is null)
                 return OperationResult.Ok(new { symbol, closed = 0 }, $"The {accountMode} account holds no {symbol}; already flat.");
             var plan = PositionExits.Plan(owner, accountMode, held, null, null, $"{caller} flatten {symbol}");
-            return await PositionExits.RunAsync([plan], accountMode, args.Preview, $"flatten {symbol} · {accountMode}", ctx);
+            var stopCancels = await PositionExits.ProtectiveStopCancelsAsync(ctx, owner, accountMode, [symbol], $"{caller} flatten {symbol}");
+            return await PositionExits.RunAsync([plan], accountMode, args.Preview, $"flatten {symbol} · {accountMode}", ctx, stopCancels);
         }
 
         var positions = await BrokerPositions.ListAsync(ctx, owner, accountMode);
         var plans = positions.OrderBy(p => p.Symbol, StringComparer.Ordinal)
             .Select(p => PositionExits.Plan(owner, accountMode, p, null, null, $"{caller} flatten all"))
             .ToList();
-        return await PositionExits.RunAsync(plans, accountMode, args.Preview, $"flatten all · {accountMode}", ctx);
+        var allCancels = await PositionExits.ProtectiveStopCancelsAsync(ctx, owner, accountMode,
+            plans.Where(p => p.Intent is not null).Select(p => p.Position.Symbol), $"{caller} flatten all");
+        return await PositionExits.RunAsync(plans, accountMode, args.Preview, $"flatten all · {accountMode}", ctx, allCancels);
     }
 }

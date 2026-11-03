@@ -337,6 +337,27 @@ public static class MonitorCli
                 continue;
             }
 
+            // The Monitor's broker-side protective stop (IP-T360) holds these shares: withdraw it first.
+            if (broker.SupportsOrderQueries)
+            {
+                var stops = (await broker.GetOrdersAsync(sym, openOnly: true)).Where(o => ProtectiveStops.Belongs(o, st.Id)).ToList();
+                var stopsLeft = false;
+                foreach (var stop in stops)
+                {
+                    var cancel = await IdiotProof.Core.Trading.GatewayConsole.SubmitAsync(gateway,
+                        ProtectiveStops.Cancel(userId.Value, st.Id, IdiotProof.Core.Trading.OrderIntent.ParseMode(st.BrokerMode),
+                            IdiotProof.Core.Trading.OrderOrigin.Flatten, sym, stop.Id, "monitor flatten"),
+                        "monitor-cli", IdiotProof.Core.Trading.GatewayConsole.ReadLineIfInteractive, Line);
+                    stopsLeft |= cancel.Status != IdiotProof.Core.Trading.GatewayStatus.Placed;
+                }
+                if (stopsLeft)
+                {
+                    Line($"  ✗ {sym} \"{st.Title}\" [{st.BrokerMode}] — its broker-side protective stop is still working; not flattened.");
+                    continue;
+                }
+                if (stops.Count > 0) await Task.Delay(500);
+            }
+
             var refPx = bp is not null && bp.Quantity != 0m ? bp.MarketValue / bp.Quantity : (st.LastEntryPrice ?? 0m);
             // Same order shape as the Monitor's own exit path: marketable limit
             // (sell -0.5% / buy back +0.5%) with a *_to_close intent, so a

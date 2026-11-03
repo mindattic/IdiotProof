@@ -1,3 +1,5 @@
+using IdiotProof.Brokers;
+using IdiotProof.Core.Monitoring;
 using IdiotProof.Core.Trading;
 using IdiotProof.Models;
 using IdiotProof.Operations.Rendering;
@@ -77,6 +79,42 @@ public static class PositionExits
         Note = note,
         Order = new OrderRequest { Symbol = "*", TimeInForce = "DAY" },
     };
+
+    /// <summary>
+    /// Cancels for the Monitor's broker-side protective stops (IP-T360) resting on
+    /// <paramref name="symbols"/>. A resting stop holds the shares, so a close would be refused for held
+    /// quantity — and, left behind, it would rest against a position that no longer exists. They run
+    /// ahead of the exits and ride on the same Live code.
+    /// </summary>
+    public static async Task<List<OrderIntent>> ProtectiveStopCancelsAsync(OperationContext ctx, Guid owner, BrokerMode mode,
+        IEnumerable<string> symbols, string note)
+    {
+        var wanted = symbols.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim().ToUpperInvariant()).Distinct().ToList();
+        if (wanted.Count == 0) return [];
+        System.Text.Json.JsonElement root;
+        try
+        {
+            await using var api = await ctx.Get<AlpacaApiFactory>().ForOwnerAsync(owner, mode, ctx.CancellationToken);
+            root = await api.GetAsync("/v2/orders",
+                new Dictionary<string, string?> { ["status"] = "open", ["limit"] = "500", ["nested"] = "false", ["symbols"] = string.Join(",", wanted) },
+                ctx.CancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Never block a close on an order listing: at worst the broker refuses it for held shares.
+            return [];
+        }
+        if (root.ValueKind != System.Text.Json.JsonValueKind.Array) return [];
+        var cancels = new List<OrderIntent>();
+        foreach (var o in root.EnumerateArray())
+        {
+            string? Str(string name) => o.TryGetProperty(name, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
+            if (Str("id") is not { Length: > 0 } id || Str("client_order_id") is not { } clientId) continue;
+            if (!ProtectiveStops.IsProtectiveStop(new BrokerOrder { ClientOrderId = clientId })) continue;
+            cancels.Add(ProtectiveStops.Cancel(owner, null, mode, OrderOrigin.Flatten, Str("symbol") ?? "", id, note));
+        }
+        return cancels;
+    }
 
     /// <summary>
     /// Previews, places, or (Live) gates the exits behind a confirmation code. <paramref name="what"/>

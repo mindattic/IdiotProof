@@ -115,6 +115,11 @@ public sealed class MonitorWorker(
     // Throttle live-bar writes: write at most once every 10 seconds per strategy
     // (the Monitor evaluates every 1s; writing every tick would hammer the DB).
     private readonly Dictionary<Guid, DateTime> lastBarWrite = new();
+
+    private ProtectiveStopKeeper? protectiveStopKeeper;
+
+    /// <summary>Broker-side protective stops (IP-T360); its orders pass the same leader check as entries and exits.</summary>
+    private ProtectiveStopKeeper ProtectiveStopsKeeper => protectiveStopKeeper ??= new(gateway, orderRouting, logger, LeaseHeldAsync);
     private readonly CrossTriggerMemory crossMemory = new();
 
     /// <summary>
@@ -1358,7 +1363,14 @@ public sealed class MonitorWorker(
             }
         }
 
-        if (decision is null) return;
+        var holding = new ProtectedHolding(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, stored.Title,
+            def.Direction, stored.PositionQty, (decimal)entry, filledUtc, def);
+        if (decision is null)
+        {
+            if (await ProtectiveStopsKeeper.EnsureAsync(holding, ct) is { } stoppedOut)
+                await RecordBrokerStopOutAsync(stored, def.Direction, entry, stoppedOut, ct);
+            return;
+        }
 
         // Never place the flatten while the market can't take it: a SellBy
         // decision trips every tick all weekend AND overnight (nowEt >= sellBy
@@ -1388,6 +1400,21 @@ public sealed class MonitorWorker(
         // account the exit order goes to.
         var exitMode = IdiotProof.Core.Trading.OrderIntent.ParseMode(stored.BrokerMode);
         var broker = await orderRouting.ResolveAsync(stored.OwnerUserId, exitMode, ct);
+
+        // The broker-side protective stop holds the shares: withdraw it first, so the exit can't be
+        // refused for held quantity and the two can never both close the position.
+        var withdrawal = await ProtectiveStopsKeeper.WithdrawAsync(holding, ct);
+        if (withdrawal.FilledStop is { } alreadyStopped)
+        {
+            await RecordBrokerStopOutAsync(stored, direction, entry, alreadyStopped, ct);
+            return;
+        }
+        if (!withdrawal.Clear)
+        {
+            await progressRepo.UpsertAsync(stored.Id, 1, 1,
+                $"(holding {stored.PositionQty} @ {entry:F2} — exit {decision.Reason} waits for the broker stop to cancel)", ct);
+            return;
+        }
 
         // Reconcile with the broker BEFORE selling. Entry bookkeeping records
         // the fill optimistically when the order is ACCEPTED, so an unfilled
@@ -1511,6 +1538,7 @@ public sealed class MonitorWorker(
         else
         {
             await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), exitUtc, ct);
+            ProtectiveStopsKeeper.Forget(stored.Id);
             var exitCategory = decision.Reason switch
             {
                 GapperExitReason.StopLoss     => "exit-sl",
@@ -1543,6 +1571,45 @@ public sealed class MonitorWorker(
             broker.BrokerType.ToString(), broker.IsPaper, order.BrokerOrderId, exitUtc,
             isPartialExit ? $"{decision.Reason} (partial, {remainingQty} left)  -  P&L {pnlText}"
                           : $"{decision.Reason}  -  P&L {pnlText}");
+    }
+
+    /// <summary>
+    /// Books a position the broker-side protective stop already closed (IP-T360) — typically while
+    /// the Monitor or its database was down — as a StopLoss exit at the stop's fill, so the strategy
+    /// re-arms and the P&amp;L reaches the daily circuit breaker. A filled stop was sized to the whole
+    /// booked position, so it closes it.
+    /// </summary>
+    private async Task RecordBrokerStopOutAsync(IdiotProof.Core.Data.Strategy stored, TradeDirection direction, double entry,
+        BrokerOrder stop, CancellationToken ct)
+    {
+        var qty = (int)Math.Min(stored.PositionQty, Math.Floor(stop.FilledQuantity));
+        var price = stop.FilledAvgPrice ?? stop.StopPrice ?? (decimal)entry;
+        var exitUtc = stop.FilledUtc ?? DateTime.UtcNow;
+        var realized = DirectionalOrders.RealizedPnl(direction, (decimal)entry, price, qty);
+        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
+        guardian?.RecordTradePnL(realized);
+
+        if (qty < stored.PositionQty)
+            logger.LogWarning("[{Title}] {Symbol} protective stop filled {Qty} of {Booked} booked shares; closing the bookkeeping — check the broker position.",
+                stored.Title, stored.Symbol, qty, stored.PositionQty);
+        await strategyRepo.RecordExitFillAsync(stored.Id, price, GapperExitReason.StopLoss.ToString(), exitUtc, ct);
+        ProtectiveStopsKeeper.Forget(stored.Id);
+        stored.PositionQty = 0;
+        var exitSide = DirectionalOrders.SideLabel(DirectionalOrders.ExitSide(direction));
+        await LogAuditAsync("exit-sl",
+            $"[{stored.Title}] {exitSide} {qty} {stored.Symbol} @ {price:F2} — StopLoss: broker-side protective stop filled " +
+            $"(P&L {realized:+0.00;-0.00}, order {stop.Id})",
+            userId: stored.OwnerUserId, ct: ct);
+        try
+        {
+            await tradeDiary.CloseAsync(stored.Id, price, GapperExitReason.StopLoss.ToString(), stop.Id, realized, qty, exitUtc, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[{Title}] trade-diary CLOSE failed (trade unaffected).", stored.Title);
+        }
+        logger.LogInformation("[{Title}] ✓ broker stop {Side} {Qty} {Symbol} @ {Price:F2} — StopLoss (P&L {Pnl:+0.00;-0.00})",
+            stored.Title, exitSide, qty, stored.Symbol, price, realized);
     }
 
     // ── Active-strategy roster echo ─────────────────────────────────────

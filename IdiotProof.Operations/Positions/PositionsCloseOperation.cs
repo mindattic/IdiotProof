@@ -45,7 +45,9 @@ public sealed class PositionsCloseOperation : IOperation<PositionsCloseArgs>
         if (want > held) throw OperationException.Usage($"The {args.Mode} account holds {Fmt.Number(held)} {symbol}; --qty {Fmt.Number(want.Value)} is more than that.");
 
         var what = args.Percentage is { } p ? $"{Fmt.Number(p)}% of" : args.Quantity is { } q ? $"{Fmt.Number(q)} of" : "all of";
-        var plan = PositionExits.Plan(owner, args.Mode, position, want, null, $"{ctx.Caller.ToString().ToLowerInvariant()} positions close {what} {symbol}");
-        return await PositionExits.RunAsync([plan], args.Mode, args.Preview, $"close {what} {symbol} · {args.Mode}", ctx);
+        var note = $"{ctx.Caller.ToString().ToLowerInvariant()} positions close {what} {symbol}";
+        var plan = PositionExits.Plan(owner, args.Mode, position, want, null, note);
+        var before = await PositionExits.ProtectiveStopCancelsAsync(ctx, owner, args.Mode, [symbol], note);
+        return await PositionExits.RunAsync([plan], args.Mode, args.Preview, $"close {what} {symbol} · {args.Mode}", ctx, before);
     }
 }

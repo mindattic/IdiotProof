@@ -200,6 +200,33 @@ public sealed class OrderResult
     public string? Message { get; init; }
 }
 
+/// <summary>One order as the broker reports it (Alpaca <c>GET /v2/orders</c>): enough to find, size and reconcile it.</summary>
+public sealed class BrokerOrder
+{
+    public string Id { get; init; } = string.Empty;
+    public string? ClientOrderId { get; init; }
+    public string Symbol { get; init; } = string.Empty;
+    public OrderSide Side { get; init; }
+    /// <summary>Broker order type as sent on the wire: "market", "limit", "stop", "stop_limit", "trailing_stop".</summary>
+    public string Type { get; init; } = string.Empty;
+    /// <summary>Broker status, lower-case: "new", "accepted", "held", "partially_filled", "filled", "canceled", "pending_cancel", ...</summary>
+    public string Status { get; init; } = string.Empty;
+    public decimal Quantity { get; init; }
+    public decimal FilledQuantity { get; init; }
+    public decimal? FilledAvgPrice { get; init; }
+    public decimal? StopPrice { get; init; }
+    public DateTime? SubmittedUtc { get; init; }
+    public DateTime? FilledUtc { get; init; }
+
+    private static readonly HashSet<string> Terminal = new(StringComparer.OrdinalIgnoreCase)
+        { "filled", "canceled", "expired", "rejected", "replaced", "done_for_day" };
+
+    /// <summary>Still working at the broker (anything not filled/cancelled/expired/rejected/replaced).</summary>
+    public bool IsOpen => !Terminal.Contains(Status);
+
+    public bool IsFilled => Status.Equals("filled", StringComparison.OrdinalIgnoreCase);
+}
+
 /// <summary>
 /// A position held with a broker.
 /// </summary>

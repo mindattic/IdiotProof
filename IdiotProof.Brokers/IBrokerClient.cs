@@ -40,6 +40,17 @@ public interface IBrokerClient
         Task.FromResult(new OrderResult { IsSuccess = false, Message = $"{BrokerType} does not support cancelling all orders." });
     Task<IReadOnlyList<Position>> GetPositionsAsync(CancellationToken ct = default);
 
+    /// <summary>True when <see cref="GetOrdersAsync"/> really lists the broker's orders (the default lists nothing).</summary>
+    bool SupportsOrderQueries => false;
+
+    /// <summary>
+    /// <paramref name="symbol"/>'s orders, newest first: only working ones when <paramref name="openOnly"/>,
+    /// else every status submitted after <paramref name="afterUtc"/>. Throws on a broker error, so an empty
+    /// list always means "none". Default = none (brokers without order queries).
+    /// </summary>
+    Task<IReadOnlyList<BrokerOrder>> GetOrdersAsync(string symbol, bool openOnly, DateTime? afterUtc = null, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<BrokerOrder>>([]);
+
     // ---- Options (single-leg). Default implementations = "this broker has no options
     // ---- support", so dormant adapters (IBKR) compile untouched.
 
