@@ -401,7 +401,7 @@
         refreshing = true;
         try
         {
-            var toUtc   = toDate.HasValue   ? (DateTime?)toDate.Value.AddDays(1).ToUniversalTime() : null;
+            var toUtc   = toDate.HasValue   ? (DateTime?)TimeZoneInfo.ConvertTimeToUtc(toDate.Value.AddDays(1), EtZone) : null;
             var fromUtc = fromDate.HasValue ? (DateTime?)TimeZoneInfo.ConvertTimeToUtc(fromDate.Value, EtZone) : null;
             entries = await AuditRepo.GetByCategoriesAsync(AllCategorySet, MaxRows, fromUtc: fromUtc, toUtc: toUtc);
             lastRefreshedEt = $"Updated {EasternTime.Format(DateTime.UtcNow, "HH:mm:ss")} ET";

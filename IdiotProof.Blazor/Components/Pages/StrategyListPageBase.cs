@@ -186,7 +186,13 @@ public abstract class StrategyListPageBase : ComponentBase, IDisposable
     protected async Task SetSingleBrokerModeAsync(Strategy s, string mode)
     {
         if (userId is null) return;
-        await StrategyRepo.SetBrokerModeAsync([s.Id], mode, userId.Value);
+        if (await StrategyRepo.SetBrokerModeAsync([s.Id], mode, userId.Value) == 0)
+        {
+            loadError = s.PositionQty > 0
+                ? $"{s.Symbol} is holding {s.PositionQty} shares in {s.BrokerMode}; changing the route would strand that position. Flatten first."
+                : $"{s.Symbol}: the route was not changed (the strategy no longer exists, isn't yours, or now holds a position).";
+            return;
+        }
         s.BrokerMode = mode;
     }
 
@@ -206,8 +212,8 @@ public abstract class StrategyListPageBase : ComponentBase, IDisposable
 
         var ids = selectedIds.ToList();
         var count = await StrategyRepo.SetBrokerModeAsync(ids, mode, userId.Value);
-        foreach (var s in all.Where(x => ids.Contains(x.Id))) s.BrokerMode = mode;
-        bulkMessage = $"{count} set to {mode}";
+        foreach (var s in all.Where(x => ids.Contains(x.Id) && x.PositionQty <= 0)) s.BrokerMode = mode;
+        bulkMessage = count < ids.Count ? $"{count} set to {mode}, {ids.Count - count} skipped (open positions)" : $"{count} set to {mode}";
         selectedIds.Clear();
     }
 
@@ -253,8 +259,8 @@ public abstract class StrategyListPageBase : ComponentBase, IDisposable
             {
                 var ids = selectedIds.ToList();
                 var count = await StrategyRepo.SetBrokerModeAsync(ids, "Live", userId.Value);
-                foreach (var s in all.Where(x => ids.Contains(x.Id))) s.BrokerMode = "Live";
-                bulkMessage = $"{count} set to Live";
+                foreach (var s in all.Where(x => ids.Contains(x.Id) && x.PositionQty <= 0)) s.BrokerMode = "Live";
+                bulkMessage = count < ids.Count ? $"{count} set to Live, {ids.Count - count} skipped (open positions)" : $"{count} set to Live";
                 selectedIds.Clear();
                 pendingBulkLive = false;
             }

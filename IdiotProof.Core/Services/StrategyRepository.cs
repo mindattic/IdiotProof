@@ -120,7 +120,9 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         row.ScriptText  = strategy.ScriptText;
         row.ScriptJson  = canon;
         row.IsActive    = strategy.IsActive;
-        row.BrokerMode  = strategy.BrokerMode;
+        // BrokerMode is NOT editor-owned: it changes only through SetBrokerModeAsync (behind the
+        // Live gate). Writing the caller's snapshot here let a stale editor save silently revert a
+        // Paper switch back to Live, with no elevation or code.
         row.UpdatedUtc  = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
@@ -397,8 +399,9 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
 
     /// <summary>
     /// Sets BrokerMode ("Paper" | "Live" | "Sandbox") for a batch of strategies owned
-    /// by <paramref name="ownerUserId"/>. Skips strategies not owned by that user.
-    /// Returns the count of rows actually updated.
+    /// by <paramref name="ownerUserId"/>. Skips strategies not owned by that user, and
+    /// strategies holding a position (re-routing those would strand the shares in the old
+    /// account: the exit would go to the new one). Returns the count of rows actually updated.
     /// </summary>
     public async Task<int> SetBrokerModeAsync(
         IReadOnlyCollection<Guid> ids, string mode, Guid ownerUserId, CancellationToken ct = default)
@@ -406,7 +409,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         if (ids.Count == 0) return 0;
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var rows = await db.Strategies
-            .Where(s => ids.Contains(s.Id) && s.OwnerUserId == ownerUserId)
+            .Where(s => ids.Contains(s.Id) && s.OwnerUserId == ownerUserId && s.PositionQty <= 0)
             .ToListAsync(ct);
         foreach (var r in rows)
         {
