@@ -36,6 +36,9 @@ public static class MonitorServiceRegistration
         services.TryAddSingleton<IMonitorLeaseProbe, SqlMonitorLeaseProbe>();
 
         services.AddHostedService<MonitorWorker>();
+
+        // Texts the owner (SMTP, not SQL) when the Monitor stops evaluating (IP-T359).
+        services.AddHostedService<MonitorOutageWatchdog>();
         return services;
     }
 }

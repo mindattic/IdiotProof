@@ -256,7 +256,8 @@ public sealed class MonitorWorker(
                     },
                     Interval        = EvaluationInterval,
                     MinBackoff      = TimeSpan.FromSeconds(5),
-                    MaxBackoff      = TimeSpan.FromMinutes(2),
+                    // Short cap (IP-T359): stops and exits must resume within seconds of the DB returning.
+                    MaxBackoff      = TimeSpan.FromSeconds(15),
                     HeartbeatPath   = HeartbeatPathFor(storage),
                     OnTickSucceeded = () => { if (!leaseLost) runtime.MarkTickFinished(null); },
                     OnTickFailed    = (ex, n) =>
