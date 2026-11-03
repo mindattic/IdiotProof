@@ -1201,10 +1201,14 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
     {
         IndicatorType.VwapAbove          => s.VwapDistance > 0,
         IndicatorType.VwapBelow          => s.VwapDistance < 0,
-        IndicatorType.VwapReclaim        => s.PriorPrice is { } pp && s.PriorVwap is { } pv
-                                              && s.Vwap is { } vw && pp <= pv && s.Price > vw,
-        IndicatorType.VwapLoss           => s.PriorPrice is { } pp2 && s.PriorVwap is { } pv2
-                                              && s.Vwap is { } vw2 && pp2 >= pv2 && s.Price < vw2,
+        // Cross triggers: "the other side" is the prior bar, or the Monitor's last look when it
+        // missed bars in between (IP-T361).
+        IndicatorType.VwapReclaim        => s.Vwap is { } vw && s.Price > vw
+                                              && ((s.PriorPrice is { } pp && s.PriorVwap is { } pv && pp <= pv)
+                                                  || (s.LastLook is { Vwap: { } lv } l && l.Price <= lv)),
+        IndicatorType.VwapLoss           => s.Vwap is { } vw2 && s.Price < vw2
+                                              && ((s.PriorPrice is { } pp2 && s.PriorVwap is { } pv2 && pp2 >= pv2)
+                                                  || (s.LastLook is { Vwap: { } lv2 } l2 && l2.Price >= lv2)),
         IndicatorType.EmaAbove           => Parameter is { } p && s.GetEma((int)p) is { } e && s.Price > e,
         IndicatorType.EmaBelow           => Parameter is { } p2 && s.GetEma((int)p2) is { } e2 && s.Price < e2,
         IndicatorType.BetweenEma         => Parameter is { } fast && Parameter2 is { } slow
@@ -1217,10 +1221,12 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
                                               && s.GetEma((int)ss) is { } stackSlow
                                               && stackFast > stackSlow,
         IndicatorType.ReclaimEma         => Parameter is { } rp
-                                              && s.GetPriorEma((int)rp) is { } priorEma
                                               && s.GetEma((int)rp) is { } currentEma
-                                              && s.PriorPrice is { } priorPrice
-                                              && priorPrice <= priorEma && s.Price > currentEma,
+                                              && s.Price > currentEma
+                                              && ((s.GetPriorEma((int)rp) is { } priorEma
+                                                   && s.PriorPrice is { } priorPrice && priorPrice <= priorEma)
+                                                  || (s.LastLook is { } l3 && l3.Emas.TryGetValue((int)rp, out var lookEma)
+                                                      && l3.Price <= lookEma)),
         // Both DI verbs require actual ADX/DI data (needs ~28 bars). With no
         // data PlusDI/MinusDI are null, IsBullishTrend is false, and the old
         // bare negation made IsDiNegative pass on EVERY early-premarket bar —
@@ -1342,11 +1348,14 @@ public sealed class PriceLevelCondition : ICondition
             // Near: True if price is within tolerance % of level
             PriceLevelType.Near => Math.Abs((price - Level) / Level * 100) <= TolerancePercent,
 
-            // BreaksAbove: only fires on the cross (prior bar at-or-below, current bar above).
-            PriceLevelType.BreaksAbove => prior is { } p1 && p1 <= Level && price > Level,
+            // BreaksAbove: only fires on the cross (prior bar at-or-below, current bar above). After
+            // missed bars the Monitor's last look also counts as the prior side (IP-T361).
+            PriceLevelType.BreaksAbove => price > Level
+                && (prior is { } p1 && p1 <= Level || indicators.LastLook is { } l1 && l1.Price <= Level),
 
             // BreaksBelow: only fires on the cross (prior bar at-or-above, current bar below).
-            PriceLevelType.BreaksBelow => prior is { } p2 && p2 >= Level && price < Level,
+            PriceLevelType.BreaksBelow => price < Level
+                && (prior is { } p2 && p2 >= Level || indicators.LastLook is { } l2 && l2.Price >= Level),
 
             _ => false
         };

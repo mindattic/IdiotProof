@@ -10,6 +10,9 @@ using IdiotProof.Models;
 
 namespace IdiotProof.Shared;
 
+/// <summary>The price, VWAP and EMAs of one earlier Monitor evaluation (see <see cref="IndicatorSnapshot.LastLook"/>).</summary>
+public sealed record LastLookObservation(double Price, double? Vwap, IReadOnlyDictionary<int, double> Emas);
+
 /// <summary>
 /// Market indicator values at a point in time.
 /// </summary>
@@ -67,6 +70,14 @@ public sealed class IndicatorSnapshot
 
     /// <summary>Prior bar's VWAP (used by VWAP reclaim / loss conditions).</summary>
     public double? PriorVwap { get; set; }
+
+    /// <summary>
+    /// What the live Monitor last saw for this strategy, set only when it missed at least one
+    /// bar since (DB outage, backoff, restart). Cross triggers also count "on the other side at
+    /// my last look" as the cross, so a cross inside the gap isn't lost (IP-T361). Null in
+    /// backtests/replays, which run bar by bar.
+    /// </summary>
+    public LastLookObservation? LastLook { get; set; }
 
     // ATR (used by stop / target / trailing verbs that quote multiples of ATR)
     public double? Atr { get; set; }
