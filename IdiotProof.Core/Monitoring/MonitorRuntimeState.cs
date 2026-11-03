@@ -56,6 +56,20 @@ public sealed class MonitorRuntimeState(TimeProvider? clock = null)
         }
     }
 
+    /// <summary>
+    /// The lease was found lost mid-run (IP-T356): this process stopped trading and is standing
+    /// by to re-acquire it. The worker is still running.
+    /// </summary>
+    public void MarkLeaseLost()
+    {
+        lock (gate)
+        {
+            tickInProgress = false;
+            if (leaseHeld) leaseReleasedUtc = Now;
+            leaseHeld = false;
+        }
+    }
+
     /// <summary>The loop ended and the lease was released (graceful shutdown, IP-T79).</summary>
     public void MarkStopped()
     {

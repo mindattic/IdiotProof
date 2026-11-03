@@ -75,6 +75,29 @@ public sealed class MonitorLeaderLease : IAsyncDisposable
     }
 
     /// <summary>
+    /// True only while this connection's session still owns the exclusive applock (IP-T356). The
+    /// lock lives with the session, so a dropped connection (network blip, SQL failover, killed
+    /// session) silently releases it and a standby may already be leading; callers check this
+    /// before every tick and stop trading on false. Any failure to confirm counts as lost.
+    /// </summary>
+    public async Task<bool> IsHeldAsync(CancellationToken ct)
+    {
+        try
+        {
+            if (connection.State != System.Data.ConnectionState.Open) return false;
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = "SELECT APPLOCK_MODE('public', @res, 'Session');";
+            cmd.Parameters.AddWithValue("@res", Resource);
+            var mode = await cmd.ExecuteScalarAsync(ct) as string;
+            return string.Equals(mode, "Exclusive", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Releases the lease explicitly, then closes the connection (IP-T79). Closing alone is not
     /// enough: a pooled connection goes back to the pool with its session — and the session-owned
     /// applock — still alive until the pool reuses or prunes it, so a restarted Hub (or a standby)

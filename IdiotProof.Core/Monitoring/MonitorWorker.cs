@@ -197,37 +197,85 @@ public sealed class MonitorWorker(
             // at a time (double-fire protection). Blocks here until this instance
             // is the leader; the lease auto-releases if the process dies, and is
             // released explicitly when this method returns (IP-T79).
-            await using var lease = await MonitorLeaderLease.AcquireAsync(database.ConnectionString, logger, stoppingToken);
-            runtime.MarkLeaseAcquired();
-
-            monitorStartUtc = DateTime.UtcNow;
-            try
+            var started = false;
+            while (!stoppingToken.IsCancellationRequested)
             {
-                await auditLogRepo.LogAsync("monitor-start",
-                    $"IdiotProof.Monitor started — feed {feed.FeedName}, interval {EvaluationInterval.TotalSeconds:F0}s, build {BuildDateLabel}",
-                    ct: stoppingToken);
-            }
-            catch (Exception ex) { logger.LogWarning(ex, "Failed to write monitor-start audit log."); }
-
-            StartStreamingIfConfigured();
-
-            // Graceful shutdown (IP-T79): the host cancels stoppingToken; SupervisedLoop lets the
-            // tick in progress finish its awaits (they observe the token) and then returns, so no
-            // tick is cut off between "order placed" and "position recorded" by a hard abort.
-            await SupervisedLoop.RunAsync(new SupervisedLoopOptions
-            {
-                Tick            = async ct => { runtime.MarkTickStarted(); await TickAsync(ct); },
-                Interval        = EvaluationInterval,
-                MinBackoff      = TimeSpan.FromSeconds(5),
-                MaxBackoff      = TimeSpan.FromMinutes(2),
-                HeartbeatPath   = HeartbeatPathFor(storage),
-                OnTickSucceeded = () => runtime.MarkTickFinished(null),
-                OnTickFailed    = (ex, n) =>
+                MonitorLeaderLease lease;
+                try
                 {
-                    runtime.MarkTickFinished(ex.Message);
-                    logger.LogError(ex, "Monitor tick failed ({Count} consecutive) — backing off.", n);
-                },
-            }, stoppingToken);
+                    lease = await MonitorLeaderLease.AcquireAsync(database.ConnectionString, logger, stoppingToken);
+                }
+                // Shutdown while standing by after a lost lease: fall through to the normal stop path
+                // (dispose streaming, audit). Before the first lease, keep the old behavior.
+                catch (OperationCanceledException) when (started && stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                await using var leaseScope = lease;
+                runtime.MarkLeaseAcquired();
+
+                if (!started)
+                {
+                    started = true;
+                    monitorStartUtc = DateTime.UtcNow;
+                    try
+                    {
+                        await auditLogRepo.LogAsync("monitor-start",
+                            $"IdiotProof.Monitor started — feed {feed.FeedName}, interval {EvaluationInterval.TotalSeconds:F0}s, build {BuildDateLabel}",
+                            ct: stoppingToken);
+                    }
+                    catch (Exception ex) { logger.LogWarning(ex, "Failed to write monitor-start audit log."); }
+
+                    StartStreamingIfConfigured();
+                }
+
+                // IP-T356: the applock lives with this lease's SQL session, so a dropped connection
+                // releases it silently and a standby can take over. Re-confirm it before every tick;
+                // on loss, end this loop before any evaluation or order (cancelling leadership at the
+                // top of a tick, never mid-tick) and go back to standing by for the lease.
+                using var leadership = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                var leaseLost = false;
+
+                // Graceful shutdown (IP-T79): the host cancels stoppingToken; SupervisedLoop lets the
+                // tick in progress finish its awaits (they observe the token) and then returns, so no
+                // tick is cut off between "order placed" and "position recorded" by a hard abort.
+                await SupervisedLoop.RunAsync(new SupervisedLoopOptions
+                {
+                    Tick = async ct =>
+                    {
+                        if (!await lease.IsHeldAsync(ct))
+                        {
+                            leaseLost = true;
+                            leadership.Cancel();
+                            return;
+                        }
+                        runtime.MarkTickStarted();
+                        await TickAsync(ct);
+                    },
+                    Interval        = EvaluationInterval,
+                    MinBackoff      = TimeSpan.FromSeconds(5),
+                    MaxBackoff      = TimeSpan.FromMinutes(2),
+                    HeartbeatPath   = HeartbeatPathFor(storage),
+                    OnTickSucceeded = () => { if (!leaseLost) runtime.MarkTickFinished(null); },
+                    OnTickFailed    = (ex, n) =>
+                    {
+                        runtime.MarkTickFinished(ex.Message);
+                        logger.LogError(ex, "Monitor tick failed ({Count} consecutive) — backing off.", n);
+                    },
+                }, leadership.Token);
+
+                if (!leaseLost || stoppingToken.IsCancellationRequested) break;
+
+                runtime.MarkLeaseLost();
+                logger.LogError("Monitor leader lease lost (SQL session dropped?) — stopped trading; standing by to re-acquire it.");
+                try
+                {
+                    await auditLogRepo.LogAsync("monitor-lease-lost",
+                        "Monitor leader lease lost — this instance stopped evaluating and trading and is re-acquiring the lease.",
+                        ct: stoppingToken);
+                }
+                catch (Exception ex) { logger.LogWarning(ex, "Failed to write monitor-lease-lost audit log."); }
+            }
 
             if (streaming is not null) await streaming.DisposeAsync();
             logger.LogInformation("IdiotProof.Monitor stopped.");
