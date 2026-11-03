@@ -121,6 +121,8 @@ public sealed class MonitorWorker(
     /// <summary>Broker-side protective stops (IP-T360); its orders pass the same leader check as entries and exits.</summary>
     private ProtectiveStopKeeper ProtectiveStopsKeeper => protectiveStopKeeper ??= new(gateway, orderRouting, logger, LeaseHeldAsync);
     private readonly CrossTriggerMemory crossMemory = new();
+    private SessionLowCache? sessionLowCache;
+    private SessionLowCache SessionLows => sessionLowCache ??= new(feed, logger);
 
     /// <summary>
     /// Re-check cadence when the previous close came back NULL. Nulls
@@ -814,6 +816,8 @@ public sealed class MonitorWorker(
 
         var emas = EmaPeriodCollector.Collect(def);
         var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, emas, previousClose);
+        // DippedTo means "since 4:00 ET today", longer than the 240-bar window (IP-T363).
+        if (SessionLowCache.Uses(def)) await SessionLows.ApplyAsync(stored.Symbol, snapshot, DateTime.UtcNow, ct);
         crossMemory.Apply(stored.Id, snapshot, candles.Count >= 2 ? candles[^2].EndUtc : null, DateTime.UtcNow);
 
         // Apply ConditionalBlock branch overrides (If/Then/ElseIf/Else authored in the UI).

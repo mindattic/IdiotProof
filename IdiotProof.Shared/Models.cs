@@ -139,8 +139,8 @@ public sealed class IndicatorSnapshot
 
     /// <summary>
     /// Lowest low of the bars in the window that share the newest bar's ET calendar day: the
-    /// session-so-far low (premarket included) in the backtesters, bounded by the trailing 4-hour
-    /// window in the Monitor. Comes from the candle feed, not SQL. Used by DippedTo(level).
+    /// session-so-far low (premarket included). The Monitor widens it to the whole day since 4:00 ET
+    /// via SessionLowCache. Comes from the candle feed, not SQL. Used by DippedTo(level).
     /// </summary>
     public double? SessionLow { get; set; }
 
