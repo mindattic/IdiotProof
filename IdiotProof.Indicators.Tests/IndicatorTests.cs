@@ -42,6 +42,14 @@ public class IndicatorTests
     }
 
     [Test]
+    public void RSI_FlatWindow_ReturnsNeutral50()
+    {
+        var candles = MakeCandles(10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10);
+        var rsi = RSI.Calculate(candles, 14);
+        Assert.That(rsi, Has.All.EqualTo(50m), "no gains and no losses is neutral, not overbought");
+    }
+
+    [Test]
     public void RSI_MixedData_InRange()
     {
         var closes = new decimal[] { 100, 102, 101, 103, 102, 104, 103, 105, 104, 103, 102, 101, 103, 104, 105 };

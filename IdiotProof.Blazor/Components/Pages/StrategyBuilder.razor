@@ -597,8 +597,16 @@
                     title:       title.Trim(),
                     symbol:      symbol.Trim(),
                     scriptText:  scriptText);
+                string? activationRefusal = null;
                 if (isActive)
-                    await StrategyRepo.SetActiveAsync(created.Id, true, userId);
+                {
+                    var armed = await StrategyRepo.SetActiveAsync(created.Id, true, userId, liveActivationConfirmed: false);
+                    if (armed != StrategyMutation.Ok)
+                    {
+                        isActive = false;
+                        activationRefusal = StrategyRepository.Describe(armed, created.Symbol) ?? armed.ToString();
+                    }
+                }
 
                 // "Close existing" intent: mark as already holding so Monitor manages exit.
                 if (disambigCloseIntent)
@@ -606,6 +614,13 @@
 
                 StrategyId = created.Id;
                 loadedStrategyId = created.Id; // editor already shows this row
+                if (activationRefusal is not null && !disambigCloseIntent)
+                {
+                    saveOk = false;
+                    await RefreshStampAsync();
+                    saveMessage = $"Saved, but left paused: {activationRefusal}";
+                    return;
+                }
             }
             else
             {
@@ -618,17 +633,37 @@
                     saveMessage = $"{existing.Symbol} is holding {existing.PositionQty} shares — the Monitor must stay active to manage the exit. Flatten first, then deactivate.";
                     return;
                 }
+                var heldSymbol = existing.Symbol;
+                var newSymbol = symbol.Trim().ToUpperInvariant();
+                var symbolChanged = !string.Equals(heldSymbol, newSymbol, StringComparison.OrdinalIgnoreCase);
                 existing.Title      = title.Trim();
-                existing.Symbol     = symbol.Trim().ToUpperInvariant();
+                existing.Symbol     = newSymbol;
                 existing.ScriptText = scriptText;
                 existing.IsActive   = isActive;
-                var result = await StrategyRepo.UpdateAsync(existing);
+                // This editor has no Live password prompt: turning on a strategy that routes to
+                // Live is refused (the repository checks the FRESH row) and done from the
+                // Strategies page, which asks for the password like the CLI asks for a code.
+                var result = await StrategyRepo.UpdateAsync(existing, liveActivationConfirmed: false);
                 if (result == StrategyMutation.PositionOpen)
                 {
                     // Repo-level re-check against the FRESH row (the pre-check
                     // above used a snapshot that may be seconds stale).
                     saveOk = false;
-                    saveMessage = $"{existing.Symbol} is holding shares — the Monitor must stay active to manage the exit. Flatten first, then deactivate.";
+                    saveMessage = symbolChanged
+                        ? $"{heldSymbol} is holding shares — changing the symbol to {newSymbol} would strand that position (the Monitor would manage the wrong ticker's exit). Flatten first, or make a new strategy for {newSymbol}."
+                        : $"{heldSymbol} is holding shares — the Monitor must stay active to manage the exit. Flatten first, then deactivate.";
+                    return;
+                }
+                if (result == StrategyMutation.LiveNotConfirmed)
+                {
+                    saveOk = false;
+                    saveMessage = $"{heldSymbol} routes to LIVE — save it inactive, then activate it from the Strategies page (it asks for your password).";
+                    return;
+                }
+                if (result is StrategyMutation.SymbolAlreadyActive or StrategyMutation.GapperCapReached)
+                {
+                    saveOk = false;
+                    saveMessage = "Can't save it active: " + StrategyRepository.Describe(result, newSymbol);
                     return;
                 }
                 if (result != StrategyMutation.Ok)

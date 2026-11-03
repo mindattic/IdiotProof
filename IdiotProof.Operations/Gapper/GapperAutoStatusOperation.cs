@@ -13,7 +13,7 @@ namespace IdiotProof.Operations.Gapper;
 public static class GapperAutoRules
 {
     /// <summary>The <c>Strategy.Author</c> the <see cref="AutoGapperScanner"/> stamps on every row it arms.</summary>
-    public const string AuthorTag = "IdiotProof Auto-Gapper";
+    public const string AuthorTag = StrategyRepository.AutoGapperAuthor;
 
     /// <summary>The host's settings (auto-gapper knobs), or defaults when the host registers none.</summary>
     public static AppSettings Settings(OperationContext ctx) => ctx.Services.GetService<AppSettings>() ?? new AppSettings();

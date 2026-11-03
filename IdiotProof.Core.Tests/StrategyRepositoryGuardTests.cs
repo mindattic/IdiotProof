@@ -213,6 +213,76 @@ public sealed class StrategyRepositoryGuardTests
             Assert.That(await repo.CountActiveForSymbolAsync(stranger, "ACME"), Is.EqualTo(0), "scoped to the owner");
         });
     }
+
+    private Task<Strategy> CreateGapperAsync(string symbol, string? author = null) =>
+        repo.CreateAsync(owner, title: $"{symbol} gapper", symbol: symbol, author: author,
+            scriptText: $"Stock.Ticker(\"{symbol}\").Long().StopLoss(1).PeakGiveback(30).Build()");
+
+    [Test]
+    public async Task UpdateAsync_SymbolChangeOnAHoldingRow_IsRefused()
+    {
+        var s = await CreateAsync("HOLD3");
+        await repo.SetActiveAsync(s.Id, true, owner);
+        await repo.RecordEntryFillAsync(s.Id, quantity: 10, fillPrice: 4.20m, DateTime.UtcNow);
+
+        var edited = await repo.GetByIdAsync(s.Id);
+        edited!.Symbol = "OTHER";
+
+        var result = await repo.UpdateAsync(edited);
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(result, Is.EqualTo(StrategyMutation.PositionOpen));
+            Assert.That((await repo.GetByIdAsync(s.Id))!.Symbol, Is.EqualTo("HOLD3"), "the shares stay attached to their symbol");
+        });
+    }
+
+    [Test]
+    public async Task SetActiveAsync_SecondGapperOnTheSameSymbol_IsRefused()
+    {
+        var a = await CreateGapperAsync("GAPA");
+        var b = await CreateGapperAsync("GAPA");
+        Assert.That(await repo.SetActiveAsync(a.Id, true, owner), Is.EqualTo(StrategyMutation.Ok));
+
+        var result = await repo.SetActiveAsync(b.Id, true, owner);
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(result, Is.EqualTo(StrategyMutation.SymbolAlreadyActive));
+            Assert.That((await repo.GetByIdAsync(b.Id))!.IsActive, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task SetActiveBulkAsync_HonorsTheThreeGapperCap()
+    {
+        var ids = new List<Guid>();
+        foreach (var sym in new[] { "CAPA", "CAPB", "CAPC", "CAPD" }) ids.Add((await CreateGapperAsync(sym)).Id);
+
+        var (updated, _, skippedGapper, _) = await repo.SetActiveBulkAsync(ids, true, owner);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(updated, Is.EqualTo(StrategyRepository.MaxActiveGappers));
+            Assert.That(skippedGapper, Is.EqualTo(1), "the fourth gapper is over the cap");
+        });
+    }
+
+    [Test]
+    public async Task SetActiveAsync_LiveRowWithoutConfirmation_IsRefused()
+    {
+        var s = await CreateAsync("LIVE1");
+        await repo.SetBrokerModeAsync([s.Id], "Live", owner);
+
+        var refused = await repo.SetActiveAsync(s.Id, true, owner, liveActivationConfirmed: false);
+        var confirmed = await repo.SetActiveAsync(s.Id, true, owner, liveActivationConfirmed: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(refused, Is.EqualTo(StrategyMutation.LiveNotConfirmed));
+            Assert.That(confirmed, Is.EqualTo(StrategyMutation.Ok));
+        });
+    }
 }
 
 // Same shape as the file-scoped factory in ConditionProgressRepositoryTests —

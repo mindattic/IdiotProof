@@ -83,6 +83,15 @@ public sealed record GatewayOptions
     public bool DryRun { get; init; }
 
     /// <summary>
+    /// The Monitor's leader-lease probe (IP-LAW-10, IP-T356). When supplied, the gateway calls it
+    /// immediately before the broker call — after every other gate, so the slow ones (LLM panel)
+    /// can't widen the window — and refuses the action (Blocked, audited, nothing sent) unless it
+    /// returns true. A throw counts as "not held". This closes the mid-tick window in which a
+    /// Monitor whose SQL lease dropped could still place an order while a standby already leads.
+    /// </summary>
+    public Func<CancellationToken, Task<bool>>? LeaderCheck { get; init; }
+
+    /// <summary>
     /// Set only inside the gateway: by <see cref="TransactionGateway.ConfirmAsync"/> /
     /// <see cref="TransactionGateway.ConfirmBatchAsync"/> after a code was redeemed, and by
     /// <see cref="TransactionGateway.SubmitElevatedAsync"/> while the web user's password
@@ -274,6 +283,28 @@ public sealed partial class TransactionGateway(
                 ConfirmationCode = pending.Code,
                 ConfirmationExpiresUtc = pending.ExpiresUtc,
             }, options, ct);
+        }
+
+        // 6b ── a Monitor order goes out only while that Monitor still holds the leader lease
+        //       (IP-LAW-10): re-confirmed here, the last step before the broker call.
+        if (options.LeaderCheck is { } leaderCheck)
+        {
+            bool held;
+            try { held = await leaderCheck(ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Leader-lease check threw before {Order}; treating the lease as lost.", intent.Describe());
+                held = false;
+            }
+            verdicts.Add(new("leader", held, held
+                ? "this Monitor holds the leader lease"
+                : "leader lease not held (SQL session dropped?) — another Monitor may be leading"));
+            if (!held)
+                return await AuditAsync(cleared with
+                {
+                    Status = GatewayStatus.Blocked,
+                    Message = "This Monitor no longer holds the leader lease — nothing was sent.",
+                }, options, ct);
         }
 
         // 7 ── place / replace / cancel

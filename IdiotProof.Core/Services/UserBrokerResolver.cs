@@ -107,7 +107,9 @@ public sealed class UserBrokerResolver(
                     "User {UserId} prefers Alpaca but has no usable {Mode} keys — routing to the global default ({Broker}).",
                     userId, isPaper ? "paper" : "live", globalRouter.GetActiveBroker().BrokerType);
             var global = globalRouter.GetActiveBroker();
-            SetCache(cacheKey, new CacheEntry(global, "global", DateTime.UtcNow), userId);
+            // Replacing a per-user client here never disposes it: another caller may be
+            // mid-order on it (see ReplacedClientsAreNeverDisposed below).
+            cache[cacheKey] = new CacheEntry(global, "global", DateTime.UtcNow);
             return global;
         }
 
@@ -123,7 +125,21 @@ public sealed class UserBrokerResolver(
         }
 
         var client = new AlpacaBrokerClient(keyId!, secret!, isPaper);
-        SetCache(cacheKey, new CacheEntry(client, fingerprint, DateTime.UtcNow), userId);
+        var mine = new CacheEntry(client, fingerprint, DateTime.UtcNow);
+        // Install atomically. If a concurrent resolve already cached a client for this SAME
+        // fingerprint, keep theirs (it may already be placing an order) and drop ours instead —
+        // ours was never handed to anyone, so disposing it is safe. The update factory has no
+        // side effects: ConcurrentDictionary may run it more than once under contention, and the
+        // old factory disposed whatever it saw — which could be the client another thread had
+        // just cached and returned to its caller.
+        var installed = cache.AddOrUpdate(cacheKey, mine,
+            (_, existing) => existing.Fingerprint == fingerprint ? existing with { CachedUtc = DateTime.UtcNow } : mine);
+        if (!ReferenceEquals(installed.Client, client))
+        {
+            await client.DisposeAsync();
+            return installed.Client;
+        }
+
         logger.LogInformation(
             "User {UserId} orders route to their own Alpaca ({Mode}) via strategy mode {StrategyMode}.",
             userId, isPaper ? "paper" : "LIVE", strategyBrokerMode);
@@ -131,35 +147,9 @@ public sealed class UserBrokerResolver(
         return client;
     }
 
-    /// <summary>
-    /// Atomically swaps in <paramref name="newEntry"/> and disposes whatever it
-    /// actually replaced. Using the dictionary's own update-value-factory (rather
-    /// than a `hit` snapshot read before an earlier `await`) means two concurrent
-    /// resolves for the same key can never both "win" without the loser's client
-    /// being disposed — a plain read-then-write here previously let a
-    /// freshly-constructed client be silently orphaned under a race.
-    /// </summary>
-    private void SetCache((Guid, string) key, CacheEntry newEntry, Guid userId) =>
-        cache.AddOrUpdate(key, newEntry, (_, old) =>
-        {
-            DisposeReplacedClient(old, userId);
-            return newEntry;
-        });
-
-    /// <summary>
-    /// Disposes a cache entry's client when it is being replaced. The global
-    /// router's brokers are never disposed here (they're shared, and not
-    /// entered into the cache as disposable-owned entries in the first place
-    /// — only per-user Alpaca clients carry a non-"global" fingerprint).
-    /// </summary>
-    private void DisposeReplacedClient(CacheEntry? replaced, Guid userId)
-    {
-        if (replaced is null || replaced.Fingerprint == "global") return;
-        if (replaced.Client is IAsyncDisposable disposable)
-            _ = disposable.DisposeAsync().AsTask().ContinueWith(
-                t => logger.LogWarning(t.Exception, "Failed disposing replaced broker client for user {UserId}.", userId),
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted,
-                TaskScheduler.Default);
-    }
+    // ReplacedClientsAreNeverDisposed: a client displaced from the cache (key rotation, TTL
+    // rebuild, a switch to the global default) is NOT disposed. Callers resolve a client and then
+    // await broker calls on it, so a concurrent resolve can replace it while an order is in
+    // flight; disposing it then killed that order's HttpClient mid-request. The displaced client
+    // holds only two HttpClients and is reclaimed by the GC once its last in-flight call returns.
 }

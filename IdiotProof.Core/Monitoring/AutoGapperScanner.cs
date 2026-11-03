@@ -169,7 +169,7 @@ public sealed class AutoGapperScanner(
                             scriptText: plan.Builder.ToScript(),
                             description: $"Auto-armed {plan.Class} gapper (+{plan.Signals.GapPercent:0.#}% @ ${plan.Signals.Price:0.##}).",
                             scriptJson: canon,
-                            author: "IdiotProof Auto-Gapper",
+                            author: StrategyRepository.AutoGapperAuthor,
                             ct: ct);
                         var mut = await strategyRepo.SetActiveAsync(created.Id, true, userId, ct);
                         if (mut == StrategyMutation.Ok) { strategyId = created.Id; armed++; }

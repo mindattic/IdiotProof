@@ -350,10 +350,17 @@
                         </h2>
                     </div>
                     <div class="modal-body text-white">
-                        <p class="text-warning small mb-2">
-                            You are enabling <strong>live trading with real money</strong>.
-                            Re-enter your password to open a 5-minute elevation window.
-                        </p>
+                        @if (passwordModalNote is not null)
+                        {
+                            <p class="text-warning small mb-2">@passwordModalNote</p>
+                        }
+                        else
+                        {
+                            <p class="text-warning small mb-2">
+                                You are enabling <strong>live trading with real money</strong>.
+                                Re-enter your password to open a 5-minute elevation window.
+                            </p>
+                        }
                         <input type="password" class="form-control bg-dark text-white border-secondary"
                                placeholder="Your password"
                                @bind="passwordInput"
@@ -377,7 +384,7 @@
                                 @onclick="ConfirmPasswordModalAsync"
                                 disabled="@(isVerifyingPassword || string.IsNullOrEmpty(passwordInput))"
                                 autofocus>
-                            Confirm — Enable Live Trading
+                            @(passwordModalNote is not null ? "Confirm — Activate Live" : "Confirm — Enable Live Trading")
                         </button>
                     </div>
                 </div>

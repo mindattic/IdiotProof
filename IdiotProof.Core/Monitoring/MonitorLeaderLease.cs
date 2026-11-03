@@ -82,9 +82,13 @@ public sealed class MonitorLeaderLease : IAsyncDisposable
     /// </summary>
     public async Task<bool> IsHeldAsync(CancellationToken ct)
     {
+        // One command at a time on the lease's connection (no MARS): the tick-top check and the
+        // gateway's pre-order check (TransactionGateway LeaderCheck) share it.
+        try { await probeGate.WaitAsync(ct); }
+        catch (ObjectDisposedException) { return false; }
         try
         {
-            if (connection.State != System.Data.ConnectionState.Open) return false;
+            if (disposed || connection.State != System.Data.ConnectionState.Open) return false;
             await using var cmd = connection.CreateCommand();
             cmd.CommandText = "SELECT APPLOCK_MODE('public', @res, 'Session');";
             cmd.Parameters.AddWithValue("@res", Resource);
@@ -95,7 +99,14 @@ public sealed class MonitorLeaderLease : IAsyncDisposable
         {
             return false;
         }
+        finally
+        {
+            probeGate.Release();
+        }
     }
+
+    private readonly SemaphoreSlim probeGate = new(1, 1);
+    private volatile bool disposed;
 
     /// <summary>
     /// Releases the lease explicitly, then closes the connection (IP-T79). Closing alone is not
@@ -105,6 +116,7 @@ public sealed class MonitorLeaderLease : IAsyncDisposable
     /// </summary>
     public async ValueTask DisposeAsync()
     {
+        disposed = true; // a late IsHeldAsync (e.g. a stale gateway LeaderCheck) now answers "not held"
         try
         {
             if (connection.State == System.Data.ConnectionState.Open)

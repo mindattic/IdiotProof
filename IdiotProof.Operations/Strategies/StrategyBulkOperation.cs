@@ -76,6 +76,8 @@ public sealed class StrategyBulkOperation : IOperation<StrategyBulkArgs>
             {
                 StrategyMutation.Ok => activate ? "activated" : "deactivated",
                 StrategyMutation.PositionOpen => "skipped: holds a position",
+                StrategyMutation.SymbolAlreadyActive => "skipped: symbol already has an active strategy (one gapper per symbol)",
+                StrategyMutation.GapperCapReached => $"skipped: {StrategyRepository.MaxActiveGappers}-gapper cap reached",
                 var other => $"skipped: {other}",
             }));
         }

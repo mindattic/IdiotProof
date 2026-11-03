@@ -447,14 +447,20 @@ The Monitor is the only live evaluator and order placer for strategies. UI chang
 through SQL rows, read each tick — no restart, no second evaluation path. Backtest and replay
 surfaces call the same evaluator and exit brain (`IndicatorSnapshotBuilder`, conditions,
 `GapperExitEvaluator`, `EmaPeriodCollector`) so a backtest cannot run different code than live.
-A SQL leader lease keeps at most one Monitor trading per database.
+A SQL leader lease keeps at most one Monitor trading per database; the Monitor re-confirms it at
+the top of every tick and the `TransactionGateway` re-confirms it again immediately before each
+Monitor order reaches a broker (`GatewayOptions.LeaderCheck`), refusing the order if it is lost.
 
 ### {#IP-LAW-11} The repository owns strategy-mutation invariants
-`StrategyRepository` enforces ownership (`NotOwner`), refuses to deactivate or delete a strategy
-holding a position (`PositionOpen`), writes only editor-owned columns on update (never the
-Monitor's position bookkeeping), enforces one active gapper per symbol and the 3-gapper cap
-against SQL (with a post-write recheck), and deletes a strategy's `ConditionProgress` with it.
-No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
+`StrategyRepository` enforces ownership (`NotOwner`), refuses to deactivate, delete or change the
+symbol of a strategy holding a position (`PositionOpen`), writes only editor-owned columns on
+update (never the Monitor's position bookkeeping), enforces one active gapper per symbol and the
+3-gapper cap against SQL on every activation path — single, bulk, editor save — with a post-write
+recheck (`SymbolAlreadyActive` / `GapperCapReached`; auto-armed gappers obey their own per-run
+limit instead of the cap), refuses a Live activation the caller has not confirmed
+(`LiveNotConfirmed`: the web asks for the password per activation, as the CLI asks for a code),
+and deletes a strategy's `ConditionProgress` with it. No page writes strategy rows around it.
+(`StrategyRepositoryGuardTests`.)
 
 ### {#IP-LAW-12} Every order goes through the TransactionGateway
 Every order-like action — Monitor entries and exits, CLI/MCP orders, replaces, cancels,

@@ -581,19 +581,11 @@
             description: $"Gapper profile '{profileName}': ≥{profile.MinGapPercent}% gap on {profile.MinVolumeRatio}× volume, " +
                          $"entry {profile.EntryWindowStartEt}–{profile.EntryWindowEndEt} ET, stop {profile.StopLossPercent}%, " +
                          $"giveback {profile.PeakGivebackPercent}% armed {profile.ArmExitAtEt}, flat by {profile.SellByEt} ET.");
-        await StrategyRepo.SetActiveAsync(created.Id, true, userId.Value);
-
-        // Close the check-then-act race: re-verify AFTER activating. Two tabs
-        // racing past the pre-checks both land here; whoever now sees the cap
-        // or duplicate rule violated reverts its own activation. (No SQL
-        // transaction spans the create+activate, so this recheck is what
-        // actually enforces the invariant.)
-        if (await CountActiveGappersFromDbAsync() > MaxGappers
-            || await StrategyRepo.CountActiveForSymbolAsync(userId.Value, symbol) > 1)
-        {
-            await StrategyRepo.SetActiveAsync(created.Id, false, userId.Value);
-            queueError = $"{symbol} lost the race to another queue action (cap or duplicate) — left paused.";
-        }
+        // The repository re-checks the cap and one-per-symbol against SQL after the write and
+        // reverts its own activation when a concurrent queue won the race (IP-LAW-11).
+        var armed = await StrategyRepo.SetActiveAsync(created.Id, true, userId.Value, liveActivationConfirmed: false);
+        if (armed != StrategyMutation.Ok)
+            queueError = $"{symbol} lost the race to another queue action ({StrategyRepository.Describe(armed, symbol) ?? armed.ToString()}) — left paused.";
 
         await RefreshAsync();
     }
@@ -744,27 +736,31 @@
             }
         }
 
-        var result = await StrategyRepo.SetActiveAsync(s.Id, isActive, userId.Value);
+        // The repository enforces one-per-symbol and the 3-gapper cap against SQL with its own
+        // post-write recheck (IP-LAW-11). This tab has no Live password prompt, so a gapper that
+        // routes to Live is refused here (checked on the fresh row) and activated from the
+        // Strategies page, which asks for the password like the CLI asks for a code.
+        var result = await StrategyRepo.SetActiveAsync(s.Id, isActive, userId.Value, liveActivationConfirmed: false);
         if (result == StrategyMutation.PositionOpen)
         {
             queueError = $"{s.Symbol} is holding {s.PositionQty} shares — the Monitor must stay active to manage the exit.";
             await RefreshAsync();
             return;
         }
+        if (result == StrategyMutation.LiveNotConfirmed)
+        {
+            queueError = $"{s.Symbol} routes to LIVE — activate it from the Strategies page, which asks for your password.";
+            await RefreshAsync();
+            return;
+        }
+        if (result is StrategyMutation.SymbolAlreadyActive or StrategyMutation.GapperCapReached)
+        {
+            queueError = StrategyRepository.Describe(result, s.Symbol);
+            await RefreshAsync();
+            return;
+        }
         if (result != StrategyMutation.Ok) return;
         s.IsActive = isActive;
-
-        // Same post-write recheck as queueing — two tabs re-activating
-        // different rows for the same symbol both pass the pre-check.
-        if (isActive
-            && (await CountActiveGappersFromDbAsync() > MaxGappers
-                || await StrategyRepo.CountActiveForSymbolAsync(userId.Value, s.Symbol) > 1))
-        {
-            await StrategyRepo.SetActiveAsync(s.Id, false, userId.Value);
-            s.IsActive = false;
-            queueError = $"{s.Symbol} lost the race to another activation (cap or duplicate) — left paused.";
-            await RefreshAsync();
-        }
     }
 
     private async Task RemoveGapper(Strategy s)

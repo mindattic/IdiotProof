@@ -115,6 +115,7 @@ public sealed class MonitorWorker(
     // Throttle live-bar writes: write at most once every 10 seconds per strategy
     // (the Monitor evaluates every 1s; writing every tick would hammer the DB).
     private readonly Dictionary<Guid, DateTime> lastBarWrite = new();
+    private readonly CrossTriggerMemory crossMemory = new();
 
     /// <summary>
     /// Re-check cadence when the previous close came back NULL. Nulls
@@ -212,6 +213,7 @@ public sealed class MonitorWorker(
                     break;
                 }
                 await using var leaseScope = lease;
+                currentLease = lease;
                 runtime.MarkLeaseAcquired();
 
                 if (!started)
@@ -263,6 +265,7 @@ public sealed class MonitorWorker(
                         logger.LogError(ex, "Monitor tick failed ({Count} consecutive) — backing off.", n);
                     },
                 }, leadership.Token);
+                currentLease = null; // no order may pass the gateway's leader check from here on
 
                 if (!leaseLost || stoppingToken.IsCancellationRequested) break;
 
@@ -294,6 +297,17 @@ public sealed class MonitorWorker(
             runtime.MarkStopped();
         }
     }
+
+    /// <summary>The lease this instance currently leads under; null while standing by.</summary>
+    private volatile MonitorLeaderLease? currentLease;
+
+    /// <summary>
+    /// The gateway's pre-order leader check (IP-LAW-10, IP-T356): re-confirms the SQL lease
+    /// immediately before every Monitor entry/exit reaches a broker, closing the mid-tick window
+    /// the per-tick check leaves. No lease (standing by) = not held = order refused.
+    /// </summary>
+    private async Task<bool> LeaseHeldAsync(CancellationToken ct) =>
+        currentLease is { } lease && await lease.IsHeldAsync(ct);
 
     /// <summary>The SupervisedLoop heartbeat file (<c>monitor heartbeat</c> reads it).</summary>
     public static string HeartbeatPathFor(IStorageProvider storage) => Path.Combine(storage.LogsPath, "monitor.heartbeat");
@@ -525,8 +539,8 @@ public sealed class MonitorWorker(
 
             if (candles.Count == 0) continue;
 
-            // One-gapper-per-symbol (mirrors the UI's CountActiveForSymbolAsync
-            // guard, StrategyListPageBase.cs) enforced at FIRE time too: the UI
+            // One-gapper-per-symbol (mirrors StrategyRepository's activation
+            // guard, IP-LAW-11) enforced at FIRE time too: the repository
             // only blocks at activation, so two gapper rows that both end up
             // IsActive=true (a lost UI race, AutoGapperScanner arming next to a
             // manual duplicate, a direct SQL edit) previously evaluated fully
@@ -748,6 +762,8 @@ public sealed class MonitorWorker(
         // Open position → manage the exit instead of hunting a new entry.
         if (stored.PositionQty > 0)
         {
+            crossMemory.Forget(stored.Id); // the pre-entry look must not re-trigger after the exit
+
             // Holding heartbeat: log current price + unrealized P&L every HoldingLogInterval.
             if (!lastHoldingLogUtc.TryGetValue(stored.Id, out var lastHold) || DateTime.UtcNow - lastHold >= HoldingLogInterval)
             {
@@ -792,6 +808,7 @@ public sealed class MonitorWorker(
 
         var emas = EmaPeriodCollector.Collect(def);
         var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, emas, previousClose);
+        crossMemory.Apply(stored.Id, snapshot, candles.Count >= 2 ? candles[^2].EndUtc : null, DateTime.UtcNow);
 
         // Apply ConditionalBlock branch overrides (If/Then/ElseIf/Else authored in the UI).
         // Bug 4 fix: the Monitor previously evaluated def.EntryConditions directly and silently
@@ -811,6 +828,7 @@ public sealed class MonitorWorker(
         // bool[] per condition. Derive passed/firstFailure from the result array
         // (semantically equivalent to the old short-circuit loop).
         var condBits = conditions.Select(c => c.Evaluate(snapshot)).ToArray();
+        crossMemory.Record(stored.Id, snapshot, DateTime.UtcNow);
         int firstFalseIdx = System.Array.IndexOf(condBits, false);
         int passed = firstFalseIdx >= 0 ? firstFalseIdx : condBits.Length;
         string? firstFailure = firstFalseIdx >= 0 ? conditions[firstFalseIdx].ToScript() : null;
@@ -1037,7 +1055,7 @@ public sealed class MonitorWorker(
         // Exits are risk-reducing and are NOT gated there — a genuinely-held position must
         // always be flatten-able.
         var outcome = await gateway.SubmitAsync(intent,
-            new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LlmVerdict = panel }, ct);
+            new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LlmVerdict = panel, LeaderCheck = LeaseHeldAsync }, ct);
 
         if (outcome.Status is IdiotProof.Core.Trading.GatewayStatus.Blocked or IdiotProof.Core.Trading.GatewayStatus.ConfirmationRequired)
         {
@@ -1453,7 +1471,7 @@ public sealed class MonitorWorker(
         var exitOutcome = await gateway.SubmitAsync(
             MonitorOrders.Exit(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, direction, sellQty,
                 (decimal)decision.CurrentPrice, extendedHours, $"[{stored.Title}] exit {decision.Reason}"),
-            new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor" }, ct);
+            new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LeaderCheck = LeaseHeldAsync }, ct);
 
         if (exitOutcome.Status != IdiotProof.Core.Trading.GatewayStatus.Placed || exitOutcome.Order is not { IsSuccess: true } order)
         {

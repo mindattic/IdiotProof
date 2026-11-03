@@ -5,11 +5,18 @@ using Microsoft.EntityFrameworkCore;
 namespace IdiotProof.Core.Services;
 
 /// <summary>
-/// Outcome of a guarded strategy mutation (activate/deactivate/delete).
-/// Callers surface PositionOpen and NotOwner to the user; NotFound is a
-/// silent no-op (row already gone).
+/// Outcome of a guarded strategy mutation (activate/deactivate/delete/update).
+/// Callers surface PositionOpen, NotOwner and the gapper refusals to the user;
+/// NotFound is a silent no-op (row already gone).
+/// <list type="bullet">
+/// <item><c>PositionOpen</c> — the row holds shares: it can't be deactivated, deleted or moved to another symbol.</item>
+/// <item><c>SymbolAlreadyActive</c> — a gapper can't go active while another strategy on its symbol is active.</item>
+/// <item><c>GapperCapReached</c> — <see cref="StrategyRepository.MaxActiveGappers"/> gappers are already active.</item>
+/// <item><c>LiveNotConfirmed</c> — the caller said it has no Live confirmation and the row routes to Live.</item>
+/// </list>
+/// New members are appended (existing numeric values unchanged).
 /// </summary>
-public enum StrategyMutation { Ok, NotFound, NotOwner, PositionOpen }
+public enum StrategyMutation { Ok, NotFound, NotOwner, PositionOpen, SymbolAlreadyActive, GapperCapReached, LiveNotConfirmed }
 
 /// <summary>
 /// CRUD over the Strategies table on the IdiotProof SQL Server database.
@@ -19,6 +26,81 @@ public enum StrategyMutation { Ok, NotFound, NotOwner, PositionOpen }
 /// </summary>
 public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory)
 {
+    /// <summary>At most this many gappers are active at once per user (IP-LAW-11).</summary>
+    public const int MaxActiveGappers = 3;
+
+    /// <summary>
+    /// Author tag of rows the auto-gapper scanner arms. Those obey one-per-symbol but not the
+    /// manual 3-gapper cap: the scanner has its own per-run limit (AutoGapperMaxCount).
+    /// </summary>
+    public const string AutoGapperAuthor = "IdiotProof Auto-Gapper";
+
+    /// <summary>
+    /// Gapper rows are recognized by the exit-brain marker only the gapper factory emits: a
+    /// <c>PeakGiveback(</c> in the script text, or (for canonical-JSON-only rows, whose text is
+    /// empty) a non-null <c>peakGivebackPercent</c> in the canon — the same test the Monitor
+    /// applies at fire time.
+    /// </summary>
+    public static bool IsGapper(Strategy s) => IsGapperScript(s.ScriptText, s.ScriptJson);
+
+    private static readonly System.Text.RegularExpressions.Regex NullGiveback =
+        new("\"peakGivebackPercent\"\\s*:\\s*null", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    private static bool IsGapperScript(string? scriptText, string? scriptJson) =>
+        scriptText?.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase) == true
+        || (scriptJson is not null
+            && scriptJson.Contains("\"peakGivebackPercent\"", StringComparison.OrdinalIgnoreCase)
+            && !NullGiveback.IsMatch(scriptJson));
+
+    /// <summary>
+    /// The gapper activation rules (IP-LAW-11), checked against SQL for a row that is about to be
+    /// (or just was) made active: no other active strategy on its symbol, and fewer than
+    /// <see cref="MaxActiveGappers"/> other active gappers (auto-armed rows are exempt from the
+    /// cap). Non-gapper rows always pass. Reads fresh rows, never the tracked state.
+    /// </summary>
+    private static async Task<StrategyMutation> CheckGapperRulesAsync(AppDbContext db, Strategy row, CancellationToken ct)
+    {
+        if (!IsGapper(row)) return StrategyMutation.Ok;
+        var symbol = row.Symbol.ToUpperInvariant();
+        var others = await db.Strategies.AsNoTracking()
+            .Where(s => s.OwnerUserId == row.OwnerUserId && s.IsActive && s.Id != row.Id)
+            .Select(s => new { s.Symbol, s.ScriptText, s.ScriptJson })
+            .ToListAsync(ct);
+        if (others.Any(o => string.Equals(o.Symbol, symbol, StringComparison.OrdinalIgnoreCase)))
+            return StrategyMutation.SymbolAlreadyActive;
+        if (row.Author != AutoGapperAuthor && others.Count(o => IsGapperScript(o.ScriptText, o.ScriptJson)) >= MaxActiveGappers)
+            return StrategyMutation.GapperCapReached;
+        return StrategyMutation.Ok;
+    }
+
+    /// <summary>
+    /// Saves a row that was just switched active, then re-checks the gapper rules against SQL
+    /// (closes the check-then-act race between two concurrent activations). When the recheck
+    /// fails, this row's activation is reverted and the refusal returned — two racers both
+    /// back off rather than both trading.
+    /// </summary>
+    private static async Task<StrategyMutation> SaveActivationAsync(AppDbContext db, Strategy row, CancellationToken ct)
+    {
+        await db.SaveChangesAsync(ct);
+        var recheck = await CheckGapperRulesAsync(db, row, ct);
+        if (recheck == StrategyMutation.Ok) return StrategyMutation.Ok;
+        row.IsActive = false;
+        row.UpdatedUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return recheck;
+    }
+
+    /// <summary>A person-facing sentence for a refused mutation (null for Ok/NotFound).</summary>
+    public static string? Describe(StrategyMutation m, string symbol) => m switch
+    {
+        StrategyMutation.NotOwner => "That strategy belongs to another user.",
+        StrategyMutation.PositionOpen => $"{symbol} is holding a position — flatten it first (the Monitor must keep managing that exit).",
+        StrategyMutation.SymbolAlreadyActive => $"{symbol} already has an active strategy — one active gapper per symbol. Pause it first.",
+        StrategyMutation.GapperCapReached => $"{MaxActiveGappers} gappers are already active (the cap) — pause one first.",
+        StrategyMutation.LiveNotConfirmed => $"{symbol} routes to Live — activating it needs your confirmation.",
+        _ => null,
+    };
+
     public async Task<List<Strategy>> GetAllForUserAsync(Guid userId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -102,9 +184,16 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     /// re-arming the strategy to fire a duplicate order.
     /// Keeps the canon in lockstep with the text: unless the caller supplies
     /// canonical JSON explicitly, it is re-derived from the (edited) text.
-    /// Applies the same guards as SetActiveAsync against the FRESH row.
+    /// Applies the same guards as SetActiveAsync against the FRESH row, and refuses a symbol
+    /// change while the row holds a position (PositionOpen): the shares are in the old symbol,
+    /// so the Monitor would manage the wrong ticker's exit and strand them.
+    /// When the save turns the row active (or changes the symbol/script of an active row), the
+    /// gapper rules apply as in <see cref="SetActiveAsync"/>. Pass
+    /// <paramref name="liveActivationConfirmed"/> = false from a surface that has not confirmed
+    /// a Live activation: turning on a row that (freshly) routes to Live is then refused.
     /// </summary>
-    public async Task<StrategyMutation> UpdateAsync(Strategy strategy, string? scriptJson = null, CancellationToken ct = default)
+    public async Task<StrategyMutation> UpdateAsync(Strategy strategy, string? scriptJson = null, CancellationToken ct = default,
+        bool liveActivationConfirmed = true)
     {
         var canon = scriptJson ?? DeriveCanonicalJson(strategy.ScriptText);
 
@@ -114,8 +203,18 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         if (row.OwnerUserId != strategy.OwnerUserId) return StrategyMutation.NotOwner;
         if (row.PositionQty > 0 && row.IsActive && !strategy.IsActive) return StrategyMutation.PositionOpen;
 
+        var newSymbol = strategy.Symbol.ToUpperInvariant();
+        var symbolChanged = !string.Equals(row.Symbol, newSymbol, StringComparison.OrdinalIgnoreCase);
+        if (row.PositionQty > 0 && symbolChanged) return StrategyMutation.PositionOpen;
+
+        var activating = strategy.IsActive && !row.IsActive;
+        if (activating && !liveActivationConfirmed
+            && string.Equals(row.BrokerMode, "Live", StringComparison.OrdinalIgnoreCase))
+            return StrategyMutation.LiveNotConfirmed;
+        var wasGapper = IsGapper(row);
+
         row.Title       = strategy.Title;
-        row.Symbol      = strategy.Symbol.ToUpperInvariant();
+        row.Symbol      = newSymbol;
         row.Description = strategy.Description;
         row.ScriptText  = strategy.ScriptText;
         row.ScriptJson  = canon;
@@ -124,8 +223,24 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         // Live gate). Writing the caller's snapshot here let a stale editor save silently revert a
         // Paper switch back to Live, with no elevation or code.
         row.UpdatedUtc  = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
 
+        // Gapper rules (IP-LAW-11) whenever this save puts a gapper into the active set or moves
+        // an active one: turning it on, re-pointing it at another symbol, or editing a script
+        // into a gapper. A plain re-save of an already-active gapper is left alone.
+        var gapperRulesApply = row.IsActive && (activating || symbolChanged || !wasGapper);
+        if (gapperRulesApply)
+        {
+            var pre = await CheckGapperRulesAsync(db, row, ct);
+            if (pre != StrategyMutation.Ok) return pre; // nothing saved: the tracked row is discarded
+            var post = await SaveActivationAsync(db, row, ct);
+            if (post != StrategyMutation.Ok) return post;
+        }
+        else
+        {
+            await db.SaveChangesAsync(ct);
+        }
+
+        strategy.Symbol = newSymbol;
         strategy.ScriptJson = canon;
         strategy.UpdatedUtc = row.UpdatedUtc;
         return StrategyMutation.Ok;
@@ -219,16 +334,41 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     /// (deactivating a row with PositionQty &gt; 0 would orphan the position:
     /// the Monitor only evaluates active rows, so the stop/giveback/sell-by
     /// brain would never run again while the broker still holds shares).
+    /// Activating a gapper also enforces one active strategy per symbol and the
+    /// <see cref="MaxActiveGappers"/> cap against SQL, with a post-write recheck
+    /// (IP-LAW-11) — so every surface (web, CLI, MCP, bulk, scanners) is held to it.
+    /// Re-activating an already-active row is a no-op Ok.
+    /// A surface that has not confirmed a Live activation passes
+    /// <paramref name="liveActivationConfirmed"/> = false: activating a row whose FRESH
+    /// BrokerMode is Live is then refused with LiveNotConfirmed (so a stale page that still
+    /// shows Paper can't turn on a strategy someone has since routed to Live).
     /// </summary>
-    public async Task<StrategyMutation> SetActiveAsync(Guid id, bool isActive, Guid ownerUserId, CancellationToken ct = default)
+    public async Task<StrategyMutation> SetActiveAsync(Guid id, bool isActive, Guid ownerUserId, CancellationToken ct = default,
+        bool liveActivationConfirmed = true)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (strategy is null) return StrategyMutation.NotFound;
         if (strategy.OwnerUserId != ownerUserId) return StrategyMutation.NotOwner;
         if (!isActive && strategy.PositionQty > 0) return StrategyMutation.PositionOpen;
+        if (isActive && strategy.IsActive) return StrategyMutation.Ok;
+        if (isActive && !liveActivationConfirmed && IsLive(strategy)) return StrategyMutation.LiveNotConfirmed;
+        return await ApplyActiveAsync(db, strategy, isActive, ct);
+    }
+
+    private static bool IsLive(Strategy s) => string.Equals(s.BrokerMode, "Live", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Flips one tracked row's IsActive and saves it, applying the gapper rules on activation.</summary>
+    private static async Task<StrategyMutation> ApplyActiveAsync(AppDbContext db, Strategy strategy, bool isActive, CancellationToken ct)
+    {
+        if (isActive)
+        {
+            var pre = await CheckGapperRulesAsync(db, strategy, ct);
+            if (pre != StrategyMutation.Ok) return pre;
+        }
         strategy.IsActive = isActive;
         strategy.UpdatedUtc = DateTime.UtcNow;
+        if (isActive) return await SaveActivationAsync(db, strategy, ct);
         await db.SaveChangesAsync(ct);
         return StrategyMutation.Ok;
     }
@@ -424,26 +564,34 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     /// Bulk-activates or deactivates a set of strategies owned by
     /// <paramref name="ownerUserId"/>. Applies the same open-position guard as
     /// <see cref="SetActiveAsync"/>: strategies holding a position cannot be
-    /// deactivated. Returns counts of (updated, skipped-position-open).
+    /// deactivated. Activation applies the gapper rules row by row (each row is
+    /// saved and re-checked before the next is considered, so a batch can't push
+    /// past the cap or arm two gappers on one symbol). Rows already in the target
+    /// state are left alone and not counted. With
+    /// <paramref name="liveActivationConfirmed"/> = false, Live rows are not activated
+    /// (counted as SkippedLiveUnconfirmed). Returns the per-outcome counts.
     /// </summary>
-    public async Task<(int Updated, int SkippedPositionOpen)> SetActiveBulkAsync(
-        IReadOnlyCollection<Guid> ids, bool isActive, Guid ownerUserId, CancellationToken ct = default)
+    public async Task<(int Updated, int SkippedPositionOpen, int SkippedGapperRule, int SkippedLiveUnconfirmed)> SetActiveBulkAsync(
+        IReadOnlyCollection<Guid> ids, bool isActive, Guid ownerUserId, CancellationToken ct = default,
+        bool liveActivationConfirmed = true)
     {
-        if (ids.Count == 0) return (0, 0);
+        if (ids.Count == 0) return (0, 0, 0, 0);
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var rows = await db.Strategies
             .Where(s => ids.Contains(s.Id) && s.OwnerUserId == ownerUserId)
+            .OrderBy(s => s.Symbol)
             .ToListAsync(ct);
-        int updated = 0, skipped = 0;
+        int updated = 0, skippedPosition = 0, skippedGapper = 0, skippedLive = 0;
         foreach (var r in rows)
         {
-            if (!isActive && r.PositionQty > 0) { skipped++; continue; }
-            r.IsActive = isActive;
-            r.UpdatedUtc = DateTime.UtcNow;
-            updated++;
+            if (r.IsActive == isActive) continue;
+            if (!isActive && r.PositionQty > 0) { skippedPosition++; continue; }
+            if (isActive && !liveActivationConfirmed && IsLive(r)) { skippedLive++; continue; }
+            var m = await ApplyActiveAsync(db, r, isActive, ct);
+            if (m == StrategyMutation.Ok) updated++;
+            else skippedGapper++;
         }
-        if (updated > 0) await db.SaveChangesAsync(ct);
-        return (updated, skipped);
+        return (updated, skippedPosition, skippedGapper, skippedLive);
     }
 
     /// <summary>

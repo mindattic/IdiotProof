@@ -326,7 +326,10 @@ public sealed class StrategyActivateOperation : IOperation<StrategyRefArgs>
             StrategyMutation.PositionOpen => OperationResult.Blocked(
                 $"{s.Symbol} holds {s.PositionQty} shares — deactivating would orphan the exit. Flatten first (`idiotproof trade sell {s.Symbol} {s.PositionQty} --mode {OrderIntent.ParseMode(s.BrokerMode).ToString().ToLowerInvariant()}`)."),
             StrategyMutation.NotOwner => OperationResult.Blocked("That strategy belongs to another user."),
-            _ => OperationResult.Fail("Strategy not found."),
+            StrategyMutation.SymbolAlreadyActive or StrategyMutation.GapperCapReached =>
+                OperationResult.Blocked(StrategyRepository.Describe(result, s.Symbol) + " `idiotproof gapper caps` shows the active gappers."),
+            StrategyMutation.NotFound => OperationResult.Fail("Strategy not found."),
+            _ => OperationResult.Fail($"{s.Symbol} '{s.Title}' was not changed: {result}."),
         };
     }
 }

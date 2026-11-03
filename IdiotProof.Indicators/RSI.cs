@@ -38,6 +38,9 @@ public static class RSI
 
     private static decimal RsiFromAvgs(decimal avgGain, decimal avgLoss)
     {
+        // Flat window (no gains AND no losses): neutral 50, the standard convention. Returning
+        // 100 here read a halted / untraded tape as maximally overbought.
+        if (avgLoss == 0m && avgGain == 0m) return 50m;
         if (avgLoss == 0m) return 100m;
         var rs = avgGain / avgLoss;
         return 100m - 100m / (1 + rs);

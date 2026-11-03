@@ -16,13 +16,13 @@ namespace IdiotProof.Operations.Gapper;
 public static class GapperRules
 {
     /// <summary>At most this many gappers are active at once (the Gapper tab's cap).</summary>
-    public const int MaxActiveGappers = 3;
+    public const int MaxActiveGappers = StrategyRepository.MaxActiveGappers;
 
     /// <summary>The profile a command uses when none is named.</summary>
     public const string DefaultProfileId = "classic-gapper";
 
     /// <summary>Gapper rows are recognized by the semantic marker only the gapper factory emits.</summary>
-    public static bool IsGapper(Strategy s) => s.ScriptText.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase);
+    public static bool IsGapper(Strategy s) => StrategyRepository.IsGapper(s);
 
     /// <summary>The owner's gapper rows, freshly read from SQL.</summary>
     public static async Task<List<Strategy>> GappersAsync(OperationContext ctx) =>
@@ -164,17 +164,14 @@ public static class GapperRules
         var owner = ctx.RequireOwner();
         var repo = ctx.Get<StrategyRepository>();
         var result = await repo.SetActiveAsync(s.Id, true, owner, ctx.CancellationToken);
+        // The repository enforces one-per-symbol and the cap against SQL, with its own post-write
+        // recheck that reverts a lost race (IP-LAW-11); the pre-check above only words it nicely.
+        if (result is StrategyMutation.SymbolAlreadyActive or StrategyMutation.GapperCapReached)
+            return OperationResult.Blocked($"{StrategyRepository.Describe(result, s.Symbol)} Left disarmed (`idiotproof gapper caps` shows the active ones).");
         if (result == StrategyMutation.NotOwner) return OperationResult.Blocked("That strategy belongs to another user.");
         if (result != StrategyMutation.Ok) return OperationResult.Fail($"Could not arm {s.Symbol}: {result}.");
 
-        // Close the check-then-act race exactly like the Gapper tab: re-verify after the write.
         var all = await repo.GetAllForUserAsync(owner, ctx.CancellationToken);
-        if (all.Count(x => x.IsActive && IsGapper(x)) > MaxActiveGappers
-            || all.Count(x => x.IsActive && x.Symbol.Equals(s.Symbol, StringComparison.OrdinalIgnoreCase)) > 1)
-        {
-            await repo.SetActiveAsync(s.Id, false, owner, ctx.CancellationToken);
-            return OperationResult.Blocked($"{s.Symbol} lost the race to another arm (cap or duplicate) — left disarmed.");
-        }
 
         var count = all.Count(x => x.IsActive && IsGapper(x));
         return OperationResult.Ok(new { s.Id, s.Symbol, s.Title, Mode = mode.ToString(), IsActive = true, ActiveGappers = count, Cap = MaxActiveGappers, Extra = extra },
