@@ -1,0 +1,26 @@
+status: Ok
+message: 
+
+NVD order flow 2026-10-01..2026-10-30  22 sessions (15 train / 7 test)  signing: tick rule  480,019 trades
+up = forward return > 0 after 5 min; held-out base rate 48.94%
+feature      bucket  train up     n  test up       95% CI     n  days  lift      p      q  verdict
+-----------  ------  --------  ----  -------  -----------  ----  ----  ----  -----  -----  ---------------
+imbalance         0    48.71%  1084   51.24%   46.4–56.1%   402     7  1.05  0.423  1.000  not significant
+imbalance         1    47.60%  1084   48.50%   44.4–52.6%   567     7  0.99  0.869  1.000  not significant
+imbalance         2    45.99%  1085   47.47%   43.4–51.6%   573     7  0.97  0.564  1.000  not significant
+imbalance         3    43.54%  1084   50.68%   46.6–54.7%   588     7  1.04  0.532  1.000  not significant
+imbalance         4    45.16%  1085   46.83%   42.1–51.7%   410     7  0.96  0.569  1.000  not significant
+vpin              0    42.86%   168   49.43%   42.1–56.8%   174     2  1.07  1.000  1.000  not significant
+vpin              1    50.00%   170   55.88%   44.1–67.1%    68     2  1.21  1.000  1.000  not significant
+vpin              2    41.92%   167   41.95%   34.9–49.4%   174     3  0.91  1.000  1.000  not significant
+vpin              3    47.85%   163   44.73%   39.3–50.3%   313     5  0.97  0.850  1.000  not significant
+vpin              4    44.05%   168   46.59%   41.4–51.8%   352     4  1.01  1.000  1.000  not significant
+kyle-lambda       0    45.88%   994   51.88%   47.4–56.3%   478     7  1.06  0.507  1.000  not significant
+kyle-lambda       1    45.37%   994   48.50%   44.4–52.6%   565     7  0.99  0.864  1.000  not significant
+kyle-lambda       2    46.93%   995   53.88%   49.1–58.6%   412     7  1.10  0.399  1.000  not significant
+kyle-lambda       3    46.28%   994   42.27%   37.9–46.7%   485     7  0.86  0.252  1.000  not significant
+kyle-lambda       4    46.03%   995   50.26%   45.3–55.2%   390     7  1.02  1.000  1.000  not significant
+absorption        0    42.50%    40  100.00%  34.2–100.0%     2     1  2.04  1.000  1.000  not significant
+absorption        1    46.18%  5331   48.97%   47.0–50.9%  2530     7  1.00  1.000  1.000  not significant
+absorption        2    50.98%    51   25.00%    7.1–59.1%     8     3  0.51  1.000  1.000  not significant
+Bucket edges come from training sessions only. p is the larger of an exact two-sided binomial test and a day-clustered test (bootstrap over days + t-test on daily rates) against the held-out base rate; q is Benjamini-Hochberg across all 18 buckets shown, and only q < 0.05 is called significant. Absorption buckets: 0 = buying absorbed, 1 = none, 2 = selling absorbed.

@@ -1,0 +1,11 @@
+status: Ok
+message: 
+
+feature          bucket             train           holdout         95% CI  vs base      p  day p  verdict
+---------------  --------  --------------  ----------------  -------------  -------  -----  -----  ---------------
+h0-total         4/4 down  48.79% n=13008  2885/5702 50.60%  49.30%–51.89%   51.02%  0.745  0.769  not significant
+h1-total         2/4 up    49.68% n=13008  2681/5456 49.14%  47.81%–50.47%   48.98%   0.41  0.437  not significant
+h1-max           2/4 up    49.79% n=13008  2739/5557 49.29%  47.98%–50.60%   48.98%  0.325  0.366  not significant
+h1-landscape-l1  4/4 down  48.67% n=13008  2724/5359 50.83%  49.49%–52.17%   51.02%  0.617  0.614  not significant
+train 900 sessions / 52032 reads, holdout 380 sessions / 22027 reads; each feature's most extreme training bucket re-tested on holdout, α = 0.0125 per feature (0.05 / 4), day-clustered.
+No topology feature beat the held-out base rate after correcting for the features tried; none is a signal.

@@ -29,20 +29,20 @@
       "Symbol": "OPEN",
       "TrainBars": 1559,
       "State": "calm",
-      "Probability": 0.974522,
+      "Probability": 0.904595,
       "Switches": 5,
       "States": [
         {
           "Name": "calm",
-          "Mean": -0,
-          "StdDev": 3.1E-05,
-          "Persistence": 0.393723
+          "Mean": -1E-06,
+          "StdDev": 0.000129,
+          "Persistence": 0.397021
         },
         {
           "Name": "volatile",
           "Mean": -1.4E-05,
-          "StdDev": 0.003627,
-          "Persistence": 0.755795
+          "StdDev": 0.003645,
+          "Persistence": 0.748854
         }
       ]
     },
@@ -113,20 +113,20 @@
       "Symbol": "GRAB",
       "TrainBars": 1559,
       "State": "calm",
-      "Probability": 0.935671,
+      "Probability": 0.910441,
       "Switches": 7,
       "States": [
         {
           "Name": "calm",
-          "Mean": 0,
-          "StdDev": 1.8E-05,
-          "Persistence": 0.515516
+          "Mean": 1E-06,
+          "StdDev": 0.000194,
+          "Persistence": 0.520158
         },
         {
           "Name": "volatile",
           "Mean": -1.1E-05,
-          "StdDev": 0.002268,
-          "Persistence": 0.702087
+          "StdDev": 0.002233,
+          "Persistence": 0.727723
         }
       ]
     },
@@ -203,14 +203,14 @@
         {
           "Name": "calm",
           "Mean": -0,
-          "StdDev": 1.8E-05,
-          "Persistence": 0.446131
+          "StdDev": 4.1E-05,
+          "Persistence": 0.445039
         },
         {
           "Name": "volatile",
-          "Mean": 5.8E-05,
-          "StdDev": 0.002199,
-          "Persistence": 0.74325
+          "Mean": 5.9E-05,
+          "StdDev": 0.002211,
+          "Persistence": 0.733785
         }
       ]
     },
@@ -240,19 +240,19 @@
       "TrainBars": 1559,
       "State": "volatile",
       "Probability": 1,
-      "Switches": 3,
+      "Switches": 7,
       "States": [
         {
           "Name": "calm",
-          "Mean": 0,
-          "StdDev": 2.7E-05,
-          "Persistence": 0.499639
+          "Mean": 1E-06,
+          "StdDev": 0.000277,
+          "Persistence": 0.499279
         },
         {
           "Name": "volatile",
-          "Mean": -0.000137,
-          "StdDev": 0.003353,
-          "Persistence": 0.729246
+          "Mean": -0.000133,
+          "StdDev": 0.003301,
+          "Persistence": 0.752578
         }
       ]
     },
@@ -261,19 +261,19 @@
       "TrainBars": 1559,
       "State": "volatile",
       "Probability": 1,
-      "Switches": 5,
+      "Switches": 15,
       "States": [
         {
           "Name": "calm",
-          "Mean": -0,
-          "StdDev": 1.4E-05,
-          "Persistence": 0.506449
+          "Mean": 3E-06,
+          "StdDev": 0.000174,
+          "Persistence": 0.500634
         },
         {
           "Name": "volatile",
-          "Mean": 1.2E-05,
-          "StdDev": 0.00174,
-          "Persistence": 0.72928
+          "Mean": 1E-05,
+          "StdDev": 0.001699,
+          "Persistence": 0.761026
         }
       ]
     },
@@ -286,15 +286,15 @@
       "States": [
         {
           "Name": "calm",
-          "Mean": -0,
-          "StdDev": 3.3E-05,
-          "Persistence": 0.50356
+          "Mean": 0,
+          "StdDev": 0.000376,
+          "Persistence": 0.504009
         },
         {
           "Name": "volatile",
-          "Mean": 4.7E-05,
-          "StdDev": 0.004297,
-          "Persistence": 0.663052
+          "Mean": 4.5E-05,
+          "StdDev": 0.004237,
+          "Persistence": 0.685708
         }
       ]
     },
@@ -386,20 +386,20 @@
       "Symbol": "ABEV",
       "TrainBars": 1559,
       "State": "volatile",
-      "Probability": 1,
-      "Switches": 5,
+      "Probability": 0.999917,
+      "Switches": 11,
       "States": [
         {
           "Name": "calm",
-          "Mean": -0,
-          "StdDev": 2.2E-05,
-          "Persistence": 0.516586
+          "Mean": 2E-06,
+          "StdDev": 0.000394,
+          "Persistence": 0.509868
         },
         {
           "Name": "volatile",
-          "Mean": -8.2E-05,
-          "StdDev": 0.002866,
-          "Persistence": 0.669303
+          "Mean": -7.5E-05,
+          "StdDev": 0.002724,
+          "Persistence": 0.74338
         }
       ]
     },

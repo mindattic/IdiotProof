@@ -1,0 +1,45 @@
+status: Ok
+message: 
+
+OPEN Hawkes 2026-10-01..2026-10-30  22 sessions (1 warm-up, 14 train, 7 test)  ignition bars: 10
+n = branching ratio, the share of trades triggered by earlier trades rather than outside arrivals.
+day          trades    μ/s         α         β     n  LR vs Poisson  role
+----------  -------  -----  --------  --------  ----  -------------  -------
+2026-10-01   66,687  1.733  1420.593  3624.144  0.39       324372.7  warm-up
+2026-10-02   64,557  1.577  1495.364  3491.251  0.43       360995.3  train
+2026-10-05   58,796  1.701  1317.615  4080.216  0.32       236774.3  train
+2026-10-06   63,983  1.901  1021.149  3351.803  0.30       225589.5  train
+2026-10-07   71,529  1.950  1315.789  3632.514  0.36       325570.6  train
+2026-10-08   58,536  1.678  1245.469  3781.115  0.33       232968.7  train
+2026-10-09   64,030  1.899  1562.590  5106.396  0.31       238493.5  train
+2026-10-12   65,463  1.818  1250.335  3569.953  0.35       279706.1  train
+2026-10-13   55,218  1.445  1188.057  3065.461  0.39       268889.7  train
+2026-10-14   73,308  1.915  1042.964  2682.808  0.39       332617.6  train
+2026-10-15  104,498  2.430  1703.319  3736.661  0.46       576545.8  train
+2026-10-16   90,525  2.333  1647.822  4151.083  0.40       445031.8  train
+2026-10-19   36,766  0.856  1267.154  2782.617  0.46       220085.5  train
+2026-10-20   55,902  1.671  1846.858  6145.653  0.30       224447.1  train
+2026-10-21   66,158  1.999  1237.946  4227.610  0.29       234636.1  train
+2026-10-22   61,062  1.758  1498.670  4594.030  0.33       253425.7  test
+2026-10-23   55,555  1.647  1455.946  4753.602  0.31       226392.7  test
+2026-10-26   76,475  2.345  1309.858  4639.421  0.28       258010.0  test
+2026-10-27   60,703  1.776  1410.908  4471.446  0.32       236507.8  test
+2026-10-28   62,188  1.883  1867.305  6403.912  0.29       234862.2  test
+2026-10-29   66,361  1.957  1069.127  3448.356  0.31       242258.5  test
+2026-10-30   61,681  1.769  1952.460  5934.089  0.33       269818.1  test
+up = forward return > 0 after 5 min; held-out base rate 40.93%
+feature          bucket  train up     n  test up      95% CI     n  days  lift      p      q  verdict
+---------------  ------  --------  ----  -------  ----------  ----  ----  ----  -----  -----  ---------------
+intensity-ratio       0    36.40%  1077   40.42%  35.9–45.1%   428     7  0.99  0.872  1.000  not significant
+intensity-ratio       1    38.78%  1078   40.15%  36.5–43.9%   670     7  0.98  1.000  1.000  not significant
+intensity-ratio       2    37.01%  1078   43.88%  40.1–47.7%   654     7  1.07  0.432  1.000  not significant
+intensity-ratio       3    38.22%  1078   37.18%  33.3–41.2%   581     7  0.91  0.071  0.635  not significant
+intensity-ratio       4    38.78%  1078   43.65%  38.6–48.8%   362     7  1.07  1.000  1.000  not significant
+branching             0    37.51%  1077   37.94%  33.9–42.1%   535     7  0.93  0.173  0.635  not significant
+branching             1    36.55%  1078   39.70%  36.6–42.9%   942     7  0.97  0.625  1.000  not significant
+branching             2    38.78%  1078   42.04%  38.3–45.9%   647     7  1.03  0.688  1.000  not significant
+branching             3    39.33%  1078   43.30%  38.3–48.5%   358     7  1.06  0.548  1.000  not significant
+branching             4    37.01%  1078   46.48%  39.9–53.2%   213     7  1.14  0.116  0.635  not significant
+ignition              0    37.83%  5387   40.93%  39.1–42.8%  2695     7  1.00  1.000  1.000  not significant
+ignition              1    50.00%     2        —           —     0     0     —      —      —  no data
+Each session's detector baseline is the previous session's fit. Bucket edges come from training sessions only. p is the larger of an exact two-sided binomial test and a day-clustered test (bootstrap over days + t-test on daily rates) against the held-out base rate; q is Benjamini-Hochberg across all 11 buckets shown, and only q < 0.05 is called significant.

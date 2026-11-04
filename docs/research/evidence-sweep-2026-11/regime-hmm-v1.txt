@@ -1,0 +1,26 @@
+status: Ok
+message: 
+
+symbol  train bars  now       P(state)  states (sd/bar, stay)                    switches
+------  ----------  --------  --------  ---------------------------------------  --------
+NVD           1444  calm         0.703  calm 0.145% 1.00 | volatile 0.334% 0.98         5
+OPEN          1559  calm         0.975  calm 0.003% 0.39 | volatile 0.363% 0.76         5
+TE            1559  volatile     0.971  calm 0.262% 0.96 | volatile 0.649% 0.89         5
+MSTU          1514  volatile     0.585  calm 0.226% 0.99 | volatile 0.685% 0.96        12
+TSLG          1481  volatile     0.825  calm 0.130% 0.99 | volatile 0.352% 0.97         9
+GRAB          1559  calm         0.936  calm 0.002% 0.52 | volatile 0.227% 0.70         7
+ACHR          1559  calm         0.965  calm 0.148% 0.99 | volatile 0.412% 0.93         6
+SNAP          1559  calm         0.912  calm 0.129% 0.99 | volatile 0.398% 0.96         5
+KEEL          1559  volatile     0.578  calm 0.232% 0.98 | volatile 0.587% 0.93         8
+AMC           1559  volatile     1.000  calm 0.002% 0.45 | volatile 0.220% 0.74        11
+EOSE          1558  calm         0.868  calm 0.290% 0.98 | volatile 0.649% 0.93        11
+BBD           1559  volatile     1.000  calm 0.003% 0.50 | volatile 0.335% 0.73         3
+NIO           1559  volatile     1.000  calm 0.001% 0.51 | volatile 0.174% 0.73         5
+PLUG          1558  volatile     1.000  calm 0.003% 0.50 | volatile 0.430% 0.66         5
+DAMD          1354  calm         0.927  calm 0.185% 0.99 | volatile 0.623% 0.97         6
+CONL          1546  volatile     0.980  calm 0.217% 0.99 | volatile 0.686% 0.96        11
+BTE           1533  calm         0.989  calm 0.087% 0.98 | volatile 0.277% 0.88         3
+BBAI          1558  calm         0.836  calm 0.225% 0.99 | volatile 0.591% 0.93         2
+ABEV          1559  volatile     1.000  calm 0.002% 0.52 | volatile 0.287% 0.67         5
+IOVA          1559  calm         0.986  calm 0.201% 0.97 | volatile 3.398% 0.57         6
+Gaussian HMM: Baum-Welch on earlier bars, forward filtering only on the latest session; states ordered calm to volatile; stay = P(same state next bar).

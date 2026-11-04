@@ -14,8 +14,10 @@ using Microsoft.Extensions.DependencyInjection;
 // docs/research/evidence-sweep-2026-11.md. Research databases only, read-only market data, no orders.
 //   dotnet run --project tools/EvidenceSweep -- main     (IdiotProof_Research_T375: bars + copied replay trades)
 //   dotnet run --project tools/EvidenceSweep -- events   (IdiotProof_Research_T407: copied research claims)
+//   dotnet run --project tools/EvidenceSweep -- main topology   (only steps whose name starts with "topology"; one tool per process keeps memory bounded)
 
 var mode = args.FirstOrDefault() ?? "main";
+var only = args.Length > 1 ? args[1] : null;
 var researchDb = mode == "events" ? "IdiotProof_Research_T407" : "IdiotProof_Research_T375";
 var outDir = Environment.GetEnvironmentVariable("EVIDENCE_OUT")
     ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "docs", "research", "evidence-sweep-2026-11"));
@@ -57,6 +59,7 @@ var summary = new List<object>();
 
 async Task Run(string name, Func<Task<OperationResult>> op)
 {
+    if (only is not null && !name.StartsWith(only, StringComparison.Ordinal)) return;
     var started = DateTime.UtcNow;
     Console.WriteLine($"[{started:HH:mm:ss}] {name} ...");
     try
@@ -173,5 +176,5 @@ else
     }
 }
 
-await File.WriteAllTextAsync(Path.Combine(outDir, $"summary-{mode}.json"), JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true }));
+await File.WriteAllTextAsync(Path.Combine(outDir, only is null ? $"summary-{mode}.json" : $"summary-{mode}-{only}.json"), JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true }));
 Console.WriteLine("done");

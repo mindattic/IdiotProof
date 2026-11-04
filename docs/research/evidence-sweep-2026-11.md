@@ -84,3 +84,37 @@ on bars whose SIP provenance is unproven, though no fallback to IEX was observed
 
 **Filed while running.** IP-T433 (backtester ignores TakeProfitPercent), IP-T434 (evidence search
 example uses absolute-price verbs), IP-T435 (HMM/BOCPD degenerate on tick-quantized returns).
+
+## Results, part 2 (appended 2026-11-04; protocol above unchanged)
+
+**Run status.** The seven steps the host stopped (topology, pools, conformal ×2, search, flow ×5,
+hawkes ×5) were run from a clean export of `origin/main` at cf5e694, **one tool per process**,
+sequentially (`dotnet run --project tools/EvidenceSweep -- main <step>`). Every step exited cleanly;
+topology took 17 minutes with 2–4 GB free and needed **no** memory-driven parameter change, so
+every sample and parameter is exactly as declared. IP-T435 (tick-aware HMM/BOCPD, a62076b) landed
+before this pass, so both regime steps were re-run on the same sample and dates; the first-pass
+outputs are kept as `regime-*-v1.*`. The export also carried IP-T433 (backtester honors
+TakeProfitPercent), which the pre-declared search grid does not use.
+
+| tool | tested | n | effect | corrected significance | verdict |
+|---|---|---|---|---|---|
+| topology | H0/H1 persistence features, most extreme training bucket re-tested on holdout | 900 train / 380 holdout sessions, 22,027 holdout reads | holdout up-rates 49.1%–50.8% vs base 49.0%–51.0% | day-clustered p 0.37–0.77 vs α 0.0125 per feature | **not significant** |
+| pools | raid-and-reverse / break / reject rates per pool kind × side × tier | S20, e.g. 13,307 round-number approaches from above at $1–5 | round numbers fail to hold (raided or broken) 72% at $1–5, 60% at $5–20, 53% at $20+ | n/a (descriptive rates with Wilson CIs) | **description only**: tighter tiers are raided more; no timing claim |
+| conformal — analog | split and adaptive (ACI) 90% intervals; abstain-unless-interval-excludes-zero rule | 20,608 forecasts; 222 calls on 57 days | coverage split 90.7%, ACI 90.0%; calls 40.1% hit (CI 33.9–46.7%), edge −0.136%/call before cost | day-clustered bootstrap p 0.998, t-test p 0.991 | intervals **calibrated as promised**; directional rule **not significant** |
+| conformal — kalman | as above | 27,608 forecasts; 299 calls on 54 days | coverage split 90.2%, ACI 89.8%; calls 49.8% hit (CI 44.2–55.5%), +0.035%/call before cost | bootstrap p 0.502, t-test p 0.981 | intervals **calibrated**; rule **not significant** |
+| search | 6 configs of `OnVwapReclaim().StopLossPercent({sl}).TrailingStopLoss({trail})` on S10 | 450 selection + 190 holdout symbol-days, 441 trades per config | every config negative net of modeled 0.108% cost; best sl=4 trail=2 −0.142%/cell; holdout −0.047%/cell, 75/190 winning | reality check p 1.000, SPA p 1.000, q 1.000, DSR 2.6e-7; holdout p 0.612 | **not significant** — no surviving config |
+| flow (S5) | imbalance, VPIN, Kyle's λ, absorption buckets vs 5-min forward return (next-open entry) | 90 holdout buckets, 84 tests; 400k–1.44M trades per symbol | lifts 0.49–1.09, nothing beyond base | 0 of 90 with BH q < 0.05 (min q 0.56) | **not significant** |
+| hawkes (S5) | self-excitation per session; momentum-ignition bars vs 5-min forward return | 110 session fits, 493 ignition bars, 60 buckets | branching ratio 0.28–0.70 (median 0.43): trading is strongly self-exciting | fits: LR vs Poisson ≫ 0 every session; buckets: 0 of 60 with q < 0.05 (min q 0.14) | self-excitation **real (descriptive)**; ignition as a signal **not significant** |
+| regime bocpd — re-run after IP-T435 | change points, 5 sessions | ~1,900 bars × 20 | 312 flagged changes vs 318 before the fix (6–25 per symbol per 5 days) | n/a (descriptive) | **still over-flags**: the tick-noise floor barely moved the count |
+| regime hmm — re-run after IP-T435 | 2-state Gaussian HMM | ~1,550 training bars × 20 | the degenerate "calm" states got a realistic floor (e.g. OPEN 0.003%→0.013%/bar, GRAB 0.002%→0.019%) but 7 of 20 still have a calm state with stay ≈ 0.4–0.5 | n/a (descriptive) | **still misbehaves** on those 7: the calm state still alternates with every tick |
+
+**What part 2 adds.**
+- Out of sample, after the corrections each tool declared, **no new timing signal survived**:
+  topology, order flow, Hawkes ignition, the conformal call rule and the VWAP-reclaim grid all sit
+  at or below a coin flip net of cost. That is consistent with the penny walk-forward (IP-T375).
+- What did hold up is **descriptive, not predictive**: conformal intervals deliver their promised
+  coverage (useful for sizing and for deciding when *not* to trade), sub-$5 trading is strongly
+  self-exciting (branching ≈ 0.4), low-priced names co-crash (part 1), and cheap names' round-number
+  levels get raided or broken ~72% of the time.
+- IP-T435 helps the HMM's variance floor but does not fix either regime model on sub-$5 minute bars;
+  a follow-up (IP-T437) is needed before regime output drives anything.

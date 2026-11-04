@@ -1,0 +1,107 @@
+{
+  "AbsolutePriceWarning": null,
+  "From": "2026-08-03",
+  "To": "2026-10-30",
+  "ConfigsTried": 6,
+  "CostPerTrade": null,
+  "ModeledCosts": true,
+  "MeanCostPerTrade": 0.001082,
+  "SelectionCells": 450,
+  "HoldoutCells": 190,
+  "LastSelectionDay": "2026-10-05",
+  "Best": {
+    "Config": {
+      "sl": "4",
+      "trail": "2"
+    },
+    "WhitePValue": 1,
+    "SpaPValue": 1,
+    "QValue": 1,
+    "DeflatedSharpe": 0,
+    "HoldoutMeanPerCell": -0.00047,
+    "HoldoutP": 0.612332,
+    "HoldoutTrades": 190,
+    "HoldoutWins": 75
+  },
+  "Survives": false,
+  "Top": [
+    {
+      "Rank": 1,
+      "Config": {
+        "sl": "4",
+        "trail": "2"
+      },
+      "Trades": 441,
+      "MeanPerCell": -0.001421,
+      "Sharpe": -0.074318,
+      "NaiveP": 0.941994,
+      "QValue": 1,
+      "DeflatedSharpe": 0
+    },
+    {
+      "Rank": 2,
+      "Config": {
+        "sl": "2",
+        "trail": "2"
+      },
+      "Trades": 441,
+      "MeanPerCell": -0.001455,
+      "Sharpe": -0.07728,
+      "NaiveP": 0.94889,
+      "QValue": 1,
+      "DeflatedSharpe": 0
+    },
+    {
+      "Rank": 3,
+      "Config": {
+        "sl": "4",
+        "trail": "3"
+      },
+      "Trades": 441,
+      "MeanPerCell": -0.001577,
+      "Sharpe": -0.060842,
+      "NaiveP": 0.901009,
+      "QValue": 1,
+      "DeflatedSharpe": 1E-06
+    },
+    {
+      "Rank": 4,
+      "Config": {
+        "sl": "2",
+        "trail": "3"
+      },
+      "Trades": 441,
+      "MeanPerCell": -0.001631,
+      "Sharpe": -0.067949,
+      "NaiveP": 0.924692,
+      "QValue": 1,
+      "DeflatedSharpe": 1E-06
+    },
+    {
+      "Rank": 5,
+      "Config": {
+        "sl": "4",
+        "trail": "1"
+      },
+      "Trades": 441,
+      "MeanPerCell": -0.002875,
+      "Sharpe": -0.312457,
+      "NaiveP": 1,
+      "QValue": 1,
+      "DeflatedSharpe": 0
+    },
+    {
+      "Rank": 6,
+      "Config": {
+        "sl": "2",
+        "trail": "1"
+      },
+      "Trades": 441,
+      "MeanPerCell": -0.002891,
+      "Sharpe": -0.347251,
+      "NaiveP": 1,
+      "QValue": 1,
+      "DeflatedSharpe": 0
+    }
+  ]
+}

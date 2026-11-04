@@ -1,0 +1,14 @@
+status: Ok
+message: 
+
+forecasts:        27608 (kalman, horizon 15 min, next-open entry), nominal coverage 90.00%
+split conformal:  coverage 90.18% (unbounded 180), mean width +2.191%
+adaptive (ACI):   coverage 89.76% (unbounded 180), mean width +2.122%, γ 0.005
+abstain rule:     149/299 hits (49.83%, 95% CI 44.20%–55.47%), coverage 1.08%, edge +0.035%/call before cost
+day-clustered:    54 days, bootstrap p 0.502, t-test p 0.981 vs 50% — not significant
+month    points  split cov  ACI cov  ACI width  calls  hit rate
+-------  ------  ---------  -------  ---------  -----  --------
+2026-08    7464     91.52%   90.85%    +2.287%     72    48.61%
+2026-09    9825     90.96%   90.03%    +2.054%    117    46.15%
+2026-10   10319     88.47%   88.72%    +2.070%    110    54.55%
+Each interval is built only from outcomes resolved by its call time (per symbol). Coverage counts an unbounded interval as covering, as the guarantees do. The abstain rule calls up/down only when the ACI interval lies entirely above/below zero; a verdict needs both day-clustered tests below 0.05.

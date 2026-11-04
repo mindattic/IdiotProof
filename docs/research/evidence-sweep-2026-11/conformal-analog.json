@@ -1,0 +1,222 @@
+{
+  "From": "2026-08-03",
+  "To": "2026-10-30",
+  "Model": "analog",
+  "Alpha": 0.1,
+  "Gamma": 0.005,
+  "Horizon": 15,
+  "Entry": "NextOpen",
+  "Points": 20608,
+  "Nominal": 0.9,
+  "SplitCoverage": 0.906638,
+  "SplitUnbounded": 180,
+  "SplitMeanWidth": 0.02801,
+  "AdaptiveCoverage": 0.899554,
+  "AdaptiveUnbounded": 180,
+  "AdaptiveMeanWidth": 0.026669,
+  "Abstain": {
+    "Calls": 222,
+    "Hits": 89,
+    "HitRate": 0.400901,
+    "Coverage": 0.010773,
+    "MeanEdge": -0.001356
+  },
+  "Clustered": {
+    "Days": 57,
+    "BootstrapP": 0.9983,
+    "TP": 0.990999,
+    "Significant": false
+  },
+  "Months": [
+    {
+      "Month": "2026-08",
+      "Points": 5320,
+      "SplitCoverage": 0.917105,
+      "AdaptiveCoverage": 0.910526,
+      "AdaptiveMeanWidth": 0.029917,
+      "Calls": 73,
+      "HitRate": 0.438356
+    },
+    {
+      "Month": "2026-09",
+      "Points": 7315,
+      "SplitCoverage": 0.91702,
+      "AdaptiveCoverage": 0.905126,
+      "AdaptiveMeanWidth": 0.025683,
+      "Calls": 68,
+      "HitRate": 0.308824
+    },
+    {
+      "Month": "2026-10",
+      "Points": 7973,
+      "SplitCoverage": 0.890129,
+      "AdaptiveCoverage": 0.887119,
+      "AdaptiveMeanWidth": 0.025479,
+      "Calls": 81,
+      "HitRate": 0.444444
+    }
+  ],
+  "Symbols": [
+    {
+      "Symbol": "NVD",
+      "Points": 975,
+      "SplitCoverage": 0.915897,
+      "AdaptiveCoverage": 0.90359,
+      "Calls": 6,
+      "HitRate": 0.166667
+    },
+    {
+      "Symbol": "OPEN",
+      "Points": 958,
+      "SplitCoverage": 0.891441,
+      "AdaptiveCoverage": 0.893528,
+      "Calls": 11,
+      "HitRate": 0.363636
+    },
+    {
+      "Symbol": "TE",
+      "Points": 1160,
+      "SplitCoverage": 0.902586,
+      "AdaptiveCoverage": 0.894828,
+      "Calls": 17,
+      "HitRate": 0.294118
+    },
+    {
+      "Symbol": "MSTU",
+      "Points": 1233,
+      "SplitCoverage": 0.914842,
+      "AdaptiveCoverage": 0.902676,
+      "Calls": 14,
+      "HitRate": 0.428571
+    },
+    {
+      "Symbol": "TSLG",
+      "Points": 1118,
+      "SplitCoverage": 0.913238,
+      "AdaptiveCoverage": 0.904293,
+      "Calls": 16,
+      "HitRate": 0.4375
+    },
+    {
+      "Symbol": "GRAB",
+      "Points": 830,
+      "SplitCoverage": 0.924096,
+      "AdaptiveCoverage": 0.904819,
+      "Calls": 11,
+      "HitRate": 0.272727
+    },
+    {
+      "Symbol": "ACHR",
+      "Points": 1187,
+      "SplitCoverage": 0.946925,
+      "AdaptiveCoverage": 0.90396,
+      "Calls": 14,
+      "HitRate": 0.357143
+    },
+    {
+      "Symbol": "SNAP",
+      "Points": 1179,
+      "SplitCoverage": 0.914334,
+      "AdaptiveCoverage": 0.90246,
+      "Calls": 12,
+      "HitRate": 0.333333
+    },
+    {
+      "Symbol": "KEEL",
+      "Points": 1162,
+      "SplitCoverage": 0.931153,
+      "AdaptiveCoverage": 0.907057,
+      "Calls": 13,
+      "HitRate": 0.230769
+    },
+    {
+      "Symbol": "AMC",
+      "Points": 1026,
+      "SplitCoverage": 0.919103,
+      "AdaptiveCoverage": 0.906433,
+      "Calls": 12,
+      "HitRate": 0.416667
+    },
+    {
+      "Symbol": "EOSE",
+      "Points": 1150,
+      "SplitCoverage": 0.886087,
+      "AdaptiveCoverage": 0.894783,
+      "Calls": 7,
+      "HitRate": 0.571429
+    },
+    {
+      "Symbol": "BBD",
+      "Points": 939,
+      "SplitCoverage": 0.867945,
+      "AdaptiveCoverage": 0.889244,
+      "Calls": 10,
+      "HitRate": 0.4
+    },
+    {
+      "Symbol": "NIO",
+      "Points": 767,
+      "SplitCoverage": 0.883963,
+      "AdaptiveCoverage": 0.897001,
+      "Calls": 8,
+      "HitRate": 0.75
+    },
+    {
+      "Symbol": "PLUG",
+      "Points": 714,
+      "SplitCoverage": 0.938375,
+      "AdaptiveCoverage": 0.903361,
+      "Calls": 8,
+      "HitRate": 0.375
+    },
+    {
+      "Symbol": "DAMD",
+      "Points": 989,
+      "SplitCoverage": 0.907988,
+      "AdaptiveCoverage": 0.90091,
+      "Calls": 14,
+      "HitRate": 0.571429
+    },
+    {
+      "Symbol": "CONL",
+      "Points": 1232,
+      "SplitCoverage": 0.903409,
+      "AdaptiveCoverage": 0.900974,
+      "Calls": 14,
+      "HitRate": 0.642857
+    },
+    {
+      "Symbol": "BTE",
+      "Points": 1129,
+      "SplitCoverage": 0.882197,
+      "AdaptiveCoverage": 0.894597,
+      "Calls": 8,
+      "HitRate": 0.625
+    },
+    {
+      "Symbol": "BBAI",
+      "Points": 924,
+      "SplitCoverage": 0.877706,
+      "AdaptiveCoverage": 0.88961,
+      "Calls": 15,
+      "HitRate": 0.333333
+    },
+    {
+      "Symbol": "ABEV",
+      "Points": 709,
+      "SplitCoverage": 0.901269,
+      "AdaptiveCoverage": 0.892807,
+      "Calls": 2,
+      "HitRate": 0
+    },
+    {
+      "Symbol": "IOVA",
+      "Points": 1227,
+      "SplitCoverage": 0.903015,
+      "AdaptiveCoverage": 0.899756,
+      "Calls": 10,
+      "HitRate": 0.2
+    }
+  ],
+  "Notes": []
+}

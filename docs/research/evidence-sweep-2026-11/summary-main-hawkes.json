@@ -1,0 +1,27 @@
+[
+  {
+    "name": "hawkes-NVD",
+    "status": "Ok",
+    "seconds": 9.6887198
+  },
+  {
+    "name": "hawkes-OPEN",
+    "status": "Ok",
+    "seconds": 24.8922913
+  },
+  {
+    "name": "hawkes-TE",
+    "status": "Ok",
+    "seconds": 13.9704714
+  },
+  {
+    "name": "hawkes-MSTU",
+    "status": "Ok",
+    "seconds": 9.908325
+  },
+  {
+    "name": "hawkes-TSLG",
+    "status": "Ok",
+    "seconds": 7.0960884
+  }
+]

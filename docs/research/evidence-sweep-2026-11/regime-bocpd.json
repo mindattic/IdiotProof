@@ -17,23 +17,23 @@
       "Bars": 1950,
       "Changes": 15,
       "LastChangeUtc": "2026-10-30T15:30:00Z",
-      "ShortRunProbability": 0.017061,
+      "ShortRunProbability": 0.017066,
       "MapRunLength": 372
     },
     {
       "Symbol": "TE",
       "Bars": 1949,
-      "Changes": 18,
+      "Changes": 19,
       "LastChangeUtc": "2026-10-30T19:55:00Z",
-      "ShortRunProbability": 0.408202,
+      "ShortRunProbability": 0.401187,
       "MapRunLength": 4
     },
     {
       "Symbol": "MSTU",
       "Bars": 1904,
-      "Changes": 13,
+      "Changes": 14,
       "LastChangeUtc": "2026-10-30T19:40:00Z",
-      "ShortRunProbability": 0.010637,
+      "ShortRunProbability": 0.010634,
       "MapRunLength": 19
     },
     {
@@ -49,31 +49,31 @@
       "Bars": 1950,
       "Changes": 10,
       "LastChangeUtc": "2026-10-29T19:59:00Z",
-      "ShortRunProbability": 0.009796,
+      "ShortRunProbability": 0.009802,
       "MapRunLength": 389
     },
     {
       "Symbol": "ACHR",
       "Bars": 1950,
-      "Changes": 16,
+      "Changes": 15,
       "LastChangeUtc": "2026-10-30T19:06:00Z",
-      "ShortRunProbability": 0.011363,
+      "ShortRunProbability": 0.011366,
       "MapRunLength": 64
     },
     {
       "Symbol": "SNAP",
       "Bars": 1950,
-      "Changes": 17,
+      "Changes": 18,
       "LastChangeUtc": "2026-10-30T14:45:00Z",
-      "ShortRunProbability": 0.015309,
+      "ShortRunProbability": 0.015221,
       "MapRunLength": 314
     },
     {
       "Symbol": "KEEL",
       "Bars": 1950,
-      "Changes": 14,
+      "Changes": 13,
       "LastChangeUtc": "2026-10-30T14:42:00Z",
-      "ShortRunProbability": 0.088227,
+      "ShortRunProbability": 0.092751,
       "MapRunLength": 38
     },
     {
@@ -81,15 +81,15 @@
       "Bars": 1950,
       "Changes": 19,
       "LastChangeUtc": "2026-10-30T19:58:00Z",
-      "ShortRunProbability": 0.684997,
+      "ShortRunProbability": 0.684782,
       "MapRunLength": 1
     },
     {
       "Symbol": "EOSE",
       "Bars": 1949,
-      "Changes": 18,
+      "Changes": 17,
       "LastChangeUtc": "2026-10-30T16:30:00Z",
-      "ShortRunProbability": 0.039204,
+      "ShortRunProbability": 0.039032,
       "MapRunLength": 259
     },
     {
@@ -103,25 +103,25 @@
     {
       "Symbol": "NIO",
       "Bars": 1950,
-      "Changes": 16,
+      "Changes": 14,
       "LastChangeUtc": "2026-10-30T17:57:00Z",
-      "ShortRunProbability": 0.021978,
+      "ShortRunProbability": 0.022006,
       "MapRunLength": 389
     },
     {
       "Symbol": "PLUG",
       "Bars": 1949,
-      "Changes": 15,
+      "Changes": 11,
       "LastChangeUtc": "2026-10-30T13:58:00Z",
-      "ShortRunProbability": 0.019364,
+      "ShortRunProbability": 0.019329,
       "MapRunLength": 389
     },
     {
       "Symbol": "DAMD",
       "Bars": 1740,
-      "Changes": 22,
+      "Changes": 21,
       "LastChangeUtc": "2026-10-30T19:44:00Z",
-      "ShortRunProbability": 0.012113,
+      "ShortRunProbability": 0.012128,
       "MapRunLength": 15
     },
     {
@@ -129,31 +129,31 @@
       "Bars": 1937,
       "Changes": 19,
       "LastChangeUtc": "2026-10-30T19:44:00Z",
-      "ShortRunProbability": 0.02823,
+      "ShortRunProbability": 0.028186,
       "MapRunLength": 15
     },
     {
       "Symbol": "BTE",
       "Bars": 1910,
-      "Changes": 19,
-      "LastChangeUtc": "2026-10-30T19:49:00Z",
-      "ShortRunProbability": 0.008039,
+      "Changes": 20,
+      "LastChangeUtc": "2026-10-30T14:20:00Z",
+      "ShortRunProbability": 0.008037,
       "MapRunLength": 366
     },
     {
       "Symbol": "BBAI",
       "Bars": 1949,
-      "Changes": 22,
+      "Changes": 21,
       "LastChangeUtc": "2026-10-30T15:41:00Z",
-      "ShortRunProbability": 0.028166,
+      "ShortRunProbability": 0.027995,
       "MapRunLength": 354
     },
     {
       "Symbol": "ABEV",
       "Bars": 1949,
-      "Changes": 6,
+      "Changes": 7,
       "LastChangeUtc": "2026-10-29T19:58:00Z",
-      "ShortRunProbability": 0.007526,
+      "ShortRunProbability": 0.0075,
       "MapRunLength": 388
     },
     {
@@ -161,7 +161,7 @@
       "Bars": 1950,
       "Changes": 25,
       "LastChangeUtc": "2026-10-30T19:43:00Z",
-      "ShortRunProbability": 0.014682,
+      "ShortRunProbability": 0.01471,
       "MapRunLength": 16
     }
   ]
