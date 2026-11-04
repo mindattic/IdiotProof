@@ -1,0 +1,17 @@
+{
+  "Trades": 76,
+  "Checkpoints": [
+    5,
+    15,
+    30,
+    60,
+    120
+  ],
+  "Groups": [],
+  "Cox": [],
+  "Notes": [
+    "28 strategies have fewer than 20 trades and no curves of their own (they still count in the Cox fit).",
+    "Cox for target: 8 event(s), need 40 (10 per covariate); skipped.",
+    "Cox for stop: 28 event(s), need 40 (10 per covariate); skipped."
+  ]
+}

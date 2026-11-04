@@ -1,0 +1,10 @@
+status: Ok
+message: 
+
+Exit survival over 76 replay trade(s)
+strategy  n  target  stop  trail  cens  median hold  T/S @5m  T/S @15m  T/S @30m  T/S @60m  T/S @120m  sell-by
+--------  -  ------  ----  -----  ----  -----------  -------  --------  --------  --------  ---------  -------
+T/S @m = cumulative incidence of target / stop by that hold minute (Aalen-Johansen; sell-by, While failed and end of data censor the hold). Sell-by = the minute the target's incidence reaches 95% of its final level: advisory only, nothing is changed.
+28 strategies have fewer than 20 trades and no curves of their own (they still count in the Cox fit).
+Cox for target: 8 event(s), need 40 (10 per covariate); skipped.
+Cox for stop: 28 event(s), need 40 (10 per covariate); skipped.

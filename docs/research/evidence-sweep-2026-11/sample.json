@@ -1,0 +1,106 @@
+{
+  "asOf": "2026-08-03",
+  "universeSize": 812,
+  "s20": [
+    {
+      "Symbol": "NVD",
+      "close": 4.990000,
+      "adv": 394883276
+    },
+    {
+      "Symbol": "OPEN",
+      "close": 3.770000,
+      "adv": 346716516
+    },
+    {
+      "Symbol": "TE",
+      "close": 4.170000,
+      "adv": 232136906
+    },
+    {
+      "Symbol": "MSTU",
+      "close": 1.760000,
+      "adv": 179167482
+    },
+    {
+      "Symbol": "TSLG",
+      "close": 3.620000,
+      "adv": 174323258
+    },
+    {
+      "Symbol": "GRAB",
+      "close": 3.500000,
+      "adv": 160617865
+    },
+    {
+      "Symbol": "ACHR",
+      "close": 4.640000,
+      "adv": 160611641
+    },
+    {
+      "Symbol": "SNAP",
+      "close": 4.690000,
+      "adv": 147048091
+    },
+    {
+      "Symbol": "KEEL",
+      "close": 3.970000,
+      "adv": 134795218
+    },
+    {
+      "Symbol": "AMC",
+      "close": 2.820000,
+      "adv": 118186465
+    },
+    {
+      "Symbol": "EOSE",
+      "close": 3.380000,
+      "adv": 113120212
+    },
+    {
+      "Symbol": "BBD",
+      "close": 3.610000,
+      "adv": 109567821
+    },
+    {
+      "Symbol": "NIO",
+      "close": 4.880000,
+      "adv": 109153817
+    },
+    {
+      "Symbol": "PLUG",
+      "close": 2.060000,
+      "adv": 105787197
+    },
+    {
+      "Symbol": "DAMD",
+      "close": 1.720000,
+      "adv": 100145623
+    },
+    {
+      "Symbol": "CONL",
+      "close": 4.000000,
+      "adv": 89180023
+    },
+    {
+      "Symbol": "BTE",
+      "close": 4.560000,
+      "adv": 77772747
+    },
+    {
+      "Symbol": "BBAI",
+      "close": 2.790000,
+      "adv": 77698971
+    },
+    {
+      "Symbol": "ABEV",
+      "close": 3.110000,
+      "adv": 77250143
+    },
+    {
+      "Symbol": "IOVA",
+      "close": 4.070000,
+      "adv": 75019475
+    }
+  ]
+}

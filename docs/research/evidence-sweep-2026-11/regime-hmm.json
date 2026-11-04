@@ -1,0 +1,428 @@
+{
+  "From": "2026-10-26",
+  "To": "2026-10-30",
+  "Method": "hmm",
+  "States": 2,
+  "Symbols": [
+    {
+      "Symbol": "NVD",
+      "TrainBars": 1444,
+      "State": "calm",
+      "Probability": 0.703023,
+      "Switches": 5,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -2.1E-05,
+          "StdDev": 0.001447,
+          "Persistence": 0.995762
+        },
+        {
+          "Name": "volatile",
+          "Mean": 7.9E-05,
+          "StdDev": 0.003337,
+          "Persistence": 0.977094
+        }
+      ]
+    },
+    {
+      "Symbol": "OPEN",
+      "TrainBars": 1559,
+      "State": "calm",
+      "Probability": 0.974522,
+      "Switches": 5,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -0,
+          "StdDev": 3.1E-05,
+          "Persistence": 0.393723
+        },
+        {
+          "Name": "volatile",
+          "Mean": -1.4E-05,
+          "StdDev": 0.003627,
+          "Persistence": 0.755795
+        }
+      ]
+    },
+    {
+      "Symbol": "TE",
+      "TrainBars": 1559,
+      "State": "volatile",
+      "Probability": 0.971489,
+      "Switches": 5,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -1.7E-05,
+          "StdDev": 0.002615,
+          "Persistence": 0.957791
+        },
+        {
+          "Name": "volatile",
+          "Mean": 0.00062,
+          "StdDev": 0.006493,
+          "Persistence": 0.889026
+        }
+      ]
+    },
+    {
+      "Symbol": "MSTU",
+      "TrainBars": 1514,
+      "State": "volatile",
+      "Probability": 0.58516,
+      "Switches": 12,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -3.1E-05,
+          "StdDev": 0.002258,
+          "Persistence": 0.991115
+        },
+        {
+          "Name": "volatile",
+          "Mean": 0.000211,
+          "StdDev": 0.00685,
+          "Persistence": 0.964394
+        }
+      ]
+    },
+    {
+      "Symbol": "TSLG",
+      "TrainBars": 1481,
+      "State": "volatile",
+      "Probability": 0.824662,
+      "Switches": 9,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": 4.2E-05,
+          "StdDev": 0.001298,
+          "Persistence": 0.992584
+        },
+        {
+          "Name": "volatile",
+          "Mean": 9.7E-05,
+          "StdDev": 0.00352,
+          "Persistence": 0.971517
+        }
+      ]
+    },
+    {
+      "Symbol": "GRAB",
+      "TrainBars": 1559,
+      "State": "calm",
+      "Probability": 0.935671,
+      "Switches": 7,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": 0,
+          "StdDev": 1.8E-05,
+          "Persistence": 0.515516
+        },
+        {
+          "Name": "volatile",
+          "Mean": -1.1E-05,
+          "StdDev": 0.002268,
+          "Persistence": 0.702087
+        }
+      ]
+    },
+    {
+      "Symbol": "ACHR",
+      "TrainBars": 1559,
+      "State": "calm",
+      "Probability": 0.964569,
+      "Switches": 6,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": 3.3E-05,
+          "StdDev": 0.001484,
+          "Persistence": 0.98567
+        },
+        {
+          "Name": "volatile",
+          "Mean": 0.000285,
+          "StdDev": 0.004123,
+          "Persistence": 0.92976
+        }
+      ]
+    },
+    {
+      "Symbol": "SNAP",
+      "TrainBars": 1559,
+      "State": "calm",
+      "Probability": 0.912305,
+      "Switches": 5,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -2.7E-05,
+          "StdDev": 0.001291,
+          "Persistence": 0.994464
+        },
+        {
+          "Name": "volatile",
+          "Mean": -0.000235,
+          "StdDev": 0.003979,
+          "Persistence": 0.962804
+        }
+      ]
+    },
+    {
+      "Symbol": "KEEL",
+      "TrainBars": 1559,
+      "State": "volatile",
+      "Probability": 0.577531,
+      "Switches": 8,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -4.7E-05,
+          "StdDev": 0.002317,
+          "Persistence": 0.981725
+        },
+        {
+          "Name": "volatile",
+          "Mean": 0.000418,
+          "StdDev": 0.00587,
+          "Persistence": 0.927312
+        }
+      ]
+    },
+    {
+      "Symbol": "AMC",
+      "TrainBars": 1559,
+      "State": "volatile",
+      "Probability": 1,
+      "Switches": 11,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -0,
+          "StdDev": 1.8E-05,
+          "Persistence": 0.446131
+        },
+        {
+          "Name": "volatile",
+          "Mean": 5.8E-05,
+          "StdDev": 0.002199,
+          "Persistence": 0.74325
+        }
+      ]
+    },
+    {
+      "Symbol": "EOSE",
+      "TrainBars": 1558,
+      "State": "calm",
+      "Probability": 0.868318,
+      "Switches": 11,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": 3.3E-05,
+          "StdDev": 0.002899,
+          "Persistence": 0.982379
+        },
+        {
+          "Name": "volatile",
+          "Mean": 0.000391,
+          "StdDev": 0.006489,
+          "Persistence": 0.926877
+        }
+      ]
+    },
+    {
+      "Symbol": "BBD",
+      "TrainBars": 1559,
+      "State": "volatile",
+      "Probability": 1,
+      "Switches": 3,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": 0,
+          "StdDev": 2.7E-05,
+          "Persistence": 0.499639
+        },
+        {
+          "Name": "volatile",
+          "Mean": -0.000137,
+          "StdDev": 0.003353,
+          "Persistence": 0.729246
+        }
+      ]
+    },
+    {
+      "Symbol": "NIO",
+      "TrainBars": 1559,
+      "State": "volatile",
+      "Probability": 1,
+      "Switches": 5,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -0,
+          "StdDev": 1.4E-05,
+          "Persistence": 0.506449
+        },
+        {
+          "Name": "volatile",
+          "Mean": 1.2E-05,
+          "StdDev": 0.00174,
+          "Persistence": 0.72928
+        }
+      ]
+    },
+    {
+      "Symbol": "PLUG",
+      "TrainBars": 1558,
+      "State": "volatile",
+      "Probability": 1,
+      "Switches": 5,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -0,
+          "StdDev": 3.3E-05,
+          "Persistence": 0.50356
+        },
+        {
+          "Name": "volatile",
+          "Mean": 4.7E-05,
+          "StdDev": 0.004297,
+          "Persistence": 0.663052
+        }
+      ]
+    },
+    {
+      "Symbol": "DAMD",
+      "TrainBars": 1354,
+      "State": "calm",
+      "Probability": 0.927251,
+      "Switches": 6,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -7.6E-05,
+          "StdDev": 0.001853,
+          "Persistence": 0.993643
+        },
+        {
+          "Name": "volatile",
+          "Mean": -0.000409,
+          "StdDev": 0.006232,
+          "Persistence": 0.967665
+        }
+      ]
+    },
+    {
+      "Symbol": "CONL",
+      "TrainBars": 1546,
+      "State": "volatile",
+      "Probability": 0.980162,
+      "Switches": 11,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": 7.1E-05,
+          "StdDev": 0.002173,
+          "Persistence": 0.990972
+        },
+        {
+          "Name": "volatile",
+          "Mean": -0.000256,
+          "StdDev": 0.006863,
+          "Persistence": 0.955567
+        }
+      ]
+    },
+    {
+      "Symbol": "BTE",
+      "TrainBars": 1533,
+      "State": "calm",
+      "Probability": 0.988998,
+      "Switches": 3,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": 1E-05,
+          "StdDev": 0.000873,
+          "Persistence": 0.981995
+        },
+        {
+          "Name": "volatile",
+          "Mean": -0.000116,
+          "StdDev": 0.002766,
+          "Persistence": 0.877345
+        }
+      ]
+    },
+    {
+      "Symbol": "BBAI",
+      "TrainBars": 1558,
+      "State": "calm",
+      "Probability": 0.835723,
+      "Switches": 2,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": 4.5E-05,
+          "StdDev": 0.002245,
+          "Persistence": 0.987343
+        },
+        {
+          "Name": "volatile",
+          "Mean": 0.000673,
+          "StdDev": 0.005914,
+          "Persistence": 0.932904
+        }
+      ]
+    },
+    {
+      "Symbol": "ABEV",
+      "TrainBars": 1559,
+      "State": "volatile",
+      "Probability": 1,
+      "Switches": 5,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -0,
+          "StdDev": 2.2E-05,
+          "Persistence": 0.516586
+        },
+        {
+          "Name": "volatile",
+          "Mean": -8.2E-05,
+          "StdDev": 0.002866,
+          "Persistence": 0.669303
+        }
+      ]
+    },
+    {
+      "Symbol": "IOVA",
+      "TrainBars": 1559,
+      "State": "calm",
+      "Probability": 0.985939,
+      "Switches": 6,
+      "States": [
+        {
+          "Name": "calm",
+          "Mean": -3E-06,
+          "StdDev": 0.002005,
+          "Persistence": 0.974685
+        },
+        {
+          "Name": "volatile",
+          "Mean": -0.004354,
+          "StdDev": 0.033978,
+          "Persistence": 0.568591
+        }
+      ]
+    }
+  ]
+}
