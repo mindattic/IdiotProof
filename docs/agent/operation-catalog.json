@@ -6351,6 +6351,235 @@
       }
     },
     {
+      "name": "evidence topology",
+      "noun": "evidence",
+      "verb": "topology",
+      "tool_name": "evidence_topology",
+      "summary": "Persistent-homology features (H0/H1 persistence, landscape norm) of delay-embedded returns, learned on earlier days and re-tested on held-out days with a session-clustered test.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence topology \u003Csymbols\u003E... [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--window \u003Cint\u003E] [--dim \u003Cint\u003E] [--delay \u003Cint\u003E] [--horizon \u003Cint\u003E] [--buckets \u003Cint\u003E] [--holdout \u003Cnumber\u003E] [--min-samples \u003Cint\u003E] [--session \u003Crth|all\u003E]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string[]",
+          "required": true,
+          "description": "One or more tickers, e.g. SNDL MULN.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET day (yyyy-MM-dd, default: 30 days before --to).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last ET day (yyyy-MM-dd, default: today ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "window",
+          "json_name": "window",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Closes per topology read (default 40, max 100).",
+          "default": 40,
+          "enum_values": null
+        },
+        {
+          "name": "dim",
+          "json_name": "dim",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Delay-embedding dimension (default 3).",
+          "default": 3,
+          "enum_values": null
+        },
+        {
+          "name": "delay",
+          "json_name": "delay",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Delay-embedding lag in bars (default 1).",
+          "default": 1,
+          "enum_values": null
+        },
+        {
+          "name": "horizon",
+          "json_name": "horizon",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Forward bars for the up/down label; reads are spaced this far apart (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "buckets",
+          "json_name": "buckets",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Quantile buckets per feature, learned on training days (default 4).",
+          "default": 4,
+          "enum_values": null
+        },
+        {
+          "name": "holdout",
+          "json_name": "holdout",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Fraction of the latest trading days held out (default 0.3).",
+          "default": 0.3,
+          "enum_values": null
+        },
+        {
+          "name": "min-samples",
+          "json_name": "min_samples",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Minimum training reads in a bucket before it can be picked (default 30).",
+          "default": 30,
+          "enum_values": null
+        },
+        {
+          "name": "session",
+          "json_name": "session",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "rth|all",
+          "required": false,
+          "description": "rth (default) or all.",
+          "default": "rth",
+          "enum_values": [
+            "rth",
+            "all"
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence topology SNDL MULN --from 2026-08-01 --to 2026-10-30",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence topology SPY --window 30 --dim 2 --delay 2 --horizon 10",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Persistent-homology features (H0/H1 persistence, landscape norm) of delay-embedded returns, learned on earlier days and re-tested on held-out days with a session-clustered test.",
+        "properties": {
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "One or more tickers, e.g. SNDL MULN."
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET day (yyyy-MM-dd, default: 30 days before --to)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last ET day (yyyy-MM-dd, default: today ET)."
+          },
+          "window": {
+            "type": "integer",
+            "description": "Closes per topology read (default 40, max 100).",
+            "default": 40
+          },
+          "dim": {
+            "type": "integer",
+            "description": "Delay-embedding dimension (default 3).",
+            "default": 3
+          },
+          "delay": {
+            "type": "integer",
+            "description": "Delay-embedding lag in bars (default 1).",
+            "default": 1
+          },
+          "horizon": {
+            "type": "integer",
+            "description": "Forward bars for the up/down label; reads are spaced this far apart (default 5).",
+            "default": 5
+          },
+          "buckets": {
+            "type": "integer",
+            "description": "Quantile buckets per feature, learned on training days (default 4).",
+            "default": 4
+          },
+          "holdout": {
+            "type": "number",
+            "description": "Fraction of the latest trading days held out (default 0.3).",
+            "default": 0.3
+          },
+          "min_samples": {
+            "type": "integer",
+            "description": "Minimum training reads in a bucket before it can be picked (default 30).",
+            "default": 30
+          },
+          "session": {
+            "type": "string",
+            "enum": [
+              "rth",
+              "all"
+            ],
+            "description": "rth (default) or all.",
+            "default": "rth"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbols"
+        ]
+      }
+    },
+    {
       "name": "evidence walkforward",
       "noun": "evidence",
       "verb": "walkforward",
