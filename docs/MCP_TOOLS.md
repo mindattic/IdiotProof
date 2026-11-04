@@ -3305,7 +3305,7 @@ Read-only. Times are US Eastern.
 
 Per-symbol regime: Hurst, variance ratio (z-tested vs random walk), efficiency ratio, realized vol, lag-1 autocorrelation.
 
-CLI equivalent: idiotproof evidence regime <symbols>... [--from <date>] [--to <date>] [--timeframe <minute|day>] [--q <int>] [--session <rth|all>] [--method <vr|bocpd|hmm>] [--threshold <number>] [--states <int>]
+CLI equivalent: idiotproof evidence regime <symbols>... [--from <date>] [--to <date>] [--timeframe <minute|day>] [--q <int>] [--session <rth|all>] [--method <vr|bocpd|hmm>] [--threshold <number>] [--states <int>] [--aggregate <int>]
 Examples:
   idiotproof evidence regime SNDL MULN
   idiotproof evidence regime SPY --timeframe day --from 2026-05-01
@@ -3377,6 +3377,10 @@ Read-only. Times are US Eastern.
       "type": "integer",
       "description": "hmm: hidden states, 2 or 3 (default 2).",
       "default": 2
+    },
+    "aggregate": {
+      "type": "integer",
+      "description": "bocpd/hmm on minute bars: bar multiple to fit on (default: auto, the smallest of 1,2,3,5,10,15,30 minutes at which most bars move and tick rounding is under 10% of return variance; 1 = raw minutes)."
     }
   },
   "additionalProperties": false,

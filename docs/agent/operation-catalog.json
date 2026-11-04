@@ -6869,7 +6869,7 @@
       "summary": "Per-symbol regime: Hurst, variance ratio (z-tested vs random walk), efficiency ratio, realized vol, lag-1 autocorrelation.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof evidence regime \u003Csymbols\u003E... [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--q \u003Cint\u003E] [--session \u003Crth|all\u003E] [--method \u003Cvr|bocpd|hmm\u003E] [--threshold \u003Cnumber\u003E] [--states \u003Cint\u003E]",
+      "usage": "idiotproof evidence regime \u003Csymbols\u003E... [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--q \u003Cint\u003E] [--session \u003Crth|all\u003E] [--method \u003Cvr|bocpd|hmm\u003E] [--threshold \u003Cnumber\u003E] [--states \u003Cint\u003E] [--aggregate \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -6988,6 +6988,18 @@
           "description": "hmm: hidden states, 2 or 3 (default 2).",
           "default": 2,
           "enum_values": null
+        },
+        {
+          "name": "aggregate",
+          "json_name": "aggregate",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "bocpd/hmm on minute bars: bar multiple to fit on (default: auto, the smallest of 1,2,3,5,10,15,30 minutes at which most bars move and tick rounding is under 10% of return variance; 1 = raw minutes).",
+          "default": null,
+          "enum_values": null
         }
       ],
       "examples": [
@@ -7064,6 +7076,10 @@
             "type": "integer",
             "description": "hmm: hidden states, 2 or 3 (default 2).",
             "default": 2
+          },
+          "aggregate": {
+            "type": "integer",
+            "description": "bocpd/hmm on minute bars: bar multiple to fit on (default: auto, the smallest of 1,2,3,5,10,15,30 minutes at which most bars move and tick rounding is under 10% of return variance; 1 = raw minutes)."
           }
         },
         "additionalProperties": false,

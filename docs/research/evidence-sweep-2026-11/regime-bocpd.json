@@ -6,30 +6,34 @@
   "Symbols": [
     {
       "Symbol": "NVD",
-      "Bars": 1833,
-      "Changes": 9,
-      "LastChangeUtc": "2026-10-30T19:49:00Z",
-      "ShortRunProbability": 0.010603,
-      "MapRunLength": 381
+      "AggregationMinutes": 5,
+      "Bars": 369,
+      "Changes": 4,
+      "LastChangeUtc": "2026-10-29T19:58:00Z",
+      "ShortRunProbability": 0.025703,
+      "MapRunLength": 77
     },
     {
       "Symbol": "OPEN",
-      "Bars": 1950,
-      "Changes": 15,
-      "LastChangeUtc": "2026-10-30T15:30:00Z",
-      "ShortRunProbability": 0.017066,
-      "MapRunLength": 372
+      "AggregationMinutes": 15,
+      "Bars": 130,
+      "Changes": 1,
+      "LastChangeUtc": "2026-10-28T19:30:00Z",
+      "ShortRunProbability": 0.014873,
+      "MapRunLength": 129
     },
     {
       "Symbol": "TE",
-      "Bars": 1949,
-      "Changes": 19,
-      "LastChangeUtc": "2026-10-30T19:55:00Z",
-      "ShortRunProbability": 0.401187,
-      "MapRunLength": 4
+      "AggregationMinutes": 3,
+      "Bars": 650,
+      "Changes": 7,
+      "LastChangeUtc": "2026-10-30T14:03:00Z",
+      "ShortRunProbability": 0.014604,
+      "MapRunLength": 116
     },
     {
       "Symbol": "MSTU",
+      "AggregationMinutes": 1,
       "Bars": 1904,
       "Changes": 14,
       "LastChangeUtc": "2026-10-30T19:40:00Z",
@@ -38,130 +42,146 @@
     },
     {
       "Symbol": "TSLG",
-      "Bars": 1871,
-      "Changes": 17,
-      "LastChangeUtc": "2026-10-30T19:05:00Z",
-      "ShortRunProbability": 0.009839,
-      "MapRunLength": 51
+      "AggregationMinutes": 2,
+      "Bars": 937,
+      "Changes": 9,
+      "LastChangeUtc": "2026-10-30T19:03:00Z",
+      "ShortRunProbability": 0.0111,
+      "MapRunLength": 155
     },
     {
       "Symbol": "GRAB",
-      "Bars": 1950,
-      "Changes": 10,
-      "LastChangeUtc": "2026-10-29T19:59:00Z",
-      "ShortRunProbability": 0.009802,
-      "MapRunLength": 389
-    },
-    {
-      "Symbol": "ACHR",
-      "Bars": 1950,
-      "Changes": 15,
-      "LastChangeUtc": "2026-10-30T19:06:00Z",
-      "ShortRunProbability": 0.011366,
+      "AggregationMinutes": 30,
+      "Bars": 65,
+      "Changes": 0,
+      "LastChangeUtc": null,
+      "ShortRunProbability": 0.024346,
       "MapRunLength": 64
     },
     {
+      "Symbol": "ACHR",
+      "AggregationMinutes": 3,
+      "Bars": 650,
+      "Changes": 11,
+      "LastChangeUtc": "2026-10-30T19:03:00Z",
+      "ShortRunProbability": 0.020584,
+      "MapRunLength": 22
+    },
+    {
       "Symbol": "SNAP",
-      "Bars": 1950,
-      "Changes": 18,
-      "LastChangeUtc": "2026-10-30T14:45:00Z",
-      "ShortRunProbability": 0.015221,
-      "MapRunLength": 314
+      "AggregationMinutes": 2,
+      "Bars": 975,
+      "Changes": 12,
+      "LastChangeUtc": "2026-10-30T14:30:00Z",
+      "ShortRunProbability": 0.016629,
+      "MapRunLength": 164
     },
     {
       "Symbol": "KEEL",
-      "Bars": 1950,
-      "Changes": 13,
-      "LastChangeUtc": "2026-10-30T14:42:00Z",
-      "ShortRunProbability": 0.092751,
-      "MapRunLength": 38
+      "AggregationMinutes": 5,
+      "Bars": 390,
+      "Changes": 4,
+      "LastChangeUtc": "2026-10-29T19:55:00Z",
+      "ShortRunProbability": 0.017674,
+      "MapRunLength": 73
     },
     {
       "Symbol": "AMC",
-      "Bars": 1950,
-      "Changes": 19,
-      "LastChangeUtc": "2026-10-30T19:58:00Z",
-      "ShortRunProbability": 0.684782,
-      "MapRunLength": 1
+      "AggregationMinutes": 10,
+      "Bars": 195,
+      "Changes": 2,
+      "LastChangeUtc": "2026-10-30T14:40:00Z",
+      "ShortRunProbability": 0.016006,
+      "MapRunLength": 31
     },
     {
       "Symbol": "EOSE",
-      "Bars": 1949,
-      "Changes": 17,
-      "LastChangeUtc": "2026-10-30T16:30:00Z",
-      "ShortRunProbability": 0.039032,
-      "MapRunLength": 259
+      "AggregationMinutes": 10,
+      "Bars": 195,
+      "Changes": 4,
+      "LastChangeUtc": "2026-10-30T13:40:00Z",
+      "ShortRunProbability": 0.016972,
+      "MapRunLength": 194
     },
     {
       "Symbol": "BBD",
-      "Bars": 1950,
-      "Changes": 8,
-      "LastChangeUtc": "2026-10-30T16:43:00Z",
-      "ShortRunProbability": 0.006034,
-      "MapRunLength": 389
+      "AggregationMinutes": 5,
+      "Bars": 390,
+      "Changes": 5,
+      "LastChangeUtc": "2026-10-29T19:55:00Z",
+      "ShortRunProbability": 0.006904,
+      "MapRunLength": 77
     },
     {
       "Symbol": "NIO",
-      "Bars": 1950,
-      "Changes": 14,
-      "LastChangeUtc": "2026-10-30T17:57:00Z",
-      "ShortRunProbability": 0.022006,
-      "MapRunLength": 389
+      "AggregationMinutes": 30,
+      "Bars": 65,
+      "Changes": 1,
+      "LastChangeUtc": "2026-10-29T19:30:00Z",
+      "ShortRunProbability": 0.042137,
+      "MapRunLength": 64
     },
     {
       "Symbol": "PLUG",
-      "Bars": 1949,
-      "Changes": 11,
-      "LastChangeUtc": "2026-10-30T13:58:00Z",
-      "ShortRunProbability": 0.019329,
-      "MapRunLength": 389
+      "AggregationMinutes": 30,
+      "Bars": 65,
+      "Changes": 0,
+      "LastChangeUtc": null,
+      "ShortRunProbability": 0.022258,
+      "MapRunLength": 64
     },
     {
       "Symbol": "DAMD",
+      "AggregationMinutes": 1,
       "Bars": 1740,
       "Changes": 21,
       "LastChangeUtc": "2026-10-30T19:44:00Z",
-      "ShortRunProbability": 0.012128,
+      "ShortRunProbability": 0.012173,
       "MapRunLength": 15
     },
     {
       "Symbol": "CONL",
+      "AggregationMinutes": 1,
       "Bars": 1937,
       "Changes": 19,
       "LastChangeUtc": "2026-10-30T19:44:00Z",
-      "ShortRunProbability": 0.028186,
+      "ShortRunProbability": 0.027145,
       "MapRunLength": 15
     },
     {
       "Symbol": "BTE",
-      "Bars": 1910,
-      "Changes": 20,
-      "LastChangeUtc": "2026-10-30T14:20:00Z",
-      "ShortRunProbability": 0.008037,
-      "MapRunLength": 366
+      "AggregationMinutes": 10,
+      "Bars": 193,
+      "Changes": 3,
+      "LastChangeUtc": "2026-10-29T15:33:00Z",
+      "ShortRunProbability": 0.027595,
+      "MapRunLength": 114
     },
     {
       "Symbol": "BBAI",
-      "Bars": 1949,
-      "Changes": 21,
-      "LastChangeUtc": "2026-10-30T15:41:00Z",
-      "ShortRunProbability": 0.027995,
-      "MapRunLength": 354
+      "AggregationMinutes": 10,
+      "Bars": 195,
+      "Changes": 3,
+      "LastChangeUtc": "2026-10-29T19:40:00Z",
+      "ShortRunProbability": 0.032573,
+      "MapRunLength": 35
     },
     {
       "Symbol": "ABEV",
-      "Bars": 1949,
-      "Changes": 7,
-      "LastChangeUtc": "2026-10-29T19:58:00Z",
-      "ShortRunProbability": 0.0075,
-      "MapRunLength": 388
+      "AggregationMinutes": 10,
+      "Bars": 195,
+      "Changes": 3,
+      "LastChangeUtc": "2026-10-28T19:50:00Z",
+      "ShortRunProbability": 0.009185,
+      "MapRunLength": 147
     },
     {
       "Symbol": "IOVA",
+      "AggregationMinutes": 1,
       "Bars": 1950,
-      "Changes": 25,
+      "Changes": 22,
       "LastChangeUtc": "2026-10-30T19:43:00Z",
-      "ShortRunProbability": 0.01471,
+      "ShortRunProbability": 0.014798,
       "MapRunLength": 16
     }
   ]

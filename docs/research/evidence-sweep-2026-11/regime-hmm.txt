@@ -1,26 +1,26 @@
 status: Ok
 message: 
 
-symbol  train bars  now       P(state)  states (sd/bar, stay)                    switches
-------  ----------  --------  --------  ---------------------------------------  --------
-NVD           1444  calm         0.703  calm 0.145% 1.00 | volatile 0.334% 0.98         5
-OPEN          1559  calm         0.905  calm 0.013% 0.40 | volatile 0.365% 0.75         5
-TE            1559  volatile     0.971  calm 0.262% 0.96 | volatile 0.649% 0.89         5
-MSTU          1514  volatile     0.585  calm 0.226% 0.99 | volatile 0.685% 0.96        12
-TSLG          1481  volatile     0.825  calm 0.130% 0.99 | volatile 0.352% 0.97         9
-GRAB          1559  calm         0.910  calm 0.019% 0.52 | volatile 0.223% 0.73         7
-ACHR          1559  calm         0.965  calm 0.148% 0.99 | volatile 0.412% 0.93         6
-SNAP          1559  calm         0.912  calm 0.129% 0.99 | volatile 0.398% 0.96         5
-KEEL          1559  volatile     0.578  calm 0.232% 0.98 | volatile 0.587% 0.93         8
-AMC           1559  volatile     1.000  calm 0.004% 0.45 | volatile 0.221% 0.73        11
-EOSE          1558  calm         0.868  calm 0.290% 0.98 | volatile 0.649% 0.93        11
-BBD           1559  volatile     1.000  calm 0.028% 0.50 | volatile 0.330% 0.75         7
-NIO           1559  volatile     1.000  calm 0.017% 0.50 | volatile 0.170% 0.76        15
-PLUG          1558  volatile     1.000  calm 0.038% 0.50 | volatile 0.424% 0.69         5
-DAMD          1354  calm         0.927  calm 0.185% 0.99 | volatile 0.623% 0.97         6
-CONL          1546  volatile     0.980  calm 0.217% 0.99 | volatile 0.686% 0.96        11
-BTE           1533  calm         0.989  calm 0.087% 0.98 | volatile 0.277% 0.88         3
-BBAI          1558  calm         0.836  calm 0.225% 0.99 | volatile 0.591% 0.93         2
-ABEV          1559  volatile     1.000  calm 0.039% 0.51 | volatile 0.272% 0.74        11
-IOVA          1559  calm         0.986  calm 0.201% 0.97 | volatile 3.398% 0.57         6
+symbol  bar  train bars  now                  P(state)  states (sd/bar, stay)                    switches
+------  ---  ----------  -------------------  --------  ---------------------------------------  --------
+NVD      5m         290  calm                    0.676  calm 0.229% 0.97 | volatile 0.733% 0.86         3
+OPEN    15m         103  too few bars at 15m         —  —                                               —
+TE       3m         519  calm                    0.839  calm 0.399% 0.96 | volatile 0.925% 0.92         2
+MSTU     1m        1514  volatile                0.585  calm 0.226% 0.99 | volatile 0.685% 0.96        12
+TSLG     2m         741  calm                    0.916  calm 0.163% 0.98 | volatile 0.523% 0.94         7
+GRAB    30m          51  too few bars at 30m         —  —                                               —
+ACHR     3m         519  calm                    0.835  calm 0.218% 0.98 | volatile 0.601% 0.87         5
+SNAP     2m         779  calm                    0.632  calm 0.158% 0.98 | volatile 0.458% 0.91         4
+KEEL     5m         311  calm                    0.963  calm 0.435% 0.98 | volatile 1.550% 0.77         1
+AMC     10m         155  volatile                0.947  calm 0.258% 0.87 | volatile 0.581% 0.82         1
+EOSE    10m         155  volatile                0.971  calm 0.437% 0.90 | volatile 1.411% 0.90         2
+BBD      5m         311  calm                    0.987  calm 0.295% 0.98 | volatile 0.972% 0.92         1
+NIO     30m          51  too few bars at 30m         —  —                                               —
+PLUG    30m          51  too few bars at 30m         —  —                                               —
+DAMD     1m        1354  calm                    0.927  calm 0.185% 0.99 | volatile 0.623% 0.97         6
+CONL     1m        1546  volatile                0.980  calm 0.217% 0.99 | volatile 0.686% 0.96        11
+BTE     10m         154  calm                    0.953  calm 0.265% 0.97 | volatile 0.865% 0.67         1
+BBAI    10m         155  volatile                1.000  calm 0.282% 0.85 | volatile 1.094% 0.92         2
+ABEV    10m         155  calm                    0.950  calm 0.276% 0.91 | volatile 0.870% 0.79         1
+IOVA     1m        1559  calm                    0.986  calm 0.201% 0.97 | volatile 3.398% 0.57         6
 Gaussian HMM: Baum-Welch on earlier bars, forward filtering only on the latest session; states ordered calm to volatile; stay = P(same state next bar).

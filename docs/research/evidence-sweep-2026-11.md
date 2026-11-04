@@ -118,3 +118,24 @@ TakeProfitPercent), which the pre-declared search grid does not use.
   levels get raided or broken ~72% of the time.
 - IP-T435 helps the HMM's variance floor but does not fix either regime model on sub-$5 minute bars;
   a follow-up (IP-T437) is needed before regime output drives anything.
+
+## Part 3 — regime models re-run after IP-T437 (2026-11-04)
+
+Same sample (S20) and dates (2026-10-26 .. 2026-10-30), same thresholds; the IP-T435 outputs are kept
+as `regime-*-v2.*`. IP-T437 changes two things before either model is fit:
+
+1. **Bar size is chosen from the data.** Each symbol is fit on the smallest of 1, 2, 3, 5, 10, 15, 30
+   minutes at which at most 25% of bars print no change and tick rounding is at most 10% of the return
+   variance (aggregation stays inside each session; `--aggregate 1` forces raw minutes).
+2. **The rounding floor uses the quoted cent.** The tick estimate from closes was pulled below a cent by
+   sub-penny midpoint prints (OPEN at $3.77 had a "calm" state of 0.013%/bar, under the 0.108% a cent
+   implies); the floor now never uses less than the Reg NMS quoting increment.
+
+The HMM also refuses to fit fewer than 150 training bars after aggregation.
+
+| tool | before (IP-T435) | after (IP-T437) | verdict |
+|---|---|---|---|
+| regime bocpd | 312 flagged changes (6–25 per symbol, 5 days) | 145 (≈1.5 per symbol-session; 7 names moved to 2–30 min bars) | **plausible**: about one intraday phase change per session |
+| regime hmm | 7 of 20 names with a degenerate calm state (stay ≈ 0.4–0.5) | 0 of 16 fitted names degenerate (calm stay 0.85–0.99); OPEN, GRAB, NIO, PLUG report "too few bars at 15–30m" instead of a fit | **fixed**: the model now separates volatility or says it can't |
+
+Regime output is descriptive only; nothing was promoted to the DSL.

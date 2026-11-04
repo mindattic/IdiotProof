@@ -32,7 +32,7 @@ public class EvidenceRegimeMethodTests
 
         var result = await new EvidenceRegimeOperation().ExecuteAsync(new EvidenceRegimeArgs
         {
-            Symbols = ["BURST"], From = days[0], To = days[0], Method = RegimeMethod.Bocpd,
+            Symbols = ["BURST"], From = days[0], To = days[0], Method = RegimeMethod.Bocpd, Aggregate = 1,
         }, Context(store));
 
         Assert.That(result.IsOk, Is.True, result.Message);
@@ -55,7 +55,7 @@ public class EvidenceRegimeMethodTests
 
         var result = await new EvidenceRegimeOperation().ExecuteAsync(new EvidenceRegimeArgs
         {
-            Symbols = ["HMM"], From = days[0], To = days[2], Method = RegimeMethod.Hmm,
+            Symbols = ["HMM"], From = days[0], To = days[2], Method = RegimeMethod.Hmm, Aggregate = 1,
         }, Context(store));
 
         Assert.That(result.IsOk, Is.True, result.Message);
@@ -73,5 +73,29 @@ public class EvidenceRegimeMethodTests
         Assert.That(bad.IsOk, Is.False);
         var badStates = await new EvidenceRegimeOperation().ExecuteAsync(new EvidenceRegimeArgs { Symbols = ["X"], Method = RegimeMethod.Hmm, States = 7 }, Context(store));
         Assert.That(badStates.IsOk, Is.False);
+    }
+
+    [Test]
+    public async Task AutoAggregation_ReportsTheBarSize_AndRefusesTooFewBars()
+    {
+        // One quiet $0.80 session on a 1-cent grid: auto-aggregation lengthens the bars, leaving too few to fit an HMM.
+        var day = Weekdays(1)[0];
+        var store = new FakeBarStore();
+        var rng = new Random(3);
+        double latent = 0.80;
+        store.Minute["QUIET"] = Session("QUIET", day, _ => { latent *= Math.Exp(0.002 * (rng.NextDouble() * 2 - 1)); return Math.Round(latent, 2); }).ToList();
+
+        var result = await new EvidenceRegimeOperation().ExecuteAsync(new EvidenceRegimeArgs
+        {
+            Symbols = ["QUIET"], From = day, To = day, Method = RegimeMethod.Hmm,
+        }, Context(store));
+        var forced = await new EvidenceRegimeOperation().ExecuteAsync(new EvidenceRegimeArgs
+        {
+            Symbols = ["QUIET"], From = day, To = day, Method = RegimeMethod.Hmm, Aggregate = 1,
+        }, Context(store));
+
+        Assert.That(result.IsOk, Is.True, result.Message);
+        Assert.That(result.Human, Does.Contain("too few bars at 30m"));
+        Assert.That(forced.Human, Does.Contain(" 1m "));
     }
 }
