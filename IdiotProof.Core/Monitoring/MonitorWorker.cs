@@ -797,7 +797,14 @@ public sealed class MonitorWorker(
                 try { dailyCandles = await GetDailyCandlesAsync(stored.Symbol, exitDailyDays * 2 + 10, ct); }
                 catch (Exception ex) { logger.LogWarning(ex, "[{Title}] daily bar fetch failed — rolling exit skipped this tick.", stored.Title); }
             }
-            await EvaluateExitAsync(stored, def, candles, dailyCandles, ct);
+            string? whileFailure = null;
+            if (def.ExitWhenWhileFails && def.WhileConditions.Count > 0 && candles.Count > 0)
+            {
+                var holdSnapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, EmaPeriodCollector.Collect(def), previousClose);
+                if (SessionLowCache.Uses(def)) await SessionLows.ApplyAsync(stored.Symbol, holdSnapshot, UtcNow, ct);
+                whileFailure = def.WhileConditions.FirstOrDefault(c => !c.Evaluate(holdSnapshot))?.ToScript();
+            }
+            await EvaluateExitAsync(stored, def, candles, dailyCandles, ct, whileFailure);
             return;
         }
 
@@ -818,6 +825,14 @@ public sealed class MonitorWorker(
             return;
         }
 
+        // Repeat(n): at most n entries per ET day (Strategy.CyclesToday, bumped on each entry fill).
+        if (def.ShouldRepeat && def.MaxCycles is { } maxCycles && stored.CyclesOn(UtcNow) >= maxCycles)
+        {
+            await progressRepo.UpsertAsync(stored.Id, 0, Math.Max(1, def.EntryConditions.Count),
+                $"(done for today: Repeat({maxCycles}) used up)", ct);
+            return;
+        }
+
         var emas = EmaPeriodCollector.Collect(def);
         var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, emas, previousClose);
         // DippedTo means "since 4:00 ET today", longer than the 240-bar window (IP-T363).
@@ -830,6 +845,15 @@ public sealed class MonitorWorker(
         var resolved = StrategyBranchResolver.Resolve(def, snapshot);
 
         var conditions = resolved.EntryConditions;
+        // While(): a keep-armed guard. While false the strategy pauses; it never fires on it alone.
+        if (resolved.WhileConditions.FirstOrDefault(c => !c.Evaluate(snapshot)) is { } failedWhile)
+        {
+            crossMemory.Record(stored.Id, snapshot, UtcNow);
+            await progressRepo.UpsertAsync(stored.Id, 0, Math.Max(1, conditions.Count),
+                $"(paused: While {failedWhile.ToScript()} is false)", ct, lastPrice: (decimal)snapshot.Price);
+            return;
+        }
+
         if (conditions.Count == 0)
         {
             // Setup-only strategy: nothing to wait for, but it still walks the
@@ -1231,7 +1255,8 @@ public sealed class MonitorWorker(
         StrategyDefinition def,
         IReadOnlyList<Candle> candles,
         IReadOnlyList<Candle>? dailyCandles,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? whileFailure = null)
     {
         // Prefer the ConditionalBlock-RESOLVED definition captured at entry-fill
         // time over the raw one passed in — the raw definition never reflects a
@@ -1328,6 +1353,11 @@ public sealed class MonitorWorker(
         var decision = def.Direction == TradeDirection.Short
             ? GapperExitEvaluator.EvaluateShort(def, entry, filledUtc, candles, UtcNow, dailyCandles, initialQty, stored.PositionQty)
             : GapperExitEvaluator.Evaluate(def, entry, filledUtc, candles, UtcNow, dailyCandles, initialQty, stored.PositionQty);
+
+        // ExitWhenFalse(): a While guard that stopped holding exits the position, unless a hard exit already fired.
+        if (decision is null && whileFailure is not null)
+            decision = new GapperExitDecision(GapperExitReason.WhileFailed, (double)candles[^1].Close, (double)candles[^1].Close,
+                $"While {whileFailure} stopped holding");
 
         // Surface "holding" in the progress badge so the UI shows live state.
         var current = (double)candles[^1].Close;

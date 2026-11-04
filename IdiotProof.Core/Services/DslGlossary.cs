@@ -199,7 +199,21 @@ public static class DslGlossary
         ["AdaptiveOrder"] = new("AdaptiveOrder", "bi-cpu", Brand, "Adaptive Order",
             "Marks the order as adaptive — sizing/pricing may adjust to live conditions rather than using fixed values verbatim."),
         ["Repeat"] = new("Repeat", "bi-arrow-repeat", Brand, "Repeat",
-            "Allows the strategy to fire again after a completed round-trip, instead of running once and stopping."),
+            "Allows the strategy to fire again after a completed round-trip, instead of running once and stopping. Repeat(n) caps it at n entries per ET day."),
+
+        // ── Loops ────────────────────────────────────────────────────────────
+        ["While"] = new("While", "bi-arrow-clockwise", Blue, "While (keep armed)",
+            "Opens a keep-armed-while block: the conditions up to .EndWhile() must all hold for the strategy to enter at all. While false the strategy pauses; it never enters just because they are true."),
+        ["EndWhile"] = new("EndWhile", "bi-arrow-clockwise", Blue, "End While",
+            "Closes a .While() block."),
+        ["ExitWhenFalse"] = new("ExitWhenFalse", "bi-box-arrow-right", Red, "Exit When While Fails",
+            "With a .While() block: exit an open position as soon as a While condition stops holding."),
+        ["For"] = new("For", "bi-list-ol", Brand, "For (level ladder)",
+            "Loops over levels start, start+step, … (count of them) for the loop body verb that follows, e.g. For(10.5, 0.5, 4).TakeProfitEach()."),
+        ["ForEach"] = new("ForEach", "bi-list-ul", Brand, "ForEach (levels)",
+            "Loops over the listed levels for the loop body verb that follows, e.g. ForEach(10.5, 11, 12).TakeProfitEach()."),
+        ["TakeProfitEach"] = new("TakeProfitEach", "bi-bullseye", Green, "Take Profit at Each Level",
+            "Loop body: a scale-out target at every loop level, selling an equal share at each (the last takes the remainder)."),
         ["Then"] = new("Then", "bi-diagram-3", Brand, "Branch (Then)",
             "Starts a conditional branch: the condition immediately before .Then() becomes the branch's \"if\" — chain .ElseIf()/.Else() for alternate paths, each with its own Order/Risk/Exit overrides."),
     };

@@ -135,13 +135,21 @@ public static class StrategyBacktester
             if (open is not null)
             {
                 ManageOpenBar(open, bar, isLong, ref remaining, ref nextTarget, targets, stop, entryDef);
+                if (remaining > 0 && definition.ExitWhenWhileFails && !definition.WhileHolds(snapshot))
+                {
+                    open.Exits.Add(new BacktestFill
+                    {
+                        Utc = bar.StartUtc, Price = bar.Close, Shares = remaining, Reason = "While condition failed",
+                    });
+                    remaining = 0;
+                }
                 if (remaining == 0)
                 {
                     FinalizeTrade(open, isLong);
                     report.Trades.Add(open);
                     open = null;
 
-                    if (definition.ShouldRepeat)
+                    if (definition.ShouldRepeat && (definition.MaxCycles is not { } maxCycles || cycle < maxCycles))
                     {
                         cycle++;
                         foreach (var t in allTriggers) t.Reset();
@@ -156,7 +164,8 @@ public static class StrategyBacktester
             }
 
             // 3) Flat: open a position if the full setup is satisfied on this bar.
-            if (!blockReentry && allSatisfied)
+            // A While() guard pauses entries while false; it never triggers an entry by itself.
+            if (!blockReentry && allSatisfied && definition.WhileHolds(snapshot))
             {
                 var entryPrice = bar.Close;
                 var qty = ResolveQuantity(active, entryPrice, options);

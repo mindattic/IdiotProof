@@ -39,10 +39,10 @@ public sealed class SessionLowCache(IMarketDataFeed feed, ILogger logger)
 
     private static readonly ConditionalWeakTable<StrategyDefinition, object> usesDippedTo = new();
 
-    /// <summary>Whether any entry condition or branch of <paramref name="def"/> uses DippedTo.</summary>
+    /// <summary>Whether any entry condition, While guard or branch of <paramref name="def"/> uses DippedTo.</summary>
     public static bool Uses(StrategyDefinition def) =>
         (bool)usesDippedTo.GetValue(def, d =>
-            d.EntryConditions.Any(c => c.ToScript().Contains("DippedTo(", StringComparison.Ordinal))
+            d.EntryConditions.Concat(d.WhileConditions).Any(c => c.ToScript().Contains("DippedTo(", StringComparison.Ordinal))
             || d.ConditionalBlocks.Any(b => b.ToScript().Contains("DippedTo(", StringComparison.Ordinal)));
 
     private async Task<decimal?> GetDayLowAsync(string symbol, DateOnly day, DateTime nowUtc, CancellationToken ct)

@@ -45,6 +45,9 @@ public static class EmaPeriodCollector
         foreach (var c in def.EntryConditions)
             foreach (var sub in WalkOne(c)) yield return sub;
 
+        foreach (var c in def.WhileConditions)
+            foreach (var sub in WalkOne(c)) yield return sub;
+
         foreach (var block in def.ConditionalBlocks)
             foreach (var branch in block.Branches)
             {

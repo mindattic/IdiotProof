@@ -192,7 +192,7 @@ public static class StrategyStamp
         var flags = new List<string>();
         if (def.IsAutonomous) flags.Add("autonomous");
         if (def.IsAdaptive) flags.Add("adaptive order");
-        if (def.ShouldRepeat) flags.Add("repeats after exit");
+        if (def.ShouldRepeat) flags.Add(def.MaxCycles is { } max ? $"repeats, max {max}/day" : "repeats after exit");
         if (flags.Count > 0) w.Row(Kv("FLAGS", string.Join(", ", flags)), hang: 9, heavy: true);
         w.Bottom(heavy: true);
     }
@@ -233,6 +233,9 @@ public static class StrategyStamp
             filters.Add($"near the {eld}-day low (within {StampText.Pct(def.EntryRollingLowBuffer ?? 2.5)})");
         if (def.EntryRollingHighDays is { } ehd)
             filters.Add($"near the {ehd}-day high (within {StampText.Pct(def.EntryRollingHighBuffer ?? 2.5)})");
+        filters.AddRange(def.WhileConditions.Select(c => $"while {StampText.Describe(c)}"));
+        if (def.ExitWhenWhileFails && def.WhileConditions.Count > 0)
+            filters.Add("exit the position if a while stops holding");
         w.Top("2 FILTERS", "always-on gates, all must hold");
         if (filters.Count == 0) w.Row("(none - no regime gate)");
         foreach (var f in filters) w.Row(B(f));
@@ -261,7 +264,10 @@ public static class StrategyStamp
         w.Row(B($"{(isShort ? "SELL SHORT" : "BUY")} to open{g.Sep}{StampText.Size(def)}"));
         if (def.IsAdaptive) w.Row(B("adaptive order (price walks toward the market)"));
         w.Row(B("after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)"));
-        if (def.ShouldRepeat) w.Row(B("re-arms after each exit (repeat)"));
+        if (def.ShouldRepeat)
+            w.Row(B(def.MaxCycles is { } maxCycles
+                ? $"re-arms after each exit, at most {maxCycles} entries a day"
+                : "re-arms after each exit (repeat)"));
         w.Bottom();
         w.Connector("filled");
 

@@ -52,8 +52,11 @@ public static class StrategyBranchResolver
             IsAutonomous           = baseDef.IsAutonomous,
             IsAdaptive             = baseDef.IsAdaptive,
             ShouldRepeat           = baseDef.ShouldRepeat,
+            MaxCycles              = baseDef.MaxCycles,
+            ExitWhenWhileFails     = baseDef.ExitWhenWhileFails,
         };
         foreach (var c in baseDef.EntryConditions)    clone.EntryConditions.Add(c);
+        foreach (var c in baseDef.WhileConditions)    clone.WhileConditions.Add(c);
         foreach (var t in baseDef.TakeProfitTargets)  clone.TakeProfitTargets.Add(t);
 
         foreach (var block in baseDef.ConditionalBlocks)

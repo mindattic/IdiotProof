@@ -37,7 +37,13 @@ public static class StrategyNarrator
         var size = d.Quantity > 0 ? $"{d.Quantity} share{(d.Quantity == 1 ? "" : "s")}"
             : d.NotionalAmount is { } amt ? $"{Rendering.Fmt.Money(amt)} worth" : "1 share (no size given)";
         var order = new List<string> { $"{(d.Direction == TradeDirection.Long ? "Buys" : "Sells short")} {size} with a marketable limit order." };
-        if (d.ShouldRepeat) order.Add("After it exits it re-arms and can enter again the same day.");
+        if (d.ShouldRepeat)
+            order.Add(d.MaxCycles is { } max
+                ? $"After it exits it re-arms and can enter again the same day, at most {max} entries a day."
+                : "After it exits it re-arms and can enter again the same day.");
+        if (d.WhileConditions.Count > 0)
+            order.Add($"It only stays armed while {string.Join(" and ", d.WhileConditions.Select(c => c.ToScript()))} holds"
+                + (d.ExitWhenWhileFails ? ", and exits an open position as soon as that stops holding." : "."));
         if (d.IsAutonomous) order.Add("Autonomous: it manages itself without asking.");
         if (d.IsAdaptive) order.Add("Adaptive orders: the limit adjusts to the book.");
         sections.Add(("Order", order));

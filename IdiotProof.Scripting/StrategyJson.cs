@@ -69,6 +69,11 @@ public static class StrategyJson
             ["shouldRepeat"] = def.ShouldRepeat,
             ["conditionalBlocks"] = new JsonArray(def.ConditionalBlocks.Select(WriteBlock).ToArray()),
         };
+        // Loop keys are written only when used, so strategies without loops keep their exact JSON.
+        if (def.MaxCycles is { } maxCycles) root["maxCycles"] = maxCycles;
+        if (def.WhileConditions.Count > 0)
+            root["whileConditions"] = new JsonArray(def.WhileConditions.Select(WriteCondition).ToArray());
+        if (def.ExitWhenWhileFails) root["exitWhenWhileFails"] = true;
         return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
 
@@ -156,7 +161,8 @@ public static class StrategyJson
                 "rollingLowDays", "rollingLowBuffer",
                 "entryRollingLowDays", "entryRollingLowBuffer",
                 "entryRollingHighDays", "entryRollingHighBuffer",
-                "isAutonomous", "isAdaptive", "shouldRepeat", "conditionalBlocks");
+                "isAutonomous", "isAdaptive", "shouldRepeat", "conditionalBlocks",
+                "maxCycles", "whileConditions", "exitWhenWhileFails");
 
             var symbol = GetString(root, "symbol");
             if (string.IsNullOrWhiteSpace(symbol))
@@ -190,6 +196,15 @@ public static class StrategyJson
             def.IsAutonomous = GetBool(root, "isAutonomous") ?? false;
             def.IsAdaptive = GetBool(root, "isAdaptive") ?? false;
             def.ShouldRepeat = GetBool(root, "shouldRepeat") ?? false;
+            def.MaxCycles = GetInt(root, "maxCycles");
+            def.ExitWhenWhileFails = GetBool(root, "exitWhenWhileFails") ?? false;
+            if (root.TryGetProperty("whileConditions", out var whiles))
+            {
+                if (whiles.ValueKind != JsonValueKind.Array)
+                    throw new StrategyJsonException("'whileConditions' must be a JSON array.");
+                foreach (var el in whiles.EnumerateArray())
+                    def.WhileConditions.Add(ReadCondition(el));
+            }
 
             if (root.TryGetProperty("entryConditions", out var conds))
             {

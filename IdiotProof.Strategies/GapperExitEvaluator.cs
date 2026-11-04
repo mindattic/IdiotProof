@@ -23,7 +23,10 @@ public enum GapperExitReason
     TrailingStop,
 
     /// <summary>Primary take-profit target reached.</summary>
-    TargetHit
+    TargetHit,
+
+    /// <summary>A While() guard stopped holding on a strategy with ExitWhenFalse().</summary>
+    WhileFailed
 }
 
 /// <summary>The evaluator's verdict for one tick.</summary>

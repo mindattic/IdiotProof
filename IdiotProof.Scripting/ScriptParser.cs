@@ -189,7 +189,17 @@ public static class ScriptParser
             // Misc
             case "autonomoustrading": b.AutonomousTrading(); break;
             case "adaptiveorder":     b.AdaptiveOrder(); break;
-            case "repeat":            b.Repeat(); break;
+            case "repeat":
+                if (nums.Count >= 1 && nums[0] >= 1) b.Repeat((int)nums[0]); else b.Repeat();
+                break;
+
+            // Loops
+            case "while":          b.While(); break;
+            case "endwhile":       b.EndWhile(); break;
+            case "exitwhenfalse":  b.ExitWhenFalse(); break;
+            case "for":            if (nums.Count >= 3 && nums[2] >= 1) b.For((double)nums[0], (double)nums[1], (int)nums[2]); break;
+            case "foreach":        if (nums.Count >= 1) b.ForEach(nums.Select(n => (double)n).ToArray()); break;
+            case "takeprofiteach": b.TakeProfitEach(); break;
         }
     }
 

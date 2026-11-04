@@ -84,6 +84,20 @@ public sealed class Strategy
     /// <summary>How many times this strategy has fired a TradeSignal since creation.</summary>
     public int FireCount { get; set; }
 
+    /// <summary>Entries filled on <see cref="CycleDateEt"/>; gates Repeat(n) (MaxCycles) per ET day.</summary>
+    public int CyclesToday { get; set; }
+
+    /// <summary>The ET day (yyyy-MM-dd) <see cref="CyclesToday"/> counts; a new day starts the count over.</summary>
+    [MaxLength(10)]
+    public string? CycleDateEt { get; set; }
+
+    /// <summary>Entries already filled today (ET), or 0 when the count belongs to another day.</summary>
+    public int CyclesOn(DateTime utcNow) => CycleDateEt == EtDay(utcNow) ? CyclesToday : 0;
+
+    internal static string EtDay(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), IdiotProof.Scripting.MarketTime.Eastern)
+            .ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
     // ── Open-position tracking ──────────────────────────────────────────
     // Runtime state lives in SQL (IP-LAW-7). The Monitor writes these when an
     // entry order fills and clears them on exit; the UI renders live badges

@@ -51,6 +51,7 @@ public sealed class DslGlossaryTests
         "TrailingStopLoss", "ExitStrategy", "PeakGiveback", "ExitAtPriorHigh",
         "ExitAtRollingHigh", "ExitAtRollingLow", "EntryAtRollingLow", "EntryAtRollingHigh",
         "AutonomousTrading", "AdaptiveOrder", "Repeat", "Then",
+        "While", "EndWhile", "ExitWhenFalse", "For", "ForEach", "TakeProfitEach",
     ];
 
     [TestCaseSource(nameof(ScalarVerbKeys))]

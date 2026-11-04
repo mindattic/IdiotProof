@@ -763,15 +763,106 @@ public sealed class StrategyBuilder
     public StrategyBuilder Repeat()
     {
         strategy.ShouldRepeat = true;
+        strategy.MaxCycles = null;
         return this;
     }
-    
+
+    /// <summary>Repeat, but at most <paramref name="maxCycles"/> entries per ET day. Example: Repeat(3).</summary>
+    public StrategyBuilder Repeat(int maxCycles)
+    {
+        if (maxCycles < 1) throw new ArgumentOutOfRangeException(nameof(maxCycles), "Repeat needs at least one cycle.");
+        strategy.ShouldRepeat = true;
+        strategy.MaxCycles = maxCycles;
+        return this;
+    }
+
+    // ========================================
+    // LOOPS
+    // ========================================
+
+    private int? whileStart;
+    private List<double>? loopLevels;
+
+    /// <summary>
+    /// Opens a keep-armed-while block: conditions added until <see cref="EndWhile"/> must ALL hold
+    /// for the strategy to enter at all. Example: .While().IsAboveVwap().EndWhile()
+    /// </summary>
+    public StrategyBuilder While()
+    {
+        whileStart = strategy.EntryConditions.Count;
+        return this;
+    }
+
+    /// <summary>Lambda form: .While(c => c.IsAboveVwap()).</summary>
+    public StrategyBuilder While(Func<ConditionFactory, ICondition> condition)
+    {
+        strategy.WhileConditions.Add(condition(new ConditionFactory()));
+        return this;
+    }
+
+    /// <summary>Closes the While() block, moving its conditions into <see cref="StrategyDefinition.WhileConditions"/>.</summary>
+    public StrategyBuilder EndWhile()
+    {
+        if (whileStart is not { } start) return this;
+        var moved = strategy.EntryConditions.Skip(start).ToList();
+        strategy.EntryConditions.RemoveRange(start, moved.Count);
+        strategy.WhileConditions.AddRange(moved);
+        whileStart = null;
+        return this;
+    }
+
+    /// <summary>When a While condition stops holding during a trade, exit the position.</summary>
+    public StrategyBuilder ExitWhenFalse()
+    {
+        strategy.ExitWhenWhileFails = true;
+        return this;
+    }
+
+    /// <summary>Loop levels start, start+step, … (count levels) for the next loop body verb. Example: For(10.5, 0.5, 4).</summary>
+    public StrategyBuilder For(double start, double step, int count)
+    {
+        if (count < 1) throw new ArgumentOutOfRangeException(nameof(count));
+        loopLevels = Enumerable.Range(0, count).Select(i => Math.Round(start + step * i, 6)).ToList();
+        return this;
+    }
+
+    /// <summary>Loop over explicit levels for the next loop body verb. Example: ForEach(10.5, 11, 12).</summary>
+    public StrategyBuilder ForEach(params double[] levels)
+    {
+        if (levels.Length == 0) throw new ArgumentException("ForEach needs at least one level.", nameof(levels));
+        loopLevels = levels.ToList();
+        return this;
+    }
+
+    /// <summary>
+    /// Loop body: a take-profit target at each loop level, selling an equal share at each (the last
+    /// takes the remainder). Expands at build time into plain targets, so evaluators need nothing new.
+    /// </summary>
+    public StrategyBuilder TakeProfitEach()
+    {
+        if (loopLevels is not { Count: > 0 } levels) return this;
+        strategy.TakeProfitTargets.Clear();
+        int each = 100 / levels.Count;
+        for (int i = 0; i < levels.Count; i++)
+        {
+            int pct = i == levels.Count - 1 ? 100 - each * (levels.Count - 1) : each;
+            strategy.TakeProfitTargets.Add(new TakeProfitTarget { Price = levels[i], PercentToSell = pct, Label = $"T{i + 1}" });
+        }
+        strategy.TakeProfitPrice = levels[0];
+        loopLevels = null;
+        return this;
+    }
+
     // ========================================
     // BUILD
     // ========================================
-    
-    public StrategyDefinition Build() => strategy;
-    
+
+    public StrategyDefinition Build()
+    {
+        EndWhile();
+        return strategy;
+    }
+
     /// <summary>
     /// Serializes the strategy to IdiotScript text format.
     /// </summary>
@@ -807,6 +898,16 @@ public sealed class StrategyBuilder
             parts.Add(block.ToScript());
         }
 
+        if (strategy.WhileConditions.Count > 0)
+        {
+            parts.Add("While()");
+            foreach (var cond in strategy.WhileConditions)
+                parts.Add(cond.ToScript());
+            parts.Add("EndWhile()");
+        }
+        if (strategy.ExitWhenWhileFails)
+            parts.Add("ExitWhenFalse()");
+
         // Direction
         if (strategy.Direction == TradeDirection.Short)
             parts.Add("Short()");
@@ -822,8 +923,13 @@ public sealed class StrategyBuilder
 
         // Exit conditions. Emit the multi-target form when the strategy scales out so
         // T2/T3 survive a round trip (the single TakeProfitPrice is only T1).
-        if (strategy.TakeProfitTargets.Count > 1)
-            parts.Add($"TakeProfit({string.Join(", ", strategy.TakeProfitTargets.Take(3).Select(t => Inv(t.Price)))})");
+        if (strategy.TakeProfitTargets.Count > 1 && IsShorthandTargetSplit(strategy.TakeProfitTargets))
+            parts.Add($"TakeProfit({string.Join(", ", strategy.TakeProfitTargets.Select(t => Inv(t.Price)))})");
+        else if (strategy.TakeProfitTargets.Count > 1)
+            // A ladder TakeProfit(t1, t2, t3) can't express (4+ targets, custom splits) keeps
+            // every price and percent by spelling each target out.
+            foreach (var t in strategy.TakeProfitTargets)
+                parts.Add($"AddTarget({Inv(t.Price)}, {t.PercentToSell}, \"{t.Label}\")");
         else if (strategy.TakeProfitPrice.HasValue)
             parts.Add($"TakeProfit({Inv(strategy.TakeProfitPrice.Value)})");
         if (strategy.TakeProfitPercent.HasValue)
@@ -853,10 +959,18 @@ public sealed class StrategyBuilder
         if (strategy.IsAdaptive)
             parts.Add("AdaptiveOrder()");
         if (strategy.ShouldRepeat)
-            parts.Add("Repeat()");
-        
+            parts.Add(strategy.MaxCycles is { } max ? $"Repeat({max})" : "Repeat()");
+
         return string.Join("\n    .", parts);
     }
+
+    private static bool IsShorthandTargetSplit(List<TakeProfitTarget> targets) => targets.Count switch
+    {
+        2 => targets[0] is { PercentToSell: 50, Label: "T1" } && targets[1] is { PercentToSell: 50, Label: "T2" },
+        3 => targets[0] is { PercentToSell: 33, Label: "T1" } && targets[1] is { PercentToSell: 33, Label: "T2" }
+             && targets[2] is { PercentToSell: 34, Label: "T3" },
+        _ => false,
+    };
 
     // Invariant number formatting so a comma-decimal machine locale can't emit "5,00"
     // (the parser parses numeric args with InvariantCulture).
@@ -918,6 +1032,21 @@ public sealed class StrategyDefinition
     public bool IsAutonomous { get; set; }
     public bool IsAdaptive { get; set; }
     public bool ShouldRepeat { get; set; }
+
+    /// <summary>With <see cref="ShouldRepeat"/>: the most entries per ET day. Null = unlimited.</summary>
+    public int? MaxCycles { get; set; }
+
+    /// <summary>
+    /// Keep-armed-while guard: every condition must hold for the strategy to enter. Unlike entry
+    /// conditions it never triggers an entry by itself; it pauses the strategy while false.
+    /// </summary>
+    public List<ICondition> WhileConditions { get; } = [];
+
+    /// <summary>Exit an open position as soon as a <see cref="WhileConditions"/> condition stops holding.</summary>
+    public bool ExitWhenWhileFails { get; set; }
+
+    /// <summary>True when every While condition holds (vacuously true with none).</summary>
+    public bool WhileHolds(IndicatorSnapshot snapshot) => WhileConditions.All(c => c.Evaluate(snapshot));
 
     /// <summary>
     /// Exit long as price approaches the prior high-of-day (the high formed

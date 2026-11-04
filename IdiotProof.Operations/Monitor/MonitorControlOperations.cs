@@ -204,12 +204,17 @@ public sealed class MonitorTickOnceOperation : IOperation<MonitorTickOnceArgs>
         if (!def.ShouldRepeat && s.EntryFilledUtc is { } filled
             && DateOnly.FromDateTime(EasternClock.ToEastern(DateTime.SpecifyKind(filled, DateTimeKind.Utc))) == DateOnly.FromDateTime(EasternClock.ToEastern(nowUtc)))
             return new(s, "done-today", "already traded today (no Repeat)", 0, Math.Max(1, def.EntryConditions.Count), null);
+        if (def.ShouldRepeat && def.MaxCycles is { } maxCycles && s.CyclesOn(nowUtc) >= maxCycles)
+            return new(s, "done-today", $"Repeat({maxCycles}) used up today", 0, Math.Max(1, def.EntryConditions.Count), null);
         if (candles.Count == 0) return new(s, "no-data", "no bars in the last 4 hours", 0, def.EntryConditions.Count, null);
 
         var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(s.Symbol, candles, EmaPeriodCollector.Collect(def), previousClose);
         var resolved = StrategyBranchResolver.Resolve(def, snapshot);
         var conditions = resolved.EntryConditions;
         var price = (decimal)snapshot.Price;
+        var failedWhile = resolved.WhileConditions.FirstOrDefault(c => !c.Evaluate(snapshot));
+        if (failedWhile is not null)
+            return new(s, "paused", $"While {failedWhile.ToScript()} is false", 0, Math.Max(1, conditions.Count), price);
         if (conditions.Count == 0) return new(s, "would-fire", "setup-only strategy (no conditions)", 0, 0, price);
 
         var bits = conditions.Select(c => c.Evaluate(snapshot)).ToArray();

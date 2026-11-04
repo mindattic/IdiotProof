@@ -37,6 +37,7 @@ public static class StrategyHtml
         // Filters (regime gates) vs Entry (the trigger) — split by each
         // condition's own declared phase so the view matches the parser.
         var filters = def.EntryConditions.Where(c => c.Phase == StrategyPhase.Filters).Select(c => c.ToScript()).ToList();
+        filters.AddRange(def.WhileConditions.Select(c => $"While {c.ToScript()}{(def.ExitWhenWhileFails ? " (exit when false)" : "")}"));
         var entries = def.EntryConditions.Where(c => c.Phase != StrategyPhase.Filters).Select(c => c.ToScript()).ToList();
         if (filters.Count > 0) Card(sb, "Filters", "always-on regime gates", filters.Select(s => Li(Esc(s))).ToList());
         if (entries.Count > 0) Card(sb, "Entry", "all must be true to fire (AND)", entries.Select(s => Li(Esc(s))).ToList());

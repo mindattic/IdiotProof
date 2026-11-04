@@ -92,14 +92,14 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
             => prefixes.Any(p => v.StartsWith(p, StringComparison.Ordinal));
 
         var setup   = all.Where(v => HasPrefix(v, "Name(", "Ticker(", "Session(", "Account(", "Window(")).ToList();
-        var filters = all.Where(v => HasPrefix(v, "Require", "Trending(", "EntryWindow(")).ToList();
+        var filters = all.Where(v => HasPrefix(v, "Require", "Trending(", "EntryWindow(", "While(", "EndWhile(", "ExitWhenFalse(")).ToList();
         // Quantity* belongs to the ORDER phase per the DSL spec (CLAUDE.md:
         // "Order — direction, quantity, type, price"); it was miscategorized
         // under Setup, so the Learning Center taught the wrong phase.
         var order   = all.Where(v => HasPrefix(v, "Long(", "Short(", "Order(", "Quantity", "AutonomousTrading(", "AdaptiveOrder(")).ToList();
         var risk    = all.Where(v => HasPrefix(v, "StopLoss", "TrailingStop")).ToList();
         var exit    = all.Where(v => HasPrefix(v, "TakeProfit", "AddTarget(", "ExitStrategy(", "Repeat(", "SellBy(", "PeakGiveback(",
-            "ExitAtRollingHigh(", "ExitAtRollingLow(", "ExitAtPriorHigh(")).ToList();
+            "ExitAtRollingHigh(", "ExitAtRollingLow(", "ExitAtPriorHigh(", "For(", "ForEach(")).ToList();
 
         var usedSet = new HashSet<string>(StringComparer.Ordinal);
         foreach (var list in new[] { setup, filters, order, risk, exit })
@@ -202,6 +202,18 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         sb.AppendLine("      .Long()");
         sb.AppendLine("      .StopLossPercent(8)");
         sb.AppendLine("      .Build();");
+        sb.AppendLine();
+        sb.AppendLine("Loop example (\"break 10.50 but only while it holds above VWAP, bail if it loses VWAP, scale out at 11, 11.50 and 12, at most 2 trades a day\"):");
+        sb.AppendLine("  Stock.Ticker(\"ABC\")");
+        sb.AppendLine("      .While().IsAboveVwap().EndWhile()");
+        sb.AppendLine("      .ExitWhenFalse()");
+        sb.AppendLine("      .BreaksAbove(10.50)");
+        sb.AppendLine("      .Long()");
+        sb.AppendLine("      .StopLoss(10.00)");
+        sb.AppendLine("      .ForEach(11, 11.50, 12).TakeProfitEach()");
+        sb.AppendLine("      .Repeat(2)");
+        sb.AppendLine("      .Build();");
+        sb.AppendLine("While() conditions only keep the strategy armed; they never trigger an entry. For(start, step, count)/ForEach(levels) feed the loop body verb right after them.");
         sb.AppendLine();
         sb.AppendLine("If the user's description is ambiguous about a setting it does not mention, prefer conservative defaults: paper-mode-friendly, RTH session, ADX>20 regime filter, simple Long/Short, fixed-price stop and target.");
         sb.AppendLine($"NEVER drop, weaken or approximate a condition the user stated. Every price level, count, order of events and threshold they gave must appear in the chain. If any part of the request cannot be expressed with the catalog verbs, output nothing but one line starting with `{UnsupportedMarker}` that names the part that cannot be expressed.");

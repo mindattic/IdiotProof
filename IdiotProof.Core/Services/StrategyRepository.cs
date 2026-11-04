@@ -454,6 +454,9 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         strategy.PositionQty    = quantity;
         strategy.LastEntryPrice = fillPrice;
         strategy.EntryFilledUtc = filledUtc;
+        var cycleDay = Strategy.EtDay(filledUtc);
+        strategy.CyclesToday = strategy.CycleDateEt == cycleDay ? strategy.CyclesToday + 1 : 1;
+        strategy.CycleDateEt = cycleDay;
         strategy.LastExitedUtc  = null;
         strategy.LastExitPrice  = null;
         strategy.LastExitReason = null;
@@ -477,6 +480,9 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (strategy is null) return;
+        // The phantom fill counted as a cycle; give it back so Repeat(n) isn't shortchanged.
+        if (strategy.EntryFilledUtc is { } phantom && strategy.CycleDateEt == Strategy.EtDay(phantom) && strategy.CyclesToday > 0)
+            strategy.CyclesToday--;
         strategy.PositionQty    = 0;
         strategy.LastEntryPrice = null;
         strategy.EntryFilledUtc = null;
