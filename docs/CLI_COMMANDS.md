@@ -1467,17 +1467,18 @@ Examples:
 ```text
 Forward-return distribution for a symbol (up/down/flat rates, quantiles, excursions): the base rate a pattern must beat.
 
-Usage: idiotproof evidence label <symbol> [--from <date>] [--to <date>] [--horizon <int>] [--timeframe <minute|day>] [--dead-band <number>] [--session <rth|all>]
+Usage: idiotproof evidence label <symbol> [--from <date>] [--to <date>] [--horizon <int>] [--entry <next-open|close>] [--timeframe <minute|day>] [--dead-band <number>] [--session <rth|all>]
 Risk: read
 
 Parameters:
-  <symbol>                      Ticker, e.g. SNDL. (required)
-      --from <date>             First ET day (yyyy-MM-dd, default: 20 days before --to).
-      --to <date>               Last ET day (yyyy-MM-dd, default: yesterday ET).
-      --horizon <int>           Bars ahead to measure (default 5). (default: 5)
-      --timeframe <minute|day>  minute (default) or day. (default: minute)
-      --dead-band <number>      Absolute return counted as flat, as a fraction (default 0.001). (default: 0.001)
-      --session <rth|all>       rth (default) or all. (default: rth)
+  <symbol>                       Ticker, e.g. SNDL. (required)
+      --from <date>              First ET day (yyyy-MM-dd, default: 20 days before --to).
+      --to <date>                Last ET day (yyyy-MM-dd, default: yesterday ET).
+      --horizon <int>            Bars ahead to measure (default 5). (default: 5)
+      --entry <next-open|close>  next-open (default: fill at the next bar's open, immune to bid-ask bounce) or close (fill at the signal bar's close; a diagnostic). (default: next-open)
+      --timeframe <minute|day>   minute (default) or day. (default: minute)
+      --dead-band <number>       Absolute return counted as flat, as a fraction (default 0.001). (default: 0.001)
+      --session <rth|all>        rth (default) or all. (default: rth)
 
 Examples:
   idiotproof evidence label SNDL --from 2026-10-01 --to 2026-10-31 --horizon 10
@@ -1561,7 +1562,7 @@ Examples:
 ```text
 LSH look-alikes of a symbol's latest bar window from earlier sessions, with what each did next.
 
-Usage: idiotproof evidence similar <symbol> [--date <date>] [--window <int>] [--horizon <int>] [--train-days <int>] [--k <int>] [--min-similarity <number>] [--session <rth|all>]
+Usage: idiotproof evidence similar <symbol> [--date <date>] [--window <int>] [--horizon <int>] [--entry <next-open|close>] [--train-days <int>] [--k <int>] [--min-similarity <number>] [--session <rth|all>]
 Risk: read
 
 Parameters:
@@ -1569,6 +1570,7 @@ Parameters:
       --date <date>              ET day whose latest window is matched (yyyy-MM-dd, default: today ET).
       --window <int>             Bars per pattern window (default 20). (default: 20)
       --horizon <int>            Bars ahead each look-alike's outcome is measured (default 5). (default: 5)
+      --entry <next-open|close>  next-open (default: fill at the next bar's open, immune to bid-ask bounce) or close (fill at the signal bar's close; a diagnostic). (default: next-open)
       --train-days <int>         Prior sessions searched for look-alikes (default 20). (default: 20)
       --k <int>                  Look-alikes to list (default 15). (default: 15)
       --min-similarity <number>  Least cosine similarity (default 0.8). (default: 0.8)
@@ -1657,7 +1659,7 @@ Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilso
 
 Each day's model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.
 
-Usage: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--clean <none|rmt>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
+Usage: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--clean <none|rmt>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--entry <next-open|close>] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
 Risk: read
 
 Parameters:
@@ -1678,6 +1680,7 @@ Parameters:
       --min-neighbors <int>            Fewest look-alikes needed to make a call (default 8). (default: 8)
       --min-agreement <number>         Smoothed share of look-alikes that must agree to call (default 0.6). (default: 0.6)
       --cost <number>                  Flat round-trip cost per call as a fraction (e.g. 0.003). Omit it to model each symbol-day's cost from its prior sessions: Corwin-Schultz spread + square-root impact for --shares.
+      --entry <next-open|close>        next-open (default: a call fills at the next bar's open, immune to bid-ask bounce) or close (fills at the signal bar's close; a diagnostic that inflates mean-reversion edge on low-priced names). (default: next-open)
       --shares <number>                Shares per call for the modeled impact cost (default 1, the default order size). (default: 1)
       --volume                         Include the volume shape in the pattern vector. (default: false)
       --session <rth|all>              rth (default) or all (adds pre/after-hours bars). (default: rth)

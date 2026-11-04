@@ -3074,7 +3074,7 @@ Read-only. Times are US Eastern.
 
 Forward-return distribution for a symbol (up/down/flat rates, quantiles, excursions): the base rate a pattern must beat.
 
-CLI equivalent: idiotproof evidence label <symbol> [--from <date>] [--to <date>] [--horizon <int>] [--timeframe <minute|day>] [--dead-band <number>] [--session <rth|all>]
+CLI equivalent: idiotproof evidence label <symbol> [--from <date>] [--to <date>] [--horizon <int>] [--entry <next-open|close>] [--timeframe <minute|day>] [--dead-band <number>] [--session <rth|all>]
 Examples:
   idiotproof evidence label SNDL --from 2026-10-01 --to 2026-10-31 --horizon 10
   idiotproof evidence label AAPL --timeframe day --from 2026-01-02 --horizon 5
@@ -3106,6 +3106,15 @@ Read-only. Times are US Eastern.
       "type": "integer",
       "description": "Bars ahead to measure (default 5).",
       "default": 5
+    },
+    "entry": {
+      "type": "string",
+      "enum": [
+        "next-open",
+        "close"
+      ],
+      "description": "next-open (default: fill at the next bar\u0027s open, immune to bid-ask bounce) or close (fill at the signal bar\u0027s close; a diagnostic).",
+      "default": "next-open"
     },
     "timeframe": {
       "type": "string",
@@ -3376,7 +3385,7 @@ Read-only. Times are US Eastern.
 
 LSH look-alikes of a symbol's latest bar window from earlier sessions, with what each did next.
 
-CLI equivalent: idiotproof evidence similar <symbol> [--date <date>] [--window <int>] [--horizon <int>] [--train-days <int>] [--k <int>] [--min-similarity <number>] [--session <rth|all>]
+CLI equivalent: idiotproof evidence similar <symbol> [--date <date>] [--window <int>] [--horizon <int>] [--entry <next-open|close>] [--train-days <int>] [--k <int>] [--min-similarity <number>] [--session <rth|all>]
 Examples:
   idiotproof evidence similar SNDL
   idiotproof evidence similar MULN --date 2026-10-30 --window 30 --horizon 10
@@ -3408,6 +3417,15 @@ Read-only. Times are US Eastern.
       "type": "integer",
       "description": "Bars ahead each look-alike\u0027s outcome is measured (default 5).",
       "default": 5
+    },
+    "entry": {
+      "type": "string",
+      "enum": [
+        "next-open",
+        "close"
+      ],
+      "description": "next-open (default: fill at the next bar\u0027s open, immune to bid-ask bounce) or close (fill at the signal bar\u0027s close; a diagnostic).",
+      "default": "next-open"
     },
     "train_days": {
       "type": "integer",
@@ -3637,7 +3655,7 @@ Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilso
 
 Each day's model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.
 
-CLI equivalent: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--clean <none|rmt>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
+CLI equivalent: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--clean <none|rmt>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--entry <next-open|close>] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
 Examples:
   idiotproof evidence walkforward --universe penny --from 2026-08-03 --to 2026-10-30
   idiotproof evidence walkforward SNDL --from 2026-10-01 --horizon 10
@@ -3752,6 +3770,15 @@ Read-only. Times are US Eastern.
     "cost": {
       "type": "number",
       "description": "Flat round-trip cost per call as a fraction (e.g. 0.003). Omit it to model each symbol-day\u0027s cost from its prior sessions: Corwin-Schultz spread \u002B square-root impact for --shares."
+    },
+    "entry": {
+      "type": "string",
+      "enum": [
+        "next-open",
+        "close"
+      ],
+      "description": "next-open (default: a call fills at the next bar\u0027s open, immune to bid-ask bounce) or close (fills at the signal bar\u0027s close; a diagnostic that inflates mean-reversion edge on low-priced names).",
+      "default": "next-open"
     },
     "shares": {
       "type": "number",

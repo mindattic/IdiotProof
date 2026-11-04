@@ -32,10 +32,9 @@ public sealed record EvidenceKalmanArgs
     public double Train { get; init; } = 0.67;
 
     [Option("entry", Description = "next-open (default: enter at the next bar's open, immune to bid-ask bounce) or close (enter at the signal bar's close).")]
-    public KalmanEntry Entry { get; init; } = KalmanEntry.NextOpen;
+    public EntryTiming Entry { get; init; } = EntryTiming.NextOpen;
 }
 
-public enum KalmanEntry { NextOpen, Close }
 
 /// <summary>
 /// Kalman state-space features (trend slope, innovation surprise, pair residual against a leader)
@@ -102,7 +101,7 @@ public sealed class EvidenceKalmanOperation : IOperation<EvidenceKalmanArgs>
                 surprise.AddRange(f.InnovationZ);
                 pair.AddRange(f.PairResidualZ);
                 dayAt.AddRange(Enumerable.Repeat(EvidenceSupport.DateEt(session[0]), logs.Count));
-                var sessionLabels = args.Entry == KalmanEntry.Close ? ForwardReturnLabeler.Label(session, args.Horizon) : NextOpenLabels(session, args.Horizon);
+                var sessionLabels = ForwardReturnLabeler.Label(session, args.Horizon, entryTiming: args.Entry);
                 labels.AddRange(sessionLabels.Select(l => l with { Index = l.Index + offset }));
             }
 
@@ -120,28 +119,10 @@ public sealed class EvidenceKalmanOperation : IOperation<EvidenceKalmanArgs>
 
         var report = HoldoutBucketEvaluator.Evaluate(samples, args.Bins);
         var table = BucketReportView.Table(report, ctx.Width);
-        var human = $"Kalman evidence {from:yyyy-MM-dd}..{to:yyyy-MM-dd}  horizon {args.Horizon} min  entry {(args.Entry == KalmanEntry.Close ? "signal close" : "next open")}" + (leader is null ? "" : $"  leader {leader}") + "\n" +
+        var human = $"Kalman evidence {from:yyyy-MM-dd}..{to:yyyy-MM-dd}  horizon {args.Horizon} min  entry {(args.Entry == EntryTiming.Close ? "signal close" : "next open")}" + (leader is null ? "" : $"  leader {leader}") + "\n" +
             (notes.Count > 0 ? string.Join("\n", notes) + "\n" : "") + table.Render() +
             "\nup = forward return > 0. Filter variances (MLE) come from training sessions only. " + BucketReportView.Footnote(report);
         return OperationResult.Ok(new { From = from, To = to, args.Horizon, Entry = args.Entry.ToString(), Leader = leader, Symbols = results, report.Tests, Features = BucketReportView.Data(report) }, human);
-    }
-
-    /// <summary>
-    /// Bar i's outcome entered at bar i+1's open and exited at bar i+h's close. A close-entry label
-    /// rewards bid-ask bounce on low-priced names (a close printed at the bid "reverts" to the ask);
-    /// the next open is the first price a signal on bar i could actually trade at.
-    /// </summary>
-    private static List<ForwardLabel> NextOpenLabels(IReadOnlyList<Candle> session, int horizon)
-    {
-        var labels = new List<ForwardLabel>();
-        for (int i = 0; i + horizon < session.Count; i++)
-        {
-            double entry = (double)session[i + 1].Open;
-            if (entry <= 0) continue;
-            double ret = (double)session[i + horizon].Close / entry - 1;
-            labels.Add(new ForwardLabel(i, ret, ret > 0 ? Direction.Up : ret < 0 ? Direction.Down : Direction.Flat, 0, 0));
-        }
-        return labels;
     }
 
     private static List<double> LogCloses(IReadOnlyList<Candle> session) => session.Select(c => Math.Log((double)c.Close)).ToList();

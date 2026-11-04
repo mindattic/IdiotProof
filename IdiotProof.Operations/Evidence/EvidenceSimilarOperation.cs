@@ -18,6 +18,9 @@ public sealed record EvidenceSimilarArgs
     [Option("horizon", Description = "Bars ahead each look-alike's outcome is measured (default 5).")]
     public int Horizon { get; init; } = 5;
 
+    [Option("entry", Description = "next-open (default: fill at the next bar's open, immune to bid-ask bounce) or close (fill at the signal bar's close; a diagnostic).")]
+    public EntryTiming Entry { get; init; } = EntryTiming.NextOpen;
+
     [Option("train-days", Description = "Prior sessions searched for look-alikes (default 20).")]
     public int TrainDays { get; init; } = 20;
 
@@ -57,7 +60,8 @@ public sealed class EvidenceSimilarOperation : IOperation<EvidenceSimilarArgs>
         for (int end = args.Window - 1; end + args.Horizon < history.Count; end++)
         {
             if (EvidenceSupport.DateEt(history[end + args.Horizon]) != EvidenceSupport.DateEt(history[end])) continue;
-            double fwd = (double)history[end + args.Horizon].Close / (double)history[end].Close - 1;
+            double fwd = ForwardReturnLabeler.ForwardReturn(history, end, args.Horizon, args.Entry);
+            if (double.IsNaN(fwd)) continue;
             index.Add(ShapeVector.FromWindow(history, end, args.Window), (history[end].EndUtc, fwd));
         }
         var query = ShapeVector.FromWindow(current, current.Count - 1, args.Window);

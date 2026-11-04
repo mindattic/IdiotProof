@@ -30,6 +30,8 @@ public sealed record WalkForwardSettings
     public bool IncludeVolume { get; init; }
     public EvidenceSession Session { get; init; } = EvidenceSession.Rth;
     public int Seed { get; init; } = 1337;
+    /// <summary>Where a call fills: the next bar's open (default) or, as a bid-ask-bounce diagnostic, the signal bar's close.</summary>
+    public EntryTiming Entry { get; init; } = EntryTiming.NextOpen;
     public EvidenceModel Model { get; init; } = EvidenceModel.Analog;
     /// <summary>Leader model: the symbols each target's leaders are discovered among (besides nothing else).</summary>
     public IReadOnlyList<string> LeaderCandidates { get; init; } = ["SPY", "QQQ", "IWM"];
@@ -123,7 +125,7 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
 
                     var training = prior.SelectMany(d => byDay[d]).ToList();
                     double cost = CallCost(training, prior.Count, s);
-                    var model = new PatternAnalogPredictor(s.Window, s.Horizon, s.IncludeVolume, seed: s.Seed);
+                    var model = new PatternAnalogPredictor(s.Window, s.Horizon, s.IncludeVolume, seed: s.Seed, entry: s.Entry);
                     // Labels resolve inside their own session, exactly as D's calls are scored; a label
                     // spanning the overnight gap would teach the gap, not the pattern.
                     int sessionStart = 0;
@@ -143,7 +145,8 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
                     for (int end = Math.Max(firstInDay, s.Window - 1); end + s.Horizon < test.Count; end += s.Horizon)
                     {
                         var vote = model.Predict(test, end, s.K, s.MinSimilarity, s.MinNeighbors, s.MinAgreement, s.DeadBand);
-                        double fwd = (double)test[end + s.Horizon].Close / (double)test[end].Close - 1;
+                        double fwd = ForwardReturnLabeler.ForwardReturn(test, end, s.Horizon, s.Entry);
+                        if (double.IsNaN(fwd)) continue;
                         dayCard.Record(vote.Call, fwd, cost);
                         points++;
                         if (fwd > s.DeadBand) ups++;
@@ -200,7 +203,8 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
                 links.Select(l => (l.Hops, l.Influence, LeaderSignal.RecentMove(today[l.Symbol], asOf, s.LeaderLookback))),
                 s.LeaderMaxHops, s.LeaderMinInfluence);
             var call = move is { } m ? m > s.DeadBand ? Direction.Up : m < -s.DeadBand ? Direction.Down : Direction.Flat : Direction.Flat;
-            double fwd = (double)dayBars[end + s.Horizon].Close / (double)dayBars[end].Close - 1;
+            double fwd = ForwardReturnLabeler.ForwardReturn(dayBars, end, s.Horizon, s.Entry);
+            if (double.IsNaN(fwd)) continue;
             dayCard.Record(call, fwd, cost);
             points++;
             if (fwd > s.DeadBand) ups++;

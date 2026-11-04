@@ -6289,7 +6289,7 @@
       "summary": "Forward-return distribution for a symbol (up/down/flat rates, quantiles, excursions): the base rate a pattern must beat.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof evidence label \u003Csymbol\u003E [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--horizon \u003Cint\u003E] [--timeframe \u003Cminute|day\u003E] [--dead-band \u003Cnumber\u003E] [--session \u003Crth|all\u003E]",
+      "usage": "idiotproof evidence label \u003Csymbol\u003E [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--horizon \u003Cint\u003E] [--entry \u003Cnext-open|close\u003E] [--timeframe \u003Cminute|day\u003E] [--dead-band \u003Cnumber\u003E] [--session \u003Crth|all\u003E]",
       "parameters": [
         {
           "name": "symbol",
@@ -6338,6 +6338,21 @@
           "description": "Bars ahead to measure (default 5).",
           "default": 5,
           "enum_values": null
+        },
+        {
+          "name": "entry",
+          "json_name": "entry",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "next-open|close",
+          "required": false,
+          "description": "next-open (default: fill at the next bar\u0027s open, immune to bid-ask bounce) or close (fill at the signal bar\u0027s close; a diagnostic).",
+          "default": "next-open",
+          "enum_values": [
+            "next-open",
+            "close"
+          ]
         },
         {
           "name": "timeframe",
@@ -6416,6 +6431,15 @@
             "type": "integer",
             "description": "Bars ahead to measure (default 5).",
             "default": 5
+          },
+          "entry": {
+            "type": "string",
+            "enum": [
+              "next-open",
+              "close"
+            ],
+            "description": "next-open (default: fill at the next bar\u0027s open, immune to bid-ask bounce) or close (fill at the signal bar\u0027s close; a diagnostic).",
+            "default": "next-open"
           },
           "timeframe": {
             "type": "string",
@@ -7056,7 +7080,7 @@
       "summary": "LSH look-alikes of a symbol\u0027s latest bar window from earlier sessions, with what each did next.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof evidence similar \u003Csymbol\u003E [--date \u003Cdate\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--k \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--session \u003Crth|all\u003E]",
+      "usage": "idiotproof evidence similar \u003Csymbol\u003E [--date \u003Cdate\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--entry \u003Cnext-open|close\u003E] [--train-days \u003Cint\u003E] [--k \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--session \u003Crth|all\u003E]",
       "parameters": [
         {
           "name": "symbol",
@@ -7105,6 +7129,21 @@
           "description": "Bars ahead each look-alike\u0027s outcome is measured (default 5).",
           "default": 5,
           "enum_values": null
+        },
+        {
+          "name": "entry",
+          "json_name": "entry",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "next-open|close",
+          "required": false,
+          "description": "next-open (default: fill at the next bar\u0027s open, immune to bid-ask bounce) or close (fill at the signal bar\u0027s close; a diagnostic).",
+          "default": "next-open",
+          "enum_values": [
+            "next-open",
+            "close"
+          ]
         },
         {
           "name": "train-days",
@@ -7192,6 +7231,15 @@
             "type": "integer",
             "description": "Bars ahead each look-alike\u0027s outcome is measured (default 5).",
             "default": 5
+          },
+          "entry": {
+            "type": "string",
+            "enum": [
+              "next-open",
+              "close"
+            ],
+            "description": "next-open (default: fill at the next bar\u0027s open, immune to bid-ask bounce) or close (fill at the signal bar\u0027s close; a diagnostic).",
+            "default": "next-open"
           },
           "train_days": {
             "type": "integer",
@@ -7735,7 +7783,7 @@
       "summary": "Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilson CI, coverage and edge after costs.",
       "description": "Each day\u0027s model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.",
       "risk": "read",
-      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--clean \u003Cnone|rmt\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
+      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--clean \u003Cnone|rmt\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--entry \u003Cnext-open|close\u003E] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -7954,6 +8002,21 @@
           "enum_values": null
         },
         {
+          "name": "entry",
+          "json_name": "entry",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "next-open|close",
+          "required": false,
+          "description": "next-open (default: a call fills at the next bar\u0027s open, immune to bid-ask bounce) or close (fills at the signal bar\u0027s close; a diagnostic that inflates mean-reversion edge on low-priced names).",
+          "default": "next-open",
+          "enum_values": [
+            "next-open",
+            "close"
+          ]
+        },
+        {
           "name": "shares",
           "json_name": "shares",
           "kind": "option",
@@ -8134,6 +8197,15 @@
           "cost": {
             "type": "number",
             "description": "Flat round-trip cost per call as a fraction (e.g. 0.003). Omit it to model each symbol-day\u0027s cost from its prior sessions: Corwin-Schultz spread \u002B square-root impact for --shares."
+          },
+          "entry": {
+            "type": "string",
+            "enum": [
+              "next-open",
+              "close"
+            ],
+            "description": "next-open (default: a call fills at the next bar\u0027s open, immune to bid-ask bounce) or close (fills at the signal bar\u0027s close; a diagnostic that inflates mean-reversion edge on low-priced names).",
+            "default": "next-open"
           },
           "shares": {
             "type": "number",

@@ -18,12 +18,15 @@ public sealed class PatternAnalogPredictor
     public int WindowLength { get; }
     public int Horizon { get; }
     public bool IncludeVolume { get; }
+    public EntryTiming Entry { get; }
 
-    public PatternAnalogPredictor(int windowLength, int horizon, bool includeVolume = false, int bands = 16, int bitsPerBand = 8, int seed = 1337)
+    public PatternAnalogPredictor(int windowLength, int horizon, bool includeVolume = false, int bands = 16, int bitsPerBand = 8, int seed = 1337,
+        EntryTiming entry = EntryTiming.NextOpen)
     {
         WindowLength = windowLength;
         Horizon = horizon;
         IncludeVolume = includeVolume;
+        Entry = entry;
         index = new LshIndex<double>(includeVolume ? windowLength * 2 : windowLength, bands, bitsPerBand, seed);
     }
 
@@ -38,9 +41,8 @@ public sealed class PatternAnalogPredictor
         for (int end = Math.Max(from, WindowLength - 1); end < to; end++)
         {
             if (end + Horizon >= labelLimit || end + Horizon >= candles.Count) break;
-            double entry = (double)candles[end].Close;
-            if (entry <= 0) continue;
-            double fwd = (double)candles[end + Horizon].Close / entry - 1;
+            double fwd = ForwardReturnLabeler.ForwardReturn(candles, end, Horizon, Entry);
+            if (double.IsNaN(fwd)) continue;
             index.Add(ShapeVector.FromWindow(candles, end, WindowLength, IncludeVolume), fwd);
         }
     }

@@ -18,6 +18,9 @@ public sealed record EvidenceLabelArgs
     [Option("horizon", Description = "Bars ahead to measure (default 5).")]
     public int Horizon { get; init; } = 5;
 
+    [Option("entry", Description = "next-open (default: fill at the next bar's open, immune to bid-ask bounce) or close (fill at the signal bar's close; a diagnostic).")]
+    public EntryTiming Entry { get; init; } = EntryTiming.NextOpen;
+
     [Option("timeframe", Description = "minute (default) or day.")]
     public EvidenceTimeframe Timeframe { get; init; } = EvidenceTimeframe.Minute;
 
@@ -48,8 +51,8 @@ public sealed class EvidenceLabelOperation : IOperation<EvidenceLabelArgs>
         var bars = EvidenceSupport.Filter(raw, args.Timeframe, args.Session);
         // Minute labels stay inside one session: a label crossing the overnight gap measures the gap, not the pattern.
         var labels = args.Timeframe == EvidenceTimeframe.Day
-            ? ForwardReturnLabeler.Label(bars, args.Horizon, args.DeadBand)
-            : bars.GroupBy(EvidenceSupport.DateEt).SelectMany(g => ForwardReturnLabeler.Label(g.ToList(), args.Horizon, args.DeadBand)).ToList();
+            ? ForwardReturnLabeler.Label(bars, args.Horizon, args.DeadBand, args.Entry)
+            : bars.GroupBy(EvidenceSupport.DateEt).SelectMany(g => ForwardReturnLabeler.Label(g.ToList(), args.Horizon, args.DeadBand, args.Entry)).ToList();
         if (labels.Count == 0)
             return OperationResult.Ok(new { Symbol = symbol, Labels = 0 }, $"{symbol}: no labelable bars between {from:yyyy-MM-dd} and {to:yyyy-MM-dd}.");
 

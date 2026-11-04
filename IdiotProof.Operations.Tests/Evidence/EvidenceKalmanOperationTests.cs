@@ -1,3 +1,4 @@
+using IdiotProof.Evidence;
 using IdiotProof.Operations.Evidence;
 using static IdiotProof.Operations.Tests.Evidence.EvidenceTestKit;
 
@@ -83,7 +84,7 @@ public class EvidenceKalmanOperationTests
 
         var close = await new EvidenceKalmanOperation().ExecuteAsync(new EvidenceKalmanArgs
         {
-            Symbols = ["BNC"], From = days[0], To = days[^1], Horizon = 3, Entry = KalmanEntry.Close,
+            Symbols = ["BNC"], From = days[0], To = days[^1], Horizon = 3, Entry = EntryTiming.Close,
         }, Context(store));
         var next = await new EvidenceKalmanOperation().ExecuteAsync(new EvidenceKalmanArgs
         {

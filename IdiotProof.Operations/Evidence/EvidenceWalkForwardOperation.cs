@@ -63,6 +63,9 @@ public sealed record EvidenceWalkForwardArgs
     [Option("cost", Description = "Flat round-trip cost per call as a fraction (e.g. 0.003). Omit it to model each symbol-day's cost from its prior sessions: Corwin-Schultz spread + square-root impact for --shares.")]
     public double? Cost { get; init; }
 
+    [Option("entry", Description = "next-open (default: a call fills at the next bar's open, immune to bid-ask bounce) or close (fills at the signal bar's close; a diagnostic that inflates mean-reversion edge on low-priced names).")]
+    public EntryTiming Entry { get; init; } = EntryTiming.NextOpen;
+
     [Option("shares", Description = "Shares per call for the modeled impact cost (default 1, the default order size).")]
     public double Shares { get; init; } = 1;
 
@@ -155,7 +158,7 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
         {
             Window = args.Window, Horizon = args.Horizon, TrainDays = args.TrainDays, MinSimilarity = args.MinSimilarity,
             MinNeighbors = args.MinNeighbors, MinAgreement = args.MinAgreement, RoundTripCost = args.Cost ?? 0.003, ModelCosts = args.Cost is null, Shares = args.Shares,
-            IncludeVolume = args.Volume, Session = args.Session, Model = args.Model,
+            IncludeVolume = args.Volume, Session = args.Session, Model = args.Model, Entry = args.Entry,
             LeaderCandidates = EvidenceSupport.Symbols(args.Leaders.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
             LeaderLookback = 5, LeaderMaxHops = args.LeaderHops, LeaderMinInfluence = args.LeaderMinInfluence,
             LeaderEdge = args.Edge == EvidenceEdge.Te ? EdgeMeasure.TransferEntropy : EdgeMeasure.Correlation,
