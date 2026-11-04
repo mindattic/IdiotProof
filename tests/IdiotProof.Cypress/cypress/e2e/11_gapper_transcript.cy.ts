@@ -11,13 +11,15 @@
  *
  * Proves the review-first contract in the UI: valid candidates render as cards
  * with their overlaid dial-ins, an invalid symbol is skipped with a warning,
- * and nothing is queued until "Queue" is clicked on a card.
+ * nothing is queued until "Queue" is clicked on a card, a queued card leaves
+ * the review list, and "Clear results" drops the cards left unqueued.
  */
 describe("Gapper transcript interpretation (authenticated, fake LLM)", () => {
     const testPass = "Cy-IdiotProof-2026-Kx9!";
 
     const answer =
         '[ {"symbol":"CYACM","rationale":"FDA catalyst, tight stop.","profile":{"minGapPercent":9,"stopLossPercent":3}},' +
+        ' {"symbol":"CYACN","rationale":"Second play, left unqueued."},' +
         ' {"symbol":"not a ticker!","rationale":"bad"} ]';
     const transcript =
         "Watch CYACM tomorrow, gapping 10% on FDA news, keep a tight stop. " + `[[script: ${answer} ]]`;
@@ -40,7 +42,7 @@ describe("Gapper transcript interpretation (authenticated, fake LLM)", () => {
             cy.contains("summary", "Show generated IdiotScript").click();
             cy.get("pre").should("contain.text", "CYACM");
         });
-        cy.get("[data-candidate]").should("have.length", 1);
+        cy.get("[data-candidate]").should("have.length", 2);
         cy.contains(/Skipped candidate with invalid symbol/i).should("be.visible");
 
         // Review-first: nothing queued by the interpretation itself.
@@ -48,6 +50,9 @@ describe("Gapper transcript interpretation (authenticated, fake LLM)", () => {
 
         cy.get('[data-candidate="CYACM"]').contains("button", "Queue").click();
         cy.get("li[data-strategy-id]", { timeout: 10000 }).should("have.length", 1).and("contain.text", "CYACM");
+        // A queued candidate leaves the review list; the other stays for review.
+        cy.get('[data-candidate="CYACM"]').should("not.exist");
+        cy.get('[data-candidate="CYACN"]').should("be.visible");
 
         // Leave nothing armed.
         cy.get('li[data-strategy-id] input[type="checkbox"][id^="gtoggle-"]').first().uncheck();

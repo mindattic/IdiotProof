@@ -16,12 +16,22 @@
  *   • Each test re-registers a unique email so runs don't collide.
  */
 describe("AI-assist loop (authenticated)", () => {
-    const testUser = () => `test-${Date.now()}@idiotproof.local`;
+    // One user for the whole describe. A second user signed in later in the same spec
+    // file inherits the first one's identity after cy.reload(): Cypress resurfaces the
+    // earlier cy.request login cookie even across test isolation and clearAllCookies.
+    // The server itself keeps users apart (two curl cookie jars stay distinct).
+    const email = `test-${Date.now()}@idiotproof.local`;
     const testPass = "Cy-IdiotProof-2026-Kx9!";
 
-    it("registers, describes a strategy, saves, and finds it on /strategies", () => {
-        const email = testUser();
+    before(() => {
         cy.registerAndLogin(email, testPass);
+    });
+
+    beforeEach(() => {
+        cy.login(email, testPass);
+    });
+
+    it("describes a strategy, saves, and finds it on /strategies", () => {
 
         cy.visitInteractive("/builder");
         cy.typeStable("#b-title", "Smoke pullback");
@@ -48,9 +58,6 @@ describe("AI-assist loop (authenticated)", () => {
     });
 
     it("activate toggle persists across reloads", () => {
-        const email = testUser();
-        cy.registerAndLogin(email, testPass);
-
         // Seed a strategy through the builder so this user has one to toggle.
         cy.visitInteractive("/builder");
         cy.typeStable("#b-title", "Toggle persistence");
@@ -65,10 +72,11 @@ describe("AI-assist loop (authenticated)", () => {
         cy.contains(/saved\./i, { timeout: 10000 });
 
         cy.visitInteractive("/strategies");
-        cy.get('input[type="checkbox"][id^="toggle-"]').first().check();
+        const toggle = () => cy.contains("tr[data-strategy-id]", "Toggle persistence").find('input[type="checkbox"][id^="toggle-"]');
+        toggle().should("not.be.checked").check();
         // The toggle writes through to SQL; the reloaded page renders the
         // persisted state server-side.
         cy.reload();
-        cy.get('input[type="checkbox"][id^="toggle-"]').first().should("be.checked");
+        toggle().should("be.checked");
     });
 });
