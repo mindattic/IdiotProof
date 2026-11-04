@@ -187,6 +187,23 @@ public class EventStudyTests
     }
 
     [Test]
+    public void SplitSizedJump_InTheEstimationOrEventWindow_DropsTheEvent()
+    {
+        var cal = Calendar(300);
+        var (_, market, reverseSplit) = World(300, 1, seed: 11, new() { [("S0", cal[180])] = 9.0 });
+        var (_, _, forwardSplit) = World(300, 1, seed: 11, new() { [("S0", cal[251])] = -0.8 });
+        var window = new EventWindow(0, 1);
+        var a = new EventStudyEngine(cal, market, reverseSplit).Compute(new EventSpec("S0", cal[250], "t"), window);
+        var b = new EventStudyEngine(cal, market, forwardSplit).Compute(new EventSpec("S0", cal[250], "t"), window);
+        Assert.That(a.Skipped, Is.EqualTo("possible unadjusted split"));
+        Assert.That(b.Skipped, Is.EqualTo("possible unadjusted split"));
+
+        var lenient = new EventStudyEngine(cal, market, reverseSplit, new EventStudyOptions { MaxDailyMove = 20 })
+            .Compute(new EventSpec("S0", cal[250], "t"), window);
+        Assert.That(lenient.Valid, Is.True, "the threshold is a setting");
+    }
+
+    [Test]
     public void ThinHistory_IsSkippedWithAReason()
     {
         var (cal, market, stocks) = World(100, 1, seed: 10);

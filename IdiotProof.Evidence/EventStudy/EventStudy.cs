@@ -22,6 +22,12 @@ public sealed record EventStudyOptions
 
     /// <summary>Fewest usable estimation returns (thinly traded names miss days).</summary>
     public int MinEstimationObservations { get; init; } = 60;
+
+    /// <summary>
+    /// A daily return above this (2.0 = +200%) or below its inverse (−66.7%) in the estimation or event window
+    /// drops the event as a possible unadjusted split: raw bars turn a 1-for-10 reverse split into a fake +900% day.
+    /// </summary>
+    public double MaxDailyMove { get; init; } = 2.0;
 }
 
 /// <summary>Daily close-to-close returns keyed by ET trading day.</summary>
@@ -106,6 +112,11 @@ public sealed class EventStudyEngine
         if (estStart < 0) return new EventResult(ev, day, double.NaN, double.NaN, 0, "estimation window before data");
         if (day0 + window.End >= calendar.Count) return new EventResult(ev, day, double.NaN, double.NaN, 0, "event window past data");
 
+        double up = options.MaxDailyMove, down = 1.0 / (1.0 + options.MaxDailyMove) - 1.0;
+        for (int i = estStart; i <= day0 + window.End; i++)
+            if (stock.TryGet(calendar[i], out var jump) && (jump > up || jump < down))
+                return new EventResult(ev, day, double.NaN, double.NaN, 0, "possible unadjusted split");
+
         var s = new List<double>(options.EstimationLength);
         var m = new List<double>(options.EstimationLength);
         for (int i = estStart; i < estEnd; i++)
@@ -174,18 +185,9 @@ public sealed class EventStudyEngine
             for (int i = d0 + window.Start - window.Length; i <= d0 + window.End + window.Length; i++) set.Add(i);
         }
 
-        var candidates = new Dictionary<string, List<int>>();
+        var candidates = new Dictionary<string, double[]>();
         foreach (var sym in valid.Select(r => r.Event.Symbol).Distinct())
-        {
-            var list = new List<int>();
-            for (int d0 = 0; d0 < calendar.Count; d0++)
-            {
-                if (blocked[sym].Contains(d0)) continue;
-                var probe = ComputeAt(new EventSpec(sym, calendar[d0], "placebo"), d0, window);
-                if (probe.Valid) list.Add(d0);
-            }
-            candidates[sym] = list;
-        }
+            candidates[sym] = PlaceboDays(sym, window).Where(p => !blocked[sym].Contains(p.Day0)).Select(p => p.Car).ToArray();
 
         int extreme = 0, used = 0;
         for (int b = 0; b < draws; b++)
@@ -195,10 +197,8 @@ public sealed class EventStudyEngine
             foreach (var r in valid)
             {
                 var pool = candidates[r.Event.Symbol];
-                if (pool.Count == 0) continue;
-                int d0 = pool[rng.Next(pool.Count)];
-                var res = ComputeAt(new EventSpec(r.Event.Symbol, calendar[d0], "placebo"), d0, window);
-                sum += res.Car;
+                if (pool.Length == 0) continue;
+                sum += pool[rng.Next(pool.Length)];
                 count++;
             }
             if (count == 0) continue;
@@ -206,6 +206,21 @@ public sealed class EventStudyEngine
             if (Math.Abs(sum / count) >= Math.Abs(observedMean)) extreme++;
         }
         return used == 0 ? double.NaN : (1.0 + extreme) / (used + 1.0);
+    }
+
+    private readonly Dictionary<(string Symbol, EventWindow Window), (int Day0, double Car)[]> placeboCache = new();
+
+    /// <summary>Every day of a symbol with a full estimation + event window, and its CAR; computed once per symbol and window.</summary>
+    private (int Day0, double Car)[] PlaceboDays(string symbol, EventWindow window)
+    {
+        if (placeboCache.TryGetValue((symbol, window), out var cached)) return cached;
+        var list = new List<(int, double)>();
+        for (int d0 = 0; d0 < calendar.Count; d0++)
+        {
+            var probe = ComputeAt(new EventSpec(symbol, calendar[d0], "placebo"), d0, window);
+            if (probe.Valid) list.Add((d0, probe.Car));
+        }
+        return placeboCache[(symbol, window)] = list.ToArray();
     }
 
     private static (double T, double P) TTest(IReadOnlyList<double> xs)

@@ -37,6 +37,9 @@ public sealed record EvidenceEventsArgs
 
     [Option("benchmark", Description = "Market benchmark symbol (default SPY).")]
     public string Benchmark { get; init; } = "SPY";
+
+    [Option("max-daily-move", Description = "Drop events whose windows hold a daily return above this (default 2.0 = +200%, or below -66.7%): bars are split-unadjusted, so such days are usually splits.")]
+    public double MaxDailyMove { get; init; } = 2.0;
 }
 
 /// <summary>
@@ -57,6 +60,7 @@ public sealed class EvidenceEventsOperation : IOperation<EvidenceEventsArgs>
         if (args.Gap < 0) return OperationResult.Usage("--gap must be >= 0.");
         if (args.MinEvents < 2) return OperationResult.Usage("--min-events must be >= 2.");
         if (args.Bootstrap < 0) return OperationResult.Usage("--bootstrap must be >= 0.");
+        if (args.MaxDailyMove <= 0) return OperationResult.Usage("--max-daily-move must be > 0.");
         var to = args.To ?? EvidenceSupport.TodayEt(ctx);
         var from = args.From ?? to.AddDays(-180);
         if (to < from) return OperationResult.Usage("--to must be on or after --from.");
@@ -94,7 +98,10 @@ public sealed class EvidenceEventsOperation : IOperation<EvidenceEventsArgs>
             if (sym != benchmark && list.Count > 0) stocks[sym] = ReturnSeries.FromCloses(Closes(list), calendar);
 
         var engine = new EventStudyEngine(calendar, market, stocks,
-            new EventStudyOptions { EstimationLength = args.Estimation, Gap = args.Gap, MinEstimationObservations = Math.Max(10, args.Estimation / 2) });
+            new EventStudyOptions
+            {
+                EstimationLength = args.Estimation, Gap = args.Gap, MinEstimationObservations = Math.Max(10, args.Estimation / 2), MaxDailyMove = args.MaxDailyMove,
+            });
 
         var specs = claims.Select(c =>
         {
