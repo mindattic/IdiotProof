@@ -104,6 +104,12 @@ public static class ScriptParser
                 if (nums.Count >= 1) b.DippedTo((double)nums[0]); break;
             case "notfallingknife":
                 b.NotFallingKnife(nums.Count >= 1 ? (double)nums[0] : 0.5, nums.Count >= 2 ? (int)nums[1] : 30); break;
+            case "notbulltrap":
+                b.NotBullTrap(nums.Count >= 1 ? (double)nums[0] : 0.5, nums.Count >= 2 ? (int)nums[1] : 30); break;
+            case "notstophunt":
+                b.NotStopHunt(nums.Count >= 1 ? (double)nums[0] : 0.5, nums.Count >= 2 ? (int)nums[1] : 30); break;
+            case "notvwaploss":
+                b.NotVwapLoss(nums.Count >= 1 ? (double)nums[0] : 0.5, nums.Count >= 2 ? (int)nums[1] : 30); break;
 
             // RSI
             case "isrsioversold":          b.IsRsiOversold(nums.Count >= 1 ? (double)nums[0] : 30); break;

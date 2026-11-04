@@ -97,7 +97,14 @@ public static class IndicatorSnapshotBuilder
         }
         snapshot.SessionLow = sessLo == decimal.MaxValue ? null : (double)sessLo;
 
-        ApplyFallingKnife(snapshot, candles);
+        ApplyTrap(candles, TrapDetectors.FallingKnife(),
+            (p, r, n) => { snapshot.FallingKnifePresent = p; snapshot.FallingKnifeRisk = r; snapshot.FallingKnifeSamples = n; });
+        ApplyTrap(candles, TrapDetectors.FailedBreakout(),
+            (p, r, n) => { snapshot.BullTrapPresent = p; snapshot.BullTrapRisk = r; snapshot.BullTrapSamples = n; });
+        ApplyTrap(candles, TrapDetectors.StopHuntWick(),
+            (p, r, n) => { snapshot.StopHuntPresent = p; snapshot.StopHuntRisk = r; snapshot.StopHuntSamples = n; });
+        ApplyTrap(candles, TrapDetectors.VwapLoss(),
+            (p, r, n) => { snapshot.VwapLossPresent = p; snapshot.VwapLossRisk = r; snapshot.VwapLossSamples = n; });
 
         // VWAP
         var vwap = VWAP.Calculate(candles);
@@ -282,20 +289,17 @@ public static class IndicatorSnapshotBuilder
     }
 
     /// <summary>
-    /// Learns the falling-knife table from the window itself (only bars whose 10-bar outcome
-    /// already resolved, so the newest bar never grades itself) and reads the newest bar against it.
+    /// Learns a trap detector's table from the window itself (only bars whose outcome already
+    /// resolved, so the newest bar never grades itself) and reads the newest bar against it.
     /// Leaves the fields null when the window is too short to hold a single resolved case.
     /// </summary>
-    private static void ApplyFallingKnife(IndicatorSnapshot snapshot, IReadOnlyList<Candle> candles)
+    private static void ApplyTrap(IReadOnlyList<Candle> candles, TrapDetector detector,
+        Action<bool?, double?, int?> set)
     {
-        var detector = TrapDetectors.FallingKnife();
         if (candles.Count < detector.Warmup + detector.Horizon + 1) return;
         detector.Learn(candles);
-        var series = new CausalSeries(candles);
-        var verdict = detector.Assess(series, candles.Count - 1);
-        snapshot.FallingKnifePresent = verdict is not null;
-        if (verdict is null) return;
-        snapshot.FallingKnifeRisk = verdict.Rate.Probability;
-        snapshot.FallingKnifeSamples = verdict.Rate.Samples;
+        var verdict = detector.Assess(new CausalSeries(candles), candles.Count - 1);
+        if (verdict is null) { set(false, null, null); return; }
+        set(true, verdict.Rate.Probability, verdict.Rate.Samples);
     }
 }

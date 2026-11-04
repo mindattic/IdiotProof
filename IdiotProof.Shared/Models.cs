@@ -155,6 +155,21 @@ public sealed class IndicatorSnapshot
     public double? FallingKnifeRisk { get; set; }
     public int? FallingKnifeSamples { get; set; }
 
+    /// <summary>Failed-breakout (bull trap) evidence for the newest bar, learned like the knife fields. Used by NotBullTrap.</summary>
+    public bool? BullTrapPresent { get; set; }
+    public double? BullTrapRisk { get; set; }
+    public int? BullTrapSamples { get; set; }
+
+    /// <summary>Stop-hunt wick evidence for the newest bar, learned like the knife fields. Used by NotStopHunt.</summary>
+    public bool? StopHuntPresent { get; set; }
+    public double? StopHuntRisk { get; set; }
+    public int? StopHuntSamples { get; set; }
+
+    /// <summary>VWAP-loss evidence for the newest bar, learned like the knife fields. Used by NotVwapLoss.</summary>
+    public bool? VwapLossPresent { get; set; }
+    public double? VwapLossRisk { get; set; }
+    public int? VwapLossSamples { get; set; }
+
     // RSI
     public double? Rsi { get; set; }
     public bool? HasBullishDivergence { get; set; }

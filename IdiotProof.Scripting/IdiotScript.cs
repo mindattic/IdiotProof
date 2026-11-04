@@ -477,6 +477,30 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>Failed-breakout (bull trap) guard backed by measured history; same rules as
+    /// <see cref="NotFallingKnife"/>: absent passes, thin or unknown history fails closed.</summary>
+    public StrategyBuilder NotBullTrap(double maxProbability = 0.5, int minSamples = 30)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.NotBullTrap, maxProbability, minSamples));
+        return this;
+    }
+
+    /// <summary>Stop-hunt wick guard (wick through a recent low, close back above) backed by
+    /// measured history; same rules as <see cref="NotFallingKnife"/>.</summary>
+    public StrategyBuilder NotStopHunt(double maxProbability = 0.5, int minSamples = 30)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.NotStopHunt, maxProbability, minSamples));
+        return this;
+    }
+
+    /// <summary>VWAP-loss guard (close slipping below VWAP) backed by measured history; same
+    /// rules as <see cref="NotFallingKnife"/>.</summary>
+    public StrategyBuilder NotVwapLoss(double maxProbability = 0.5, int minSamples = 30)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.NotVwapLoss, maxProbability, minSamples));
+        return this;
+    }
+
     /// <summary>Newest pivot high below the prior pivot high — a lower high
     /// (weakening rally), the failed-high short tell.</summary>
     public StrategyBuilder IsLowerHigh()
@@ -1206,7 +1230,7 @@ public enum IndicatorType
     VolumeAbove,
     AtSupport, AtResistance,
     HigherLows, DippedTo,
-    NotFallingKnife
+    NotFallingKnife, NotBullTrap, NotStopHunt, NotVwapLoss
 }
 
 /// <summary>
@@ -1341,6 +1365,9 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
             IndicatorType.HigherLows           => "HigherLows",
             IndicatorType.DippedTo             => "DippedTo",
             IndicatorType.NotFallingKnife      => "NotFallingKnife",
+            IndicatorType.NotBullTrap          => "NotBullTrap",
+            IndicatorType.NotStopHunt          => "NotStopHunt",
+            IndicatorType.NotVwapLoss          => "NotVwapLoss",
             _                                  => $"Is{Type}"
         };
 
@@ -1420,15 +1447,23 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
                                               && s.ConsecutiveHigherLows is { } rising && rising >= (int)need,
         IndicatorType.DippedTo           => Parameter is { } dipLevel
                                               && s.SessionLow is { } sessionLow && sessionLow <= dipLevel,
-        IndicatorType.NotFallingKnife    => s.FallingKnifePresent == false
-                                              || (s.FallingKnifePresent == true
-                                                  && s.FallingKnifeSamples is { } knifeN && knifeN >= (int)(Parameter2 ?? 30)
-                                                  && s.FallingKnifeRisk is { } knifeRisk && knifeRisk <= (Parameter ?? 0.5)),
+        IndicatorType.NotFallingKnife    => TrapGuardPasses(s.FallingKnifePresent, s.FallingKnifeRisk, s.FallingKnifeSamples),
+        IndicatorType.NotBullTrap        => TrapGuardPasses(s.BullTrapPresent, s.BullTrapRisk, s.BullTrapSamples),
+        IndicatorType.NotStopHunt        => TrapGuardPasses(s.StopHuntPresent, s.StopHuntRisk, s.StopHuntSamples),
+        IndicatorType.NotVwapLoss        => TrapGuardPasses(s.VwapLossPresent, s.VwapLossRisk, s.VwapLossSamples),
         // Fail closed on anything unrecognized: a condition this evaluator
         // doesn't understand must block the fire, never wave it through
         // (IP-LAW-1 — same doctrine as the gap conditions above).
         _                                => false
     };
+
+    /// <summary>Learned trap guard: passes when the setup is absent, or when its counted adverse
+    /// rate is at most Parameter over at least Parameter2 past cases; unknown or thin history blocks.</summary>
+    private bool TrapGuardPasses(bool? present, double? risk, int? samples) =>
+        present == false
+        || (present == true
+            && samples is { } n && n >= (int)(Parameter2 ?? 30)
+            && risk is { } r && r <= (Parameter ?? 0.5));
 }
 
 /// <summary>
@@ -1991,6 +2026,9 @@ public sealed class ConditionFactory
     public ICondition HigherLows(int count) => new IndicatorCondition(IndicatorType.HigherLows, count);
     public ICondition DippedTo(double price) => new IndicatorCondition(IndicatorType.DippedTo, price);
     public ICondition NotFallingKnife(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotFallingKnife, maxProbability, minSamples);
+    public ICondition NotBullTrap(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotBullTrap, maxProbability, minSamples);
+    public ICondition NotStopHunt(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotStopHunt, maxProbability, minSamples);
+    public ICondition NotVwapLoss(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotVwapLoss, maxProbability, minSamples);
     public ICondition IsLowerHigh() => new IndicatorCondition(IndicatorType.LowerHigh);
     public ICondition IsMacdBullish() => new IndicatorCondition(IndicatorType.MacdBullish);
     public ICondition IsMacdBearish() => new IndicatorCondition(IndicatorType.MacdBearish);
@@ -2064,6 +2102,9 @@ public static class Conditions
     public static ICondition HigherLows(int count) => new IndicatorCondition(IndicatorType.HigherLows, count);
     public static ICondition DippedTo(double price) => new IndicatorCondition(IndicatorType.DippedTo, price);
     public static ICondition NotFallingKnife(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotFallingKnife, maxProbability, minSamples);
+    public static ICondition NotBullTrap(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotBullTrap, maxProbability, minSamples);
+    public static ICondition NotStopHunt(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotStopHunt, maxProbability, minSamples);
+    public static ICondition NotVwapLoss(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotVwapLoss, maxProbability, minSamples);
     public static ICondition IsLowerHigh => new IndicatorCondition(IndicatorType.LowerHigh);
 
     // ── MACD ──
