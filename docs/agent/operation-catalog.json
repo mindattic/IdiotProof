@@ -7352,6 +7352,153 @@
       }
     },
     {
+      "name": "evidence survival",
+      "noun": "evidence",
+      "verb": "survival",
+      "tool_name": "evidence_survival",
+      "summary": "Survival analysis of exits: Kaplan-Meier hold curves, competing-risk incidence of target vs stop vs trail, Cox hazard ratios, and an advisory sell-by from replay trades.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence survival [--strategy \u003Cstring\u003E] [--symbol \u003Cstring\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--top \u003Cint\u003E] [--min-trades \u003Cint\u003E] [--checkpoints \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "strategy",
+          "json_name": "strategy",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Only replay trades whose strategy/family name contains this text (case-insensitive).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "symbol",
+          "json_name": "symbol",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Only this symbol\u0027s replay trades.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First trade day (yyyy-MM-dd ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last trade day (yyyy-MM-dd ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "top",
+          "json_name": "top",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Report at most this many strategies, most trades first (default 8).",
+          "default": 8,
+          "enum_values": null
+        },
+        {
+          "name": "min-trades",
+          "json_name": "min_trades",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Fewest trades a strategy needs to get its own curves (default 20).",
+          "default": 20,
+          "enum_values": null
+        },
+        {
+          "name": "checkpoints",
+          "json_name": "checkpoints",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Hold minutes at which to read the curves, comma-separated (default 5,15,30,60,120).",
+          "default": "5,15,30,60,120",
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence survival",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence survival --strategy gapper --checkpoints 10,30,60",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Survival analysis of exits: Kaplan-Meier hold curves, competing-risk incidence of target vs stop vs trail, Cox hazard ratios, and an advisory sell-by from replay trades.",
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "description": "Only replay trades whose strategy/family name contains this text (case-insensitive)."
+          },
+          "symbol": {
+            "type": "string",
+            "description": "Only this symbol\u0027s replay trades."
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First trade day (yyyy-MM-dd ET)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last trade day (yyyy-MM-dd ET)."
+          },
+          "top": {
+            "type": "integer",
+            "description": "Report at most this many strategies, most trades first (default 8).",
+            "default": 8
+          },
+          "min_trades": {
+            "type": "integer",
+            "description": "Fewest trades a strategy needs to get its own curves (default 20).",
+            "default": 20
+          },
+          "checkpoints": {
+            "type": "string",
+            "description": "Hold minutes at which to read the curves, comma-separated (default 5,15,30,60,120).",
+            "default": "5,15,30,60,120"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "evidence topology",
       "noun": "evidence",
       "verb": "topology",
