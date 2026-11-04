@@ -80,10 +80,18 @@
             tip.style.cssText = 'position:absolute;display:none;z-index:5;pointer-events:none;max-width:28rem;padding:.4rem .55rem;border-radius:.35rem;font-size:.75rem;line-height:1.3;white-space:pre-line;background:var(--surface,#161b22);color:var(--text-primary,#e6edf3);border:1px solid var(--border,#30363d)';
             el.style.position = 'relative';
             el.appendChild(tip);
-            state = { chart: chart, candles: candles, stop: stop, levels: [], tip: tip, ghost: true, forks: {} };
+            state = { chart: chart, candles: candles, stop: stop, levels: [], tip: tip, ghost: true, forks: [] };
             charts.set(el, state);
             chart.subscribeCrosshairMove(function (p) {
-                var f = p && p.time !== undefined ? state.forks[p.time] : null;
+                var f = null;
+                if (p && p.time !== undefined) {
+                    // Segments of different If() blocks can overlap; the latest-starting one is the most specific.
+                    for (var i = 0; i < state.forks.length; i++) {
+                        var s = state.forks[i];
+                        var end = Math.min(s.until !== undefined ? s.until : s.time, state.cut);
+                        if (p.time >= s.time && p.time <= end && (!f || s.time >= f.time)) f = s;
+                    }
+                }
                 if (!f || !p.point) { tip.style.display = 'none'; return; }
                 tip.textContent = f.lines.join('\n');
                 tip.style.left = Math.min(p.point.x + 12, el.clientWidth - 260) + 'px';
@@ -105,8 +113,8 @@
 
         state.levels.forEach(function (s) { state.chart.removeSeries(s); });
         state.levels = [];
-        state.forks = {};
-        (payload.forks || []).forEach(function (f) { if (f.time <= cut) state.forks[f.time] = f; });
+        state.cut = cut;
+        state.forks = (payload.forks || []).filter(function (f) { return f.time <= cut; });
         (payload.levels || []).forEach(function (l) {
             if (l.from > cut) return;
             var end = Math.min(l.to, cut);

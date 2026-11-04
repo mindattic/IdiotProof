@@ -35,6 +35,66 @@ public sealed record GhostFork(
     IReadOnlyList<GhostForkBranch> Branches,
     IReadOnlyDictionary<string, double> Indicators);
 
+/// <summary>
+/// A stretch of bars where one If() block held one branch (or, when <see cref="IsChop"/>, kept flipping
+/// between branches in runs shorter than the minimum). Ends are inclusive frame indices.
+/// </summary>
+public sealed record GhostSegment(
+    int Block, int StartIndex, int EndIndex, int Branch, bool IsChop, int Flips,
+    IReadOnlyDictionary<int, int> BarsByBranch)
+{
+    public int Bars => EndIndex - StartIndex + 1;
+}
+
+/// <summary>Collapses a per-bar branch sequence into readable segments.</summary>
+public static class GhostSegmentation
+{
+    /// <summary>
+    /// Runs of at least <paramref name="minRunLength"/> bars become their own segment; consecutive
+    /// shorter runs merge into one chop segment (or a plain segment when they all took the same branch).
+    /// Flips counts branch changes inside a segment; a change at a segment boundary is not counted.
+    /// </summary>
+    public static IReadOnlyList<GhostSegment> Segment(int block, IReadOnlyList<int> branchPerBar, int minRunLength)
+    {
+        if (minRunLength < 1) throw new ArgumentOutOfRangeException(nameof(minRunLength));
+        var runs = new List<(int Start, int End, int Branch)>();
+        for (int i = 0; i < branchPerBar.Count; i++)
+        {
+            if (runs.Count > 0 && runs[^1].Branch == branchPerBar[i]) runs[^1] = (runs[^1].Start, i, runs[^1].Branch);
+            else runs.Add((i, i, branchPerBar[i]));
+        }
+
+        var segments = new List<GhostSegment>();
+        var pending = new List<(int Start, int End, int Branch)>();
+        void Flush()
+        {
+            if (pending.Count == 0) return;
+            segments.Add(Build(block, pending, branchPerBar));
+            pending.Clear();
+        }
+        foreach (var run in runs)
+        {
+            if (run.End - run.Start + 1 >= minRunLength)
+            {
+                Flush();
+                pending.Add(run);
+                Flush();
+            }
+            else pending.Add(run);
+        }
+        Flush();
+        return segments;
+    }
+
+    private static GhostSegment Build(int block, List<(int Start, int End, int Branch)> runs, IReadOnlyList<int> seq)
+    {
+        var bars = new Dictionary<int, int>();
+        foreach (var r in runs) bars[r.Branch] = bars.GetValueOrDefault(r.Branch) + r.End - r.Start + 1;
+        bool chop = bars.Count > 1;
+        return new GhostSegment(block, runs[0].Start, runs[^1].End, chop ? -1 : runs[0].Branch, chop, runs.Count - 1, bars);
+    }
+}
+
 /// <summary>A branch in the exported tree, with how often the replay took it and how many trades it entered.</summary>
 public sealed record BranchTreeBranch(int Branch, string Label, string? Condition, string Overrides, int BarsTaken, int TradesEntered);
 
@@ -161,6 +221,19 @@ public sealed class GhostTimeline
                     br.Overrides.ToScript(), takenCounts[b][k], tradeCounts[b][k])).ToList())).ToList());
 
         return new GhostTimeline(report.Symbol, report.StrategyName, report.Date, frames, forks, tree, report);
+    }
+
+    /// <summary>Every If() block's branch history collapsed into segments (see <see cref="GhostSegmentation"/>).</summary>
+    public IReadOnlyList<GhostSegment> Segments(int minRunLength)
+    {
+        var all = new List<GhostSegment>();
+        int blocks = Tree.Blocks.Count;
+        for (int b = 0; b < blocks; b++)
+        {
+            var seq = Frames.Select(f => b < f.BranchTaken.Count ? f.BranchTaken[b] : -1).ToList();
+            all.AddRange(GhostSegmentation.Segment(b, seq, minRunLength));
+        }
+        return all;
     }
 
     public static string BranchLabel(ConditionalBlock block, int k) =>

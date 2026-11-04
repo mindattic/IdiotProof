@@ -98,7 +98,17 @@
                 <div class="trading-card p-2 mb-3" id="backtest-ghost">
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                         <h2 class="h6 text-muted mb-0">Ghost replay</h2>
-                        <span class="small text-muted">@ghost.Forks.Count fork(s)</span>
+                        <span class="small text-muted">@ghost.Forks.Count fork(s) · @ghostSegments segment(s)</span>
+                        <label class="small text-muted d-flex align-items-center gap-1" for="ghost-min-run">
+                            Min run
+                            <select id="ghost-min-run" class="form-select form-select-sm" style="width:auto" value="@ghostMinRun" @onchange="OnMinRunChanged"
+                                    title="Branch runs shorter than this many bars merge into one chop segment">
+                                @foreach (var n in new[] { 1, 3, 5, 10 })
+                                {
+                                    <option value="@n">@(n == 1 ? "every fork" : $"{n} bars")</option>
+                                }
+                            </select>
+                        </label>
                         <div class="ms-auto d-flex gap-2">
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="ghost-compare-add" @onclick="AddToComparison">
                                 <i class="bi bi-layout-split" aria-hidden="true"></i> Add to comparison
@@ -312,6 +322,9 @@
     private ChartPayload? chart;
     private GhostTimeline? ghost;
     private GhostChartPayload? ghostPayload;
+    private IReadOnlyList<Candle>? ghostCandles;
+    private int ghostMinRun = GhostChart.DefaultMinRunLength;
+    private int ghostSegments;
     private readonly List<(GhostTimeline Timeline, GhostChartPayload Payload)> comparison = new();
 
     private string? alpacaKeyId;
@@ -364,6 +377,7 @@
         chart = null;
         ghost = null;
         ghostPayload = null;
+        ghostCandles = null;
         var strategy = strategies.FirstOrDefault(s => s.Id == selectedStrategyId);
         if (strategy is null) { loadError = "Pick a strategy to backtest."; return; }
 
@@ -400,7 +414,8 @@
             report = run.Report;
             chart = ChartSeries.Payload(def.Symbol, run.Candles, run.Report);
             ghost = GhostTimeline.From(def, run.Report);
-            ghostPayload = GhostChart.Payload(ghost, run.Candles);
+            ghostCandles = run.Candles;
+            RebuildGhostPayload();
         }
         catch (Exception ex)
         {
@@ -410,6 +425,20 @@
         {
             running = false;
         }
+    }
+
+    private void RebuildGhostPayload()
+    {
+        if (ghost is null || ghostCandles is null) return;
+        ghostPayload = GhostChart.Payload(ghost, ghostCandles, ghostMinRun);
+        ghostSegments = ghostPayload.Forks.Count;
+    }
+
+    private void OnMinRunChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var n) || n < 1) return;
+        ghostMinRun = n;
+        RebuildGhostPayload();
     }
 
     private void AddToComparison()

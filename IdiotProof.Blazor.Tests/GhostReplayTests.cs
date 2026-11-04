@@ -34,7 +34,7 @@ public class GhostReplayTests
     public void Payload_DrawsTakenLevelsSolid_UntakenDashed_AndForkHoverLines()
     {
         var (ghost, candles) = Run();
-        var payload = GhostChart.Payload(ghost, candles);
+        var payload = GhostChart.Payload(ghost, candles, minRunLength: 1);
 
         Assert.That(payload.Forks, Has.Count.EqualTo(3));
         var first = payload.Forks[0];
@@ -112,5 +112,33 @@ public class GhostReplayTests
         ctx.Render<GhostReplay>(p => p.Add(c => c.Timeline, ghost).Add(c => c.Payload, GhostChart.Payload(ghost, candles)));
         await ctx.DisposeComponentsAsync();
         Assert.That(ctx.JSInterop.Invocations.Any(i => i.Identifier == "ipChart.dispose"), Is.True);
+    }
+
+    // IP-T397
+    [Test]
+    public void Payload_CollapsesShortRunsIntoOneChopSegment_WithFlipAndBarCountsInTheTooltip()
+    {
+        var (ghost, candles) = Run();
+        var payload = GhostChart.Payload(ghost, candles, minRunLength: 3);
+
+        Assert.That(payload.Forks, Has.Count.EqualTo(1));
+        var chop = payload.Forks[0];
+        Assert.That(chop.Title, Does.Contain("chop"));
+        Assert.That(chop.Lines[0], Does.Contain("2 flip(s) over 5 bars"));
+        Assert.That(chop.Lines[1], Does.Contain("If 3 bar(s)").And.Contain("Else 2 bar(s)"));
+        Assert.That(chop.Time, Is.EqualTo(payload.Bars[0].Time));
+        Assert.That(chop.Until, Is.EqualTo(payload.Bars[^1].Time), "hovering anywhere in the segment shows it");
+        Assert.That(payload.Markers.Count(m => m.Shape == "square"), Is.EqualTo(1));
+        Assert.That(payload.Levels, Is.Empty, "a chop segment draws no branch levels");
+    }
+
+    [Test]
+    public void Payload_PlainSegment_SpansItsRun_AndKeepsBranchLevels()
+    {
+        var (ghost, candles) = Run();
+        var payload = GhostChart.Payload(ghost, candles, minRunLength: 1);
+        var first = payload.Forks[0];
+        Assert.That(first.Until, Is.EqualTo(payload.Bars[1].Time), "the If run covers bars 0..1");
+        Assert.That(first.Lines[0], Does.Contain("If for 2 bars"));
     }
 }

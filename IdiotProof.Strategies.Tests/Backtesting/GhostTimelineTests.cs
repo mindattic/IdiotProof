@@ -133,4 +133,68 @@ public class GhostTimelineTests
         Assert.That(rows[1].Trades, Is.EqualTo(1));
         Assert.That(rows[1].PnL, Is.GreaterThan(0m));
     }
+
+    // IP-T397: a noisy If/Else flips almost every bar; segments keep the chart readable.
+    [Test]
+    public void Segmentation_NoisySeries_CollapsesToABoundedNumberOfSegments()
+    {
+        var rng = new Random(397);
+        var seq = new List<int> { 0 };
+        int flips = 0;
+        while (seq.Count < 390)
+        {
+            bool flip = flips < 327 && rng.NextDouble() < 0.86;
+            int next = flip ? 1 - seq[^1] : seq[^1];
+            if (next != seq[^1]) flips++;
+            seq.Add(next);
+        }
+        Assume.That(flips, Is.GreaterThanOrEqualTo(300), "the fixture should be about as noisy as the mock day");
+
+        var segments = GhostSegmentation.Segment(0, seq, minRunLength: 3);
+
+        Assert.That(segments.Count, Is.LessThanOrEqualTo(40), $"{flips} flips");
+        Assert.That(segments.Sum(s => s.Bars), Is.EqualTo(390), "segments tile the day");
+        for (int i = 1; i < segments.Count; i++)
+            Assert.That(segments[i].StartIndex, Is.EqualTo(segments[i - 1].EndIndex + 1));
+        Assert.That(segments.Sum(s => s.Flips) + segments.Count - 1, Is.EqualTo(flips), "every flip is counted inside a segment or at a boundary");
+        var chop = segments.Where(s => s.IsChop).ToList();
+        Assert.That(chop, Is.Not.Empty);
+        Assert.That(chop.All(s => s.Branch == -1 && s.BarsByBranch.Count == 2), Is.True);
+        Assert.That(segments.Where(s => !s.IsChop).All(s => s.Bars >= 3 || s.BarsByBranch.Count == 1), Is.True);
+    }
+
+    [Test]
+    public void Segmentation_CleanTwoRunSeries_StaysTwoSegments()
+    {
+        var seq = Enumerable.Repeat(0, 200).Concat(Enumerable.Repeat(1, 190)).ToList();
+        var segments = GhostSegmentation.Segment(0, seq, minRunLength: 5);
+        Assert.That(segments, Has.Count.EqualTo(2));
+        Assert.That(segments[0], Has.Property("Branch").EqualTo(0).And.Property("IsChop").False.And.Property("Flips").EqualTo(0));
+        Assert.That(segments[1].StartIndex, Is.EqualTo(200));
+        Assert.That(segments[1].BarsByBranch[1], Is.EqualTo(190));
+    }
+
+    [Test]
+    public void Segmentation_MinRunOne_IsOneSegmentPerRun_AndShortRunsOfOneBranchStayPlain()
+    {
+        Assert.That(GhostSegmentation.Segment(0, new[] { 0, 0, 1, 1, 0 }, 1).Select(s => (s.StartIndex, s.EndIndex, s.Branch)),
+            Is.EqualTo(new[] { (0, 1, 0), (2, 3, 1), (4, 4, 0) }));
+        var lone = GhostSegmentation.Segment(0, new[] { 1, 0, 0, 0, 0 }, 3);
+        Assert.That(lone[0].IsChop, Is.False, "a single short run between nothing and a long run is still one branch");
+        Assert.That(lone[0].Branch, Is.EqualTo(1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GhostSegmentation.Segment(0, new[] { 0 }, 0));
+    }
+
+    [Test]
+    public void Timeline_Segments_FollowTheFramesBranchHistory()
+    {
+        var ghost = GhostTimeline.Run(Branched(), FlipDay());
+        Assert.That(ghost.Segments(1).Select(s => s.Branch), Is.EqualTo(new[] { 0, 1, 0 }));
+        var merged = ghost.Segments(3);
+        Assert.That(merged, Has.Count.EqualTo(1));
+        Assert.That(merged[0].IsChop, Is.True);
+        Assert.That(merged[0].Flips, Is.EqualTo(2));
+        Assert.That(merged[0].BarsByBranch[0], Is.EqualTo(3));
+        Assert.That(merged[0].BarsByBranch[1], Is.EqualTo(2));
+    }
 }
