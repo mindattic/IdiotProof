@@ -45,7 +45,25 @@ public class EvidenceWalkForwardTests
     }
 
     [Test]
-    public async Task Operation_LearnsARepeatingPattern_AndSaysItBeatsTheCoin()
+    public async Task Operation_LearnsARepeatingPattern_AndSaysItBeats51PercentWithClusteredSignificance()
+    {
+        var days = Weekdays(12);
+        var store = new FakeBarStore();
+        store.Minute["SAW"] = days.SelectMany(d => Session("SAW", d, Sawtooth)).ToList();
+
+        var result = await new EvidenceWalkForwardOperation().ExecuteAsync(new EvidenceWalkForwardArgs
+        {
+            Symbols = ["saw"], From = days[3], To = days[11], Window = 10, Horizon = 2, Cost = 0,
+        }, Context(store));
+
+        Assert.That(result.IsOk, Is.True, result.Message);
+        Assert.That(result.Human, Does.Contain("Beats 51% with clustered significance"), result.Human);
+        Assert.That(result.Human, Does.Contain("bootstrap p = "));
+        Assert.That(result.Human, Does.Contain("months"));
+    }
+
+    [Test]
+    public async Task Operation_ThreePerfectDays_AreNotEnoughEvidence_OnceCallsAreClusteredByDay()
     {
         var days = Weekdays(6);
         var store = new FakeBarStore();
@@ -57,8 +75,7 @@ public class EvidenceWalkForwardTests
         }, Context(store));
 
         Assert.That(result.IsOk, Is.True, result.Message);
-        Assert.That(result.Human, Does.Contain("Beats a coin flip"));
-        Assert.That(result.Human, Does.Contain("p = "));
+        Assert.That(result.Human, Does.Contain("Not significant once calls are clustered by day"), result.Human);
     }
 
     [Test]
@@ -74,7 +91,7 @@ public class EvidenceWalkForwardTests
         }, Context(store));
 
         Assert.That(result.IsOk, Is.True, result.Message);
-        Assert.That(result.Human, Does.Not.Contain("Beats a coin flip"), result.Human);
+        Assert.That(result.Human, Does.Not.Contain("Beats"), result.Human);
     }
 
     [Test]

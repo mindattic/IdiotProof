@@ -34,7 +34,17 @@ public sealed record WalkForwardReport(
     int EvaluationPoints,
     int UpOutcomes,
     int DownOutcomes,
-    int SkippedSymbolDays);
+    int SkippedSymbolDays)
+{
+    /// <summary>Calls and hits pooled per ET day across symbols: the unit for clustered significance.</summary>
+    public IReadOnlyList<DayTally> DayTallies() => Folds
+        .GroupBy(f => f.Day)
+        .OrderBy(g => g.Key)
+        .Select(g => new DayTally(g.Key, g.Sum(f => f.Calls), g.Sum(f => f.Hits)))
+        .ToList();
+}
+
+public sealed record WalkForwardMonth(string Month, int Days, int Calls, int Hits, double HitRate);
 
 /// <summary>
 /// Walk-forward evaluation of the LSH pattern-analog model. For every (symbol, day D) it trains a

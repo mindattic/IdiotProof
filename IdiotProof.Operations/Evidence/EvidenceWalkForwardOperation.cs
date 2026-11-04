@@ -137,15 +137,28 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
         int decided = report.UpOutcomes + report.DownOutcomes;
         double upBase = decided == 0 ? double.NaN : (double)report.UpOutcomes / decided;
         double bestNaive = double.IsNaN(upBase) ? double.NaN : Math.Max(upBase, 1 - upBase);
-        notes.Add("Calls on the same day across symbols share market moves, so the binomial p assumes more independence than exists; treat p near the threshold as unproven.");
+        notes.Add("The naive binomial p treats every call as independent; same-day calls share market moves, so the verdict uses the day-clustered tests (block bootstrap over days + t-test on daily hit rates).");
+
+        var tallies = report.DayTallies();
+        var clustered = ClusteredSignificance.Evaluate(tallies, 0.5);
+        var clustered51 = ClusteredSignificance.Evaluate(tallies, 0.51);
+        var months = tallies.GroupBy(t => $"{t.Day:yyyy-MM}").OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                int c = g.Sum(t => t.Calls), h = g.Sum(t => t.Hits);
+                return new WalkForwardMonth(g.Key, g.Count(t => t.Calls > 0), c, h, c == 0 ? double.NaN : (double)h / c);
+            }).ToList();
 
         string verdict = o.Calls == 0
             ? "No calls were made; nothing to judge."
-            : o.IsSignificant() && o.HitRate > 0.5
-                ? (o.MeanEdgeAfterCost(args.Cost) > 0
-                    ? $"Beats a coin flip (p={o.PValue:G3}) and stays positive after {EvidenceSupport.Rate(args.Cost)} round-trip cost."
-                    : $"Beats a coin flip (p={o.PValue:G3}) but the edge does not survive {EvidenceSupport.Rate(args.Cost)} round-trip cost.")
-                : $"Not significant (p={o.PValue:G3}): this run does not show the model calling direction better than chance.";
+            : clustered.IsSignificant() && o.HitRate > 0.5
+                ? (o.HitRate >= 0.51
+                    ? $"Beats 51% with clustered significance vs a coin (bootstrap p={clustered.BootstrapPValue:G3}, day t-test p={clustered.TPValue:G3})"
+                    : $"Beats a coin with clustered significance (bootstrap p={clustered.BootstrapPValue:G3}) but the hit rate is under 51%")
+                  + (o.MeanEdgeAfterCost(args.Cost) > 0
+                    ? $"; edge stays positive after {EvidenceSupport.Rate(args.Cost)} round-trip cost."
+                    : $"; the edge does not survive {EvidenceSupport.Rate(args.Cost)} round-trip cost.")
+                : $"Not significant once calls are clustered by day (bootstrap p={clustered.BootstrapPValue:G3}, day t-test p={clustered.TPValue:G3}, naive p={o.PValue:G3}): this run does not show the model calling direction better than chance.";
 
         var data = new
         {
@@ -158,7 +171,12 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
             PValue = o.PValue, Coverage = EvidenceSupport.Round(o.Coverage), MeanEdge = EvidenceSupport.Round(o.MeanEdge),
             MeanEdgeAfterCost = EvidenceSupport.Round(o.MeanEdgeAfterCost(args.Cost)),
             EvaluationPoints = report.EvaluationPoints, UpBaseRate = EvidenceSupport.Round(upBase), BestNaiveHitRate = EvidenceSupport.Round(bestNaive),
-            report.SkippedSymbolDays, Folds = report.Folds.Count, Symbols = report.Symbols, Verdict = verdict, Notes = notes,
+            report.SkippedSymbolDays, Folds = report.Folds.Count,
+            ClusteredDays = clustered.Days, DayMeanHitRate = EvidenceSupport.Round(clustered.DayMeanHitRate),
+            ClusteredBootstrapP = clustered.BootstrapPValue, ClusteredTP = clustered.TPValue,
+            ClusteredCiLow = EvidenceSupport.Round(clustered.BootstrapLow), ClusteredCiHigh = EvidenceSupport.Round(clustered.BootstrapHigh),
+            Clustered51BootstrapP = clustered51.BootstrapPValue, Clustered51TP = clustered51.TPValue,
+            Months = months, Symbols = report.Symbols, Verdict = verdict, Notes = notes,
         };
 
         var block = new KeyValueBlock()
@@ -166,6 +184,8 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
             .Add("range", $"{args.From:yyyy-MM-dd} .. {to:yyyy-MM-dd} ET ({args.Session.ToString().ToLowerInvariant()})" +
                  (args.Universe == EvidenceUniverse.Penny ? $", penny universe on {universeDays} days from {candidateCount} candidates ({inactiveCandidates} inactive)" : $", {plan.Count} symbol(s)"))
             .Add("calls", $"{o.Hits}/{o.Calls} hits = {EvidenceSupport.Rate(o.HitRate)} (95% CI {EvidenceSupport.Rate(lo)}–{EvidenceSupport.Rate(hi)}), p = {o.PValue:G3} vs 50%")
+            .Add("clustered", $"{clustered.Days} called days: bootstrap p = {clustered.BootstrapPValue:G3} (95% {EvidenceSupport.Rate(clustered.BootstrapLow)}–{EvidenceSupport.Rate(clustered.BootstrapHigh)}), day t-test p = {clustered.TPValue:G3}; vs 51%: bootstrap p = {clustered51.BootstrapPValue:G3}, t p = {clustered51.TPValue:G3}")
+            .Add("months", string.Join("; ", months.Select(m => $"{m.Month} {m.Hits}/{m.Calls} = {EvidenceSupport.Rate(m.HitRate)} over {m.Days}d")))
             .Add("coverage", $"{EvidenceSupport.Rate(o.Coverage)} of {report.EvaluationPoints} evaluation points called; {report.Folds.Count} symbol-days, {report.SkippedSymbolDays} skipped (no bars or too little history)")
             .Add("base rate", $"up {EvidenceSupport.Rate(upBase)} of decided outcomes; a constant guess would hit {EvidenceSupport.Rate(bestNaive)}")
             .Add("edge", $"{EvidenceSupport.Pct(o.MeanEdge, 3)} per call before cost, {EvidenceSupport.Pct(o.MeanEdgeAfterCost(args.Cost), 3)} after {EvidenceSupport.Rate(args.Cost)}")
