@@ -6779,7 +6779,7 @@
       "summary": "Grid-search a strategy template with multiple-testing corrections: BH q-values, deflated Sharpe, reality check/SPA, and a held-out score for the winner.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof evidence search \u003Csymbols\u003E... [--script \u003Cstring\u003E] [--grid \u003Cstring[]\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--holdout \u003Cnumber\u003E] [--top \u003Cint\u003E] [--resamples \u003Cint\u003E] [--block \u003Cnumber\u003E] [--seed \u003Cint\u003E] [--max-configs \u003Cint\u003E]",
+      "usage": "idiotproof evidence search \u003Csymbols\u003E... [--script \u003Cstring\u003E] [--grid \u003Cstring[]\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--holdout \u003Cnumber\u003E] [--top \u003Cint\u003E] [--resamples \u003Cint\u003E] [--block \u003Cnumber\u003E] [--seed \u003Cint\u003E] [--max-configs \u003Cint\u003E] [--cost \u003Cnumber\u003E] [--shares \u003Cnumber\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -6912,6 +6912,30 @@
           "description": "Refuse grids larger than this (default 2000).",
           "default": 2000,
           "enum_values": null
+        },
+        {
+          "name": "cost",
+          "json_name": "cost",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Flat round-trip cost per trade as a fraction. Omit it to model each symbol-day\u0027s cost from that symbol\u0027s prior sessions (Corwin-Schultz spread \u002B square-root impact for --shares).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "shares",
+          "json_name": "shares",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Shares per trade for the modeled impact cost (default 1, the default order size).",
+          "default": 1,
+          "enum_values": null
         }
       ],
       "examples": [
@@ -6983,6 +7007,15 @@
             "type": "integer",
             "description": "Refuse grids larger than this (default 2000).",
             "default": 2000
+          },
+          "cost": {
+            "type": "number",
+            "description": "Flat round-trip cost per trade as a fraction. Omit it to model each symbol-day\u0027s cost from that symbol\u0027s prior sessions (Corwin-Schultz spread \u002B square-root impact for --shares)."
+          },
+          "shares": {
+            "type": "number",
+            "description": "Shares per trade for the modeled impact cost (default 1, the default order size).",
+            "default": 1
           }
         },
         "additionalProperties": false,
@@ -7165,6 +7198,133 @@
         "required": [
           "symbol"
         ]
+      }
+    },
+    {
+      "name": "evidence sizing",
+      "noun": "evidence",
+      "verb": "sizing",
+      "tool_name": "evidence_sizing",
+      "summary": "Advisory Kelly sizing (plug-in vs Beta-posterior vs conservative) from diary trades or manual counts; never changes order quantities.",
+      "description": "The Risk Guardian and the 1-share default policy stay authoritative; this only reports what the measured edge would justify.",
+      "risk": "read",
+      "usage": "idiotproof evidence sizing [--strategy \u003Cstring\u003E] [--symbol \u003Cstring\u003E] [--wins \u003Cint\u003E] [--losses \u003Cint\u003E] [--payoff \u003Cnumber\u003E] [--fraction \u003Cnumber\u003E]",
+      "parameters": [
+        {
+          "name": "strategy",
+          "json_name": "strategy",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Size from this strategy\u0027s closed trades in the diary (title, case-insensitive).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "symbol",
+          "json_name": "symbol",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Size from this symbol\u0027s closed trades in the diary.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "wins",
+          "json_name": "wins",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Manual mode: winning trades (use with --losses and --payoff).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "losses",
+          "json_name": "losses",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Manual mode: losing trades.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "payoff",
+          "json_name": "payoff",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Manual mode: average win / average loss.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "fraction",
+          "json_name": "fraction",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Fraction of the posterior Kelly to recommend (default 0.5 = half Kelly).",
+          "default": 0.5,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence sizing --strategy \u0022SNDL dip-reclaim\u0022",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence sizing --wins 12 --losses 8 --payoff 1.3",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Advisory Kelly sizing (plug-in vs Beta-posterior vs conservative) from diary trades or manual counts; never changes order quantities.",
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "description": "Size from this strategy\u0027s closed trades in the diary (title, case-insensitive)."
+          },
+          "symbol": {
+            "type": "string",
+            "description": "Size from this symbol\u0027s closed trades in the diary."
+          },
+          "wins": {
+            "type": "integer",
+            "description": "Manual mode: winning trades (use with --losses and --payoff)."
+          },
+          "losses": {
+            "type": "integer",
+            "description": "Manual mode: losing trades."
+          },
+          "payoff": {
+            "type": "number",
+            "description": "Manual mode: average win / average loss."
+          },
+          "fraction": {
+            "type": "number",
+            "description": "Fraction of the posterior Kelly to recommend (default 0.5 = half Kelly).",
+            "default": 0.5
+          }
+        },
+        "additionalProperties": false
       }
     },
     {
@@ -7404,7 +7564,7 @@
       "summary": "Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilson CI, coverage and edge after costs.",
       "description": "Each day\u0027s model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.",
       "risk": "read",
-      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
+      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -7603,8 +7763,20 @@
           "short": null,
           "type": "number",
           "required": false,
-          "description": "Round-trip cost per call as a fraction (default 0.003 = 0.3%, a sub-$5 spread\u002Bslippage estimate).",
-          "default": 0.003,
+          "description": "Flat round-trip cost per call as a fraction (e.g. 0.003). Omit it to model each symbol-day\u0027s cost from its prior sessions: Corwin-Schultz spread \u002B square-root impact for --shares.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "shares",
+          "json_name": "shares",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Shares per call for the modeled impact cost (default 1, the default order size).",
+          "default": 1,
           "enum_values": null
         },
         {
@@ -7766,8 +7938,12 @@
           },
           "cost": {
             "type": "number",
-            "description": "Round-trip cost per call as a fraction (default 0.003 = 0.3%, a sub-$5 spread\u002Bslippage estimate).",
-            "default": 0.003
+            "description": "Flat round-trip cost per call as a fraction (e.g. 0.003). Omit it to model each symbol-day\u0027s cost from its prior sessions: Corwin-Schultz spread \u002B square-root impact for --shares."
+          },
+          "shares": {
+            "type": "number",
+            "description": "Shares per call for the modeled impact cost (default 1, the default order size).",
+            "default": 1
           },
           "volume": {
             "type": "boolean",

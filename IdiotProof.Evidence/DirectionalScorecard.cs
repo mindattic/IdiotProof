@@ -14,20 +14,31 @@ public sealed class DirectionalScorecard
 
     /// <param name="predicted">Up or Down to act, Flat to abstain.</param>
     /// <param name="forwardReturn">The realized forward return of the bar.</param>
-    public void Record(Direction predicted, double forwardReturn)
+    /// <param name="roundTripCost">This call's estimated round-trip cost as a fraction (0 when unknown).</param>
+    public void Record(Direction predicted, double forwardReturn, double roundTripCost = 0)
     {
         if (predicted == Direction.Flat) { Abstentions++; return; }
         Calls++;
         double signed = predicted == Direction.Up ? forwardReturn : -forwardReturn;
         if (signed > 0) Hits++;
         actedReturns.Add(signed);
+        costs.Add(roundTripCost);
     }
 
     public void Merge(DirectionalScorecard other)
     {
         Calls += other.Calls; Hits += other.Hits; Abstentions += other.Abstentions;
         actedReturns.AddRange(other.actedReturns);
+        costs.AddRange(other.costs);
     }
+
+    private readonly List<double> costs = new();
+
+    /// <summary>Mean recorded round-trip cost per call.</summary>
+    public double MeanCost => costs.Count == 0 ? 0 : EvidenceStats.Mean(costs);
+
+    /// <summary>Mean signed return per call after each call's own recorded cost.</summary>
+    public double MeanEdgeAfterCost() => MeanEdge - MeanCost;
 
     public double HitRate => Calls == 0 ? double.NaN : (double)Hits / Calls;
     public double Coverage => Calls + Abstentions == 0 ? 0 : (double)Calls / (Calls + Abstentions);

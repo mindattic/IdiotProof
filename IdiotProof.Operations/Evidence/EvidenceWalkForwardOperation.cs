@@ -57,8 +57,11 @@ public sealed record EvidenceWalkForwardArgs
     [Option("min-agreement", Description = "Smoothed share of look-alikes that must agree to call (default 0.6).")]
     public double MinAgreement { get; init; } = 0.6;
 
-    [Option("cost", Description = "Round-trip cost per call as a fraction (default 0.003 = 0.3%, a sub-$5 spread+slippage estimate).")]
-    public double Cost { get; init; } = 0.003;
+    [Option("cost", Description = "Flat round-trip cost per call as a fraction (e.g. 0.003). Omit it to model each symbol-day's cost from its prior sessions: Corwin-Schultz spread + square-root impact for --shares.")]
+    public double? Cost { get; init; }
+
+    [Option("shares", Description = "Shares per call for the modeled impact cost (default 1, the default order size).")]
+    public double Shares { get; init; } = 1;
 
     [Option("volume", Description = "Include the volume shape in the pattern vector.")]
     public bool Volume { get; init; }
@@ -90,7 +93,8 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
         if (to < args.From) return OperationResult.Usage("--to must be on or after --from.");
         if (args.Window < 3 || args.Horizon < 1 || args.TrainDays < 1) return OperationResult.Usage("--window must be >= 3, --horizon and --train-days >= 1.");
         if (args.MinAgreement is <= 0.5 or > 1) return OperationResult.Usage("--min-agreement must be in (0.5, 1].");
-        if (args.Cost < 0) return OperationResult.Usage("--cost must be >= 0.");
+        if (args.Cost is < 0) return OperationResult.Usage("--cost must be >= 0.");
+        if (args.Shares <= 0) return OperationResult.Usage("--shares must be > 0.");
         if (args.Model == EvidenceModel.Leaders && (string.IsNullOrWhiteSpace(args.Leaders) || args.LeaderHops < 1 || args.LeaderMinInfluence < 0))
             return OperationResult.Usage("--model leaders needs --leaders symbols, --leader-hops >= 1 and --leader-min-influence >= 0.");
         var symbols = EvidenceSupport.Symbols(args.Symbols);
@@ -143,7 +147,7 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
         var settings = new WalkForwardSettings
         {
             Window = args.Window, Horizon = args.Horizon, TrainDays = args.TrainDays, MinSimilarity = args.MinSimilarity,
-            MinNeighbors = args.MinNeighbors, MinAgreement = args.MinAgreement, RoundTripCost = args.Cost,
+            MinNeighbors = args.MinNeighbors, MinAgreement = args.MinAgreement, RoundTripCost = args.Cost ?? 0.003, ModelCosts = args.Cost is null, Shares = args.Shares,
             IncludeVolume = args.Volume, Session = args.Session, Model = args.Model,
             LeaderCandidates = EvidenceSupport.Symbols(args.Leaders.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
             LeaderLookback = 5, LeaderMaxHops = args.LeaderHops, LeaderMinInfluence = args.LeaderMinInfluence,
@@ -151,6 +155,7 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
         };
         var report = await new EvidenceWalkForward(store).RunAsync(plan, settings, ctx.CancellationToken);
         var o = report.Overall;
+        string costLabel = args.Cost is { } flat ? EvidenceSupport.Rate(flat) : $"modeled {EvidenceSupport.Pct(o.MeanCost, 3)} mean";
         var (lo, hi) = o.HitRateInterval;
         int decided = report.UpOutcomes + report.DownOutcomes;
         double upBase = decided == 0 ? double.NaN : (double)report.UpOutcomes / decided;
@@ -173,9 +178,9 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
                 ? (o.HitRate >= 0.51
                     ? $"Beats 51% with clustered significance vs a coin (bootstrap p={clustered.BootstrapPValue:G3}, day t-test p={clustered.TPValue:G3})"
                     : $"Beats a coin with clustered significance (bootstrap p={clustered.BootstrapPValue:G3}) but the hit rate is under 51%")
-                  + (o.MeanEdgeAfterCost(args.Cost) > 0
-                    ? $"; edge stays positive after {EvidenceSupport.Rate(args.Cost)} round-trip cost."
-                    : $"; the edge does not survive {EvidenceSupport.Rate(args.Cost)} round-trip cost.")
+                  + (o.MeanEdgeAfterCost() > 0
+                    ? $"; edge stays positive after {costLabel} round-trip cost."
+                    : $"; the edge does not survive {costLabel} round-trip cost.")
                 : $"Not significant once calls are clustered by day (bootstrap p={clustered.BootstrapPValue:G3}, day t-test p={clustered.TPValue:G3}, naive p={o.PValue:G3}): this run does not show the model calling direction better than chance.";
 
         var data = new
@@ -183,11 +188,11 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
             Model = args.Model.ToString().ToLowerInvariant(),
             Universe = args.Universe.ToString().ToLowerInvariant(),
             From = args.From, To = to, settings.Window, settings.Horizon, settings.TrainDays, settings.MinSimilarity,
-            settings.MinNeighbors, settings.MinAgreement, Cost = args.Cost, Session = args.Session.ToString().ToLowerInvariant(),
+            settings.MinNeighbors, settings.MinAgreement, Cost = args.Cost, ModeledCosts = args.Cost is null, MeanCost = EvidenceSupport.Round(o.MeanCost), Session = args.Session.ToString().ToLowerInvariant(),
             UniverseDays = universeDays, Candidates = candidateCount, InactiveCandidates = inactiveCandidates,
             o.Calls, o.Hits, HitRate = EvidenceSupport.Round(o.HitRate), CiLow = EvidenceSupport.Round(lo), CiHigh = EvidenceSupport.Round(hi),
             PValue = o.PValue, Coverage = EvidenceSupport.Round(o.Coverage), MeanEdge = EvidenceSupport.Round(o.MeanEdge),
-            MeanEdgeAfterCost = EvidenceSupport.Round(o.MeanEdgeAfterCost(args.Cost)),
+            MeanEdgeAfterCost = EvidenceSupport.Round(o.MeanEdgeAfterCost()),
             EvaluationPoints = report.EvaluationPoints, UpBaseRate = EvidenceSupport.Round(upBase), BestNaiveHitRate = EvidenceSupport.Round(bestNaive),
             report.SkippedSymbolDays, Folds = report.Folds.Count,
             ClusteredDays = clustered.Days, DayMeanHitRate = EvidenceSupport.Round(clustered.DayMeanHitRate),
@@ -208,7 +213,7 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
             .Add("months", string.Join("; ", months.Select(m => $"{m.Month} {m.Hits}/{m.Calls} = {EvidenceSupport.Rate(m.HitRate)} over {m.Days}d")))
             .Add("coverage", $"{EvidenceSupport.Rate(o.Coverage)} of {report.EvaluationPoints} evaluation points called; {report.Folds.Count} symbol-days, {report.SkippedSymbolDays} skipped (no bars or too little history)")
             .Add("base rate", $"up {EvidenceSupport.Rate(upBase)} of decided outcomes; a constant guess would hit {EvidenceSupport.Rate(bestNaive)}")
-            .Add("edge", $"{EvidenceSupport.Pct(o.MeanEdge, 3)} per call before cost, {EvidenceSupport.Pct(o.MeanEdgeAfterCost(args.Cost), 3)} after {EvidenceSupport.Rate(args.Cost)}")
+            .Add("edge", $"{EvidenceSupport.Pct(o.MeanEdge, 3)} per call before cost, {EvidenceSupport.Pct(o.MeanEdgeAfterCost(), 3)} after {costLabel}")
             .Add("verdict", verdict);
 
         var table = new TextTable { MaxWidth = ctx.Width }

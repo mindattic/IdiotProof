@@ -8,6 +8,7 @@ using IdiotProof.Engine.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using IdiotProof.Evidence;
+using IdiotProof.Evidence.Economics;
 using IdiotProof.Evidence.Search;
 using IdiotProof.Models;
 using IdiotProof.Operations.Rendering;
@@ -50,6 +51,12 @@ public sealed record EvidenceSearchArgs
 
     [Option("max-configs", Description = "Refuse grids larger than this (default 2000).")]
     public int MaxConfigs { get; init; } = 2000;
+
+    [Option("cost", Description = "Flat round-trip cost per trade as a fraction. Omit it to model each symbol-day's cost from that symbol's prior sessions (Corwin-Schultz spread + square-root impact for --shares).")]
+    public double? Cost { get; init; }
+
+    [Option("shares", Description = "Shares per trade for the modeled impact cost (default 1, the default order size).")]
+    public double Shares { get; init; } = 1;
 }
 
 /// <summary>
@@ -126,6 +133,11 @@ public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
 
         var leaderContexts = await LeaderContextsAsync(definitions, cells.Select(c => (c.Day, c.Symbol)).ToList(), symbols, ctx);
 
+        if (args.Cost is < 0 || args.Shares <= 0) return OperationResult.Usage("--cost must be >= 0 and --shares > 0.");
+        var cellCosts = CellCosts(cells, args);
+        double meanCost = cellCosts.Length == 0 ? 0 : cellCosts.Average();
+        string costLabel = args.Cost is { } flat ? EvidenceSupport.Rate(flat) : $"modeled, {EvidenceSupport.Pct(meanCost, 3)} mean";
+
         var returns = new double[configs.Count][];
         var tradeCounts = new int[configs.Count];
         var holdoutTrades = new int[configs.Count];
@@ -144,7 +156,7 @@ public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
                 if (window.Count == 0) continue;
                 leaderContexts.TryGetValue((cell.Day, cell.Symbol), out var leaders);
                 var report = StrategyBacktester.Run(def, window, new BacktestOptions { PreviousClose = cell.PrevClose, Leaders = leaders });
-                series[i] = report.Trades.Sum(t => (double)t.ReturnPercent) / 100.0;
+                series[i] = report.Trades.Sum(t => (double)t.ReturnPercent / 100.0 - cellCosts[i]);
                 if (i < selectionCells) tradeCounts[k] += report.TradeCount;
                 else { holdoutTrades[k] += report.TradeCount; holdoutWins[k] += report.Wins; }
             }
@@ -189,6 +201,7 @@ public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
             ? "The best config survives the search corrections on the selection days."
             : "The best config does NOT survive the search corrections: treat it as luck until proven otherwise.";
         var human = $"{table.Render()}\n" +
+            $"returns are net of {costLabel} round-trip cost per trade.\n" +
             $"{configs.Count} configs tried on {selectionCells} selection symbol-days ({days[0]:yyyy-MM-dd}..{lastSelectionDay:yyyy-MM-dd}).\n" +
             $"best = {Label(configs[best])}: reality check p={P(rc.WhitePValue)}, SPA p={P(rc.SpaPValue)}, q={P(q[best])}, DSR={P(dsr[best])}\n" +
             (hasHoldout
@@ -198,7 +211,7 @@ public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
 
         return OperationResult.Ok(new
         {
-            From = from, To = to, ConfigsTried = configs.Count, SelectionCells = selectionCells, HoldoutCells = cells.Count - selectionCells,
+            From = from, To = to, ConfigsTried = configs.Count, CostPerTrade = args.Cost, ModeledCosts = args.Cost is null, MeanCostPerTrade = EvidenceSupport.Round(meanCost), SelectionCells = selectionCells, HoldoutCells = cells.Count - selectionCells,
             LastSelectionDay = lastSelectionDay,
             Best = new
             {
@@ -235,6 +248,25 @@ public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
             catch (Exception ex) when (ex is not OperationCanceledException) { }
         }
         return result;
+    }
+
+    /// <summary>
+    /// Round-trip cost per trade for each cell: the flat --cost, or a model over that symbol's previous
+    /// (up to five) sessions in the search range, never the cell's own day.
+    /// </summary>
+    private static double[] CellCosts(List<(DateOnly Day, string Symbol, IReadOnlyList<Candle> AllDay, decimal? PrevClose)> cells, EvidenceSearchArgs args)
+    {
+        var costs = new double[cells.Count];
+        var history = new Dictionary<string, List<IReadOnlyList<Candle>>>(StringComparer.Ordinal);
+        for (int i = 0; i < cells.Count; i++)
+        {
+            var cell = cells[i];
+            if (!history.TryGetValue(cell.Symbol, out var prior)) history[cell.Symbol] = prior = new List<IReadOnlyList<Candle>>();
+            var recent = prior.TakeLast(5).ToList();
+            costs[i] = args.Cost ?? TradingCosts.Estimate(recent.SelectMany(d => d).ToList(), recent.Count, args.Shares).RoundTrip;
+            prior.Add(cell.AllDay);
+        }
+        return costs;
     }
 
     private static string P(double v) => double.IsNaN(v) ? "—" : v < 0.001 ? v.ToString("0.0e0", CultureInfo.InvariantCulture) : v.ToString("0.000", CultureInfo.InvariantCulture);

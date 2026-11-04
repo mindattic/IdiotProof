@@ -1,6 +1,7 @@
 using IdiotProof.Evidence.Information;
 using IdiotProof.Core.Evidence;
 using IdiotProof.Evidence;
+using IdiotProof.Evidence.Economics;
 using IdiotProof.Evidence.Leaders;
 using IdiotProof.Models;
 
@@ -18,6 +19,14 @@ public sealed record WalkForwardSettings
     public double MinAgreement { get; init; } = 0.6;
     public double DeadBand { get; init; }
     public double RoundTripCost { get; init; } = 0.003;
+    /// <summary>
+    /// When true, each (symbol, day) gets its own round-trip cost from <see cref="TradingCosts.Estimate"/>
+    /// over the prior sessions only, instead of the flat <see cref="RoundTripCost"/>.
+    /// </summary>
+    public bool ModelCosts { get; init; }
+    public CostParameters Costs { get; init; } = new();
+    /// <summary>Shares per call for the impact estimate (1 matches the default order-size policy).</summary>
+    public double Shares { get; init; } = 1;
     public bool IncludeVolume { get; init; }
     public EvidenceSession Session { get; init; } = EvidenceSession.Rth;
     public int Seed { get; init; } = 1337;
@@ -111,6 +120,7 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
                     }
 
                     var training = prior.SelectMany(d => byDay[d]).ToList();
+                    double cost = CallCost(training, prior.Count, s);
                     var model = new PatternAnalogPredictor(s.Window, s.Horizon, s.IncludeVolume, seed: s.Seed);
                     // Labels resolve inside their own session, exactly as D's calls are scored; a label
                     // spanning the overnight gap would teach the gap, not the pattern.
@@ -132,7 +142,7 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
                     {
                         var vote = model.Predict(test, end, s.K, s.MinSimilarity, s.MinNeighbors, s.MinAgreement, s.DeadBand);
                         double fwd = (double)test[end + s.Horizon].Close / (double)test[end].Close - 1;
-                        dayCard.Record(vote.Call, fwd);
+                        dayCard.Record(vote.Call, fwd, cost);
                         points++;
                         if (fwd > s.DeadBand) ups++;
                         else if (fwd < -s.DeadBand) downs++;
@@ -149,6 +159,10 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
         }
         return new WalkForwardReport(overall, perSymbol, folds, points, ups, downs, skipped);
     }
+
+    /// <summary>Round-trip cost for calls on one (symbol, day), from bars before that day only.</summary>
+    internal static double CallCost(IReadOnlyList<Candle> priorBars, int sessions, WalkForwardSettings s) =>
+        s.ModelCosts ? TradingCosts.Estimate(priorBars, sessions, s.Shares, s.Costs).RoundTrip : s.RoundTripCost;
 
     /// <summary>
     /// Leader model for one (symbol, day D): leaders are discovered only from the prior sessions'
@@ -170,6 +184,7 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
             if (!candidate.Equals(symbol, StringComparison.Ordinal))
                 history[candidate] = candles.Where(c => c.EndUtc <= dayStartUtc && priorSet.Contains(EvidenceSupport.DateEt(c))).ToList();
 
+        double cost = CallCost(history[symbol], prior.Count, s);
         var links = LeaderDiscovery.Discover(symbol, history, s.LeaderMaxHops, minInfluence: s.LeaderMinInfluence, edge: s.LeaderEdge);
         if (links.Count == 0) return null;
 
@@ -184,7 +199,7 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
                 s.LeaderMaxHops, s.LeaderMinInfluence);
             var call = move is { } m ? m > s.DeadBand ? Direction.Up : m < -s.DeadBand ? Direction.Down : Direction.Flat : Direction.Flat;
             double fwd = (double)dayBars[end + s.Horizon].Close / (double)dayBars[end].Close - 1;
-            dayCard.Record(call, fwd);
+            dayCard.Record(call, fwd, cost);
             points++;
             if (fwd > s.DeadBand) ups++;
             else if (fwd < -s.DeadBand) downs++;
