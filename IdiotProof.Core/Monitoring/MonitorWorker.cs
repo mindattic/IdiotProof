@@ -58,8 +58,12 @@ public sealed class MonitorWorker(
     IDbContextFactory<AppDbContext> dbFactory,
     MonitorRuntimeState runtime,
     MonitorPauseFlag pauseFlag,
-    ILogger<MonitorWorker> logger) : BackgroundService
+    ILogger<MonitorWorker> logger,
+    TimeProvider? clock = null) : BackgroundService
 {
+    /// <summary>Wall clock for every session gate and cadence; a test pins it to a chosen ET instant.</summary>
+    private DateTime UtcNow => (clock ?? TimeProvider.System).GetUtcNow().UtcDateTime;
+
     /// <summary>
     /// Interval between evaluation passes. Default 1s so a live market is
     /// reacted to within ~1 second: the Alpaca websocket stream keeps the last
@@ -226,7 +230,7 @@ public sealed class MonitorWorker(
                 if (!started)
                 {
                     started = true;
-                    monitorStartUtc = DateTime.UtcNow;
+                    monitorStartUtc = UtcNow;
                     try
                     {
                         await auditLogRepo.LogAsync("monitor-start",
@@ -293,7 +297,7 @@ public sealed class MonitorWorker(
 
             try
             {
-                var uptime = DateTime.UtcNow - monitorStartUtc;
+                var uptime = UtcNow - monitorStartUtc;
                 await auditLogRepo.LogAsync("monitor-stop",
                     $"IdiotProof.Monitor stopped — uptime {FormatUptime(uptime)}",
                     ct: CancellationToken.None);
@@ -363,14 +367,14 @@ public sealed class MonitorWorker(
         if (paused) return;
 
         // ── Trading-schedule gate ─────────────────────────────────────────────
-        var window = TradingSchedule.Classify(DateTime.UtcNow);
+        var window = TradingSchedule.Classify(UtcNow);
         runtime.SetWindow(window.ToString());
 
         // Computed once per tick and reused below (hibernate ping, decay-scan
         // window, fade-scan window) instead of every call site doing its own
         // TimeZoneInfo.ConvertTimeFromUtc — that conversion walks the Eastern
         // tz's DST adjustment-rule table, and this method runs once a second.
-        var etNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern);
+        var etNow = TimeZoneInfo.ConvertTimeFromUtc(UtcNow, MarketTime.Eastern);
 
         if (window != lastWindow)
         {
@@ -401,14 +405,14 @@ public sealed class MonitorWorker(
         // cost the ENTIRE day with zero retry margin, unlike the fade-scan's
         // ~12 retries across its window.
         if (IsInDailyScanWindow(etNow, new TimeSpan(16, 30, 0), new TimeSpan(17, 0, 0), excludeHolidays: true)
-            && DateTime.UtcNow - lastDecayScanSuccessUtc >= DecayScanInterval
-            && DateTime.UtcNow - lastDecayScanAttemptUtc >= DecayScanRetryInterval)
+            && UtcNow - lastDecayScanSuccessUtc >= DecayScanInterval
+            && UtcNow - lastDecayScanAttemptUtc >= DecayScanRetryInterval)
         {
-            lastDecayScanAttemptUtc = DateTime.UtcNow;
+            lastDecayScanAttemptUtc = UtcNow;
             try
             {
                 await beBexDecayScanner.RunScanAsync(ct);
-                lastDecayScanSuccessUtc = DateTime.UtcNow;
+                lastDecayScanSuccessUtc = UtcNow;
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex) { logger.LogWarning(ex, "BeBexDecayScanner failed — will retry within today's scan window."); }
@@ -418,9 +422,9 @@ public sealed class MonitorWorker(
         {
             // Emit a liveness ping every 5 minutes so the console shows the
             // process is alive; SupervisedLoop writes the heartbeat file every tick.
-            if (DateTime.UtcNow - lastHibernatePing >= TradingSchedule.HibernateInterval)
+            if (UtcNow - lastHibernatePing >= TradingSchedule.HibernateInterval)
             {
-                lastHibernatePing = DateTime.UtcNow;
+                lastHibernatePing = UtcNow;
                 Console.WriteLine($"  [HIBERNATE] {etNow:HH:mm} ET — next active 3:55 AM ET");
             }
             return;
@@ -428,9 +432,9 @@ public sealed class MonitorWorker(
 
         // Active: evaluate every 1s (SupervisedLoop already ticks at 1s).
         // Self-ping uses the cached active list so it fires even between DB reads.
-        if (SelfPingEnabled && DateTime.UtcNow - lastPingUtc >= SelfPingInterval)
+        if (SelfPingEnabled && UtcNow - lastPingUtc >= SelfPingInterval)
         {
-            lastPingUtc = DateTime.UtcNow;
+            lastPingUtc = UtcNow;
             PrintSelfPing(cachedActive);
         }
         // ─────────────────────────────────────────────────────────────────────
@@ -440,7 +444,7 @@ public sealed class MonitorWorker(
         var active = await strategyRepo.GetActiveAsync(ct);
         cachedActive = active;
         runtime.SetActiveStrategies(active.Count);
-        lastTickSuccessUtc = DateTime.UtcNow;
+        lastTickSuccessUtc = UtcNow;
 
         // Roster echo: print the active-strategy list on startup (first tick,
         // lastActiveFingerprint == null) and reprint it whenever the AUTHORED
@@ -457,9 +461,9 @@ public sealed class MonitorWorker(
         }
 
         // Daily audit-log pruning — keep 30 days / minimum 2000 rows.
-        if (DateTime.UtcNow - lastPruneUtc >= TimeSpan.FromHours(24))
+        if (UtcNow - lastPruneUtc >= TimeSpan.FromHours(24))
         {
-            lastPruneUtc = DateTime.UtcNow;
+            lastPruneUtc = UtcNow;
             try
             {
                 var deleted = await auditLogRepo.PruneAsync(ct: ct);
@@ -481,9 +485,9 @@ public sealed class MonitorWorker(
         // lastPruneUtc/lastPingUtc above; a restart mid-window just means a
         // handful of names might re-alert once, not a correctness problem).
         if (IsInDailyScanWindow(etNow, new TimeSpan(9, 0, 0), new TimeSpan(10, 0, 0), excludeHolidays: false)
-            && DateTime.UtcNow - lastFadeScanUtc >= FadeScanInterval)
+            && UtcNow - lastFadeScanUtc >= FadeScanInterval)
         {
-            lastFadeScanUtc = DateTime.UtcNow;
+            lastFadeScanUtc = UtcNow;
             // All registered users, not just owners of currently-active
             // strategies — this is an alert-only scan unrelated to any
             // strategy, so a user with valid Alpaca keys but nothing active
@@ -611,7 +615,7 @@ public sealed class MonitorWorker(
 
     private async Task<IReadOnlyList<Candle>> GetDailyCandlesAsync(string symbol, int calendarDayLookback, CancellationToken ct)
     {
-        var endUtc   = DateTime.UtcNow;
+        var endUtc   = UtcNow;
         var startUtc = endUtc.AddDays(-calendarDayLookback);
         var list = new List<Candle>();
         await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, startUtc, endUtc, TimeSpan.FromDays(1), ct))
@@ -622,18 +626,18 @@ public sealed class MonitorWorker(
     private async Task<IReadOnlyList<Candle>> GetCandlesAsync(string symbol, CancellationToken ct)
     {
         if (candleCache.TryGetValue(symbol, out var cached)
-            && DateTime.UtcNow - cached.FetchedUtc < (cached.Candles.Count > 0 ? RestRefresh : EmptyWindowRefresh))
+            && UtcNow - cached.FetchedUtc < (cached.Candles.Count > 0 ? RestRefresh : EmptyWindowRefresh))
         {
             return AppendLiveTick(symbol, cached.Candles);
         }
 
-        var endUtc = DateTime.UtcNow;
+        var endUtc = UtcNow;
         var startUtc = endUtc - (CandleWindow * BarSize);
         var list = new List<Candle>();
         await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, startUtc, endUtc, BarSize, ct))
             list.Add(c);
 
-        candleCache[symbol] = (list, DateTime.UtcNow);
+        candleCache[symbol] = (list, UtcNow);
         return AppendLiveTick(symbol, list);
     }
 
@@ -675,17 +679,17 @@ public sealed class MonitorWorker(
     private async Task<decimal?> GetPreviousCloseAsync(string symbol, CancellationToken ct)
     {
         var todayEt = DateOnly.FromDateTime(
-            TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MarketTime.Eastern));
+            TimeZoneInfo.ConvertTimeFromUtc(UtcNow, MarketTime.Eastern));
         // A real close is good for the whole ET day; a null is only trusted
         // for MissingCloseRetry so a transient 4AM blip can't disable gap
         // strategies all day but an outage can't burn the rate
         // limit at tick cadence either.
         if (previousCloseCache.TryGetValue(symbol, out var hit) && hit.DayEt == todayEt
-            && (hit.Close is not null || DateTime.UtcNow - hit.FetchedUtc < MissingCloseRetry))
+            && (hit.Close is not null || UtcNow - hit.FetchedUtc < MissingCloseRetry))
             return hit.Close;
 
-        var close = await feed.GetPreviousCloseAsync(symbol, DateTime.UtcNow, ct);
-        previousCloseCache[symbol] = (todayEt, close, DateTime.UtcNow);
+        var close = await feed.GetPreviousCloseAsync(symbol, UtcNow, ct);
+        previousCloseCache[symbol] = (todayEt, close, UtcNow);
         if (close is null)
         {
             // Throttle: this retries every MissingCloseRetry (30s), but logging
@@ -693,9 +697,9 @@ public sealed class MonitorWorker(
             // (e.g. a not-yet-listed post-merger symbol). Warn at most once per
             // NoCloseWarnEvery per symbol. Wording is accurate: previous close
             // only gates GAP conditions — a strategy without them is unaffected.
-            if (!lastNoCloseWarnUtc.TryGetValue(symbol, out var last) || DateTime.UtcNow - last > NoCloseWarnEvery)
+            if (!lastNoCloseWarnUtc.TryGetValue(symbol, out var last) || UtcNow - last > NoCloseWarnEvery)
             {
-                lastNoCloseWarnUtc[symbol] = DateTime.UtcNow;
+                lastNoCloseWarnUtc[symbol] = UtcNow;
                 logger.LogWarning("{Symbol}: no previous close from the feed (new/post-merger ticker or no daily bars). " +
                     "Any GAP condition fails closed; non-gap strategies are unaffected. Retrying every {Retry}s (this warning is throttled).",
                     symbol, MissingCloseRetry.TotalSeconds);
@@ -735,9 +739,9 @@ public sealed class MonitorWorker(
                 await progressRepo.UpsertAsync(stored.Id, 0, 1,
                     $"(HOLDING {stored.PositionQty} shares but strategy invalid — exits NOT managed: {Truncate(canonError)})", ct);
                 // Throttled — log at most once per QuarantineLogInterval so this doesn't flood the audit table.
-                if (!lastQuarantineLogUtc.TryGetValue(stored.Id, out var lastQ) || DateTime.UtcNow - lastQ >= QuarantineLogInterval)
+                if (!lastQuarantineLogUtc.TryGetValue(stored.Id, out var lastQ) || UtcNow - lastQ >= QuarantineLogInterval)
                 {
-                    lastQuarantineLogUtc[stored.Id] = DateTime.UtcNow;
+                    lastQuarantineLogUtc[stored.Id] = UtcNow;
                     await LogAuditAsync("strategy-error",
                         $"[{stored.Title}] QUARANTINED while holding {stored.PositionQty} {stored.Symbol} — exits NOT managed: {Truncate(canonError)}",
                         userId: stored.OwnerUserId, ct: ct);
@@ -773,13 +777,13 @@ public sealed class MonitorWorker(
             crossMemory.Forget(stored.Id); // the pre-entry look must not re-trigger after the exit
 
             // Holding heartbeat: log current price + unrealized P&L every HoldingLogInterval.
-            if (!lastHoldingLogUtc.TryGetValue(stored.Id, out var lastHold) || DateTime.UtcNow - lastHold >= HoldingLogInterval)
+            if (!lastHoldingLogUtc.TryGetValue(stored.Id, out var lastHold) || UtcNow - lastHold >= HoldingLogInterval)
             {
-                lastHoldingLogUtc[stored.Id] = DateTime.UtcNow;
+                lastHoldingLogUtc[stored.Id] = UtcNow;
                 var currentPx = candles.Count > 0 ? candles[^1].Close : 0m;
                 var entryPx   = stored.LastEntryPrice ?? 0m;
                 var unrealized = entryPx > 0 ? (currentPx - entryPx) * stored.PositionQty : 0m;
-                var held = stored.EntryFilledUtc.HasValue ? FormatUptime(DateTime.UtcNow - stored.EntryFilledUtc.Value) : "?";
+                var held = stored.EntryFilledUtc.HasValue ? FormatUptime(UtcNow - stored.EntryFilledUtc.Value) : "?";
                 await LogAuditAsync("holding",
                     $"[{stored.Title}] HOLDING {stored.PositionQty} {stored.Symbol} " +
                     $"entry {entryPx:F2} → now {currentPx:F2}, unrealized P&L {unrealized:+0.00;-0.00}, held {held}",
@@ -798,7 +802,7 @@ public sealed class MonitorWorker(
         }
 
         // Coarse session gate (Premarket / RTH / AfterHours / Extended).
-        if (!IsInsideSession(def.Session, DateTime.UtcNow))
+        if (!IsInsideSession(def.Session, UtcNow))
         {
             await progressRepo.UpsertAsync(stored.Id, 0, Math.Max(1, def.EntryConditions.Count),
                 $"(outside {def.Session} session)", ct);
@@ -807,7 +811,7 @@ public sealed class MonitorWorker(
 
         // One-shot-per-day guard: a strategy that already traded today re-arms
         // tomorrow unless it opted into Repeat().
-        if (!def.ShouldRepeat && stored.EntryFilledUtc is { } filled && IsSameEasternDay(filled, DateTime.UtcNow))
+        if (!def.ShouldRepeat && stored.EntryFilledUtc is { } filled && IsSameEasternDay(filled, UtcNow))
         {
             await progressRepo.UpsertAsync(stored.Id, 0, Math.Max(1, def.EntryConditions.Count),
                 "(done for today)", ct);
@@ -817,8 +821,8 @@ public sealed class MonitorWorker(
         var emas = EmaPeriodCollector.Collect(def);
         var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, emas, previousClose);
         // DippedTo means "since 4:00 ET today", longer than the 240-bar window (IP-T363).
-        if (SessionLowCache.Uses(def)) await SessionLows.ApplyAsync(stored.Symbol, snapshot, DateTime.UtcNow, ct);
-        crossMemory.Apply(stored.Id, snapshot, candles.Count >= 2 ? candles[^2].EndUtc : null, DateTime.UtcNow);
+        if (SessionLowCache.Uses(def)) await SessionLows.ApplyAsync(stored.Symbol, snapshot, UtcNow, ct);
+        crossMemory.Apply(stored.Id, snapshot, candles.Count >= 2 ? candles[^2].EndUtc : null, UtcNow);
 
         // Apply ConditionalBlock branch overrides (If/Then/ElseIf/Else authored in the UI).
         // Bug 4 fix: the Monitor previously evaluated def.EntryConditions directly and silently
@@ -838,7 +842,7 @@ public sealed class MonitorWorker(
         // bool[] per condition. Derive passed/firstFailure from the result array
         // (semantically equivalent to the old short-circuit loop).
         var condBits = conditions.Select(c => c.Evaluate(snapshot)).ToArray();
-        crossMemory.Record(stored.Id, snapshot, DateTime.UtcNow);
+        crossMemory.Record(stored.Id, snapshot, UtcNow);
         int firstFalseIdx = System.Array.IndexOf(condBits, false);
         int passed = firstFalseIdx >= 0 ? firstFalseIdx : condBits.Length;
         string? firstFailure = firstFalseIdx >= 0 ? conditions[firstFalseIdx].ToScript() : null;
@@ -846,7 +850,7 @@ public sealed class MonitorWorker(
         await progressRepo.UpsertAsync(stored.Id, passed, conditions.Count, firstFailure, ct, lastPrice: (decimal)snapshot.Price);
 
         // Write a live bar (throttled to once every 10 seconds per strategy).
-        var now = DateTime.UtcNow;
+        var now = UtcNow;
         if (!lastBarWrite.TryGetValue(stored.Id, out var lastWrite) || (now - lastWrite).TotalSeconds >= 10)
         {
             lastBarWrite[stored.Id] = now;
@@ -1053,7 +1057,7 @@ public sealed class MonitorWorker(
         // (Alpaca requirement); RTH entries go in as marketable limits too so
         // a thin book can't fill us far off the evaluated price. A short opens
         // with a sell_to_open at -0.2%; a long buys at +0.2% (DirectionalOrders).
-        var extendedHours = IsExtendedHours(DateTime.UtcNow);
+        var extendedHours = IsExtendedHours(UtcNow);
         var intent = MonitorOrders.Entry(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, def.Direction,
             quantity, entryPrice, stopPrice, takeProfit, extendedHours, $"[{stored.Title}] {signal.Reason}");
         var limitPrice = intent.Order.LimitPrice!.Value;
@@ -1112,7 +1116,7 @@ public sealed class MonitorWorker(
                     && DirectionalOrders.HeldShares(p, def.Direction) > 0);
                 if (match is not null && !sharedSymbol)
                 {
-                    var fillUtc = DateTime.UtcNow;
+                    var fillUtc = UtcNow;
                     var filledQty = DirectionalOrders.HeldShares(match, def.Direction);
                     await strategyRepo.RecordFiredAsync(stored.Id, ct);
                     await strategyRepo.RecordEntryFillAsync(stored.Id, filledQty, match.AveragePrice, fillUtc, ct,
@@ -1161,7 +1165,7 @@ public sealed class MonitorWorker(
             return;
         }
 
-        var entryUtc = DateTime.UtcNow;
+        var entryUtc = UtcNow;
         await strategyRepo.RecordFiredAsync(stored.Id, ct);
         // Persist the ConditionalBlock-RESOLVED definition (not the raw one) so
         // EvaluateExitAsync can manage this position's stop/target using whatever
@@ -1274,14 +1278,14 @@ public sealed class MonitorWorker(
                 if (brokerMatch is not null)
                 {
                     logger.LogInformation("[{Title}] bootstrapped entry price {Price:F2} from live broker position.", stored.Title, brokerMatch.AveragePrice);
-                    await strategyRepo.SetEntryBookkeepingAsync(stored.Id, brokerMatch.AveragePrice, DateTime.UtcNow, ct);
+                    await strategyRepo.SetEntryBookkeepingAsync(stored.Id, brokerMatch.AveragePrice, UtcNow, ct);
                     entry     = (double)brokerMatch.AveragePrice;
-                    filledUtc = DateTime.UtcNow;
+                    filledUtc = UtcNow;
                 }
                 else
                 {
                     logger.LogWarning("[{Title}] position has no entry bookkeeping and no broker match — clearing.", stored.Title);
-                    await strategyRepo.RecordExitFillAsync(stored.Id, 0m, "Orphaned", DateTime.UtcNow, ct);
+                    await strategyRepo.RecordExitFillAsync(stored.Id, 0m, "Orphaned", UtcNow, ct);
                     return;
                 }
             }
@@ -1322,8 +1326,8 @@ public sealed class MonitorWorker(
         // inverts the semantics. Both paths receive dailyCandles so rolling
         // N-day high/low exits work for both directions.
         var decision = def.Direction == TradeDirection.Short
-            ? GapperExitEvaluator.EvaluateShort(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles, initialQty, stored.PositionQty)
-            : GapperExitEvaluator.Evaluate(def, entry, filledUtc, candles, DateTime.UtcNow, dailyCandles, initialQty, stored.PositionQty);
+            ? GapperExitEvaluator.EvaluateShort(def, entry, filledUtc, candles, UtcNow, dailyCandles, initialQty, stored.PositionQty)
+            : GapperExitEvaluator.Evaluate(def, entry, filledUtc, candles, UtcNow, dailyCandles, initialQty, stored.PositionQty);
 
         // Surface "holding" in the progress badge so the UI shows live state.
         var current = (double)candles[^1].Close;
@@ -1332,7 +1336,7 @@ public sealed class MonitorWorker(
             lastPrice: (decimal)current);
 
         // Write live bar during hold phase so the chart keeps updating.
-        var holdNow = DateTime.UtcNow;
+        var holdNow = UtcNow;
         if (!lastBarWrite.TryGetValue(stored.Id, out var holdLastWrite) || (holdNow - holdLastWrite).TotalSeconds >= 10)
         {
             lastBarWrite[stored.Id] = holdNow;
@@ -1382,8 +1386,8 @@ public sealed class MonitorWorker(
         // worse, queue a stale-priced regular-hours DAY sell for the next
         // open. Deferral requires BOTH a weekday and the 4:00–20:00 ET window
         // Alpaca accepts orders in; the decision re-fires next tradable tick.
-        var deferNowEt = MarketTime.ToEasternTimeOfDay(DateTime.UtcNow);
-        var marketTakingOrders = MarketTime.IsEquityTradingDay(DateTime.UtcNow)
+        var deferNowEt = MarketTime.ToEasternTimeOfDay(UtcNow);
+        var marketTakingOrders = MarketTime.IsEquityTradingDay(UtcNow)
             && deferNowEt >= new TimeSpan(4, 0, 0) && deferNowEt < new TimeSpan(20, 0, 0);
         if (!marketTakingOrders)
         {
@@ -1392,7 +1396,7 @@ public sealed class MonitorWorker(
             return;
         }
 
-        var extendedHours = IsExtendedHours(DateTime.UtcNow);
+        var extendedHours = IsExtendedHours(UtcNow);
         // Marketable exit limit so the flatten fills through a thin book: sell a
         // long at -0.5%, buy back a short at +0.5% (DirectionalOrders).
         var direction = def.Direction;
@@ -1461,7 +1465,7 @@ public sealed class MonitorWorker(
                 // tick re-enter and double up when the resting order finally
                 // fills. Past the grace window, treat it as a real non-fill and
                 // FULLY clear (incl. EntryFilledUtc) so the strategy re-arms.
-                var heldFor = DateTime.UtcNow - filledUtc;
+                var heldFor = UtcNow - filledUtc;
                 if (heldFor < UnfilledEntryGrace)
                 {
                     await progressRepo.UpsertAsync(stored.Id, 1, 1,
@@ -1472,7 +1476,7 @@ public sealed class MonitorWorker(
                     "the entry order never filled. Clearing bookkeeping so it can re-arm.",
                     stored.Title, stored.Symbol, decision.Reason, heldFor.TotalSeconds);
                 await strategyRepo.ClearUnfilledEntryAsync(stored.Id, ct);
-                try { await tradeDiary.MarkNotFilledAsync(stored.Id, DateTime.UtcNow, ct); }
+                try { await tradeDiary.MarkNotFilledAsync(stored.Id, UtcNow, ct); }
                 catch (Exception dex) { logger.LogError(dex, "[{Title}] trade-diary NotFilled mark failed.", stored.Title); }
                 await LogAuditAsync("position-reconciled",
                     $"[{stored.Title}] {stored.Symbol} entry never filled at {broker.BrokerType} — " +
@@ -1525,7 +1529,7 @@ public sealed class MonitorWorker(
         var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
         guardian?.RecordTradePnL(realized);
 
-        var exitUtc = DateTime.UtcNow;
+        var exitUtc = UtcNow;
         var remainingQty = stored.PositionQty - sellQty;
         var isPartialExit = decision.QuantityToSell.HasValue && remainingQty > 0;
 
@@ -1588,7 +1592,7 @@ public sealed class MonitorWorker(
     {
         var qty = (int)Math.Min(stored.PositionQty, Math.Floor(stop.FilledQuantity));
         var price = stop.FilledAvgPrice ?? stop.StopPrice ?? (decimal)entry;
-        var exitUtc = stop.FilledUtc ?? DateTime.UtcNow;
+        var exitUtc = stop.FilledUtc ?? UtcNow;
         var realized = DirectionalOrders.RealizedPnl(direction, (decimal)entry, price, qty);
         var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
         guardian?.RecordTradePnL(realized);
@@ -1745,7 +1749,7 @@ public sealed class MonitorWorker(
         var pingLabel = lastTickSuccessUtc == DateTime.MinValue ? "never"
             : TimeZoneInfo.ConvertTimeFromUtc(lastTickSuccessUtc, IdiotProof.Scripting.MarketTime.Eastern)
                 .ToString("h:mm tt");
-        var nowEt = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, IdiotProof.Scripting.MarketTime.Eastern).ToString("h:mm tt");
+        var nowEt = TimeZoneInfo.ConvertTimeFromUtc(UtcNow, IdiotProof.Scripting.MarketTime.Eastern).ToString("h:mm tt");
         var count = active.Count;
         Console.WriteLine($"{nowEt} ET  PING  {count} active strateg{(count == 1 ? "y" : "ies")} | last tick {pingLabel} ET | build {BuildDateLabel}");
     }

@@ -305,24 +305,6 @@
         try
         {
             var day = DateOnly.FromDateTime(selectedDate);
-            // Fetch window follows the strategy's SESSION, converted through
-            // the real Eastern zone (the old hardcoded 13:30–20:00 UTC was
-            // only correct during EDT). RTH-only fetching also made every
-            // Premarket/Extended strategy — the flagship gapper included —
-            // replay against zero bars: its 4:00–9:00 entry window never had
-            // data, so /backtest always reported "stayed flat".
-            var eastern = MarketTime.Eastern;
-            var (startEt, endEt) = def.Session switch
-            {
-                IdiotProof.Models.TradingSession.Premarket  => (new TimeOnly(4, 0),  new TimeOnly(9, 30)),
-                IdiotProof.Models.TradingSession.AfterHours => (new TimeOnly(16, 0), new TimeOnly(20, 0)),
-                IdiotProof.Models.TradingSession.Extended   => (new TimeOnly(4, 0),  new TimeOnly(20, 0)),
-                _                                           => (new TimeOnly(9, 30), new TimeOnly(16, 0)),
-            };
-            var start = TimeZoneInfo.ConvertTimeToUtc(
-                DateTime.SpecifyKind(day.ToDateTime(startEt), DateTimeKind.Unspecified), eastern);
-            var end = TimeZoneInfo.ConvertTimeToUtc(
-                DateTime.SpecifyKind(day.ToDateTime(endEt), DateTimeKind.Unspecified), eastern);
 
             IMarketDataFeed feed;
             string dataSource;
@@ -340,16 +322,8 @@
             }
 
             activeDataSource = dataSource;
-            var candles = new List<Candle>();
             await using var disposable = feed as IAsyncDisposable;
-            await foreach (var c in feed.GetHistoricalCandlesAsync(def.Symbol, start, end, TimeSpan.FromMinutes(1)))
-                candles.Add(c);
-
-            // Previous close relative to the replayed day — without it every
-            // gap condition fails closed and a gap strategy can never trigger.
-            var previousClose = await feed.GetPreviousCloseAsync(def.Symbol, start.AddHours(2));
-
-            report = StrategyBacktester.Run(def, candles, new BacktestOptions { PreviousClose = previousClose });
+            report = await BacktestDayRunner.RunAsync(def, day, feed);
         }
         catch (Exception ex)
         {
