@@ -6064,6 +6064,183 @@
       }
     },
     {
+      "name": "evidence kalman",
+      "noun": "evidence",
+      "verb": "kalman",
+      "tool_name": "evidence_kalman",
+      "summary": "Kalman trend slope, innovation z and leader pair-residual z bucketed against forward returns, fitted on training sessions and tested on held-out ones.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence kalman \u003Csymbols\u003E... [--leader \u003Cstring\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--horizon \u003Cint\u003E] [--bins \u003Cint\u003E] [--train \u003Cnumber\u003E] [--entry \u003Cnext-open|close\u003E]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string[]",
+          "required": true,
+          "description": "One or more tickers, e.g. SNDL MULN.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "leader",
+          "json_name": "leader",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Leader for the pair-residual feature (dynamic hedge ratio), e.g. SPY or IWM. Omit to skip it.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET day (yyyy-MM-dd, default: 20 days before --to).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last ET day (yyyy-MM-dd, default: yesterday ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "horizon",
+          "json_name": "horizon",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Minute bars ahead to measure (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "bins",
+          "json_name": "bins",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Quantile buckets per feature (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "train",
+          "json_name": "train",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Share of sessions used to fit the filter and learn bucket edges (default 0.67); the rest is the held-out test.",
+          "default": 0.67,
+          "enum_values": null
+        },
+        {
+          "name": "entry",
+          "json_name": "entry",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "next-open|close",
+          "required": false,
+          "description": "next-open (default: enter at the next bar\u0027s open, immune to bid-ask bounce) or close (enter at the signal bar\u0027s close).",
+          "default": "next-open",
+          "enum_values": [
+            "next-open",
+            "close"
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence kalman SNDL --from 2026-09-01 --to 2026-10-30",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence kalman MULN SNDL --leader IWM --horizon 10",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Kalman trend slope, innovation z and leader pair-residual z bucketed against forward returns, fitted on training sessions and tested on held-out ones.",
+        "properties": {
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "One or more tickers, e.g. SNDL MULN."
+          },
+          "leader": {
+            "type": "string",
+            "description": "Leader for the pair-residual feature (dynamic hedge ratio), e.g. SPY or IWM. Omit to skip it."
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET day (yyyy-MM-dd, default: 20 days before --to)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last ET day (yyyy-MM-dd, default: yesterday ET)."
+          },
+          "horizon": {
+            "type": "integer",
+            "description": "Minute bars ahead to measure (default 5).",
+            "default": 5
+          },
+          "bins": {
+            "type": "integer",
+            "description": "Quantile buckets per feature (default 5).",
+            "default": 5
+          },
+          "train": {
+            "type": "number",
+            "description": "Share of sessions used to fit the filter and learn bucket edges (default 0.67); the rest is the held-out test.",
+            "default": 0.67
+          },
+          "entry": {
+            "type": "string",
+            "enum": [
+              "next-open",
+              "close"
+            ],
+            "description": "next-open (default: enter at the next bar\u0027s open, immune to bid-ask bounce) or close (enter at the signal bar\u0027s close).",
+            "default": "next-open"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbols"
+        ]
+      }
+    },
+    {
       "name": "evidence label",
       "noun": "evidence",
       "verb": "label",
