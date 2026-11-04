@@ -132,6 +132,15 @@ public sealed class CandleConditionRow
 
     /// <summary>True if the strategy was already in a position at the start of this bar.</summary>
     public bool InPosition { get; init; }
+
+    /// <summary>Per ConditionalBlock, the index of the branch that matched on this bar (-1 when none matched).</summary>
+    public IReadOnlyList<int> BranchTaken { get; init; } = [];
+
+    /// <summary>Per ConditionalBlock, each branch condition's result on this bar (an Else branch is always true).</summary>
+    public IReadOnlyList<IReadOnlyList<bool>> BranchConditionResults { get; init; } = [];
+
+    /// <summary>Key indicator values as of this bar (price, VWAP, EMAs, RSI, ATR, volume), for fork hover detail.</summary>
+    public IReadOnlyDictionary<string, double> Indicators { get; init; } = new Dictionary<string, double>();
 }
 
 /// <summary>Knobs for the replay. Defaults match the sample strategies.</summary>

@@ -104,6 +104,7 @@ public static class StrategyBacktester
             var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(symbol, window, emaPeriods, options.PreviousClose);
 
             var active = StrategyBranchResolver.Resolve(definition, snapshot);
+            var branchState = ReadBranches(definition, snapshot);
             triggers = active.EntryConditions.Select(c => triggerFor[c]).ToList();
 
             // 1) Update every trigger's satisfied state for this bar.
@@ -159,7 +160,7 @@ public static class StrategyBacktester
                         blockReentry = true;
                     }
                 }
-                AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, openedTradeThisBar, wasInPosition);
+                AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, openedTradeThisBar, wasInPosition, branchState);
                 continue; // never enter and manage on the same bar
             }
 
@@ -171,7 +172,7 @@ public static class StrategyBacktester
                 var qty = ResolveQuantity(active, entryPrice, options);
                 if (qty <= 0)
                 {
-                    AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, false, false);
+                    AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, false, false, branchState);
                     continue;
                 }
 
@@ -206,7 +207,7 @@ public static class StrategyBacktester
                 }
             }
 
-            AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, openedTradeThisBar, wasInPosition);
+            AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, openedTradeThisBar, wasInPosition, branchState);
         }
 
         // Close anything still open at the last bar.
@@ -227,7 +228,8 @@ public static class StrategyBacktester
 
     private static void AppendConditionRow(
         BacktestReport report, Candle bar,
-        List<TrackedTrigger> triggers, bool allSatisfied, bool hadFire, bool openedTrade, bool inPosition)
+        List<TrackedTrigger> triggers, bool allSatisfied, bool hadFire, bool openedTrade, bool inPosition,
+        BranchState branches)
     {
         report.ConditionTable.Add(new CandleConditionRow
         {
@@ -242,7 +244,34 @@ public static class StrategyBacktester
             HasTriggerFire = hadFire,
             OpenedTrade    = openedTrade,
             InPosition     = inPosition,
+            BranchTaken    = branches.Taken,
+            BranchConditionResults = branches.Results,
+            Indicators     = branches.Indicators,
         });
+    }
+
+    private sealed record BranchState(
+        IReadOnlyList<int> Taken, IReadOnlyList<IReadOnlyList<bool>> Results, IReadOnlyDictionary<string, double> Indicators);
+
+    private static BranchState ReadBranches(StrategyDefinition def, Shared.IndicatorSnapshot snapshot)
+    {
+        var taken = new List<int>(def.ConditionalBlocks.Count);
+        var results = new List<IReadOnlyList<bool>>(def.ConditionalBlocks.Count);
+        foreach (var block in def.ConditionalBlocks)
+        {
+            var row = block.Branches.Select(b => b.Condition is null || b.Condition.Evaluate(snapshot)).ToList();
+            results.Add(row);
+            taken.Add(row.IndexOf(true));
+        }
+
+        var ind = new Dictionary<string, double> { ["Price"] = snapshot.Price, ["Volume"] = snapshot.Volume };
+        void Put(string name, double? v) { if (v is { } x && !double.IsNaN(x)) ind[name] = x; }
+        Put("VWAP", snapshot.Vwap);
+        Put("EMA9", snapshot.Ema9);
+        Put("EMA21", snapshot.Ema21);
+        Put("RSI", snapshot.Rsi);
+        Put("ATR", snapshot.Atr);
+        return new BranchState(taken, results, ind);
     }
 
     // ---- exit handling for one bar ----

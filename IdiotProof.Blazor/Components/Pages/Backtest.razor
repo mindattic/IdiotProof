@@ -12,6 +12,7 @@
 @inject StrategyRepository StrategyRepo
 @inject UserKeyService UserKeyService
 @inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
 
 @*
     Backtest — replay a saved strategy over a previous day, bar by bar, to confirm the
@@ -89,6 +90,28 @@
             {
                 <div class="trading-card p-2 mb-3" id="backtest-chart">
                     <Chart Payload="chart" />
+                </div>
+            }
+
+            @if (ghost is not null && ghostPayload is { Bars.Count: > 0 })
+            {
+                <div class="trading-card p-2 mb-3" id="backtest-ghost">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <h2 class="h6 text-muted mb-0">Ghost replay</h2>
+                        <span class="small text-muted">@ghost.Forks.Count fork(s)</span>
+                        <div class="ms-auto d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="ghost-compare-add" @onclick="AddToComparison">
+                                <i class="bi bi-layout-split" aria-hidden="true"></i> Add to comparison
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="ghost-export-json" @onclick="() => ExportTreeAsync(false)">
+                                <i class="bi bi-filetype-json" aria-hidden="true"></i> Branch tree JSON
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="ghost-export-mermaid" @onclick="() => ExportTreeAsync(true)">
+                                <i class="bi bi-diagram-3" aria-hidden="true"></i> Diagram
+                            </button>
+                        </div>
+                    </div>
+                    <GhostReplay Timeline="ghost" Payload="ghostPayload" Id="ghost-main" />
                 </div>
             }
 
@@ -234,6 +257,42 @@
     }
 </section>
 
+@if (comparison.Count > 0)
+{
+    <div class="trading-card p-3 mt-3" id="ghost-compare">
+        <div class="d-flex align-items-center mb-2">
+            <h2 class="h6 text-muted mb-0">Side-by-side ghost runs</h2>
+            <button type="button" class="btn btn-sm btn-link ms-auto" id="ghost-compare-clear" @onclick="() => comparison.Clear()">Clear</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-3">
+                <thead><tr><th scope="col">Run</th><th scope="col">Bars</th><th scope="col">Forks</th><th scope="col">Trades</th><th scope="col">Win rate</th><th scope="col">P&amp;L</th><th scope="col">Branches used</th></tr></thead>
+                <tbody>
+                    @foreach (var r in GhostComparison.Summarize(comparison.Select(c => c.Timeline)))
+                    {
+                        <tr class="ghost-compare-row">
+                            <th scope="row">@r.Symbol · @r.Strategy · @r.Date.ToString("yyyy-MM-dd")</th>
+                            <td>@r.Bars</td><td>@r.Forks</td><td>@r.Trades</td><td>@($"{r.WinRate:P0}")</td>
+                            <td class="@(r.PnL >= 0 ? "text-success" : "text-danger")">@($"{r.PnL:+0.00;-0.00;0.00}")</td>
+                            <td>@string.Join(", ", r.BranchesUsed)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="row g-3">
+            @for (int i = 0; i < comparison.Count; i++)
+            {
+                var run = comparison[i];
+                <div class="col-lg-6" @key="run">
+                    <div class="small text-muted mb-1">@run.Timeline.Symbol · @run.Timeline.Date.ToString("yyyy-MM-dd")</div>
+                    <GhostReplay Timeline="run.Timeline" Payload="run.Payload" Height="260" Id="@($"ghost-compare-{i}")" />
+                </div>
+            }
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public Guid? StrategyId { get; set; }
 
@@ -251,6 +310,9 @@
     private string? loadError;
     private BacktestReport? report;
     private ChartPayload? chart;
+    private GhostTimeline? ghost;
+    private GhostChartPayload? ghostPayload;
+    private readonly List<(GhostTimeline Timeline, GhostChartPayload Payload)> comparison = new();
 
     private string? alpacaKeyId;
     private string? alpacaSecretKey;
@@ -300,6 +362,8 @@
         loadError = null;
         report = null;
         chart = null;
+        ghost = null;
+        ghostPayload = null;
         var strategy = strategies.FirstOrDefault(s => s.Id == selectedStrategyId);
         if (strategy is null) { loadError = "Pick a strategy to backtest."; return; }
 
@@ -335,6 +399,8 @@
             var run = await BacktestDayRunner.RunWithCandlesAsync(def, day, feed);
             report = run.Report;
             chart = ChartSeries.Payload(def.Symbol, run.Candles, run.Report);
+            ghost = GhostTimeline.From(def, run.Report);
+            ghostPayload = GhostChart.Payload(ghost, run.Candles);
         }
         catch (Exception ex)
         {
@@ -344,5 +410,20 @@
         {
             running = false;
         }
+    }
+
+    private void AddToComparison()
+    {
+        if (ghost is null || ghostPayload is null) return;
+        if (comparison.Any(c => ReferenceEquals(c.Timeline, ghost))) return;
+        comparison.Add((ghost, ghostPayload));
+    }
+
+    private async Task ExportTreeAsync(bool mermaid)
+    {
+        if (ghost is null) return;
+        var name = $"{ghost.Symbol}-{ghost.Date:yyyy-MM-dd}-branch-tree";
+        if (mermaid) await JS.InvokeVoidAsync("ipChart.download", name + ".mmd", "text/plain", ghost.Tree.ToMermaid());
+        else await JS.InvokeVoidAsync("ipChart.download", name + ".json", "application/json", ghost.Tree.ToJson());
     }
 }

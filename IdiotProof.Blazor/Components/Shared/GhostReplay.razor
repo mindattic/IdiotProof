@@ -1,0 +1,174 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@using IdiotProof.Strategies.Backtesting
+
+@*
+    Ghost replay (IP-US-G2/G3): steps a backtest's GhostTimeline bar by bar over the day's chart.
+    Bars ahead of the playhead stay translucent; each If() resolution is a fork marker whose hover
+    shows every branch's pass/fail, the levels it would use (untaken ones dashed) and the indicators.
+*@
+
+<div class="ghost-replay" id="@Id">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2" role="toolbar" aria-label="Ghost replay controls">
+        <button type="button" class="btn btn-sm btn-outline-secondary ghost-restart" @onclick="Restart" aria-label="Restart">
+            <i class="bi bi-skip-start-fill" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary ghost-back" @onclick="StepBack" disabled="@(index <= 0)" aria-label="Step back">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-primary ghost-play" @onclick="TogglePlay" disabled="@(FrameCount == 0)"
+                aria-label="@(playing ? "Pause" : "Play")" aria-pressed="@(playing ? "true" : "false")">
+            <i class="bi @(playing ? "bi-pause-fill" : "bi-play-fill")" aria-hidden="true"></i> @(playing ? "Pause" : "Play")
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary ghost-step" @onclick="StepForward" disabled="@(index >= FrameCount - 1)" aria-label="Step forward">
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </button>
+        <label class="small text-muted ms-2" for="@($"{Id}-speed")">Speed</label>
+        <select id="@($"{Id}-speed")" class="form-select form-select-sm ghost-speed" style="width:auto" @bind="speed">
+            @foreach (var s in Speeds)
+            {
+                <option value="@s">@(s)×</option>
+            }
+        </select>
+        <span class="small text-muted ms-auto ghost-position" aria-live="polite">
+            @if (Current is { } f)
+            {
+                @($"Bar {f.Index + 1}/{FrameCount} · {GhostChart.Et(f.Utc)} · {f.Close:0.00##}")
+            }
+        </span>
+    </div>
+
+    <div class="ip-chart" @ref="host" role="img" style="height:@(Height)px"
+         aria-label="@($"Ghost replay of {Timeline?.Symbol}, bar {index + 1} of {FrameCount}")"></div>
+
+    @if (Current is { } frame)
+    {
+        <div class="row g-2 mt-2 small ghost-frame">
+            <div class="col-md-6">
+                <div class="text-muted">Conditions</div>
+                <ul class="list-unstyled mb-0">
+                    @foreach (var c in frame.Conditions)
+                    {
+                        <li class="@(c.Passed ? "text-success" : "text-danger")">
+                            <i class="bi @(c.Passed ? "bi-check-circle" : "bi-x-circle")" aria-hidden="true"></i>
+                            <span class="visually-hidden">@(c.Passed ? "pass" : "fail")</span>
+                            <code>@c.Label</code>
+                        </li>
+                    }
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted">State</div>
+                <div class="ghost-state">
+                    @if (frame.PositionShares > 0)
+                    {
+                        @($"{frame.PositionDirection} {frame.PositionShares}")
+                        @if (frame.ActiveStop is { } st) { @($" · stop {st:0.00##}") }
+                    }
+                    else
+                    {
+                        <span>Flat</span>
+                    }
+                </div>
+                @for (int b = 0; b < frame.BranchTaken.Count; b++)
+                {
+                    <div class="ghost-branch">If block @(b + 1): @BranchName(b, frame.BranchTaken[b])</div>
+                }
+                @foreach (var e in frame.Events)
+                {
+                    <div class="ghost-event">@e.Text</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    public static readonly int[] Speeds = [1, 2, 5, 10, 30];
+
+    [Parameter, EditorRequired] public GhostTimeline? Timeline { get; set; }
+    [Parameter, EditorRequired] public GhostChartPayload? Payload { get; set; }
+    [Parameter] public int Height { get; set; } = 380;
+    [Parameter] public string Id { get; set; } = "ghost-replay";
+
+    private ElementReference host;
+    private int index;
+    private int speed = 5;
+    private bool playing;
+    private int drawnIndex = -2;
+    private GhostChartPayload? drawnPayload;
+    private CancellationTokenSource? playCts;
+
+    private int FrameCount => Timeline?.Frames.Count ?? 0;
+    private GhostFrame? Current => index >= 0 && index < FrameCount ? Timeline!.Frames[index] : null;
+
+    public int Index => index;
+    public bool IsPlaying => playing;
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(Payload, drawnPayload))
+        {
+            Stop();
+            index = 0;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Payload is null || (ReferenceEquals(Payload, drawnPayload) && drawnIndex == index)) return;
+        drawnPayload = Payload;
+        drawnIndex = index;
+        await JS.InvokeVoidAsync("ipChart.ghost", host, Payload, index);
+    }
+
+    private string BranchName(int block, int branch) =>
+        branch < 0 ? "no branch"
+        : Timeline!.Tree.Blocks[block].Branches[branch] is var br ? $"{br.Label} {(br.Condition ?? "")}".Trim() : "";
+
+    public void StepForward() { if (index < FrameCount - 1) index++; }
+    public void StepBack() { if (index > 0) index--; }
+    public void Restart() { Stop(); index = 0; }
+
+    public void TogglePlay()
+    {
+        if (playing) { Stop(); return; }
+        if (index >= FrameCount - 1) index = 0;
+        playing = true;
+        playCts = new CancellationTokenSource();
+        _ = PlayAsync(playCts.Token);
+    }
+
+    private async Task PlayAsync(CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(Math.Max(30, 1000 / Math.Max(1, speed)), ct);
+                await InvokeAsync(() =>
+                {
+                    if (index >= FrameCount - 1) Stop();
+                    else index++;
+                    StateHasChanged();
+                });
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private void Stop()
+    {
+        playing = false;
+        playCts?.Cancel();
+        playCts = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Stop();
+        try { await JS.InvokeVoidAsync("ipChart.dispose", host); }
+        catch (JSDisconnectedException) { }
+        catch (InvalidOperationException) { }
+    }
+}
