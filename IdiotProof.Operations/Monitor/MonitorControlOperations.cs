@@ -2,6 +2,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using IdiotProof.Core.Data;
+using IdiotProof.Core.Evidence;
+using IdiotProof.Core.Monitoring;
+using IdiotProof.Engine.Settings;
+using IdiotProof.Shared;
+using Microsoft.Extensions.Logging.Abstractions;
 using IdiotProof.Core.Trading;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
@@ -120,7 +125,8 @@ public sealed class MonitorTickOnceOperation : IOperation<MonitorTickOnceArgs>
         var owner = ctx.RequireOwner();
         var now = ctx.UtcNow;
         var feed = ctx.Get<IMarketDataFeed>();
-        var strategies = (await ctx.Get<StrategyRepository>().GetActiveAsync(ctx.CancellationToken))
+        var allActive = await ctx.Get<StrategyRepository>().GetActiveAsync(ctx.CancellationToken);
+        var strategies = allActive
             .Where(s => s.OwnerUserId == owner)
             .Where(s => args.Symbol is null || s.Symbol.Equals(args.Symbol, StringComparison.OrdinalIgnoreCase))
             .OrderBy(s => s.Symbol).ThenBy(s => s.Title)
@@ -130,6 +136,7 @@ public sealed class MonitorTickOnceOperation : IOperation<MonitorTickOnceArgs>
 
         var window = TradingSchedule.Classify(now);
         var verdicts = new List<TickVerdict>();
+        LeaderContextCache? leaderCache = null;
         foreach (var group in strategies.GroupBy(s => s.Symbol.ToUpperInvariant()))
         {
             IReadOnlyList<Candle> candles;
@@ -147,7 +154,20 @@ public sealed class MonitorTickOnceOperation : IOperation<MonitorTickOnceArgs>
                 verdicts.AddRange(group.Select(s => new TickVerdict(s, "no-data", $"market data unavailable: {ex.Message}", 0, 0, null)));
                 continue;
             }
-            foreach (var s in group) verdicts.Add(Evaluate(s, candles, previousClose, now));
+            foreach (var s in group)
+            {
+                // Leader-gated strategies read their leaders exactly as the Monitor does; others fetch nothing extra.
+                List<LeaderReading>? leaders = null;
+                if (StrategyLoader.Load(s.ScriptJson, s.ScriptText).Definition is { } def && LeaderContextCache.Uses(def))
+                {
+                    var settings = ctx.Get<AppSettings>();
+                    leaderCache ??= new LeaderContextCache(feed, ctx.Services.GetService<IHistoricalBarStore>(), () => settings.LeaderEtfs, NullLogger.Instance);
+                    var probe = new IndicatorSnapshot();
+                    await leaderCache.ApplyAsync(s.Symbol, probe, allActive.Select(a => a.Symbol), now, ctx.CancellationToken);
+                    leaders = probe.Leaders;
+                }
+                verdicts.Add(Evaluate(s, candles, previousClose, now, leaders));
+            }
         }
 
         if (!args.Dry)
@@ -192,7 +212,8 @@ public sealed class MonitorTickOnceOperation : IOperation<MonitorTickOnceArgs>
     internal sealed record TickVerdict(Strategy Strategy, string Verdict, string Detail, int Passed, int Total, decimal? Price);
 
     /// <summary>Gate 1 exactly as MonitorWorker walks it, with every side effect removed.</summary>
-    internal static TickVerdict Evaluate(Strategy s, IReadOnlyList<Candle> candles, decimal? previousClose, DateTime nowUtc)
+    internal static TickVerdict Evaluate(Strategy s, IReadOnlyList<Candle> candles, decimal? previousClose, DateTime nowUtc,
+        List<LeaderReading>? leaders = null)
     {
         var loaded = StrategyLoader.Load(s.ScriptJson, s.ScriptText);
         if (loaded.CanonicalError is { } error) return new(s, "quarantined", error, 0, 0, null);
@@ -209,6 +230,7 @@ public sealed class MonitorTickOnceOperation : IOperation<MonitorTickOnceArgs>
         if (candles.Count == 0) return new(s, "no-data", "no bars in the last 4 hours", 0, def.EntryConditions.Count, null);
 
         var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(s.Symbol, candles, EmaPeriodCollector.Collect(def), previousClose);
+        snapshot.Leaders = leaders;
         var resolved = StrategyBranchResolver.Resolve(def, snapshot);
         var conditions = resolved.EntryConditions;
         var price = (decimal)snapshot.Price;

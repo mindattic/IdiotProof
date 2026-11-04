@@ -6,6 +6,7 @@ using IdiotProof.Evidence.Leaders;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using IdiotProof.Shared;
+using IdiotProof.Strategies.Backtesting;
 using Microsoft.Extensions.Logging;
 
 namespace IdiotProof.Core.Monitoring;
@@ -56,6 +57,44 @@ public sealed class LeaderContextCache(IMarketDataFeed feed, IHistoricalBarStore
             retryAfter[symbol] = nowUtc + FailureBackoff;
             snapshot.Leaders = null;
         }
+    }
+
+    /// <summary>
+    /// Leader context for backtesting <paramref name="symbol"/> on <paramref name="dayEt"/>: leaders are
+    /// discovered from the sessions before that day only, and their bars for the whole ET day are
+    /// loaded so the backtester can read each one's move as of every bar (it never reads an unclosed bar).
+    /// </summary>
+    public async Task<BacktestLeaderContext> ForDayAsync(string symbol, DateOnly dayEt, IEnumerable<string> peers, CancellationToken ct)
+    {
+        var target = symbol.ToUpperInvariant();
+        var candidates = Candidates(target, etfs(), peers);
+        var history = await HistoryAsync(candidates.Prepend(target).ToList(), dayEt, ct);
+        var links = LeaderDiscovery.Discover(target, history, MaxHops);
+
+        var dayBars = new Dictionary<string, IReadOnlyList<Candle>>(StringComparer.OrdinalIgnoreCase);
+        if (links.Count > 0)
+        {
+            var leaders = links.Select(l => l.Symbol).ToList();
+            if (barStore is not null)
+            {
+                var stored = await barStore.GetBarsForSymbolsAsync(leaders, dayEt, dayEt, BarTimeframe.Minute1, ct: ct);
+                foreach (var (s, bars) in stored) dayBars[s] = bars;
+            }
+            else
+            {
+                var startUtc = TimeZoneInfo.ConvertTimeToUtc(dayEt.ToDateTime(new TimeOnly(4, 0)), MarketTime.Eastern);
+                var endUtc = TimeZoneInfo.ConvertTimeToUtc(dayEt.ToDateTime(new TimeOnly(20, 0)), MarketTime.Eastern);
+                foreach (var s in leaders)
+                {
+                    var bars = new List<Candle>();
+                    await foreach (var c in feed.GetHistoricalCandlesAsync(s, startUtc, endUtc, BarSize, ct)) bars.Add(c);
+                    dayBars[s] = bars;
+                }
+            }
+        }
+        logger.LogInformation("Backtest leaders for {Symbol} on {Day}: {Leaders}", target, dayEt,
+            links.Count == 0 ? "(none measured)" : string.Join(", ", links.Select(l => $"{l.Symbol} {l.Hops}h {l.Influence:+0.00;-0.00}")));
+        return new BacktestLeaderContext(links, dayBars, LookbackBars);
     }
 
     private static readonly ConditionalWeakTable<StrategyDefinition, object> usesLeaders = new();

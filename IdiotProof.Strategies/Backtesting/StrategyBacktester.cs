@@ -102,6 +102,8 @@ public static class StrategyBacktester
             // including the previous close so gap conditions can evaluate.
             var window = ordered.Take(i + 1).ToList();
             var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(symbol, window, emaPeriods, options.PreviousClose);
+            if (options.Leaders is { } leaders)
+                snapshot.Leaders = leaders.ReadingsAsOf(bar.EndUtc > bar.StartUtc ? bar.EndUtc : bar.StartUtc.AddMinutes(1));
 
             var active = StrategyBranchResolver.Resolve(definition, snapshot);
             var branchState = ReadBranches(definition, snapshot);

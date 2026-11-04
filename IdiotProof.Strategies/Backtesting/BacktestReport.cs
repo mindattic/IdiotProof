@@ -156,4 +156,10 @@ public sealed class BacktestOptions
     /// trigger no matter what the day actually did.
     /// </summary>
     public decimal? PreviousClose { get; init; }
+
+    /// <summary>
+    /// Leader context for LeaderConfirms / NotLeaderDiverging. Without it both guards fail closed
+    /// (same as live), so a leader-gated strategy can never fire.
+    /// </summary>
+    public BacktestLeaderContext? Leaders { get; init; }
 }

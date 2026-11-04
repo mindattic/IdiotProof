@@ -5,7 +5,12 @@ using IdiotProof.Operations.Strategies;
 using IdiotProof.Scripting;
 using IdiotProof.Strategies.Backtesting;
 
+using IdiotProof.Core.Evidence;
 using IdiotProof.Core.Monitoring;
+using IdiotProof.Core.Services;
+using IdiotProof.Engine.Settings;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 namespace IdiotProof.Operations.Replay;
 
 /// <summary>A saved <c>backtest run</c> (store kind <c>bt</c>): the per-day results and condition tables.</summary>
@@ -84,6 +89,14 @@ public sealed class BacktestRunOperation : IOperation<BacktestRunArgs>
         var feed = ctx.Get<IMarketDataFeed>();
         var source = feed is MockDataFeed ? "Mock (synthetic prices — rehearsal only)" : $"{feed.FeedName} ({ReplayKit.FeedLabel(feed)})";
         var days = new List<BacktestDayRecord>();
+        LeaderContextCache? leaderCache = null;
+        IReadOnlyList<string> peers = [];
+        if (LeaderContextCache.Uses(def))
+        {
+            var settings = ctx.Get<AppSettings>();
+            leaderCache = new LeaderContextCache(feed, ctx.Services.GetService<IHistoricalBarStore>(), () => settings.LeaderEtfs, NullLogger.Instance);
+            peers = (await ctx.Get<StrategyRepository>().GetActiveAsync(ctx.CancellationToken)).Select(s => s.Symbol).ToList();
+        }
         for (var day = from; day <= to; day = day.AddDays(1))
         {
             if (day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
@@ -91,7 +104,9 @@ public sealed class BacktestRunOperation : IOperation<BacktestRunArgs>
             try { loaded = await StrategyReplay.LoadDayAsync(feed, ReplayKit.FeedLabel(feed), def.Symbol, day, ctx.UtcNow, ctx.CancellationToken); }
             catch (ReplayException ex) { days.Add(new BacktestDayRecord(day, 0, ex.Message, 0, [], [], [])); continue; }
 
-            var report = StrategyBacktester.Run(def, loaded.Candles, new BacktestOptions { DefaultQuantity = args.Qty, PreviousClose = loaded.PreviousClose });
+            var (leaders, leaderNote) = await BacktestDayRunner.LeadersForDayAsync(def, day, feed, leaderCache, peers, ctx.CancellationToken);
+            var report = StrategyBacktester.Run(def, loaded.Candles, new BacktestOptions { DefaultQuantity = args.Qty, PreviousClose = loaded.PreviousClose, Leaders = leaders });
+            if (leaderNote is not null) report.Note = report.Note is null ? leaderNote : $"{report.Note} {leaderNote}";
             days.Add(new BacktestDayRecord(day, report.BarsProcessed, report.Note, report.Triggers.Count,
                 report.Trades.Select(t => new BacktestTradeRecord(t.Cycle, t.Direction.ToString(), t.EntryUtc, t.EntryPrice, t.Quantity, t.StopPrice,
                     t.ExitUtc, t.Exits.Count > 0 ? t.Exits[^1].Price : null, t.PnL, t.ReturnPercent, t.ExitReason)).ToList(),
