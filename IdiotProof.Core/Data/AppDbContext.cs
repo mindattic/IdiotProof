@@ -37,6 +37,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<LiveBar>              LiveBars             => Set<LiveBar>();
     public DbSet<HistoricalBar>        HistoricalBars       => Set<HistoricalBar>();
     public DbSet<HistoricalBarCoverage> HistoricalBarCoverage => Set<HistoricalBarCoverage>();
+    public DbSet<AdaptationDecision>   AdaptationDecisions  => Set<AdaptationDecision>();
     public DbSet<ResearchClaim>        ResearchClaims       => Set<ResearchClaim>();
     public DbSet<SourceTrustScore>     SourceTrustScores    => Set<SourceTrustScore>();
     public DbSet<ResearchClaimVector>  ResearchClaimVectors => Set<ResearchClaimVector>();
@@ -194,6 +195,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(x => x.Symbol).HasMaxLength(16).IsRequired();
             e.Property(x => x.Timeframe).HasMaxLength(8).IsRequired();
             e.Property(x => x.DateEt).HasMaxLength(10).IsRequired();
+        });
+
+        b.Entity<AdaptationDecision>(e =>
+        {
+            e.HasIndex(x => new { x.StrategyId, x.EtDate });
+            e.HasIndex(x => new { x.Outcome, x.OutcomeRecordedUtc });
+            e.Property(x => x.RealizedPnL).HasPrecision(18, 4);
+            e.Property(x => x.RealizedReturnPercent).HasPrecision(18, 4);
         });
 
         b.Entity<ResearchClaim>(e =>

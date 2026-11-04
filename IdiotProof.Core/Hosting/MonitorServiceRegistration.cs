@@ -39,6 +39,10 @@ public static class MonitorServiceRegistration
 
         // Texts the owner (SMTP, not SQL) when the Monitor stops evaluating (IP-T359).
         services.AddHostedService<MonitorOutageWatchdog>();
+
+        // Living strategies (IP-T373): idle unless SettingsKv adaptation.enabled = "true"; paper-only, per-strategy opt-in.
+        services.AddSingleton<IdiotProof.Core.Adaptation.AdaptationService>();
+        services.AddHostedService<IdiotProof.Core.Adaptation.AdaptationWorker>();
         return services;
     }
 }
