@@ -122,7 +122,7 @@ public class ScriptDiagnosticsTests
     [Test]
     public void QualifiedNames_LambdasAndComments_AreNotVerbs()
     {
-        var text = "// .Bogus() in a comment\nStock.Ticker(\"X\") /* .AlsoBogus() */\n.Session(IS.PREMARKET)\n.ElseIf(c => c.IsBelowVwap(), b => b.Short())\n.Long().StopLoss(1)";
+        var text = "// .Bogus() in a comment\nStock.Ticker(\"X\") /* .AlsoBogus() */\n.Session(IS.PREMARKET)\n.IsAboveVwap().Then(b => b.Long())\n.ElseIf(c => c.IsBelowVwap(), b => b.Short())\n.Long().StopLoss(1)";
         Assert.That(ScriptDiagnostics.Analyze(text), Is.Empty);
     }
 

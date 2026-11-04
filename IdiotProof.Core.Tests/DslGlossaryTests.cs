@@ -50,7 +50,7 @@ public sealed class DslGlossaryTests
         "TakeProfit", "AddTarget", "TakeProfitPercent", "StopLoss", "StopLossPercent",
         "TrailingStopLoss", "ExitStrategy", "PeakGiveback", "ExitAtPriorHigh",
         "ExitAtRollingHigh", "ExitAtRollingLow", "EntryAtRollingLow", "EntryAtRollingHigh",
-        "AutonomousTrading", "AdaptiveOrder", "Repeat", "Then",
+        "AutonomousTrading", "AdaptiveOrder", "Repeat", "If", "Then", "ElseIf", "Else", "EndIf",
         "While", "EndWhile", "ExitWhenFalse", "For", "ForEach", "TakeProfitEach",
     ];
 

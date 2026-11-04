@@ -67,6 +67,8 @@ public static class ScriptDiagnostics
         ["while"] = "", ["endwhile"] = "", ["exitwhenfalse"] = "", ["takeprofiteach"] = "",
     };
 
+    private static readonly string[] BlockVerbs = ["If", "Then", "ElseIf", "Else", "EndIf", "And", "Or", "Not"];
+
     private static readonly ConcurrentDictionary<string, bool> KnownCache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Lazy<string[]> Canonical = new(() =>
         typeof(StrategyBuilder).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
@@ -129,6 +131,7 @@ public static class ScriptDiagnostics
             var t = tokens[open.Pop()];
             diags.Add(Make(DiagnosticSeverity.Error, "IPS002", "This '(' is never closed.", t.Start, 1, null, src, lineStarts));
         }
+        CheckBlocks(src, diags, lineStarts);
         if (!sawTicker && src.Trim().Length > 0)
             diags.Add(Make(DiagnosticSeverity.Error, "IPS005", "A script must name its symbol with Ticker(\"SYM\"); without it nothing parses.",
                 FirstNonSpace(src), 1, null, src, lineStarts));
@@ -137,6 +140,94 @@ public static class ScriptDiagnostics
     }
 
     public static bool HasErrors(IEnumerable<ScriptDiagnostic> diagnostics) => diagnostics.Any(d => d.IsError);
+
+    /// <summary>
+    /// If/Then/ElseIf/Else/EndIf structure, read the same way <see cref="ScriptParser"/> reads it: an explicit
+    /// <c>If(cond)</c> block needs <c>.Then(...)</c> and must close with <c>.EndIf()</c>; the builder form
+    /// <c>cond.Then(...)</c> ends at Else() or the next ordinary verb.
+    /// </summary>
+    private static void CheckBlocks(string src, List<ScriptDiagnostic> diags, int[] lineStarts)
+    {
+        var chain = new ScriptChain(src);
+        bool open = false, isExplicit = false, awaitingThen = false, sawElse = false, emptyIf = false;
+        Token ifToken = default;
+
+        void Report(string code, string message, Token at) =>
+            diags.Add(Make(DiagnosticSeverity.Error, code, message, at.Start, at.Text.Length, null, src, lineStarts));
+
+        void Close() { open = false; isExplicit = false; awaitingThen = false; sawElse = false; emptyIf = false; }
+
+        foreach (var call in chain.TopLevelCalls())
+        {
+            var at = chain.Tokens[call.NameToken];
+            switch (call.Name.ToLowerInvariant())
+            {
+                case "if":
+                    if (open && isExplicit)
+                        Report("IPS013", "This If(...) is never closed with .EndIf(), so the next If(...) starts while it is still open.", ifToken);
+                    Close();
+                    open = isExplicit = true;
+                    ifToken = at;
+                    emptyIf = chain.IsEmpty(call.ArgsFrom, call.ArgsTo);
+                    awaitingThen = !emptyIf;
+                    break;
+                case "then":
+                    if (open && isExplicit)
+                    {
+                        if (emptyIf)
+                            Report("IPS014", "If() has no condition, so its Then(...) branch can never be chosen; give If a condition or use Else(...).", at);
+                        else if (!awaitingThen)
+                            Report("IPS015", "A second Then(...) in the same If block is ignored; use .ElseIf(condition, ...) for another branch.", at);
+                        awaitingThen = false;
+                    }
+                    else
+                    {
+                        Close();
+                        open = true;
+                    }
+                    break;
+                case "elseif":
+                    if (!open)
+                        Report("IPS011", "ElseIf(...) has no If(...)/Then(...) before it, so the parser skips it.", at);
+                    else if (sawElse)
+                        Report("IPS012", "ElseIf(...) after Else(...) can never run: Else already catches every remaining case.", at);
+                    else if (awaitingThen)
+                        Report("IPS014", "If(...) must be followed by .Then(...) before .ElseIf(...).", at);
+                    else if (call.ArgsFrom >= call.ArgsTo || chain.SplitArguments(call.ArgsFrom, call.ArgsTo).Count < 2)
+                        Report("IPS016", "ElseIf needs a condition and a branch body: .ElseIf(IsBelowVwap(), Short().StopLoss(9)).", at);
+                    break;
+                case "else":
+                    if (!open)
+                        Report("IPS011", "Else(...) has no If(...)/Then(...) before it, so the parser skips it.", at);
+                    else if (sawElse)
+                        Report("IPS012", "A second Else(...) in the same block can never run.", at);
+                    else if (awaitingThen)
+                        Report("IPS014", "If(...) must be followed by .Then(...) before .Else(...).", at);
+                    sawElse = true;
+                    if (open && !isExplicit) Close();
+                    break;
+                case "endif":
+                    if (!open || !isExplicit)
+                        Report("IPS011", "EndIf() has no open If(...) to close.", at);
+                    else if (awaitingThen)
+                        Report("IPS014", "If(...) must be followed by .Then(...) before .EndIf().", ifToken);
+                    Close();
+                    break;
+                case "and": case "or": case "not":
+                    break;
+                default:
+                    if (open && isExplicit && awaitingThen)
+                    {
+                        Report("IPS014", "If(...) must be followed directly by .Then(...).", ifToken);
+                        awaitingThen = false;
+                    }
+                    if (open && !isExplicit) Close();
+                    break;
+            }
+        }
+        if (open && isExplicit)
+            Report("IPS013", "This If(...) is never closed with .EndIf().", ifToken);
+    }
 
     private static void CheckArguments(string verb, List<Token> tokens, int lparen, List<ScriptDiagnostic> diags, string src, int[] lineStarts)
     {
@@ -246,7 +337,7 @@ public static class ScriptDiagnostics
         int limit = lower.Length <= 6 ? 1 : lower.Length <= 12 ? 2 : 3;
         string? best = null;
         int bestDist = int.MaxValue;
-        foreach (var candidate in KnownVerbs)
+        foreach (var candidate in KnownVerbs.Concat(BlockVerbs))
         {
             int d = Distance(lower, candidate.ToLowerInvariant());
             if (d < bestDist) { bestDist = d; best = candidate; }
@@ -271,11 +362,11 @@ public static class ScriptDiagnostics
         return d[a.Length, b.Length];
     }
 
-    private enum TokenKind { Identifier, Number, String, Dot, LParen, RParen, Comma, Other }
+    internal enum TokenKind { Identifier, Number, String, Dot, LParen, RParen, Comma, Other }
 
-    private readonly record struct Token(TokenKind Kind, string Text, int Start);
+    internal readonly record struct Token(TokenKind Kind, string Text, int Start);
 
-    private static List<Token> Tokenize(string src, List<ScriptDiagnostic> diags, int[] lineStarts)
+    internal static List<Token> Tokenize(string src, List<ScriptDiagnostic> diags, int[] lineStarts)
     {
         var tokens = new List<Token>();
         int i = 0;
@@ -356,7 +447,7 @@ public static class ScriptDiagnostics
         return new ScriptDiagnostic(severity, code, message, line + 1, column + 1, length, suggestion, excerpt);
     }
 
-    private static int[] LineStarts(string src)
+    internal static int[] LineStarts(string src)
     {
         var starts = new List<int> { 0 };
         for (int i = 0; i < src.Length; i++) if (src[i] == '\n') starts.Add(i + 1);

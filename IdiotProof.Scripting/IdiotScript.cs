@@ -689,6 +689,24 @@ public sealed class StrategyBuilder
     ///        .ElseIf(c => c.IsBelowVwap(), b => b.Short().TakeProfit(3.00))
     ///        .Else(b => b.Long().TakeProfit(4.00))
     /// </summary>
+    internal void AddConditionalBlock(ConditionalBlock block) => strategy.ConditionalBlocks.Add(block);
+
+    /// <summary>Removes and returns the last entry condition (the "if" of a builder-form <c>cond.Then(...)</c>).</summary>
+    internal ICondition? PopLastEntryCondition()
+    {
+        if (strategy.EntryConditions.Count == 0) return null;
+        var last = strategy.EntryConditions[^1];
+        strategy.EntryConditions.RemoveAt(strategy.EntryConditions.Count - 1);
+        return last;
+    }
+
+    /// <summary>Replaces the last entry condition with a composition of it (text <c>.And()/.Or()/.Not()</c>).</summary>
+    internal void ComposeLastEntryCondition(Func<ICondition, ICondition> compose)
+    {
+        if (strategy.EntryConditions.Count == 0) return;
+        strategy.EntryConditions[^1] = compose(strategy.EntryConditions[^1]);
+    }
+
     public ConditionalBuilder Then(Action<BranchBuilder> configure)
     {
         if (strategy.EntryConditions.Count == 0)
@@ -1848,26 +1866,28 @@ public sealed class ConditionalBlock
         return null;
     }
 
+    /// <summary>
+    /// Text form that <see cref="ScriptParser"/> reads back losslessly:
+    /// <c>If(cond).Then(body).ElseIf(cond, body).Else(body).EndIf()</c>. A block whose first branch is
+    /// the default opens with an empty <c>If()</c> straight into <c>Else(body)</c>.
+    /// </summary>
     public string ToScript()
     {
         var parts = new List<string>();
         for (int i = 0; i < Branches.Count; i++)
         {
             var branch = Branches[i];
+            if (i == 0)
+                parts.Add(branch.Condition is not null ? $"If({branch.Condition.ToScript()})" : "If()");
             if (i == 0 && branch.Condition is not null)
-            {
-                parts.Add($"{branch.Condition.ToScript()}");
                 parts.Add($"    .Then({branch.Overrides.ToScript()})");
-            }
             else if (branch.Condition is not null)
-            {
                 parts.Add($"    .ElseIf({branch.Condition.ToScript()}, {branch.Overrides.ToScript()})");
-            }
             else
-            {
                 parts.Add($"    .Else({branch.Overrides.ToScript()})");
-            }
         }
+        if (Branches.Count == 0) parts.Add("If()");
+        parts.Add("    .EndIf()");
         return string.Join("\n", parts);
     }
 }
@@ -1914,10 +1934,18 @@ public sealed class StrategyOverrides
             parts.Add(Direction == TradeDirection.Short ? "Short()" : "Long()");
         foreach (var cond in EntryConditions)
             parts.Add(cond.ToScript());
-        if (TakeProfitTargets.Count > 0)
+        // TakeProfit(t1, t2[, t3]) is exactly what BranchBuilder.TakeProfit builds (50/50 or 33/33/34,
+        // T1 doubling as the single target). Anything else spells each target out so every price,
+        // percent and label survives a text round trip.
+        if (TakeProfitTargets.Count > 0 && IsBranchShorthand())
             parts.Add($"TakeProfit({string.Join(", ", TakeProfitTargets.Select(t => Inv(t.Price)))})");
-        else if (TakeProfitPrice.HasValue)
-            parts.Add($"TakeProfit({Inv(TakeProfitPrice.Value)})");
+        else
+        {
+            if (TakeProfitPrice.HasValue)
+                parts.Add($"TakeProfit({Inv(TakeProfitPrice.Value)})");
+            foreach (var t in TakeProfitTargets)
+                parts.Add($"AddTarget({Inv(t.Price)}, {t.PercentToSell}, \"{t.Label}\")");
+        }
         if (StopLossPrice.HasValue)
             parts.Add($"StopLoss({Inv(StopLossPrice.Value)})");
         if (StopLossPercent.HasValue)
@@ -1925,6 +1953,19 @@ public sealed class StrategyOverrides
         if (TrailingStopPercent.HasValue)
             parts.Add($"TrailingStopLoss({Inv(TrailingStopPercent.Value)})");
         return string.Join(".", parts);
+    }
+
+    private bool IsBranchShorthand()
+    {
+        var t = TakeProfitTargets;
+        if (TakeProfitPrice != t[0].Price) return false;
+        return t.Count switch
+        {
+            2 => t[0] is { PercentToSell: 50, Label: "T1" } && t[1] is { PercentToSell: 50, Label: "T2" },
+            3 => t[0] is { PercentToSell: 33, Label: "T1" } && t[1] is { PercentToSell: 33, Label: "T2" }
+                 && t[2] is { PercentToSell: 34, Label: "T3" },
+            _ => false,
+        };
     }
 
     /// <summary>

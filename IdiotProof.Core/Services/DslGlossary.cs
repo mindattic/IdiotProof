@@ -224,8 +224,16 @@ public static class DslGlossary
             "Loops over the listed levels for the loop body verb that follows, e.g. ForEach(10.5, 11, 12).TakeProfitEach()."),
         ["TakeProfitEach"] = new("TakeProfitEach", "bi-bullseye", Green, "Take Profit at Each Level",
             "Loop body: a scale-out target at every loop level, selling an equal share at each (the last takes the remainder)."),
+        ["If"] = new("If", "bi-signpost-split", Brand, "Branch (If)",
+            "Opens a branch block: .If(IsAboveVwap()).Then(StopLossPercent(1)).ElseIf(IsBelowVwap(), Short()).Else(StopLossPercent(2)).EndIf(). The first branch whose condition holds supplies its Order/Risk/Exit overrides; conditions compose with .And()/.Or()/.Not()."),
         ["Then"] = new("Then", "bi-diagram-3", Brand, "Branch (Then)",
-            "Starts a conditional branch: the condition immediately before .Then() becomes the branch's \"if\" — chain .ElseIf()/.Else() for alternate paths, each with its own Order/Risk/Exit overrides."),
+            "The body of an If: the overrides (Long/Short, TakeProfit, AddTarget, StopLoss, StopLossPercent, TrailingStopLoss, extra entry conditions) applied when its condition holds. Builder form: the condition right before .Then() is the \"if\"."),
+        ["ElseIf"] = new("ElseIf", "bi-signpost", Brand, "Branch (ElseIf)",
+            "Another branch tried when the ones before it don't hold: .ElseIf(condition, body)."),
+        ["Else"] = new("Else", "bi-signpost-2", Brand, "Branch (Else)",
+            "The default branch when no condition above holds: .Else(body). Must come last in the block."),
+        ["EndIf"] = new("EndIf", "bi-box-arrow-in-down", Brand, "End Branch",
+            "Closes an .If(...) block; verbs after it apply to the strategy again."),
     };
 
     // Builder methods that produce the exact same condition/field as a canonical

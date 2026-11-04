@@ -26,10 +26,19 @@ public static class ScriptParser
         if (!tickerMatch.Success) return null;
 
         var builder = Stock.Ticker(tickerMatch.Groups[1].Value);
+        var chain = new ScriptChain(text);
+        var blocks = new BlockReader(builder, chain);
 
-        foreach (Match v in Regex.Matches(text, "\\.(\\w+)\\s*(?:\\(([^)]*)\\))?", RegexOptions.IgnoreCase))
+        // Every top-level .Verb(args) in order. Arguments are read whole (nested parens and all),
+        // so If/Then/ElseIf/Else bodies and And/Or/Not operands stay with the verb that owns them
+        // instead of leaking into the base strategy.
+        foreach (var call in chain.TopLevelCalls())
         {
-            ApplyVerb(builder, v.Groups[1].Value, v.Groups[2].Success ? v.Groups[2].Value : "");
+            if (!blocks.TryApply(call))
+            {
+                blocks.EndLegacyBlock();
+                ApplyVerb(builder, call.Name, call.RawArgs);
+            }
         }
 
         return builder.Build();
@@ -222,7 +231,7 @@ public static class ScriptParser
     /// call order. Numeric tokens are included too so callers can mix (e.g.
     /// PeakGiveback(25, "09:15") reads nums[0] and strs[1]).
     /// </summary>
-    private static List<string> ParseStringArgs(string args)
+    internal static List<string> ParseStringArgs(string args)
     {
         var result = new List<string>();
         if (string.IsNullOrWhiteSpace(args)) return result;
@@ -231,7 +240,7 @@ public static class ScriptParser
         return result;
     }
 
-    private static List<decimal> ParseNumericArgs(string args)
+    internal static List<decimal> ParseNumericArgs(string args)
     {
         var result = new List<decimal>();
         if (string.IsNullOrWhiteSpace(args)) return result;
