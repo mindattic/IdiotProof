@@ -2,7 +2,10 @@ using IdiotProof.Core.Data;
 using IdiotProof.Core.Monitoring;
 using IdiotProof.Core.Services;
 using IdiotProof.DataFeeds;
+using IdiotProof.Engine.Settings;
 using IdiotProof.Models;
+using IdiotProof.Scripting;
+using IdiotProof.Strategies.Backtesting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -21,9 +24,14 @@ public sealed class AdaptationWorker(
     IMarketDataFeed feed,
     TimeProvider time,
     MonitorRuntimeState monitor,
-    ILogger<AdaptationWorker> log) : BackgroundService
+    ILogger<AdaptationWorker> log,
+    AppSettings? appSettings = null,
+    IdiotProof.Core.Evidence.IHistoricalBarStore? barStore = null) : BackgroundService
 {
     private static readonly TimeSpan Cadence = TimeSpan.FromMinutes(5);
+    private LeaderContextCache? leaderContextCache;
+    private LeaderContextCache Leaders => leaderContextCache ??=
+        new(feed, barStore, () => (appSettings ?? new AppSettings()).LeaderEtfs, log);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -83,8 +91,27 @@ public sealed class AdaptationWorker(
             var bars = new List<Candle>();
             await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, periodStartUtc, nowUtc, TimeSpan.FromMinutes(1), ct))
                 bars.Add(c);
-            var result = await adaptation.AdaptAsync(id, bars, periodStartUtc, nowUtc, ct: ct);
+            var dayEt = DateOnly.FromDateTime(nowEt);
+            var result = await adaptation.AdaptAsync(id, bars, periodStartUtc, nowUtc, ct: ct,
+                leaders: (def, token) => LeadersAsync(def, dayEt, ids, token));
             log.LogInformation("Adaptation {Symbol} {Strategy}: {Outcome} ({Reason})", symbol, id, result.Outcome, result.Reason);
+        }
+    }
+
+    /// <summary>Prior-session leaders for a leader-gated strategy; a failure leaves the guards fail-closed.</summary>
+    private async Task<BacktestLeaderContext?> LeadersAsync(StrategyDefinition def, DateOnly dayEt, IReadOnlyList<Guid> armed, CancellationToken ct)
+    {
+        try
+        {
+            List<string> peers;
+            await using (var db = await dbFactory.CreateDbContextAsync(ct))
+                peers = await db.Strategies.AsNoTracking().Where(s => armed.Contains(s.Id)).Select(s => s.Symbol).Distinct().ToListAsync(ct);
+            return await Leaders.ForDayAsync(def.Symbol, dayEt, peers, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log.LogWarning(ex, "Adaptation leader context for {Symbol} failed; leader guards block in the shadow replay.", def.Symbol);
+            return null;
         }
     }
 }

@@ -1,7 +1,12 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using IdiotProof.Core.Evidence;
+using IdiotProof.Core.Monitoring;
 using IdiotProof.Core.Services;
+using IdiotProof.DataFeeds;
+using IdiotProof.Engine.Settings;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using IdiotProof.Evidence;
 using IdiotProof.Evidence.Search;
 using IdiotProof.Models;
@@ -119,6 +124,8 @@ public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
         var lastSelectionDay = days[selectionDayCount - 1];
         int selectionCells = cells.Count(c => c.Day <= lastSelectionDay);
 
+        var leaderContexts = await LeaderContextsAsync(definitions, cells.Select(c => (c.Day, c.Symbol)).ToList(), symbols, ctx);
+
         var returns = new double[configs.Count][];
         var tradeCounts = new int[configs.Count];
         var holdoutTrades = new int[configs.Count];
@@ -135,7 +142,8 @@ public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
                 var (start, end) = BacktestDayRunner.SessionWindowUtc(cell.Day, def.Session);
                 var window = cell.AllDay.Where(c => c.StartUtc >= start && c.StartUtc < end).ToList();
                 if (window.Count == 0) continue;
-                var report = StrategyBacktester.Run(def, window, new BacktestOptions { PreviousClose = cell.PrevClose });
+                leaderContexts.TryGetValue((cell.Day, cell.Symbol), out var leaders);
+                var report = StrategyBacktester.Run(def, window, new BacktestOptions { PreviousClose = cell.PrevClose, Leaders = leaders });
                 series[i] = report.Trades.Sum(t => (double)t.ReturnPercent) / 100.0;
                 if (i < selectionCells) tradeCounts[k] += report.TradeCount;
                 else { holdoutTrades[k] += report.TradeCount; holdoutWins[k] += report.Wins; }
@@ -202,6 +210,31 @@ public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
             Survives = rc.SpaPValue < 0.05 && q[best] < 0.05,
             Top = rows,
         }, human);
+    }
+
+    /// <summary>
+    /// Prior-session leaders per (day, symbol), discovered once and shared by every config, and only when a
+    /// config uses LeaderConfirms/NotLeaderDiverging (no extra fetches otherwise). A cell whose discovery
+    /// fails gets no context, so its leader guards block, as they would live.
+    /// </summary>
+    private static async Task<Dictionary<(DateOnly, string), BacktestLeaderContext>> LeaderContextsAsync(
+        IReadOnlyList<StrategyDefinition> definitions, IReadOnlyList<(DateOnly Day, string Symbol)> cells,
+        IReadOnlyList<string> symbols, OperationContext ctx)
+    {
+        var result = new Dictionary<(DateOnly, string), BacktestLeaderContext>();
+        if (!definitions.Any(LeaderContextCache.Uses)) return result;
+
+        var settings = ctx.Services.GetService<AppSettings>() ?? new AppSettings();
+        // The bar store serves both the discovery history and the day bars, so the feed is never read here.
+        var feed = ctx.Services.GetService<IMarketDataFeed>() ?? new MockDataFeed();
+        var cache = new LeaderContextCache(feed, ctx.Get<IHistoricalBarStore>(), () => settings.LeaderEtfs, NullLogger.Instance);
+        foreach (var (day, symbol) in cells.Distinct())
+        {
+            ctx.CancellationToken.ThrowIfCancellationRequested();
+            try { result[(day, symbol)] = await cache.ForDayAsync(symbol, day, symbols, ctx.CancellationToken); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { }
+        }
+        return result;
     }
 
     private static string P(double v) => double.IsNaN(v) ? "—" : v < 0.001 ? v.ToString("0.0e0", CultureInfo.InvariantCulture) : v.ToString("0.000", CultureInfo.InvariantCulture);

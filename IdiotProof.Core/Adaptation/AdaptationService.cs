@@ -1,5 +1,6 @@
 using System.Text.Json;
 using IdiotProof.Core.Data;
+using IdiotProof.Core.Monitoring;
 using IdiotProof.Core.Services;
 using IdiotProof.Evidence.Adaptation;
 using IdiotProof.Models;
@@ -44,7 +45,8 @@ public sealed class AdaptationService(IDbContextFactory<AppDbContext> dbFactory,
         settings.SetAsync(OptInKey(strategyId), on ? "true" : "false", ct);
 
     public async Task<AdaptationResult> AdaptAsync(Guid strategyId, IReadOnlyList<Candle> todaysCandles,
-        DateTime periodStartUtc, DateTime nowUtc, InformationGateOptions? gate = null, CancellationToken ct = default)
+        DateTime periodStartUtc, DateTime nowUtc, InformationGateOptions? gate = null, CancellationToken ct = default,
+        Func<StrategyDefinition, CancellationToken, Task<BacktestLeaderContext?>>? leaders = null)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == strategyId, ct);
@@ -68,10 +70,15 @@ public sealed class AdaptationService(IDbContextFactory<AppDbContext> dbFactory,
             .DistinctBy(v => (v.StopLossPercent, v.TrailingStopPercent))
             .ToList();
 
+        // Leader-gated strategies replay with the same prior-session leaders the Monitor would use;
+        // without them LeaderConfirms/NotLeaderDiverging block every variant and the bandit learns nothing.
+        BacktestLeaderContext? leaderContext = null;
+        if (leaders is not null && LeaderContextCache.Uses(baseDef)) leaderContext = await leaders(baseDef, ct);
+
         var etDate = EasternTime.FromUtc(nowUtc).ToString("yyyy-MM-dd");
         int seed = HashCode.Combine(strategy.Id, etDate, closed.Count);
         var eval = ShadowEvaluator.Evaluate(closed, nowUtc, variants,
-            (v, bars) => ShadowTrades(Adapted(baseDef, v), bars), seed);
+            (v, bars) => ShadowTrades(Adapted(baseDef, v), bars, leaderContext), seed);
         var chosen = eval.Chosen;
 
         var decision = new AdaptationDecision
@@ -164,9 +171,9 @@ public sealed class AdaptationService(IDbContextFactory<AppDbContext> dbFactory,
     };
 
     /// <summary>The real strategy replayed on the closed bars; a trade the backtester closed only because the data ended is unresolved and dropped.</summary>
-    internal static IEnumerable<ShadowTrade> ShadowTrades(StrategyDefinition def, IReadOnlyList<Candle> closed)
+    internal static IEnumerable<ShadowTrade> ShadowTrades(StrategyDefinition def, IReadOnlyList<Candle> closed, BacktestLeaderContext? leaders = null)
     {
-        var report = StrategyBacktester.Run(def, closed);
+        var report = StrategyBacktester.Run(def, closed, new BacktestOptions { Leaders = leaders });
         foreach (var t in report.Trades)
         {
             if (t.ExitUtc is not { } exit || t.ExitReason == "End of session") continue;
