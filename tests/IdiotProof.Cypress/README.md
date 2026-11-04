@@ -33,6 +33,16 @@ CYPRESS_BASE_URL=https://localhost:65025 npm run run
 The condition-progress spec seeds rows straight into SQL via `sqlcmd`
 (LocalDB by default; override `IDIOTPROOF_SQL_SERVER` / `IDIOTPROOF_SQL_DB`).
 
+## Never the real Vault or database
+
+Specs register throwaway users and save their keys. With `IDIOTPROOF_FAKE_LLM=1` in
+Development the server isolates the account vault automatically at
+`%TEMP%\IdiotProof-e2e-vault` (startup prints the path), so "Save All" can never write into
+`%APPDATA%\MindAttic\Brokers` / `Tokens`, which the live Hub reads. Point it elsewhere with
+`$env:IDIOTPROOF_ACCOUNT_VAULT_DIR='C:\some\temp\dir'`; production ignores both.
+Also point SQL at a throwaway database (`$env:ConnectionStrings__IdiotProof=...;Database=IdiotProof_E2E;...`)
+so test rows never reach the database the live Monitor reads.
+
 ## The fake-LLM seam
 
 The Describe/AI-assist flow calls the LLM **server-side**

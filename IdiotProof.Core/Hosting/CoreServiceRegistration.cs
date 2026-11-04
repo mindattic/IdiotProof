@@ -34,6 +34,9 @@ public sealed class CoreHostOptions
 
     /// <summary>E2E seam (Development only): LegionClient talks to <see cref="FakeLlmHandler"/>.</summary>
     public bool UseFakeLlm { get; init; }
+
+    /// <summary>When set, account secrets go to this directory instead of the real Vault (see <see cref="AccountSecretVault.ResolveIsolatedDirectory"/>).</summary>
+    public string? AccountVaultDirectory { get; init; }
 }
 
 /// <summary>
@@ -112,7 +115,9 @@ public static class CoreServiceRegistration
 
         // ── Keys, risk (broker routing is AddIdiotProofTrading: it needs the BrokerRouter) ──
         // Account secrets live only in MindAttic.Vault (IP-T330); SQL keeps the non-secret choices.
-        services.AddSingleton(_ => new AccountSecretVault(configuration));
+        services.AddSingleton(_ => options.AccountVaultDirectory is { } vaultDir
+            ? AccountSecretVault.Isolated(vaultDir, configuration)
+            : new AccountSecretVault(configuration));
         services.AddSingleton<UserKeyService>();
         services.AddSingleton<VaultSecretMigration>();
         services.AddSingleton<UserClaudeKeyResolver>();

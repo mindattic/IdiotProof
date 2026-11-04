@@ -54,6 +54,29 @@ public sealed class AccountSecretVault
         this.owner = owner;
     }
 
+    /// <summary>Env var (Development only) that roots the account vault in a throwaway directory.</summary>
+    public const string IsolatedDirectoryEnvVar = "IDIOTPROOF_ACCOUNT_VAULT_DIR";
+
+    /// <summary>A vault whose Brokers and Tokens buckets live under <paramref name="directory"/>, never the real APPDATA Vault.</summary>
+    public static AccountSecretVault Isolated(string directory, IConfiguration? configuration) =>
+        new(new BrokerCredentialStore(Path.Combine(directory, "Brokers")),
+            new TokenStore(Path.Combine(directory, "Tokens")),
+            configuration, () => VaultOwner.Resolve(configuration));
+
+    /// <summary>
+    /// Where a web host's account vault should be isolated, or null for the real Vault. Production
+    /// always gets the real Vault. In Development an explicit <see cref="IsolatedDirectoryEnvVar"/>
+    /// wins; otherwise the fake-LLM e2e seam isolates automatically, so a UI test run can never
+    /// write throwaway users' keys into the operator's Vault that the live Hub reads.
+    /// </summary>
+    public static string? ResolveIsolatedDirectory(bool isDevelopment, bool useFakeLlm, Func<string, string?> getEnvironmentVariable)
+    {
+        if (!isDevelopment) return null;
+        var explicitDir = getEnvironmentVariable(IsolatedDirectoryEnvVar);
+        if (!string.IsNullOrWhiteSpace(explicitDir)) return explicitDir.Trim();
+        return useFakeLlm ? Path.Combine(Path.GetTempPath(), "IdiotProof-e2e-vault") : null;
+    }
+
     /// <summary>The machine owner whose Alpaca pairs are the canonical <c>alpaca-paper|live</c> entries; null when unknown.</summary>
     public Guid? Owner => owner();
 

@@ -84,14 +84,21 @@ builder.Services
 // Strategy evaluation AND order execution are owned by the Monitor (IP-LAW-10). This host
 // writes user edits to SQL; the Monitor re-reads them every tick. Do not resurrect a second
 // evaluation loop here.
+// E2E seam: IDIOTPROOF_FAKE_LLM=1 (Development only) re-points the LegionClient transport at
+// FakeLlmHandler so Cypress runs are deterministic and never call a vendor (cy.intercept can't
+// see server-side HTTP). Pair it with a dummy ClaudeApiKey env var. The same seam isolates the
+// account vault, so test users' keys never land in the operator's real Vault.
+var useFakeLlm = builder.Environment.IsDevelopment()
+    && Environment.GetEnvironmentVariable("IDIOTPROOF_FAKE_LLM") == "1";
+var accountVaultDir = AccountSecretVault.ResolveIsolatedDirectory(
+    builder.Environment.IsDevelopment(), useFakeLlm, Environment.GetEnvironmentVariable);
+if (accountVaultDir is not null)
+    Console.WriteLine($"[IdiotProof] Account vault isolated at {accountVaultDir} (not the real MindAttic Vault).");
 builder.Services.AddIdiotProofCore(builder.Configuration, storageProvider, new CoreHostOptions
 {
     IsProduction = !builder.Environment.IsDevelopment(),
-    // E2E seam: IDIOTPROOF_FAKE_LLM=1 (Development only) re-points the LegionClient transport at
-    // FakeLlmHandler so Cypress runs are deterministic and never call a vendor (cy.intercept can't
-    // see server-side HTTP). Pair it with a dummy ClaudeApiKey env var.
-    UseFakeLlm = builder.Environment.IsDevelopment()
-        && Environment.GetEnvironmentVariable("IDIOTPROOF_FAKE_LLM") == "1",
+    UseFakeLlm = useFakeLlm,
+    AccountVaultDirectory = accountVaultDir,
 });
 
 builder.Services.AddAuthorization();
