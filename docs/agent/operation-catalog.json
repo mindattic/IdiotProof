@@ -7800,6 +7800,201 @@
       }
     },
     {
+      "name": "evidence tails",
+      "noun": "evidence",
+      "verb": "tails",
+      "tool_name": "evidence_tails",
+      "summary": "Tail dependence (copulas): which symbols crash together beyond what correlation shows, and whether a crash in one predicts the next bar of the other out of sample.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence tails \u003Csymbols\u003E... [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--q \u003Cnumber\u003E] [--train \u003Cnumber\u003E] [--permutations \u003Cint\u003E] [--alpha \u003Cnumber\u003E] [--seed \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string[]",
+          "required": true,
+          "description": "Two or more tickers, e.g. SNDL MULN SPY.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET day (yyyy-MM-dd, default: 365 days before --to for day, 10 for minute).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last ET day (yyyy-MM-dd, default: today ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "timeframe",
+          "json_name": "timeframe",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "minute|day",
+          "required": false,
+          "description": "day (default) or minute.",
+          "default": "day",
+          "enum_values": [
+            "minute",
+            "day"
+          ]
+        },
+        {
+          "name": "q",
+          "json_name": "q",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Tail quantile: a \u0027crash\u0027 is a return in the bottom q (default 0.1).",
+          "default": 0.1,
+          "enum_values": null
+        },
+        {
+          "name": "train",
+          "json_name": "train",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Share of aligned bars used to find tail-linked pairs (default 0.67); the rest is the held-out contagion test.",
+          "default": 0.67,
+          "enum_values": null
+        },
+        {
+          "name": "permutations",
+          "json_name": "permutations",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Permutations for the tail-independence test (default 999).",
+          "default": 999,
+          "enum_values": null
+        },
+        {
+          "name": "alpha",
+          "json_name": "alpha",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "False-discovery rate for both the pair screen and the holdout test (default 0.05).",
+          "default": 0.05,
+          "enum_values": null
+        },
+        {
+          "name": "seed",
+          "json_name": "seed",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Permutation seed (default 1337).",
+          "default": 1337,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence tails SNDL MULN SPY",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence tails SOXL NVDA AMD --q 0.05 --from 2025-11-01",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Tail dependence (copulas): which symbols crash together beyond what correlation shows, and whether a crash in one predicts the next bar of the other out of sample.",
+        "properties": {
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Two or more tickers, e.g. SNDL MULN SPY."
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET day (yyyy-MM-dd, default: 365 days before --to for day, 10 for minute)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last ET day (yyyy-MM-dd, default: today ET)."
+          },
+          "timeframe": {
+            "type": "string",
+            "enum": [
+              "minute",
+              "day"
+            ],
+            "description": "day (default) or minute.",
+            "default": "day"
+          },
+          "q": {
+            "type": "number",
+            "description": "Tail quantile: a \u0027crash\u0027 is a return in the bottom q (default 0.1).",
+            "default": 0.1
+          },
+          "train": {
+            "type": "number",
+            "description": "Share of aligned bars used to find tail-linked pairs (default 0.67); the rest is the held-out contagion test.",
+            "default": 0.67
+          },
+          "permutations": {
+            "type": "integer",
+            "description": "Permutations for the tail-independence test (default 999).",
+            "default": 999
+          },
+          "alpha": {
+            "type": "number",
+            "description": "False-discovery rate for both the pair screen and the holdout test (default 0.05).",
+            "default": 0.05
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Permutation seed (default 1337).",
+            "default": 1337
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbols"
+        ]
+      }
+    },
+    {
       "name": "evidence topology",
       "noun": "evidence",
       "verb": "topology",
@@ -8036,7 +8231,7 @@
       "summary": "Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilson CI, coverage and edge after costs.",
       "description": "Each day\u0027s model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.",
       "risk": "read",
-      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--clean \u003Cnone|rmt\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--entry \u003Cnext-open|close\u003E] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
+      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--clean \u003Cnone|rmt\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--entry \u003Cnext-open|close\u003E] [--allow-mixed-feeds] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -8270,6 +8465,18 @@
           ]
         },
         {
+          "name": "allow-mixed-feeds",
+          "json_name": "allow_mixed_feeds",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Report a verdict even when the bars mix SIP and IEX tiers (refused by default: IEX prices and volumes are one exchange\u0027s, not the consolidated tape).",
+          "default": false,
+          "enum_values": null
+        },
+        {
           "name": "shares",
           "json_name": "shares",
           "kind": "option",
@@ -8459,6 +8666,11 @@
             ],
             "description": "next-open (default: a call fills at the next bar\u0027s open, immune to bid-ask bounce) or close (fills at the signal bar\u0027s close; a diagnostic that inflates mean-reversion edge on low-priced names).",
             "default": "next-open"
+          },
+          "allow_mixed_feeds": {
+            "type": "boolean",
+            "description": "Report a verdict even when the bars mix SIP and IEX tiers (refused by default: IEX prices and volumes are one exchange\u0027s, not the consolidated tape).",
+            "default": false
           },
           "shares": {
             "type": "number",
