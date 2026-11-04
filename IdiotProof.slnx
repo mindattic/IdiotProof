@@ -4,6 +4,7 @@
     <Project Path="IdiotProof.Core/IdiotProof.Core.csproj" />
     <Project Path="IdiotProof.DataFeeds/IdiotProof.DataFeeds.csproj" />
     <Project Path="IdiotProof.Engine/IdiotProof.Engine.csproj" />
+    <Project Path="IdiotProof.Evidence/IdiotProof.Evidence.csproj" />
     <Project Path="IdiotProof.Indicators/IdiotProof.Indicators.csproj" />
     <Project Path="IdiotProof.Models/IdiotProof.Models.csproj" />
     <Project Path="IdiotProof.Operations/IdiotProof.Operations.csproj" />
@@ -15,6 +16,7 @@
     <Project Path="IdiotProof.Cli.Tests/IdiotProof.Cli.Tests.csproj" />
     <Project Path="IdiotProof.Core.Tests/IdiotProof.Core.Tests.csproj" />
     <Project Path="IdiotProof.Engine.Tests/IdiotProof.Engine.Tests.csproj" />
+    <Project Path="IdiotProof.Evidence.Tests/IdiotProof.Evidence.Tests.csproj" />
     <Project Path="IdiotProof.Indicators.Tests/IdiotProof.Indicators.Tests.csproj" />
     <Project Path="IdiotProof.Mcp.Tests/IdiotProof.Mcp.Tests.csproj" />
     <Project Path="IdiotProof.Monitor.Tests/IdiotProof.Monitor.Tests.csproj" />
