@@ -5178,6 +5178,1027 @@
       }
     },
     {
+      "name": "evidence graph",
+      "noun": "evidence",
+      "verb": "graph",
+      "tool_name": "evidence_graph",
+      "summary": "Correlation graph across symbols (lag 0 or 1) and the hop-decayed influence of a shock at a source symbol.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence graph \u003Csymbols\u003E... [--source \u003Cstring\u003E] [--lag \u003Cint\u003E] [--min-corr \u003Cnumber\u003E] [--beta \u003Cnumber\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--session \u003Crth|all\u003E]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string[]",
+          "required": true,
+          "description": "Two or more tickers, e.g. SNDL TLRY CGC ACB.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "source",
+          "json_name": "source",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Symbol whose shock is propagated (default: the first symbol).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "lag",
+          "json_name": "lag",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "0 = moves together (default); 1 = the source\u0027s bar predicts the other\u0027s next bar.",
+          "default": 0,
+          "enum_values": null
+        },
+        {
+          "name": "min-corr",
+          "json_name": "min_corr",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Least |correlation| that makes an edge (default 0.2).",
+          "default": 0.2,
+          "enum_values": null
+        },
+        {
+          "name": "beta",
+          "json_name": "beta",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Per-hop decay of influence, 0-1 exclusive (default 0.5).",
+          "default": 0.5,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET day (yyyy-MM-dd, default: 5 days before --to for minute, 120 for day).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last ET day (yyyy-MM-dd, default: today ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "timeframe",
+          "json_name": "timeframe",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "minute|day",
+          "required": false,
+          "description": "minute (default) or day.",
+          "default": "minute",
+          "enum_values": [
+            "minute",
+            "day"
+          ]
+        },
+        {
+          "name": "session",
+          "json_name": "session",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "rth|all",
+          "required": false,
+          "description": "rth (default) or all.",
+          "default": "rth",
+          "enum_values": [
+            "rth",
+            "all"
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence graph SNDL TLRY CGC ACB --source TLRY",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence graph SPY IWM MULN --lag 1 --source SPY",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Correlation graph across symbols (lag 0 or 1) and the hop-decayed influence of a shock at a source symbol.",
+        "properties": {
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Two or more tickers, e.g. SNDL TLRY CGC ACB."
+          },
+          "source": {
+            "type": "string",
+            "description": "Symbol whose shock is propagated (default: the first symbol)."
+          },
+          "lag": {
+            "type": "integer",
+            "description": "0 = moves together (default); 1 = the source\u0027s bar predicts the other\u0027s next bar.",
+            "default": 0
+          },
+          "min_corr": {
+            "type": "number",
+            "description": "Least |correlation| that makes an edge (default 0.2).",
+            "default": 0.2
+          },
+          "beta": {
+            "type": "number",
+            "description": "Per-hop decay of influence, 0-1 exclusive (default 0.5).",
+            "default": 0.5
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET day (yyyy-MM-dd, default: 5 days before --to for minute, 120 for day)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last ET day (yyyy-MM-dd, default: today ET)."
+          },
+          "timeframe": {
+            "type": "string",
+            "enum": [
+              "minute",
+              "day"
+            ],
+            "description": "minute (default) or day.",
+            "default": "minute"
+          },
+          "session": {
+            "type": "string",
+            "enum": [
+              "rth",
+              "all"
+            ],
+            "description": "rth (default) or all.",
+            "default": "rth"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbols"
+        ]
+      }
+    },
+    {
+      "name": "evidence label",
+      "noun": "evidence",
+      "verb": "label",
+      "tool_name": "evidence_label",
+      "summary": "Forward-return distribution for a symbol (up/down/flat rates, quantiles, excursions): the base rate a pattern must beat.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence label \u003Csymbol\u003E [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--horizon \u003Cint\u003E] [--timeframe \u003Cminute|day\u003E] [--dead-band \u003Cnumber\u003E] [--session \u003Crth|all\u003E]",
+      "parameters": [
+        {
+          "name": "symbol",
+          "json_name": "symbol",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "Ticker, e.g. SNDL.",
+          "default": "",
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET day (yyyy-MM-dd, default: 20 days before --to).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last ET day (yyyy-MM-dd, default: yesterday ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "horizon",
+          "json_name": "horizon",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Bars ahead to measure (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "timeframe",
+          "json_name": "timeframe",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "minute|day",
+          "required": false,
+          "description": "minute (default) or day.",
+          "default": "minute",
+          "enum_values": [
+            "minute",
+            "day"
+          ]
+        },
+        {
+          "name": "dead-band",
+          "json_name": "dead_band",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Absolute return counted as flat, as a fraction (default 0.001).",
+          "default": 0.001,
+          "enum_values": null
+        },
+        {
+          "name": "session",
+          "json_name": "session",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "rth|all",
+          "required": false,
+          "description": "rth (default) or all.",
+          "default": "rth",
+          "enum_values": [
+            "rth",
+            "all"
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence label SNDL --from 2026-10-01 --to 2026-10-31 --horizon 10",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence label AAPL --timeframe day --from 2026-01-02 --horizon 5",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Forward-return distribution for a symbol (up/down/flat rates, quantiles, excursions): the base rate a pattern must beat.",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Ticker, e.g. SNDL.",
+            "default": ""
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET day (yyyy-MM-dd, default: 20 days before --to)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last ET day (yyyy-MM-dd, default: yesterday ET)."
+          },
+          "horizon": {
+            "type": "integer",
+            "description": "Bars ahead to measure (default 5).",
+            "default": 5
+          },
+          "timeframe": {
+            "type": "string",
+            "enum": [
+              "minute",
+              "day"
+            ],
+            "description": "minute (default) or day.",
+            "default": "minute"
+          },
+          "dead_band": {
+            "type": "number",
+            "description": "Absolute return counted as flat, as a fraction (default 0.001).",
+            "default": 0.001
+          },
+          "session": {
+            "type": "string",
+            "enum": [
+              "rth",
+              "all"
+            ],
+            "description": "rth (default) or all.",
+            "default": "rth"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbol"
+        ]
+      }
+    },
+    {
+      "name": "evidence regime",
+      "noun": "evidence",
+      "verb": "regime",
+      "tool_name": "evidence_regime",
+      "summary": "Per-symbol regime: Hurst, variance ratio (z-tested vs random walk), efficiency ratio, realized vol, lag-1 autocorrelation.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence regime \u003Csymbols\u003E... [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--q \u003Cint\u003E] [--session \u003Crth|all\u003E]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string[]",
+          "required": true,
+          "description": "One or more tickers, e.g. SNDL MULN.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET day (yyyy-MM-dd, default: 5 days before --to for minute, 120 for day).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last ET day (yyyy-MM-dd, default: today ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "timeframe",
+          "json_name": "timeframe",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "minute|day",
+          "required": false,
+          "description": "minute (default) or day.",
+          "default": "minute",
+          "enum_values": [
+            "minute",
+            "day"
+          ]
+        },
+        {
+          "name": "q",
+          "json_name": "q",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Variance-ratio aggregation in bars (default 4).",
+          "default": 4,
+          "enum_values": null
+        },
+        {
+          "name": "session",
+          "json_name": "session",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "rth|all",
+          "required": false,
+          "description": "rth (default) or all.",
+          "default": "rth",
+          "enum_values": [
+            "rth",
+            "all"
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence regime SNDL MULN",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence regime SPY --timeframe day --from 2026-05-01",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Per-symbol regime: Hurst, variance ratio (z-tested vs random walk), efficiency ratio, realized vol, lag-1 autocorrelation.",
+        "properties": {
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "One or more tickers, e.g. SNDL MULN."
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET day (yyyy-MM-dd, default: 5 days before --to for minute, 120 for day)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last ET day (yyyy-MM-dd, default: today ET)."
+          },
+          "timeframe": {
+            "type": "string",
+            "enum": [
+              "minute",
+              "day"
+            ],
+            "description": "minute (default) or day.",
+            "default": "minute"
+          },
+          "q": {
+            "type": "integer",
+            "description": "Variance-ratio aggregation in bars (default 4).",
+            "default": 4
+          },
+          "session": {
+            "type": "string",
+            "enum": [
+              "rth",
+              "all"
+            ],
+            "description": "rth (default) or all.",
+            "default": "rth"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbols"
+        ]
+      }
+    },
+    {
+      "name": "evidence similar",
+      "noun": "evidence",
+      "verb": "similar",
+      "tool_name": "evidence_similar",
+      "summary": "LSH look-alikes of a symbol\u0027s latest bar window from earlier sessions, with what each did next.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence similar \u003Csymbol\u003E [--date \u003Cdate\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--k \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--session \u003Crth|all\u003E]",
+      "parameters": [
+        {
+          "name": "symbol",
+          "json_name": "symbol",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "Ticker, e.g. SNDL.",
+          "default": "",
+          "enum_values": null
+        },
+        {
+          "name": "date",
+          "json_name": "date",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "ET day whose latest window is matched (yyyy-MM-dd, default: today ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "window",
+          "json_name": "window",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Bars per pattern window (default 20).",
+          "default": 20,
+          "enum_values": null
+        },
+        {
+          "name": "horizon",
+          "json_name": "horizon",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Bars ahead each look-alike\u0027s outcome is measured (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "train-days",
+          "json_name": "train_days",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Prior sessions searched for look-alikes (default 20).",
+          "default": 20,
+          "enum_values": null
+        },
+        {
+          "name": "k",
+          "json_name": "k",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Look-alikes to list (default 15).",
+          "default": 15,
+          "enum_values": null
+        },
+        {
+          "name": "min-similarity",
+          "json_name": "min_similarity",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Least cosine similarity (default 0.8).",
+          "default": 0.8,
+          "enum_values": null
+        },
+        {
+          "name": "session",
+          "json_name": "session",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "rth|all",
+          "required": false,
+          "description": "rth (default) or all.",
+          "default": "rth",
+          "enum_values": [
+            "rth",
+            "all"
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence similar SNDL",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence similar MULN --date 2026-10-30 --window 30 --horizon 10",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "LSH look-alikes of a symbol\u0027s latest bar window from earlier sessions, with what each did next.",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Ticker, e.g. SNDL.",
+            "default": ""
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "ET day whose latest window is matched (yyyy-MM-dd, default: today ET)."
+          },
+          "window": {
+            "type": "integer",
+            "description": "Bars per pattern window (default 20).",
+            "default": 20
+          },
+          "horizon": {
+            "type": "integer",
+            "description": "Bars ahead each look-alike\u0027s outcome is measured (default 5).",
+            "default": 5
+          },
+          "train_days": {
+            "type": "integer",
+            "description": "Prior sessions searched for look-alikes (default 20).",
+            "default": 20
+          },
+          "k": {
+            "type": "integer",
+            "description": "Look-alikes to list (default 15).",
+            "default": 15
+          },
+          "min_similarity": {
+            "type": "number",
+            "description": "Least cosine similarity (default 0.8).",
+            "default": 0.8
+          },
+          "session": {
+            "type": "string",
+            "enum": [
+              "rth",
+              "all"
+            ],
+            "description": "rth (default) or all.",
+            "default": "rth"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbol"
+        ]
+      }
+    },
+    {
+      "name": "evidence walkforward",
+      "noun": "evidence",
+      "verb": "walkforward",
+      "tool_name": "evidence_walkforward",
+      "summary": "Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilson CI, coverage and edge after costs.",
+      "description": "Each day\u0027s model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.",
+      "risk": "read",
+      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string[]",
+          "required": false,
+          "description": "Tickers to test, e.g. SNDL MULN (omit when using --universe).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "universe",
+          "json_name": "universe",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "none|penny",
+          "required": false,
+          "description": "penny: each day\u0027s point-in-time under-$5 universe (prior-day close, dollar-volume floor), drawn from active AND delisted Alpaca equities.",
+          "default": "none",
+          "enum_values": [
+            "none",
+            "penny"
+          ]
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": true,
+          "description": "First ET day to evaluate (yyyy-MM-dd).",
+          "default": "0001-01-01",
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last ET day to evaluate (yyyy-MM-dd, default: yesterday ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "model",
+          "json_name": "model",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "analog",
+          "required": false,
+          "description": "analog: LSH look-alike windows vote on direction (the only model so far).",
+          "default": "analog",
+          "enum_values": [
+            "analog"
+          ]
+        },
+        {
+          "name": "window",
+          "json_name": "window",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Bars per pattern window (default 20).",
+          "default": 20,
+          "enum_values": null
+        },
+        {
+          "name": "horizon",
+          "json_name": "horizon",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Bars ahead the call is scored on; calls are spaced this far apart so outcomes never overlap (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "train-days",
+          "json_name": "train_days",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Prior sessions each day\u0027s model trains on (default 20).",
+          "default": 20,
+          "enum_values": null
+        },
+        {
+          "name": "min-similarity",
+          "json_name": "min_similarity",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Least cosine similarity for a look-alike to count (default 0.8).",
+          "default": 0.8,
+          "enum_values": null
+        },
+        {
+          "name": "min-neighbors",
+          "json_name": "min_neighbors",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Fewest look-alikes needed to make a call (default 8).",
+          "default": 8,
+          "enum_values": null
+        },
+        {
+          "name": "min-agreement",
+          "json_name": "min_agreement",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Smoothed share of look-alikes that must agree to call (default 0.6).",
+          "default": 0.6,
+          "enum_values": null
+        },
+        {
+          "name": "cost",
+          "json_name": "cost",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Round-trip cost per call as a fraction (default 0.003 = 0.3%, a sub-$5 spread\u002Bslippage estimate).",
+          "default": 0.003,
+          "enum_values": null
+        },
+        {
+          "name": "volume",
+          "json_name": "volume",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Include the volume shape in the pattern vector.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "session",
+          "json_name": "session",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "rth|all",
+          "required": false,
+          "description": "rth (default) or all (adds pre/after-hours bars).",
+          "default": "rth",
+          "enum_values": [
+            "rth",
+            "all"
+          ]
+        },
+        {
+          "name": "max-symbols-per-day",
+          "json_name": "max_symbols_per_day",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "With --universe, keep each day\u0027s most liquid N members (default 30).",
+          "default": 30,
+          "enum_values": null
+        },
+        {
+          "name": "max-candidates",
+          "json_name": "max_candidates",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "With --universe, most candidate symbols screened (default 4000; inactive first, then active).",
+          "default": 4000,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence walkforward --universe penny --from 2026-08-03 --to 2026-10-30",
+          "description": "Penny-stock (\u003C $5) test across the point-in-time universe."
+        },
+        {
+          "command_line": "idiotproof evidence walkforward SNDL --from 2026-10-01 --horizon 10",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilson CI, coverage and edge after costs.",
+        "properties": {
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tickers to test, e.g. SNDL MULN (omit when using --universe)."
+          },
+          "universe": {
+            "type": "string",
+            "enum": [
+              "none",
+              "penny"
+            ],
+            "description": "penny: each day\u0027s point-in-time under-$5 universe (prior-day close, dollar-volume floor), drawn from active AND delisted Alpaca equities.",
+            "default": "none"
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET day to evaluate (yyyy-MM-dd).",
+            "default": "0001-01-01"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last ET day to evaluate (yyyy-MM-dd, default: yesterday ET)."
+          },
+          "model": {
+            "type": "string",
+            "enum": [
+              "analog"
+            ],
+            "description": "analog: LSH look-alike windows vote on direction (the only model so far).",
+            "default": "analog"
+          },
+          "window": {
+            "type": "integer",
+            "description": "Bars per pattern window (default 20).",
+            "default": 20
+          },
+          "horizon": {
+            "type": "integer",
+            "description": "Bars ahead the call is scored on; calls are spaced this far apart so outcomes never overlap (default 5).",
+            "default": 5
+          },
+          "train_days": {
+            "type": "integer",
+            "description": "Prior sessions each day\u0027s model trains on (default 20).",
+            "default": 20
+          },
+          "min_similarity": {
+            "type": "number",
+            "description": "Least cosine similarity for a look-alike to count (default 0.8).",
+            "default": 0.8
+          },
+          "min_neighbors": {
+            "type": "integer",
+            "description": "Fewest look-alikes needed to make a call (default 8).",
+            "default": 8
+          },
+          "min_agreement": {
+            "type": "number",
+            "description": "Smoothed share of look-alikes that must agree to call (default 0.6).",
+            "default": 0.6
+          },
+          "cost": {
+            "type": "number",
+            "description": "Round-trip cost per call as a fraction (default 0.003 = 0.3%, a sub-$5 spread\u002Bslippage estimate).",
+            "default": 0.003
+          },
+          "volume": {
+            "type": "boolean",
+            "description": "Include the volume shape in the pattern vector.",
+            "default": false
+          },
+          "session": {
+            "type": "string",
+            "enum": [
+              "rth",
+              "all"
+            ],
+            "description": "rth (default) or all (adds pre/after-hours bars).",
+            "default": "rth"
+          },
+          "max_symbols_per_day": {
+            "type": "integer",
+            "description": "With --universe, keep each day\u0027s most liquid N members (default 30).",
+            "default": 30
+          },
+          "max_candidates": {
+            "type": "integer",
+            "description": "With --universe, most candidate symbols screened (default 4000; inactive first, then active).",
+            "default": 4000
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "from"
+        ]
+      }
+    },
+    {
       "name": "gapper apply-tuned",
       "noun": "gapper",
       "verb": "apply-tuned",
@@ -6838,7 +7859,7 @@
       "noun": "hub",
       "verb": "ping",
       "tool_name": "hub_ping",
-      "summary": "Check the Hub is up and show its clock in ET.",
+      "summary": "Check the Hub is up, show its clock in ET, and whether its DB and Monitor are healthy.",
       "description": null,
       "risk": "read",
       "usage": "idiotproof hub ping",
@@ -6852,7 +7873,7 @@
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "description": "Check the Hub is up and show its clock in ET.",
+        "description": "Check the Hub is up, show its clock in ET, and whether its DB and Monitor are healthy.",
         "properties": {},
         "additionalProperties": false
       }

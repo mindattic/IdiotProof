@@ -4,6 +4,9 @@ using IdiotProof.Models;
 using IdiotProof.Engine.Settings;
 
 using IdiotProof.Core.Services;
+using IdiotProof.Core.Data;
+using IdiotProof.Core.Evidence;
+using Microsoft.EntityFrameworkCore;
 namespace IdiotProof.Core.Hosting;
 
 /// <summary>
@@ -25,6 +28,8 @@ public static class TradingServiceRegistration
     public static IServiceCollection AddIdiotProofTrading(this IServiceCollection services)
     {
         services.AddSingleton<IMarketDataFeed>(sp => CreateFeed(sp.GetRequiredService<AppSettings>()));
+        services.AddSingleton<IHistoricalBarStore>(sp => new HistoricalBarStore(
+            sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), sp.GetRequiredService<IMarketDataFeed>()));
         services.AddSingleton(sp => CreateRouter(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<UserBrokerResolver>();
         // Every order — Monitor, manual, options, flatten — goes through the gateway.
