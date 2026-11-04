@@ -44,6 +44,20 @@ public sealed class AdaptationService(IDbContextFactory<AppDbContext> dbFactory,
     public Task SetOptInAsync(Guid strategyId, bool on, CancellationToken ct = default) =>
         settings.SetAsync(OptInKey(strategyId), on ? "true" : "false", ct);
 
+    public const string ChangePointThresholdKey = "adaptation.changePointThreshold";
+
+    /// <summary>
+    /// Gate options used when the caller passes none; BOCPD regime-change resets apply only when the
+    /// <see cref="ChangePointThresholdKey"/> setting holds a probability in (0, 1).
+    /// </summary>
+    public async Task<InformationGateOptions> GateOptionsAsync(CancellationToken ct = default)
+    {
+        var threshold = await settings.GetDecimalAsync(ChangePointThresholdKey, ct);
+        return threshold is > 0 and < 1
+            ? new InformationGateOptions { ChangePointThreshold = (double)threshold.Value }
+            : new InformationGateOptions();
+    }
+
     public async Task<AdaptationResult> AdaptAsync(Guid strategyId, IReadOnlyList<Candle> todaysCandles,
         DateTime periodStartUtc, DateTime nowUtc, InformationGateOptions? gate = null, CancellationToken ct = default,
         Func<StrategyDefinition, CancellationToken, Task<BacktestLeaderContext?>>? leaders = null)
@@ -59,10 +73,13 @@ public sealed class AdaptationService(IDbContextFactory<AppDbContext> dbFactory,
         if (!await IsOptedInAsync(strategy.Id, ct)) return new(Refused, "owner has not opted this strategy in");
         if (string.IsNullOrWhiteSpace(strategy.ScriptJson)) return new(Refused, "strategy has no ScriptJson");
 
+        gate ??= await GateOptionsAsync(ct);
         var check = InformationGate.Check(todaysCandles, periodStartUtc, nowUtc, gate);
         if (!check.Ready) return new(Refused, $"waiting for information: {check.Reason}");
 
-        var closed = InformationGate.ClosedBars(todaysCandles.Where(c => c.StartUtc >= periodStartUtc), nowUtc);
+        // After a detected regime change, only the new regime's bars are evidence.
+        var evidenceStart = check.EvidenceStartUtc ?? periodStartUtc;
+        var closed = InformationGate.ClosedBars(todaysCandles.Where(c => c.StartUtc >= evidenceStart), nowUtc);
         var baseDef = StrategyJson.Deserialize(strategy.ScriptJson);
         var derived = AdaptiveParameterDeriver.Derive(closed);
         var variants = AdaptiveParameterDeriver.VariantsAround(derived)
