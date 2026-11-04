@@ -33,6 +33,9 @@ public sealed record EvidenceWalkForwardArgs
     [Option("edge", Description = "With --model leaders, how leader edges are measured: correlation (default) or te (transfer entropy vs shuffled surrogates).")]
     public EvidenceEdge Edge { get; init; } = EvidenceEdge.Correlation;
 
+    [Option("clean", Description = "With --model leaders and correlation edges: none (default) or rmt, keeping only lag-1 correlations above the random-matrix noise floor 2.5/sqrt(T).")]
+    public EvidenceClean Clean { get; init; } = EvidenceClean.None;
+
     [Option("leader-hops", Description = "With --model leaders, most links between a leader and the symbol (default 2).")]
     public int LeaderHops { get; init; } = 2;
 
@@ -94,6 +97,10 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
         if (args.Window < 3 || args.Horizon < 1 || args.TrainDays < 1) return OperationResult.Usage("--window must be >= 3, --horizon and --train-days >= 1.");
         if (args.MinAgreement is <= 0.5 or > 1) return OperationResult.Usage("--min-agreement must be in (0.5, 1].");
         if (args.Cost is < 0) return OperationResult.Usage("--cost must be >= 0.");
+        if (args.Clean == EvidenceClean.Rmt && args.Model != EvidenceModel.Leaders)
+            return OperationResult.Usage("--clean rmt applies to --model leaders.");
+        if (args.Clean == EvidenceClean.Rmt && args.Edge == EvidenceEdge.Te)
+            return OperationResult.Usage(EvidenceSupport.CleanWithTeMessage);
         if (args.Shares <= 0) return OperationResult.Usage("--shares must be > 0.");
         if (args.Model == EvidenceModel.Leaders && (string.IsNullOrWhiteSpace(args.Leaders) || args.LeaderHops < 1 || args.LeaderMinInfluence < 0))
             return OperationResult.Usage("--model leaders needs --leaders symbols, --leader-hops >= 1 and --leader-min-influence >= 0.");
@@ -152,6 +159,7 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
             LeaderCandidates = EvidenceSupport.Symbols(args.Leaders.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
             LeaderLookback = 5, LeaderMaxHops = args.LeaderHops, LeaderMinInfluence = args.LeaderMinInfluence,
             LeaderEdge = args.Edge == EvidenceEdge.Te ? EdgeMeasure.TransferEntropy : EdgeMeasure.Correlation,
+            LeaderCleanRmt = args.Clean == EvidenceClean.Rmt,
         };
         var report = await new EvidenceWalkForward(store).RunAsync(plan, settings, ctx.CancellationToken);
         var o = report.Overall;
@@ -204,7 +212,7 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
 
         var block = new KeyValueBlock()
             .Add("model", args.Model == EvidenceModel.Leaders
-                ? $"leaders: among {string.Join(",", settings.LeaderCandidates)}, within {args.LeaderHops} hops, |influence| >= {args.LeaderMinInfluence}, move over {settings.LeaderLookback} bars, horizon {args.Horizon}, discovered on {args.TrainDays} prior sessions, {(args.Edge == EvidenceEdge.Te ? "transfer-entropy" : "lag-1 correlation")} edges"
+                ? $"leaders: among {string.Join(",", settings.LeaderCandidates)}, within {args.LeaderHops} hops, |influence| >= {args.LeaderMinInfluence}, move over {settings.LeaderLookback} bars, horizon {args.Horizon}, discovered on {args.TrainDays} prior sessions, {(args.Edge == EvidenceEdge.Te ? "transfer-entropy" : args.Clean == EvidenceClean.Rmt ? "RMT-cleaned lag-1 correlation" : "lag-1 correlation")} edges"
                 : $"{data.Model}: window {args.Window}, horizon {args.Horizon}, train {args.TrainDays} sessions, sim >= {args.MinSimilarity}, >= {args.MinNeighbors} neighbors, agree >= {args.MinAgreement}")
             .Add("range", $"{args.From:yyyy-MM-dd} .. {to:yyyy-MM-dd} ET ({args.Session.ToString().ToLowerInvariant()})" +
                  (args.Universe == EvidenceUniverse.Penny ? $", penny universe on {universeDays} days from {candidateCount} candidates ({inactiveCandidates} inactive)" : $", {plan.Count} symbol(s)"))

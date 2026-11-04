@@ -1392,7 +1392,7 @@ Examples:
 ```text
 Correlation graph across symbols (lag 0 or 1) and the hop-decayed influence of a shock at a source symbol.
 
-Usage: idiotproof evidence graph <symbols>... [--source <string>] [--lag <int>] [--edge <correlation|te>] [--alpha <number>] [--min-corr <number>] [--beta <number>] [--from <date>] [--to <date>] [--timeframe <minute|day>] [--session <rth|all>]
+Usage: idiotproof evidence graph <symbols>... [--source <string>] [--lag <int>] [--edge <correlation|te>] [--alpha <number>] [--clean <none|rmt>] [--min-corr <number>] [--beta <number>] [--from <date>] [--to <date>] [--timeframe <minute|day>] [--session <rth|all>]
 Risk: read
 
 Parameters:
@@ -1401,6 +1401,7 @@ Parameters:
       --lag <int>               0 = moves together (default); 1 = the source's bar predicts the other's next bar. (default: 0)
       --edge <correlation|te>   correlation (default) or te: transfer entropy beating shuffled surrogates (directional, implies --lag 1). (default: correlation)
       --alpha <number>          With --edge te, the surrogate-test significance an edge must reach (default 0.05). (default: 0.05)
+      --clean <none|rmt>        none (default) or rmt: keep only correlation the data can tell from chance (lag 0: Marchenko-Pastur eigenvalue clipping; lag 1: the 2.5/sqrt(T) noise floor). Correlation edges only; --edge te already tests each edge against shuffled surrogates. (default: none)
       --min-corr <number>       Least |correlation| that makes an edge (default 0.2). (default: 0.2)
       --beta <number>           Per-hop decay of influence, 0-1 exclusive (default 0.5). (default: 0.5)
       --from <date>             First ET day (yyyy-MM-dd, default: 5 days before --to for minute, 120 for day).
@@ -1633,7 +1634,7 @@ Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilso
 
 Each day's model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.
 
-Usage: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
+Usage: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--clean <none|rmt>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
 Risk: read
 
 Parameters:
@@ -1644,6 +1645,7 @@ Parameters:
       --model <analog|leaders>         analog: LSH look-alike windows vote on direction. leaders: follow the influence-weighted move of the symbol's lag-1 leaders, discovered among --leaders from prior sessions only. (default: analog)
       --leaders <string>               With --model leaders, the symbols leaders are discovered among (default SPY,QQQ,IWM). (default: SPY,QQQ,IWM)
       --edge <correlation|te>          With --model leaders, how leader edges are measured: correlation (default) or te (transfer entropy vs shuffled surrogates). (default: correlation)
+      --clean <none|rmt>               With --model leaders and correlation edges: none (default) or rmt, keeping only lag-1 correlations above the random-matrix noise floor 2.5/sqrt(T). (default: none)
       --leader-hops <int>              With --model leaders, most links between a leader and the symbol (default 2). (default: 2)
       --leader-min-influence <number>  With --model leaders, least |influence| a leader needs to count (default 0.05). (default: 0.05)
       --window <int>                   Bars per pattern window (default 20). (default: 20)

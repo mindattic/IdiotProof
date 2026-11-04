@@ -21,6 +21,9 @@ public sealed record EvidenceGraphArgs
     [Option("alpha", Description = "With --edge te, the surrogate-test significance an edge must reach (default 0.05).")]
     public double Alpha { get; init; } = 0.05;
 
+    [Option("clean", Description = "none (default) or rmt: keep only correlation the data can tell from chance (lag 0: Marchenko-Pastur eigenvalue clipping; lag 1: the 2.5/sqrt(T) noise floor). Correlation edges only; --edge te already tests each edge against shuffled surrogates.")]
+    public EvidenceClean Clean { get; init; } = EvidenceClean.None;
+
     [Option("min-corr", Description = "Least |correlation| that makes an edge (default 0.2).")]
     public double MinCorr { get; init; } = 0.2;
 
@@ -54,6 +57,8 @@ public sealed class EvidenceGraphOperation : IOperation<EvidenceGraphArgs>
         if (args.Alpha is <= 0 or >= 1) return OperationResult.Usage("--alpha must be between 0 and 1 (exclusive).");
         bool te = args.Edge == EvidenceEdge.Te;
         int lag = te ? 1 : args.Lag;
+        bool rmt = args.Clean == EvidenceClean.Rmt;
+        if (te && rmt) return OperationResult.Usage(EvidenceSupport.CleanWithTeMessage);
         if (args.Beta is <= 0 or >= 1) return OperationResult.Usage("--beta must be between 0 and 1 (exclusive).");
         var source = (args.Source ?? symbols[0]).Trim().ToUpperInvariant();
         if (!symbols.Contains(source)) return OperationResult.Usage($"--source {source} is not one of the symbols.");
@@ -82,7 +87,9 @@ public sealed class EvidenceGraphOperation : IOperation<EvidenceGraphArgs>
             returns[s] = list.ToArray();
         }
 
-        var graph = te ? InfluenceGraph.FromTransferEntropy(returns, alpha: args.Alpha) : InfluenceGraph.FromReturns(returns, lag, args.MinCorr);
+        var graph = te ? InfluenceGraph.FromTransferEntropy(returns, alpha: args.Alpha)
+            : rmt ? InfluenceGraph.FromCleanedReturns(returns, lag, args.MinCorr)
+            : InfluenceGraph.FromReturns(returns, lag, args.MinCorr);
         var influence = graph.Influence(source, args.Beta);
         var edges = new List<object>();
         var edgeTable = new TextTable { MaxWidth = ctx.Width }.Column("from").Column("to").Column(te ? "te bits" : "corr", Align.Right);
@@ -101,9 +108,10 @@ public sealed class EvidenceGraphOperation : IOperation<EvidenceGraphArgs>
         var infTable = new TextTable { MaxWidth = ctx.Width }.Column("symbol").Column("influence", Align.Right).Column("hops", Align.Right);
         foreach (var r in infRows) infTable.Row(r.Symbol, r.Influence.ToString("+0.000;-0.000"), r.Hops < 0 ? "—" : r.Hops.ToString());
 
-        var data = new { From = from, To = to, Lag = lag, Edge = te ? "te" : "correlation", args.MinCorr, args.Alpha, args.Beta, Source = source, SharedBars = shared.Count, Edges = edges, Influence = infRows };
+        var data = new { From = from, To = to, Lag = lag, Edge = te ? "te" : "correlation", Clean = rmt ? "rmt" : "none", args.MinCorr, args.Alpha, args.Beta, Source = source, SharedBars = shared.Count, Edges = edges, Influence = infRows };
         var human = (te ? $"{shared.Count} shared bars, lag 1, transfer entropy p < {args.Alpha} vs shuffled surrogates\n"
-                        : $"{shared.Count} shared bars, lag {lag}, |corr| >= {args.MinCorr}\n") +
+                        : $"{shared.Count} shared bars, lag {lag}, |corr| >= {args.MinCorr}" +
+                          (rmt ? (lag == 0 ? ", RMT-cleaned (Marchenko-Pastur clipping)" : ", RMT noise floor 2.5/sqrt(T)") : "") + "\n") +
                     (edges.Count == 0 ? "No edges above the threshold.\n" : edgeTable.Render() + "\n") +
                     $"\nShock at {source} (beta {args.Beta} per hop):\n{infTable.Render()}";
         return OperationResult.Ok(data, human);

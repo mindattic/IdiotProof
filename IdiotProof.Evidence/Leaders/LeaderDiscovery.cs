@@ -46,12 +46,16 @@ public static class LeaderDiscovery
 
     public static IReadOnlyList<LeaderLink> Discover(string target, IReadOnlyDictionary<string, IReadOnlyList<Candle>> history,
         int maxHops = 2, double minAbsCorrelation = 0.1, double minInfluence = 0.02, double beta = 0.5, int maxLeaders = 5,
-        int minBars = 60, EdgeMeasure edge = EdgeMeasure.Correlation, double teAlpha = 0.05)
+        int minBars = 60, EdgeMeasure edge = EdgeMeasure.Correlation, double teAlpha = 0.05, bool cleanRmt = false)
     {
+        // RMT cleaning is a correlation filter; transfer-entropy edges are already surrogate-tested.
+        if (cleanRmt && edge == EdgeMeasure.TransferEntropy)
+            throw new ArgumentException("RMT cleaning applies to correlation edges only.", nameof(cleanRmt));
         if (!history.TryGetValue(target, out var own) || own.Count < minBars || history.Count < 2) return [];
         var aligned = AlignReturns(history);
         var graph = edge == EdgeMeasure.TransferEntropy
             ? InfluenceGraph.FromTransferEntropy(aligned, alpha: teAlpha)
+            : cleanRmt ? InfluenceGraph.FromCleanedReturns(aligned, lag: 1, minAbsCorrelation)
             : InfluenceGraph.FromReturns(aligned, lag: 1, minAbsCorrelation);
         var links = new List<LeaderLink>();
         foreach (var s in graph.Symbols)

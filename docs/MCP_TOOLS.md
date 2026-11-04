@@ -2831,7 +2831,7 @@ Read-only. Times are US Eastern.
 
 Correlation graph across symbols (lag 0 or 1) and the hop-decayed influence of a shock at a source symbol.
 
-CLI equivalent: idiotproof evidence graph <symbols>... [--source <string>] [--lag <int>] [--edge <correlation|te>] [--alpha <number>] [--min-corr <number>] [--beta <number>] [--from <date>] [--to <date>] [--timeframe <minute|day>] [--session <rth|all>]
+CLI equivalent: idiotproof evidence graph <symbols>... [--source <string>] [--lag <int>] [--edge <correlation|te>] [--alpha <number>] [--clean <none|rmt>] [--min-corr <number>] [--beta <number>] [--from <date>] [--to <date>] [--timeframe <minute|day>] [--session <rth|all>]
 Examples:
   idiotproof evidence graph SNDL TLRY CGC ACB --source TLRY
   idiotproof evidence graph SPY IWM MULN --lag 1 --source SPY
@@ -2873,6 +2873,15 @@ Read-only. Times are US Eastern.
       "type": "number",
       "description": "With --edge te, the surrogate-test significance an edge must reach (default 0.05).",
       "default": 0.05
+    },
+    "clean": {
+      "type": "string",
+      "enum": [
+        "none",
+        "rmt"
+      ],
+      "description": "none (default) or rmt: keep only correlation the data can tell from chance (lag 0: Marchenko-Pastur eigenvalue clipping; lag 1: the 2.5/sqrt(T) noise floor). Correlation edges only; --edge te already tests each edge against shuffled surrogates.",
+      "default": "none"
     },
     "min_corr": {
       "type": "number",
@@ -3572,7 +3581,7 @@ Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilso
 
 Each day's model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.
 
-CLI equivalent: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
+CLI equivalent: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--clean <none|rmt>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
 Examples:
   idiotproof evidence walkforward --universe penny --from 2026-08-03 --to 2026-10-30
   idiotproof evidence walkforward SNDL --from 2026-10-01 --horizon 10
@@ -3634,6 +3643,15 @@ Read-only. Times are US Eastern.
       ],
       "description": "With --model leaders, how leader edges are measured: correlation (default) or te (transfer entropy vs shuffled surrogates).",
       "default": "correlation"
+    },
+    "clean": {
+      "type": "string",
+      "enum": [
+        "none",
+        "rmt"
+      ],
+      "description": "With --model leaders and correlation edges: none (default) or rmt, keeping only lag-1 correlations above the random-matrix noise floor 2.5/sqrt(T).",
+      "default": "none"
     },
     "leader_hops": {
       "type": "integer",

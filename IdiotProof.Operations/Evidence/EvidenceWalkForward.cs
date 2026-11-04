@@ -37,6 +37,8 @@ public sealed record WalkForwardSettings
     public int LeaderMaxHops { get; init; } = 2;
     public double LeaderMinInfluence { get; init; } = 0.05;
     public EdgeMeasure LeaderEdge { get; init; } = EdgeMeasure.Correlation;
+    /// <summary>Leader model: keep only lag-1 correlation edges above the random-matrix noise floor.</summary>
+    public bool LeaderCleanRmt { get; init; }
 }
 
 /// <summary>One evaluated (symbol, day): what the model trained on and how its calls scored.</summary>
@@ -185,7 +187,7 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
                 history[candidate] = candles.Where(c => c.EndUtc <= dayStartUtc && priorSet.Contains(EvidenceSupport.DateEt(c))).ToList();
 
         double cost = CallCost(history[symbol], prior.Count, s);
-        var links = LeaderDiscovery.Discover(symbol, history, s.LeaderMaxHops, minInfluence: s.LeaderMinInfluence, edge: s.LeaderEdge);
+        var links = LeaderDiscovery.Discover(symbol, history, s.LeaderMaxHops, minInfluence: s.LeaderMinInfluence, edge: s.LeaderEdge, cleanRmt: s.LeaderCleanRmt);
         if (links.Count == 0) return null;
 
         var today = links.ToDictionary(l => l.Symbol,

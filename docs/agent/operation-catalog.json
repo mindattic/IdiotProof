@@ -5660,7 +5660,7 @@
       "summary": "Correlation graph across symbols (lag 0 or 1) and the hop-decayed influence of a shock at a source symbol.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof evidence graph \u003Csymbols\u003E... [--source \u003Cstring\u003E] [--lag \u003Cint\u003E] [--edge \u003Ccorrelation|te\u003E] [--alpha \u003Cnumber\u003E] [--min-corr \u003Cnumber\u003E] [--beta \u003Cnumber\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--session \u003Crth|all\u003E]",
+      "usage": "idiotproof evidence graph \u003Csymbols\u003E... [--source \u003Cstring\u003E] [--lag \u003Cint\u003E] [--edge \u003Ccorrelation|te\u003E] [--alpha \u003Cnumber\u003E] [--clean \u003Cnone|rmt\u003E] [--min-corr \u003Cnumber\u003E] [--beta \u003Cnumber\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--session \u003Crth|all\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -5724,6 +5724,21 @@
           "description": "With --edge te, the surrogate-test significance an edge must reach (default 0.05).",
           "default": 0.05,
           "enum_values": null
+        },
+        {
+          "name": "clean",
+          "json_name": "clean",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "none|rmt",
+          "required": false,
+          "description": "none (default) or rmt: keep only correlation the data can tell from chance (lag 0: Marchenko-Pastur eigenvalue clipping; lag 1: the 2.5/sqrt(T) noise floor). Correlation edges only; --edge te already tests each edge against shuffled surrogates.",
+          "default": "none",
+          "enum_values": [
+            "none",
+            "rmt"
+          ]
         },
         {
           "name": "min-corr",
@@ -5848,6 +5863,15 @@
             "type": "number",
             "description": "With --edge te, the surrogate-test significance an edge must reach (default 0.05).",
             "default": 0.05
+          },
+          "clean": {
+            "type": "string",
+            "enum": [
+              "none",
+              "rmt"
+            ],
+            "description": "none (default) or rmt: keep only correlation the data can tell from chance (lag 0: Marchenko-Pastur eigenvalue clipping; lag 1: the 2.5/sqrt(T) noise floor). Correlation edges only; --edge te already tests each edge against shuffled surrogates.",
+            "default": "none"
           },
           "min_corr": {
             "type": "number",
@@ -7564,7 +7588,7 @@
       "summary": "Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilson CI, coverage and edge after costs.",
       "description": "Each day\u0027s model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.",
       "risk": "read",
-      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
+      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--clean \u003Cnone|rmt\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -7657,6 +7681,21 @@
           "enum_values": [
             "correlation",
             "te"
+          ]
+        },
+        {
+          "name": "clean",
+          "json_name": "clean",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "none|rmt",
+          "required": false,
+          "description": "With --model leaders and correlation edges: none (default) or rmt, keeping only lag-1 correlations above the random-matrix noise floor 2.5/sqrt(T).",
+          "default": "none",
+          "enum_values": [
+            "none",
+            "rmt"
           ]
         },
         {
@@ -7895,6 +7934,15 @@
             ],
             "description": "With --model leaders, how leader edges are measured: correlation (default) or te (transfer entropy vs shuffled surrogates).",
             "default": "correlation"
+          },
+          "clean": {
+            "type": "string",
+            "enum": [
+              "none",
+              "rmt"
+            ],
+            "description": "With --model leaders and correlation edges: none (default) or rmt, keeping only lag-1 correlations above the random-matrix noise floor 2.5/sqrt(T).",
+            "default": "none"
           },
           "leader_hops": {
             "type": "integer",

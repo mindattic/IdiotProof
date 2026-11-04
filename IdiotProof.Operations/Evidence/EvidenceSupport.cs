@@ -12,6 +12,9 @@ public enum EvidenceSession { Rth, All }
 /// <summary>How an edge between symbols is measured: lag correlation, or transfer entropy (catches nonlinear leads).</summary>
 public enum EvidenceEdge { Correlation, Te }
 
+/// <summary>Whether correlation edges are filtered by random-matrix theory before use.</summary>
+public enum EvidenceClean { None, Rmt }
+
 /// <summary>One symbol the penny universe may draw from; inactive ones are kept to fight survivorship bias.</summary>
 public sealed record CandidateAsset(string Symbol, bool Active);
 
@@ -38,6 +41,9 @@ public sealed class AlpacaAssetCandidateSource(OperationContext ctx) : IEvidence
 
 internal static class EvidenceSupport
 {
+    public const string CleanWithTeMessage =
+        "--clean rmt filters correlation edges; --edge te already keeps only edges that beat shuffled surrogates (BH-corrected). Use one or the other.";
+
     public static readonly TimeSpan RthOpen = new(9, 30, 0);
     public static readonly TimeSpan RthClose = new(16, 0, 0);
 
