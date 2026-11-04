@@ -501,6 +501,22 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>Passes only when this symbol's measured lag-1 leaders (within maxHops, |influence| ≥
+    /// minInfluence) have moved up on their last closed bars. No measured leader blocks the entry.</summary>
+    public StrategyBuilder LeaderConfirms(int maxHops = 2, double minInfluence = 0.1)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.LeaderConfirms, maxHops, minInfluence));
+        return this;
+    }
+
+    /// <summary>Blocks when the measured leaders have moved down (flat passes); like
+    /// <see cref="LeaderConfirms"/>, no measured leader blocks the entry.</summary>
+    public StrategyBuilder NotLeaderDiverging(int maxHops = 2, double minInfluence = 0.1)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.NotLeaderDiverging, maxHops, minInfluence));
+        return this;
+    }
+
     /// <summary>Newest pivot high below the prior pivot high — a lower high
     /// (weakening rally), the failed-high short tell.</summary>
     public StrategyBuilder IsLowerHigh()
@@ -1230,7 +1246,8 @@ public enum IndicatorType
     VolumeAbove,
     AtSupport, AtResistance,
     HigherLows, DippedTo,
-    NotFallingKnife, NotBullTrap, NotStopHunt, NotVwapLoss
+    NotFallingKnife, NotBullTrap, NotStopHunt, NotVwapLoss,
+    LeaderConfirms, NotLeaderDiverging
 }
 
 /// <summary>
@@ -1368,6 +1385,8 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
             IndicatorType.NotBullTrap          => "NotBullTrap",
             IndicatorType.NotStopHunt          => "NotStopHunt",
             IndicatorType.NotVwapLoss          => "NotVwapLoss",
+            IndicatorType.LeaderConfirms       => "LeaderConfirms",
+            IndicatorType.NotLeaderDiverging   => "NotLeaderDiverging",
             _                                  => $"Is{Type}"
         };
 
@@ -1451,6 +1470,8 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
         IndicatorType.NotBullTrap        => TrapGuardPasses(s.BullTrapPresent, s.BullTrapRisk, s.BullTrapSamples),
         IndicatorType.NotStopHunt        => TrapGuardPasses(s.StopHuntPresent, s.StopHuntRisk, s.StopHuntSamples),
         IndicatorType.NotVwapLoss        => TrapGuardPasses(s.VwapLossPresent, s.VwapLossRisk, s.VwapLossSamples),
+        IndicatorType.LeaderConfirms     => LeaderMove(s) is { } up && up > 0,
+        IndicatorType.NotLeaderDiverging => LeaderMove(s) is { } notDown && notDown >= 0,
         // Fail closed on anything unrecognized: a condition this evaluator
         // doesn't understand must block the fire, never wave it through
         // (IP-LAW-1 — same doctrine as the gap conditions above).
@@ -1464,6 +1485,23 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
         || (present == true
             && samples is { } n && n >= (int)(Parameter2 ?? 30)
             && risk is { } r && r <= (Parameter ?? 0.5));
+
+    /// <summary>Influence-weighted move of the leaders within Parameter hops whose |influence| is at
+    /// least Parameter2 (Σ influence·move / Σ |influence|); null when no measured leader qualifies.</summary>
+    private double? LeaderMove(IndicatorSnapshot s)
+    {
+        if (s.Leaders is not { } leaders) return null;
+        int maxHops = (int)(Parameter ?? 2);
+        double minInfluence = Parameter2 ?? 0.1;
+        double num = 0, den = 0;
+        foreach (var l in leaders)
+        {
+            if (l.Hops < 1 || l.Hops > maxHops || Math.Abs(l.Influence) < minInfluence || l.Move is not { } move) continue;
+            num += l.Influence * move;
+            den += Math.Abs(l.Influence);
+        }
+        return den > 0 ? num / den : null;
+    }
 }
 
 /// <summary>
@@ -2029,6 +2067,8 @@ public sealed class ConditionFactory
     public ICondition NotBullTrap(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotBullTrap, maxProbability, minSamples);
     public ICondition NotStopHunt(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotStopHunt, maxProbability, minSamples);
     public ICondition NotVwapLoss(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotVwapLoss, maxProbability, minSamples);
+    public ICondition LeaderConfirms(int maxHops = 2, double minInfluence = 0.1) => new IndicatorCondition(IndicatorType.LeaderConfirms, maxHops, minInfluence);
+    public ICondition NotLeaderDiverging(int maxHops = 2, double minInfluence = 0.1) => new IndicatorCondition(IndicatorType.NotLeaderDiverging, maxHops, minInfluence);
     public ICondition IsLowerHigh() => new IndicatorCondition(IndicatorType.LowerHigh);
     public ICondition IsMacdBullish() => new IndicatorCondition(IndicatorType.MacdBullish);
     public ICondition IsMacdBearish() => new IndicatorCondition(IndicatorType.MacdBearish);
@@ -2105,6 +2145,8 @@ public static class Conditions
     public static ICondition NotBullTrap(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotBullTrap, maxProbability, minSamples);
     public static ICondition NotStopHunt(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotStopHunt, maxProbability, minSamples);
     public static ICondition NotVwapLoss(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotVwapLoss, maxProbability, minSamples);
+    public static ICondition LeaderConfirms(int maxHops = 2, double minInfluence = 0.1) => new IndicatorCondition(IndicatorType.LeaderConfirms, maxHops, minInfluence);
+    public static ICondition NotLeaderDiverging(int maxHops = 2, double minInfluence = 0.1) => new IndicatorCondition(IndicatorType.NotLeaderDiverging, maxHops, minInfluence);
     public static ICondition IsLowerHigh => new IndicatorCondition(IndicatorType.LowerHigh);
 
     // ── MACD ──

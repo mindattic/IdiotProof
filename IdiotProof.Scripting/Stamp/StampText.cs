@@ -98,6 +98,8 @@ internal static class StampText
             IndicatorType.NotBullTrap => $"not a bull trap (past failed breakouts like it hit at most {Pct((p ?? 0.5) * 100)} of the time)",
             IndicatorType.NotStopHunt => $"not a stop hunt (past wicks like it hit at most {Pct((p ?? 0.5) * 100)} of the time)",
             IndicatorType.NotVwapLoss => $"not a VWAP loss (past VWAP losses like it hit at most {Pct((p ?? 0.5) * 100)} of the time)",
+            IndicatorType.LeaderConfirms => $"its measured leaders (within {P(0)} hops) moved up first",
+            IndicatorType.NotLeaderDiverging => $"its measured leaders (within {P(0)} hops) aren't moving down",
             IndicatorType.MacdBullish => "MACD above its signal line",
             IndicatorType.MacdBearish => "MACD below its signal line",
             IndicatorType.GapUp => $"gapped up at least {Pct(p ?? 3)}",

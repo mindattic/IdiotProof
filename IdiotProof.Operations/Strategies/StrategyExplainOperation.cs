@@ -158,6 +158,8 @@ public static class StrategyNarrator
             IndicatorType.NotBullTrap => $"price is not in a failed breakout, or past failed breakouts like this one on the same symbol were hit at most {Num((i.Parameter ?? 0.5) * 100)}% of the time over at least {Num(i.Parameter2 ?? 30)} cases",
             IndicatorType.NotStopHunt => $"price is not in a stop-hunt wick, or past wicks like this one on the same symbol were hit at most {Num((i.Parameter ?? 0.5) * 100)}% of the time over at least {Num(i.Parameter2 ?? 30)} cases",
             IndicatorType.NotVwapLoss => $"price has not lost VWAP, or past VWAP losses like this one on the same symbol were hit at most {Num((i.Parameter ?? 0.5) * 100)}% of the time over at least {Num(i.Parameter2 ?? 30)} cases",
+            IndicatorType.LeaderConfirms => $"its measured leaders within {Num(i.Parameter ?? 2)} hops (influence at least {Num(i.Parameter2 ?? 0.1)}) moved up on their last closed bars",
+            IndicatorType.NotLeaderDiverging => $"its measured leaders within {Num(i.Parameter ?? 2)} hops (influence at least {Num(i.Parameter2 ?? 0.1)}) are not moving down",
             IndicatorType.MacdBullish => "MACD is bullish (above its signal line)",
             IndicatorType.MacdBearish => "MACD is bearish (below its signal line)",
             IndicatorType.GapUp => $"it gapped up at least {(i.Parameter is { } g ? Pct(g) : "3%")}",

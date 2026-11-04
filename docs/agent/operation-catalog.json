@@ -6358,7 +6358,7 @@
       "summary": "Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilson CI, coverage and edge after costs.",
       "description": "Each day\u0027s model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.",
       "risk": "read",
-      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
+      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -6417,13 +6417,50 @@
           "kind": "option",
           "position": null,
           "short": null,
-          "type": "analog",
+          "type": "analog|leaders",
           "required": false,
-          "description": "analog: LSH look-alike windows vote on direction (the only model so far).",
+          "description": "analog: LSH look-alike windows vote on direction. leaders: follow the influence-weighted move of the symbol\u0027s lag-1 leaders, discovered among --leaders from prior sessions only.",
           "default": "analog",
           "enum_values": [
-            "analog"
+            "analog",
+            "leaders"
           ]
+        },
+        {
+          "name": "leaders",
+          "json_name": "leaders",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "With --model leaders, the symbols leaders are discovered among (default SPY,QQQ,IWM).",
+          "default": "SPY,QQQ,IWM",
+          "enum_values": null
+        },
+        {
+          "name": "leader-hops",
+          "json_name": "leader_hops",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "With --model leaders, most links between a leader and the symbol (default 2).",
+          "default": 2,
+          "enum_values": null
+        },
+        {
+          "name": "leader-min-influence",
+          "json_name": "leader_min_influence",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "With --model leaders, least |influence| a leader needs to count (default 0.05).",
+          "default": 0.05,
+          "enum_values": null
         },
         {
           "name": "window",
@@ -6606,10 +6643,26 @@
           "model": {
             "type": "string",
             "enum": [
-              "analog"
+              "analog",
+              "leaders"
             ],
-            "description": "analog: LSH look-alike windows vote on direction (the only model so far).",
+            "description": "analog: LSH look-alike windows vote on direction. leaders: follow the influence-weighted move of the symbol\u0027s lag-1 leaders, discovered among --leaders from prior sessions only.",
             "default": "analog"
+          },
+          "leaders": {
+            "type": "string",
+            "description": "With --model leaders, the symbols leaders are discovered among (default SPY,QQQ,IWM).",
+            "default": "SPY,QQQ,IWM"
+          },
+          "leader_hops": {
+            "type": "integer",
+            "description": "With --model leaders, most links between a leader and the symbol (default 2).",
+            "default": 2
+          },
+          "leader_min_influence": {
+            "type": "number",
+            "description": "With --model leaders, least |influence| a leader needs to count (default 0.05).",
+            "default": 0.05
           },
           "window": {
             "type": "integer",

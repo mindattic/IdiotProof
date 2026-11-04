@@ -1,5 +1,6 @@
 using IdiotProof.Core.Evidence;
 using IdiotProof.Evidence;
+using IdiotProof.Evidence.Leaders;
 using IdiotProof.Models;
 
 namespace IdiotProof.Operations.Evidence;
@@ -19,6 +20,12 @@ public sealed record WalkForwardSettings
     public bool IncludeVolume { get; init; }
     public EvidenceSession Session { get; init; } = EvidenceSession.Rth;
     public int Seed { get; init; } = 1337;
+    public EvidenceModel Model { get; init; } = EvidenceModel.Analog;
+    /// <summary>Leader model: the symbols each target's leaders are discovered among (besides nothing else).</summary>
+    public IReadOnlyList<string> LeaderCandidates { get; init; } = ["SPY", "QQQ", "IWM"];
+    public int LeaderLookback { get; init; } = 5;
+    public int LeaderMaxHops { get; init; } = 2;
+    public double LeaderMinInfluence { get; init; } = 0.05;
 }
 
 /// <summary>One evaluated (symbol, day): what the model trained on and how its calls scored.</summary>
@@ -72,6 +79,10 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
             var from = chunk.Min(p => p.Value.Min).AddDays(-(s.TrainDays * 3 / 2 + 7));
             var to = chunk.Max(p => p.Value.Max);
             var bars = await store.GetBarsForSymbolsAsync(chunk.Select(p => p.Key), from, to, BarTimeframe.Minute1, ct: ct);
+            var leaderPool = s.Model == EvidenceModel.Leaders
+                ? (await store.GetBarsForSymbolsAsync(s.LeaderCandidates, from, to, BarTimeframe.Minute1, ct: ct))
+                    .ToDictionary(kv => kv.Key, kv => (IReadOnlyList<Candle>)EvidenceSupport.Filter(kv.Value, EvidenceTimeframe.Minute, s.Session).ToList(), StringComparer.Ordinal)
+                : null;
 
             foreach (var (symbol, days) in chunk)
             {
@@ -86,6 +97,16 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
                     if (!byDay.TryGetValue(day, out var dayBars)) { skipped++; continue; }
                     var prior = sessions.Where(d => d < day).TakeLast(s.TrainDays).ToList();
                     if (prior.Count < s.MinTrainDays) { skipped++; continue; }
+
+                    if (leaderPool is not null)
+                    {
+                        var fold = EvaluateLeaders(symbol, day, prior, byDay, dayBars, leaderPool, s, ref points, ref ups, ref downs);
+                        if (fold is null) { skipped++; continue; }
+                        folds.Add(fold.Value.Fold);
+                        card.Merge(fold.Value.Card);
+                        evaluatedDays++;
+                        continue;
+                    }
 
                     var training = prior.SelectMany(d => byDay[d]).ToList();
                     var model = new PatternAnalogPredictor(s.Window, s.Horizon, s.IncludeVolume, seed: s.Seed);
@@ -125,5 +146,49 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
             }
         }
         return new WalkForwardReport(overall, perSymbol, folds, points, ups, downs, skipped);
+    }
+
+    /// <summary>
+    /// Leader model for one (symbol, day D): leaders are discovered only from the prior sessions'
+    /// bars (every candidate bar is cut at D's first bar), then each call follows the sign of the
+    /// leaders' influence-weighted move over their bars that closed by the call bar's close.
+    /// TrainingWindows records how many leaders were found.
+    /// </summary>
+    private static (WalkForwardFold Fold, DirectionalScorecard Card)? EvaluateLeaders(string symbol, DateOnly day, List<DateOnly> prior,
+        Dictionary<DateOnly, List<Candle>> byDay, List<Candle> dayBars, IReadOnlyDictionary<string, IReadOnlyList<Candle>> pool,
+        WalkForwardSettings s, ref int points, ref int ups, ref int downs)
+    {
+        var dayStartUtc = dayBars[0].StartUtc;
+        var priorSet = prior.ToHashSet();
+        var history = new Dictionary<string, IReadOnlyList<Candle>>(StringComparer.Ordinal)
+        {
+            [symbol] = prior.SelectMany(d => byDay[d]).ToList(),
+        };
+        foreach (var (candidate, candles) in pool)
+            if (!candidate.Equals(symbol, StringComparison.Ordinal))
+                history[candidate] = candles.Where(c => c.EndUtc <= dayStartUtc && priorSet.Contains(EvidenceSupport.DateEt(c))).ToList();
+
+        var links = LeaderDiscovery.Discover(symbol, history, s.LeaderMaxHops, minInfluence: s.LeaderMinInfluence);
+        if (links.Count == 0) return null;
+
+        var today = links.ToDictionary(l => l.Symbol,
+            l => (IReadOnlyList<Candle>)pool[l.Symbol].Where(c => EvidenceSupport.DateEt(c) == day).ToList(), StringComparer.Ordinal);
+        var dayCard = new DirectionalScorecard();
+        for (int end = s.LeaderLookback; end + s.Horizon < dayBars.Count; end += s.Horizon)
+        {
+            var asOf = dayBars[end].EndUtc;
+            var move = LeaderSignal.WeightedMove(
+                links.Select(l => (l.Hops, l.Influence, LeaderSignal.RecentMove(today[l.Symbol], asOf, s.LeaderLookback))),
+                s.LeaderMaxHops, s.LeaderMinInfluence);
+            var call = move is { } m ? m > s.DeadBand ? Direction.Up : m < -s.DeadBand ? Direction.Down : Direction.Flat : Direction.Flat;
+            double fwd = (double)dayBars[end + s.Horizon].Close / (double)dayBars[end].Close - 1;
+            dayCard.Record(call, fwd);
+            points++;
+            if (fwd > s.DeadBand) ups++;
+            else if (fwd < -s.DeadBand) downs++;
+        }
+        var lastTraining = history[symbol];
+        return (new WalkForwardFold(symbol, day, prior[0], prior[^1], lastTraining[^1].StartUtc, dayStartUtc, links.Count,
+            dayCard.Calls, dayCard.Hits, dayCard.Abstentions), dayCard);
     }
 }

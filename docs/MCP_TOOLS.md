@@ -3115,7 +3115,7 @@ Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilso
 
 Each day's model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.
 
-CLI equivalent: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
+CLI equivalent: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
 Examples:
   idiotproof evidence walkforward --universe penny --from 2026-08-03 --to 2026-10-30
   idiotproof evidence walkforward SNDL --from 2026-10-01 --horizon 10
@@ -3158,10 +3158,26 @@ Read-only. Times are US Eastern.
     "model": {
       "type": "string",
       "enum": [
-        "analog"
+        "analog",
+        "leaders"
       ],
-      "description": "analog: LSH look-alike windows vote on direction (the only model so far).",
+      "description": "analog: LSH look-alike windows vote on direction. leaders: follow the influence-weighted move of the symbol\u0027s lag-1 leaders, discovered among --leaders from prior sessions only.",
       "default": "analog"
+    },
+    "leaders": {
+      "type": "string",
+      "description": "With --model leaders, the symbols leaders are discovered among (default SPY,QQQ,IWM).",
+      "default": "SPY,QQQ,IWM"
+    },
+    "leader_hops": {
+      "type": "integer",
+      "description": "With --model leaders, most links between a leader and the symbol (default 2).",
+      "default": 2
+    },
+    "leader_min_influence": {
+      "type": "number",
+      "description": "With --model leaders, least |influence| a leader needs to count (default 0.05).",
+      "default": 0.05
     },
     "window": {
       "type": "integer",

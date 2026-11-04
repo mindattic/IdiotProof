@@ -59,7 +59,8 @@ public sealed class MonitorWorker(
     MonitorRuntimeState runtime,
     MonitorPauseFlag pauseFlag,
     ILogger<MonitorWorker> logger,
-    TimeProvider? clock = null) : BackgroundService
+    TimeProvider? clock = null,
+    IdiotProof.Core.Evidence.IHistoricalBarStore? barStore = null) : BackgroundService
 {
     /// <summary>Wall clock for every session gate and cadence; a test pins it to a chosen ET instant.</summary>
     private DateTime UtcNow => (clock ?? TimeProvider.System).GetUtcNow().UtcDateTime;
@@ -127,6 +128,9 @@ public sealed class MonitorWorker(
     private readonly CrossTriggerMemory crossMemory = new();
     private SessionLowCache? sessionLowCache;
     private SessionLowCache SessionLows => sessionLowCache ??= new(feed, logger);
+    private LeaderContextCache? leaderContextCache;
+    private LeaderContextCache Leaders => leaderContextCache ??= new(feed, barStore, () => appSettings.LeaderEtfs, logger);
+    private IEnumerable<string> ArmedSymbols => cachedActive.Select(s => s.Symbol);
 
     /// <summary>
     /// Re-check cadence when the previous close came back NULL. Nulls
@@ -803,6 +807,7 @@ public sealed class MonitorWorker(
             {
                 var holdSnapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, EmaPeriodCollector.Collect(def), previousClose);
                 if (SessionLowCache.Uses(def)) await SessionLows.ApplyAsync(stored.Symbol, holdSnapshot, UtcNow, ct);
+                if (LeaderContextCache.Uses(def)) await Leaders.ApplyAsync(stored.Symbol, holdSnapshot, ArmedSymbols, UtcNow, ct);
                 whileFailure = def.WhileConditions.FirstOrDefault(c => !c.Evaluate(holdSnapshot))?.ToScript();
             }
             await EvaluateExitAsync(stored, def, candles, dailyCandles, ct, whileFailure);
@@ -838,6 +843,7 @@ public sealed class MonitorWorker(
         var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, emas, previousClose);
         // DippedTo means "since 4:00 ET today", longer than the 240-bar window (IP-T363).
         if (SessionLowCache.Uses(def)) await SessionLows.ApplyAsync(stored.Symbol, snapshot, UtcNow, ct);
+        if (LeaderContextCache.Uses(def)) await Leaders.ApplyAsync(stored.Symbol, snapshot, ArmedSymbols, UtcNow, ct);
         crossMemory.Apply(stored.Id, snapshot, candles.Count >= 2 ? candles[^2].EndUtc : null, UtcNow);
 
         // Apply ConditionalBlock branch overrides (If/Then/ElseIf/Else authored in the UI).

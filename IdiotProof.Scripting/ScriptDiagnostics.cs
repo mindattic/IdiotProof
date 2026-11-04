@@ -44,6 +44,7 @@ public static class ScriptDiagnostics
         ["requireadxabove"] = "n", ["trending"] = "n", ["isadxabove"] = "N",
         ["higherlows"] = "i", ["ishigherlows"] = "i", ["dippedto"] = "N", ["hasdippedto"] = "N",
         ["notfallingknife"] = "ni", ["notbulltrap"] = "ni", ["notstophunt"] = "ni", ["notvwaploss"] = "ni",
+        ["leaderconfirms"] = "in", ["notleaderdiverging"] = "in",
         ["isrsioversold"] = "n", ["isrsioverbought"] = "n", ["oversold"] = "n", ["overbought"] = "n",
         ["withvolumeconfirm"] = "n", ["volumespike"] = "n", ["isvolumeabove"] = "N",
         ["isgapup"] = "n", ["gapup"] = "n", ["isgapdown"] = "n", ["gapdown"] = "n", ["isgapbetween"] = "NN",

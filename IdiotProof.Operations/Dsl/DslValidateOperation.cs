@@ -119,6 +119,9 @@ public sealed class DslValidateOperation : IOperation<DslTextArgs>
             if (c is IndicatorCondition { Type: IndicatorType.NotFallingKnife or IndicatorType.NotBullTrap or IndicatorType.NotStopHunt or IndicatorType.NotVwapLoss, Parameter: var kp, Parameter2: var kn }
                 && (kp is not (> 0 and <= 1) || kn is not >= 1))
                 yield return new("error", c.Phase.ToString(), "trap", $"{script} needs a probability in (0, 1] and a sample minimum of 1 or more");
+            if (c is IndicatorCondition { Type: IndicatorType.LeaderConfirms or IndicatorType.NotLeaderDiverging, Parameter: var lh, Parameter2: var li }
+                && (lh is not >= 1 || li is not (>= 0 and <= 1)))
+                yield return new("error", c.Phase.ToString(), "leaders", $"{script} needs a hop limit of 1 or more and a minimum influence in [0, 1]");
             if (DslGlossary.Find(DslVerbsOperation.NameOf(script)) is null)
                 yield return new("warn", c.Phase.ToString(), "glossary", $"{DslVerbsOperation.NameOf(script)} has no glossary entry (it won't be explained on the strategy card)");
         }

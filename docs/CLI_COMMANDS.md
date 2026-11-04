@@ -1477,26 +1477,29 @@ Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilso
 
 Each day's model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.
 
-Usage: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
+Usage: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
 Risk: read
 
 Parameters:
-  <symbols>                        Tickers to test, e.g. SNDL MULN (omit when using --universe).
-      --universe <none|penny>      penny: each day's point-in-time under-$5 universe (prior-day close, dollar-volume floor), drawn from active AND delisted Alpaca equities. (default: none)
-      --from <date>                First ET day to evaluate (yyyy-MM-dd). (required)
-      --to <date>                  Last ET day to evaluate (yyyy-MM-dd, default: yesterday ET).
-      --model <analog>             analog: LSH look-alike windows vote on direction (the only model so far). (default: analog)
-      --window <int>               Bars per pattern window (default 20). (default: 20)
-      --horizon <int>              Bars ahead the call is scored on; calls are spaced this far apart so outcomes never overlap (default 5). (default: 5)
-      --train-days <int>           Prior sessions each day's model trains on (default 20). (default: 20)
-      --min-similarity <number>    Least cosine similarity for a look-alike to count (default 0.8). (default: 0.8)
-      --min-neighbors <int>        Fewest look-alikes needed to make a call (default 8). (default: 8)
-      --min-agreement <number>     Smoothed share of look-alikes that must agree to call (default 0.6). (default: 0.6)
-      --cost <number>              Round-trip cost per call as a fraction (default 0.003 = 0.3%, a sub-$5 spread+slippage estimate). (default: 0.003)
-      --volume                     Include the volume shape in the pattern vector. (default: false)
-      --session <rth|all>          rth (default) or all (adds pre/after-hours bars). (default: rth)
-      --max-symbols-per-day <int>  With --universe, keep each day's most liquid N members (default 30). (default: 30)
-      --max-candidates <int>       With --universe, most candidate symbols screened (default 4000; inactive first, then active). (default: 4000)
+  <symbols>                            Tickers to test, e.g. SNDL MULN (omit when using --universe).
+      --universe <none|penny>          penny: each day's point-in-time under-$5 universe (prior-day close, dollar-volume floor), drawn from active AND delisted Alpaca equities. (default: none)
+      --from <date>                    First ET day to evaluate (yyyy-MM-dd). (required)
+      --to <date>                      Last ET day to evaluate (yyyy-MM-dd, default: yesterday ET).
+      --model <analog|leaders>         analog: LSH look-alike windows vote on direction. leaders: follow the influence-weighted move of the symbol's lag-1 leaders, discovered among --leaders from prior sessions only. (default: analog)
+      --leaders <string>               With --model leaders, the symbols leaders are discovered among (default SPY,QQQ,IWM). (default: SPY,QQQ,IWM)
+      --leader-hops <int>              With --model leaders, most links between a leader and the symbol (default 2). (default: 2)
+      --leader-min-influence <number>  With --model leaders, least |influence| a leader needs to count (default 0.05). (default: 0.05)
+      --window <int>                   Bars per pattern window (default 20). (default: 20)
+      --horizon <int>                  Bars ahead the call is scored on; calls are spaced this far apart so outcomes never overlap (default 5). (default: 5)
+      --train-days <int>               Prior sessions each day's model trains on (default 20). (default: 20)
+      --min-similarity <number>        Least cosine similarity for a look-alike to count (default 0.8). (default: 0.8)
+      --min-neighbors <int>            Fewest look-alikes needed to make a call (default 8). (default: 8)
+      --min-agreement <number>         Smoothed share of look-alikes that must agree to call (default 0.6). (default: 0.6)
+      --cost <number>                  Round-trip cost per call as a fraction (default 0.003 = 0.3%, a sub-$5 spread+slippage estimate). (default: 0.003)
+      --volume                         Include the volume shape in the pattern vector. (default: false)
+      --session <rth|all>              rth (default) or all (adds pre/after-hours bars). (default: rth)
+      --max-symbols-per-day <int>      With --universe, keep each day's most liquid N members (default 30). (default: 30)
+      --max-candidates <int>           With --universe, most candidate symbols screened (default 4000; inactive first, then active). (default: 4000)
 
 Examples:
   idiotproof evidence walkforward --universe penny --from 2026-08-03 --to 2026-10-30

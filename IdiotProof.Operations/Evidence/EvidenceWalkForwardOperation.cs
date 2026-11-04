@@ -7,7 +7,7 @@ namespace IdiotProof.Operations.Evidence;
 
 public enum EvidenceUniverse { None, Penny }
 
-public enum EvidenceModel { Analog }
+public enum EvidenceModel { Analog, Leaders }
 
 public sealed record EvidenceWalkForwardArgs
 {
@@ -23,8 +23,17 @@ public sealed record EvidenceWalkForwardArgs
     [Option("to", Description = "Last ET day to evaluate (yyyy-MM-dd, default: yesterday ET).")]
     public DateOnly? To { get; init; }
 
-    [Option("model", Description = "analog: LSH look-alike windows vote on direction (the only model so far).")]
+    [Option("model", Description = "analog: LSH look-alike windows vote on direction. leaders: follow the influence-weighted move of the symbol's lag-1 leaders, discovered among --leaders from prior sessions only.")]
     public EvidenceModel Model { get; init; } = EvidenceModel.Analog;
+
+    [Option("leaders", Description = "With --model leaders, the symbols leaders are discovered among (default SPY,QQQ,IWM).")]
+    public string Leaders { get; init; } = "SPY,QQQ,IWM";
+
+    [Option("leader-hops", Description = "With --model leaders, most links between a leader and the symbol (default 2).")]
+    public int LeaderHops { get; init; } = 2;
+
+    [Option("leader-min-influence", Description = "With --model leaders, least |influence| a leader needs to count (default 0.05).")]
+    public double LeaderMinInfluence { get; init; } = 0.05;
 
     [Option("window", Description = "Bars per pattern window (default 20).")]
     public int Window { get; init; } = 20;
@@ -78,6 +87,8 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
         if (args.Window < 3 || args.Horizon < 1 || args.TrainDays < 1) return OperationResult.Usage("--window must be >= 3, --horizon and --train-days >= 1.");
         if (args.MinAgreement is <= 0.5 or > 1) return OperationResult.Usage("--min-agreement must be in (0.5, 1].");
         if (args.Cost < 0) return OperationResult.Usage("--cost must be >= 0.");
+        if (args.Model == EvidenceModel.Leaders && (string.IsNullOrWhiteSpace(args.Leaders) || args.LeaderHops < 1 || args.LeaderMinInfluence < 0))
+            return OperationResult.Usage("--model leaders needs --leaders symbols, --leader-hops >= 1 and --leader-min-influence >= 0.");
         var symbols = EvidenceSupport.Symbols(args.Symbols);
         if (args.Universe == EvidenceUniverse.None && symbols.Count == 0)
             return OperationResult.Usage("Name symbols or pass --universe penny.");
@@ -129,7 +140,9 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
         {
             Window = args.Window, Horizon = args.Horizon, TrainDays = args.TrainDays, MinSimilarity = args.MinSimilarity,
             MinNeighbors = args.MinNeighbors, MinAgreement = args.MinAgreement, RoundTripCost = args.Cost,
-            IncludeVolume = args.Volume, Session = args.Session,
+            IncludeVolume = args.Volume, Session = args.Session, Model = args.Model,
+            LeaderCandidates = EvidenceSupport.Symbols(args.Leaders.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
+            LeaderLookback = 5, LeaderMaxHops = args.LeaderHops, LeaderMinInfluence = args.LeaderMinInfluence,
         };
         var report = await new EvidenceWalkForward(store).RunAsync(plan, settings, ctx.CancellationToken);
         var o = report.Overall;
@@ -180,7 +193,9 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
         };
 
         var block = new KeyValueBlock()
-            .Add("model", $"{data.Model}: window {args.Window}, horizon {args.Horizon}, train {args.TrainDays} sessions, sim >= {args.MinSimilarity}, >= {args.MinNeighbors} neighbors, agree >= {args.MinAgreement}")
+            .Add("model", args.Model == EvidenceModel.Leaders
+                ? $"leaders: among {string.Join(",", settings.LeaderCandidates)}, within {args.LeaderHops} hops, |influence| >= {args.LeaderMinInfluence}, move over {settings.LeaderLookback} bars, horizon {args.Horizon}, discovered on {args.TrainDays} prior sessions"
+                : $"{data.Model}: window {args.Window}, horizon {args.Horizon}, train {args.TrainDays} sessions, sim >= {args.MinSimilarity}, >= {args.MinNeighbors} neighbors, agree >= {args.MinAgreement}")
             .Add("range", $"{args.From:yyyy-MM-dd} .. {to:yyyy-MM-dd} ET ({args.Session.ToString().ToLowerInvariant()})" +
                  (args.Universe == EvidenceUniverse.Penny ? $", penny universe on {universeDays} days from {candidateCount} candidates ({inactiveCandidates} inactive)" : $", {plan.Count} symbol(s)"))
             .Add("calls", $"{o.Hits}/{o.Calls} hits = {EvidenceSupport.Rate(o.HitRate)} (95% CI {EvidenceSupport.Rate(lo)}–{EvidenceSupport.Rate(hi)}), p = {o.PValue:G3} vs 50%")

@@ -13,9 +13,13 @@ namespace IdiotProof.Shared;
 /// <summary>The price, VWAP and EMAs of one earlier Monitor evaluation (see <see cref="IndicatorSnapshot.LastLook"/>).</summary>
 public sealed record LastLookObservation(double Price, double? Vwap, IReadOnlyDictionary<int, double> Emas);
 
+/// <summary>One measured leader of a symbol: how far it is (hops), how strongly it leads (signed influence) and its recent move.</summary>
+public sealed record LeaderReading(string Symbol, int Hops, double Influence, double? Move);
+
 /// <summary>
 /// Market indicator values at a point in time.
 /// </summary>
+
 public sealed class IndicatorSnapshot
 {
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
@@ -169,6 +173,12 @@ public sealed class IndicatorSnapshot
     public bool? VwapLossPresent { get; set; }
     public double? VwapLossRisk { get; set; }
     public int? VwapLossSamples { get; set; }
+
+    /// <summary>
+    /// This symbol's measured lag-1 leaders (IP-T391), each with its move over its last closed bars;
+    /// null when leaders were not computed. Used by LeaderConfirms / NotLeaderDiverging.
+    /// </summary>
+    public List<LeaderReading>? Leaders { get; set; }
 
     // RSI
     public double? Rsi { get; set; }

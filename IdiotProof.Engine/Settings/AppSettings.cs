@@ -90,6 +90,12 @@ public sealed class AppSettings
     /// </summary>
     public string AutoGapperBrokerMode { get; set; } = "paper";
 
+    /// <summary>
+    /// Comma-separated sector/market ETFs every symbol's leader discovery considers for
+    /// LeaderConfirms / NotLeaderDiverging, alongside the symbols of the other armed strategies.
+    /// </summary>
+    public string LeaderEtfs { get; set; } = "SPY,QQQ,IWM";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
