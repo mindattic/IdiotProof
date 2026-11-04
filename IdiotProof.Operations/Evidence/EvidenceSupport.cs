@@ -9,6 +9,9 @@ public enum EvidenceTimeframe { Minute, Day }
 
 public enum EvidenceSession { Rth, All }
 
+/// <summary>How an edge between symbols is measured: lag correlation, or transfer entropy (catches nonlinear leads).</summary>
+public enum EvidenceEdge { Correlation, Te }
+
 /// <summary>One symbol the penny universe may draw from; inactive ones are kept to fight survivorship bias.</summary>
 public sealed record CandidateAsset(string Symbol, bool Active);
 

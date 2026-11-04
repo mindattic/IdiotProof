@@ -1,3 +1,4 @@
+using IdiotProof.Evidence.Information;
 using IdiotProof.Models;
 
 namespace IdiotProof.Evidence.Leaders;
@@ -45,10 +46,13 @@ public static class LeaderDiscovery
 
     public static IReadOnlyList<LeaderLink> Discover(string target, IReadOnlyDictionary<string, IReadOnlyList<Candle>> history,
         int maxHops = 2, double minAbsCorrelation = 0.1, double minInfluence = 0.02, double beta = 0.5, int maxLeaders = 5,
-        int minBars = 60)
+        int minBars = 60, EdgeMeasure edge = EdgeMeasure.Correlation, double teAlpha = 0.05)
     {
         if (!history.TryGetValue(target, out var own) || own.Count < minBars || history.Count < 2) return [];
-        var graph = InfluenceGraph.FromReturns(AlignReturns(history), lag: 1, minAbsCorrelation);
+        var aligned = AlignReturns(history);
+        var graph = edge == EdgeMeasure.TransferEntropy
+            ? InfluenceGraph.FromTransferEntropy(aligned, alpha: teAlpha)
+            : InfluenceGraph.FromReturns(aligned, lag: 1, minAbsCorrelation);
         var links = new List<LeaderLink>();
         foreach (var s in graph.Symbols)
         {

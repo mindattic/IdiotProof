@@ -15,6 +15,12 @@ public sealed record EvidenceGraphArgs
     [Option("lag", Description = "0 = moves together (default); 1 = the source's bar predicts the other's next bar.")]
     public int Lag { get; init; }
 
+    [Option("edge", Description = "correlation (default) or te: transfer entropy beating shuffled surrogates (directional, implies --lag 1).")]
+    public EvidenceEdge Edge { get; init; } = EvidenceEdge.Correlation;
+
+    [Option("alpha", Description = "With --edge te, the surrogate-test significance an edge must reach (default 0.05).")]
+    public double Alpha { get; init; } = 0.05;
+
     [Option("min-corr", Description = "Least |correlation| that makes an edge (default 0.2).")]
     public double MinCorr { get; init; } = 0.2;
 
@@ -45,6 +51,9 @@ public sealed class EvidenceGraphOperation : IOperation<EvidenceGraphArgs>
         var symbols = EvidenceSupport.Symbols(args.Symbols);
         if (symbols.Count < 2) return OperationResult.Usage("Name at least two symbols.");
         if (args.Lag is < 0 or > 1) return OperationResult.Usage("--lag must be 0 or 1.");
+        if (args.Alpha is <= 0 or >= 1) return OperationResult.Usage("--alpha must be between 0 and 1 (exclusive).");
+        bool te = args.Edge == EvidenceEdge.Te;
+        int lag = te ? 1 : args.Lag;
         if (args.Beta is <= 0 or >= 1) return OperationResult.Usage("--beta must be between 0 and 1 (exclusive).");
         var source = (args.Source ?? symbols[0]).Trim().ToUpperInvariant();
         if (!symbols.Contains(source)) return OperationResult.Usage($"--source {source} is not one of the symbols.");
@@ -73,18 +82,18 @@ public sealed class EvidenceGraphOperation : IOperation<EvidenceGraphArgs>
             returns[s] = list.ToArray();
         }
 
-        var graph = InfluenceGraph.FromReturns(returns, args.Lag, args.MinCorr);
+        var graph = te ? InfluenceGraph.FromTransferEntropy(returns, alpha: args.Alpha) : InfluenceGraph.FromReturns(returns, lag, args.MinCorr);
         var influence = graph.Influence(source, args.Beta);
         var edges = new List<object>();
-        var edgeTable = new TextTable { MaxWidth = ctx.Width }.Column("from").Column("to").Column("corr", Align.Right);
+        var edgeTable = new TextTable { MaxWidth = ctx.Width }.Column("from").Column("to").Column(te ? "te bits" : "corr", Align.Right);
         foreach (var a in graph.Symbols)
         foreach (var b in graph.Symbols)
         {
             if (a == b) continue;
-            if (args.Lag == 0 && string.CompareOrdinal(a, b) > 0) continue;
+            if (lag == 0 && string.CompareOrdinal(a, b) > 0) continue;
             var w = graph.Edge(a, b);
             if (w == 0) continue;
-            edges.Add(new { From = a, To = b, Correlation = Math.Round(w, 4) });
+            edges.Add(new { From = a, To = b, Weight = Math.Round(w, 4) });
             edgeTable.Row(a, b, w.ToString("+0.000;-0.000"));
         }
         var infRows = influence.OrderByDescending(kv => Math.Abs(kv.Value))
@@ -92,8 +101,9 @@ public sealed class EvidenceGraphOperation : IOperation<EvidenceGraphArgs>
         var infTable = new TextTable { MaxWidth = ctx.Width }.Column("symbol").Column("influence", Align.Right).Column("hops", Align.Right);
         foreach (var r in infRows) infTable.Row(r.Symbol, r.Influence.ToString("+0.000;-0.000"), r.Hops < 0 ? "—" : r.Hops.ToString());
 
-        var data = new { From = from, To = to, args.Lag, args.MinCorr, args.Beta, Source = source, SharedBars = shared.Count, Edges = edges, Influence = infRows };
-        var human = $"{shared.Count} shared bars, lag {args.Lag}, |corr| >= {args.MinCorr}\n" +
+        var data = new { From = from, To = to, Lag = lag, Edge = te ? "te" : "correlation", args.MinCorr, args.Alpha, args.Beta, Source = source, SharedBars = shared.Count, Edges = edges, Influence = infRows };
+        var human = (te ? $"{shared.Count} shared bars, lag 1, transfer entropy p < {args.Alpha} vs shuffled surrogates\n"
+                        : $"{shared.Count} shared bars, lag {lag}, |corr| >= {args.MinCorr}\n") +
                     (edges.Count == 0 ? "No edges above the threshold.\n" : edgeTable.Render() + "\n") +
                     $"\nShock at {source} (beta {args.Beta} per hop):\n{infTable.Render()}";
         return OperationResult.Ok(data, human);

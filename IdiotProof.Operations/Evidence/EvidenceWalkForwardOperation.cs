@@ -1,3 +1,4 @@
+using IdiotProof.Evidence.Information;
 using IdiotProof.Core.Evidence;
 using IdiotProof.Evidence;
 using IdiotProof.Operations.Rendering;
@@ -28,6 +29,9 @@ public sealed record EvidenceWalkForwardArgs
 
     [Option("leaders", Description = "With --model leaders, the symbols leaders are discovered among (default SPY,QQQ,IWM).")]
     public string Leaders { get; init; } = "SPY,QQQ,IWM";
+
+    [Option("edge", Description = "With --model leaders, how leader edges are measured: correlation (default) or te (transfer entropy vs shuffled surrogates).")]
+    public EvidenceEdge Edge { get; init; } = EvidenceEdge.Correlation;
 
     [Option("leader-hops", Description = "With --model leaders, most links between a leader and the symbol (default 2).")]
     public int LeaderHops { get; init; } = 2;
@@ -143,6 +147,7 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
             IncludeVolume = args.Volume, Session = args.Session, Model = args.Model,
             LeaderCandidates = EvidenceSupport.Symbols(args.Leaders.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)),
             LeaderLookback = 5, LeaderMaxHops = args.LeaderHops, LeaderMinInfluence = args.LeaderMinInfluence,
+            LeaderEdge = args.Edge == EvidenceEdge.Te ? EdgeMeasure.TransferEntropy : EdgeMeasure.Correlation,
         };
         var report = await new EvidenceWalkForward(store).RunAsync(plan, settings, ctx.CancellationToken);
         var o = report.Overall;
@@ -194,7 +199,7 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
 
         var block = new KeyValueBlock()
             .Add("model", args.Model == EvidenceModel.Leaders
-                ? $"leaders: among {string.Join(",", settings.LeaderCandidates)}, within {args.LeaderHops} hops, |influence| >= {args.LeaderMinInfluence}, move over {settings.LeaderLookback} bars, horizon {args.Horizon}, discovered on {args.TrainDays} prior sessions"
+                ? $"leaders: among {string.Join(",", settings.LeaderCandidates)}, within {args.LeaderHops} hops, |influence| >= {args.LeaderMinInfluence}, move over {settings.LeaderLookback} bars, horizon {args.Horizon}, discovered on {args.TrainDays} prior sessions, {(args.Edge == EvidenceEdge.Te ? "transfer-entropy" : "lag-1 correlation")} edges"
                 : $"{data.Model}: window {args.Window}, horizon {args.Horizon}, train {args.TrainDays} sessions, sim >= {args.MinSimilarity}, >= {args.MinNeighbors} neighbors, agree >= {args.MinAgreement}")
             .Add("range", $"{args.From:yyyy-MM-dd} .. {to:yyyy-MM-dd} ET ({args.Session.ToString().ToLowerInvariant()})" +
                  (args.Universe == EvidenceUniverse.Penny ? $", penny universe on {universeDays} days from {candidateCount} candidates ({inactiveCandidates} inactive)" : $", {plan.Count} symbol(s)"))

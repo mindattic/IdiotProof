@@ -1,3 +1,4 @@
+using IdiotProof.Evidence.Information;
 using IdiotProof.Core.Evidence;
 using IdiotProof.Evidence;
 using IdiotProof.Evidence.Leaders;
@@ -26,6 +27,7 @@ public sealed record WalkForwardSettings
     public int LeaderLookback { get; init; } = 5;
     public int LeaderMaxHops { get; init; } = 2;
     public double LeaderMinInfluence { get; init; } = 0.05;
+    public EdgeMeasure LeaderEdge { get; init; } = EdgeMeasure.Correlation;
 }
 
 /// <summary>One evaluated (symbol, day): what the model trained on and how its calls scored.</summary>
@@ -168,7 +170,7 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
             if (!candidate.Equals(symbol, StringComparison.Ordinal))
                 history[candidate] = candles.Where(c => c.EndUtc <= dayStartUtc && priorSet.Contains(EvidenceSupport.DateEt(c))).ToList();
 
-        var links = LeaderDiscovery.Discover(symbol, history, s.LeaderMaxHops, minInfluence: s.LeaderMinInfluence);
+        var links = LeaderDiscovery.Discover(symbol, history, s.LeaderMaxHops, minInfluence: s.LeaderMinInfluence, edge: s.LeaderEdge);
         if (links.Count == 0) return null;
 
         var today = links.ToDictionary(l => l.Symbol,

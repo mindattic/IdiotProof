@@ -5242,6 +5242,205 @@
       }
     },
     {
+      "name": "evidence events",
+      "noun": "evidence",
+      "verb": "events",
+      "tool_name": "evidence_events",
+      "summary": "Event study of Research claims: market-model abnormal returns and CARs per claim type/sentiment/insider code, with Patell, BMP and placebo-bootstrap significance.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence events [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--type \u003Cstring\u003E] [--windows \u003Cstring\u003E] [--estimation \u003Cint\u003E] [--gap \u003Cint\u003E] [--min-events \u003Cint\u003E] [--bootstrap \u003Cint\u003E] [--seed \u003Cint\u003E] [--benchmark \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First claim article day (yyyy-MM-dd, default: 180 days before --to).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last claim article day (yyyy-MM-dd, default: today ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "type",
+          "json_name": "type",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Only this claim type (Earnings, Contract, Insider, MA, Guidance, Regulatory, News, IndexEvent).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "windows",
+          "json_name": "windows",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Event windows in trading days, start:end, comma-separated (default -1:1,0:1,0:5).",
+          "default": "-1:1,0:1,0:5",
+          "enum_values": null
+        },
+        {
+          "name": "estimation",
+          "json_name": "estimation",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Estimation-window length in trading days (default 120).",
+          "default": 120,
+          "enum_values": null
+        },
+        {
+          "name": "gap",
+          "json_name": "gap",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Trading days between the estimation window and the event window (default 10).",
+          "default": 10,
+          "enum_values": null
+        },
+        {
+          "name": "min-events",
+          "json_name": "min_events",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Fewest valid events a group needs to be reported (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "bootstrap",
+          "json_name": "bootstrap",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Placebo bootstrap draws (default 1000; 0 skips it).",
+          "default": 1000,
+          "enum_values": null
+        },
+        {
+          "name": "seed",
+          "json_name": "seed",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Bootstrap seed (default 1337).",
+          "default": 1337,
+          "enum_values": null
+        },
+        {
+          "name": "benchmark",
+          "json_name": "benchmark",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Market benchmark symbol (default SPY).",
+          "default": "SPY",
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence events",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence events --type Insider --windows 0:1,0:5 --from 2026-05-01",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Event study of Research claims: market-model abnormal returns and CARs per claim type/sentiment/insider code, with Patell, BMP and placebo-bootstrap significance.",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First claim article day (yyyy-MM-dd, default: 180 days before --to)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last claim article day (yyyy-MM-dd, default: today ET)."
+          },
+          "type": {
+            "type": "string",
+            "description": "Only this claim type (Earnings, Contract, Insider, MA, Guidance, Regulatory, News, IndexEvent)."
+          },
+          "windows": {
+            "type": "string",
+            "description": "Event windows in trading days, start:end, comma-separated (default -1:1,0:1,0:5).",
+            "default": "-1:1,0:1,0:5"
+          },
+          "estimation": {
+            "type": "integer",
+            "description": "Estimation-window length in trading days (default 120).",
+            "default": 120
+          },
+          "gap": {
+            "type": "integer",
+            "description": "Trading days between the estimation window and the event window (default 10).",
+            "default": 10
+          },
+          "min_events": {
+            "type": "integer",
+            "description": "Fewest valid events a group needs to be reported (default 5).",
+            "default": 5
+          },
+          "bootstrap": {
+            "type": "integer",
+            "description": "Placebo bootstrap draws (default 1000; 0 skips it).",
+            "default": 1000
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Bootstrap seed (default 1337).",
+            "default": 1337
+          },
+          "benchmark": {
+            "type": "string",
+            "description": "Market benchmark symbol (default SPY).",
+            "default": "SPY"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "evidence flow",
       "noun": "evidence",
       "verb": "flow",
@@ -5444,7 +5643,7 @@
       "summary": "Correlation graph across symbols (lag 0 or 1) and the hop-decayed influence of a shock at a source symbol.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof evidence graph \u003Csymbols\u003E... [--source \u003Cstring\u003E] [--lag \u003Cint\u003E] [--min-corr \u003Cnumber\u003E] [--beta \u003Cnumber\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--session \u003Crth|all\u003E]",
+      "usage": "idiotproof evidence graph \u003Csymbols\u003E... [--source \u003Cstring\u003E] [--lag \u003Cint\u003E] [--edge \u003Ccorrelation|te\u003E] [--alpha \u003Cnumber\u003E] [--min-corr \u003Cnumber\u003E] [--beta \u003Cnumber\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--session \u003Crth|all\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -5480,6 +5679,33 @@
           "required": false,
           "description": "0 = moves together (default); 1 = the source\u0027s bar predicts the other\u0027s next bar.",
           "default": 0,
+          "enum_values": null
+        },
+        {
+          "name": "edge",
+          "json_name": "edge",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "correlation|te",
+          "required": false,
+          "description": "correlation (default) or te: transfer entropy beating shuffled surrogates (directional, implies --lag 1).",
+          "default": "correlation",
+          "enum_values": [
+            "correlation",
+            "te"
+          ]
+        },
+        {
+          "name": "alpha",
+          "json_name": "alpha",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "With --edge te, the surrogate-test significance an edge must reach (default 0.05).",
+          "default": 0.05,
           "enum_values": null
         },
         {
@@ -5591,6 +5817,20 @@
             "type": "integer",
             "description": "0 = moves together (default); 1 = the source\u0027s bar predicts the other\u0027s next bar.",
             "default": 0
+          },
+          "edge": {
+            "type": "string",
+            "enum": [
+              "correlation",
+              "te"
+            ],
+            "description": "correlation (default) or te: transfer entropy beating shuffled surrogates (directional, implies --lag 1).",
+            "default": "correlation"
+          },
+          "alpha": {
+            "type": "number",
+            "description": "With --edge te, the surrogate-test significance an edge must reach (default 0.05).",
+            "default": 0.05
           },
           "min_corr": {
             "type": "number",
@@ -6773,7 +7013,7 @@
       "summary": "Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilson CI, coverage and edge after costs.",
       "description": "Each day\u0027s model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.",
       "risk": "read",
-      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
+      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -6852,6 +7092,21 @@
           "description": "With --model leaders, the symbols leaders are discovered among (default SPY,QQQ,IWM).",
           "default": "SPY,QQQ,IWM",
           "enum_values": null
+        },
+        {
+          "name": "edge",
+          "json_name": "edge",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "correlation|te",
+          "required": false,
+          "description": "With --model leaders, how leader edges are measured: correlation (default) or te (transfer entropy vs shuffled surrogates).",
+          "default": "correlation",
+          "enum_values": [
+            "correlation",
+            "te"
+          ]
         },
         {
           "name": "leader-hops",
@@ -7068,6 +7323,15 @@
             "type": "string",
             "description": "With --model leaders, the symbols leaders are discovered among (default SPY,QQQ,IWM).",
             "default": "SPY,QQQ,IWM"
+          },
+          "edge": {
+            "type": "string",
+            "enum": [
+              "correlation",
+              "te"
+            ],
+            "description": "With --model leaders, how leader edges are measured: correlation (default) or te (transfer entropy vs shuffled surrogates).",
+            "default": "correlation"
           },
           "leader_hops": {
             "type": "integer",
