@@ -29,8 +29,8 @@ public sealed class BacktestReport
     public List<BacktestTrade> Trades { get; } = [];
 
     /// <summary>
-    /// True when the strategy uses .If/.Then branching. Branch resolution is not yet
-    /// simulated in the backtest (see <see cref="Note"/>); only base entry conditions run.
+    /// True when the strategy uses .If/.Then branching. Branches resolve per bar as in the
+    /// Monitor; a trade keeps the branch it entered on.
     /// </summary>
     public bool HasBranching { get; init; }
 

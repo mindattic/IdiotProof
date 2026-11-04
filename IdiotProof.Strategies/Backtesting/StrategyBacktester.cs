@@ -58,12 +58,13 @@ public static class StrategyBacktester
             HasBranching  = definition.HasBranching,
         };
 
-        if (definition.HasBranching)
-            report.Note = "This strategy uses .If/.Then branching, which the backtest does not yet resolve — only the base entry conditions were evaluated.";
+        // Every condition any branch could add, tracked every bar so a pattern latch
+        // (Breakout/Pullback) keeps its state when the active branch flips.
+        var allConditions = CollectAllEntryConditions(definition);
 
-        if (ordered.Count < 2 || definition.EntryConditions.Count == 0)
+        if (ordered.Count < 2 || allConditions.Count == 0)
         {
-            if (definition.EntryConditions.Count == 0)
+            if (allConditions.Count == 0)
                 report.Note = "Strategy has no entry conditions to evaluate.";
             else
                 // Without this note, a weekend/holiday (or feed outage) day
@@ -75,9 +76,15 @@ public static class StrategyBacktester
         }
 
         var emaPeriods = CollectEmaPeriods(definition);
-        var isLong     = definition.Direction != TradeDirection.Short;
+        var allTriggers = BuildTriggers(allConditions);
+        var triggerFor = new Dictionary<ICondition, TrackedTrigger>(ReferenceEqualityComparer.Instance);
+        for (int k = 0; k < allConditions.Count; k++) triggerFor[allConditions[k]] = allTriggers[k];
 
-        var triggers = BuildTriggers(definition.EntryConditions);
+        // Branches resolve per bar, like the Monitor; an open trade keeps the branch it entered on
+        // (the Monitor's ResolvedEntryScriptJson), so its stop/targets don't flip mid-trade.
+        var entryDef = definition;
+        var isLong = definition.Direction != TradeDirection.Short;
+        var triggers = allTriggers;
 
         BacktestTrade? open = null;
         int remaining = 0;
@@ -96,13 +103,17 @@ public static class StrategyBacktester
             var window = ordered.Take(i + 1).ToList();
             var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(symbol, window, emaPeriods, options.PreviousClose);
 
+            var active = StrategyBranchResolver.Resolve(definition, snapshot);
+            triggers = active.EntryConditions.Select(c => triggerFor[c]).ToList();
+
             // 1) Update every trigger's satisfied state for this bar.
+            foreach (var t in allTriggers) t.Update(bar, snapshot, allTriggers);
+
             bool allSatisfied = true;
             bool hadFireThisBar = false;
             foreach (var t in triggers)
             {
-                bool justFired = t.Update(bar, snapshot, triggers);
-                if (justFired)
+                if (t.TryReportFire())
                 {
                     hadFireThisBar = true;
                     report.Triggers.Add(new TriggerFire
@@ -123,7 +134,7 @@ public static class StrategyBacktester
             //    repeat-reset, not re-enter until the next bar).
             if (open is not null)
             {
-                ManageOpenBar(open, bar, isLong, ref remaining, ref nextTarget, targets, stop, definition);
+                ManageOpenBar(open, bar, isLong, ref remaining, ref nextTarget, targets, stop, entryDef);
                 if (remaining == 0)
                 {
                     FinalizeTrade(open, isLong);
@@ -133,7 +144,7 @@ public static class StrategyBacktester
                     if (definition.ShouldRepeat)
                     {
                         cycle++;
-                        foreach (var t in triggers) t.Reset();
+                        foreach (var t in allTriggers) t.Reset();
                     }
                     else
                     {
@@ -148,15 +159,17 @@ public static class StrategyBacktester
             if (!blockReentry && allSatisfied)
             {
                 var entryPrice = bar.Close;
-                var qty = ResolveQuantity(definition, entryPrice, options);
+                var qty = ResolveQuantity(active, entryPrice, options);
                 if (qty <= 0)
                 {
                     AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, false, false);
                     continue;
                 }
 
-                stop = ResolveStop(definition, entryPrice, isLong);
-                targets = ResolveTargets(definition, isLong);
+                entryDef = active;
+                isLong = active.Direction != TradeDirection.Short;
+                stop = ResolveStop(active, entryPrice, isLong);
+                targets = ResolveTargets(active, isLong);
                 nextTarget = 0;
                 remaining = qty;
                 openedTradeThisBar = true;
@@ -164,7 +177,7 @@ public static class StrategyBacktester
                 open = new BacktestTrade
                 {
                     Cycle     = cycle,
-                    Direction = definition.Direction,
+                    Direction = active.Direction,
                     EntryUtc  = bar.StartUtc,
                     EntryPrice = entryPrice,
                     Quantity  = qty,
@@ -382,6 +395,18 @@ public static class StrategyBacktester
         return periods.OrderBy(x => x).ToArray();
     }
 
+    private static List<ICondition> CollectAllEntryConditions(StrategyDefinition def)
+    {
+        var seen = new HashSet<ICondition>(ReferenceEqualityComparer.Instance);
+        var list = new List<ICondition>();
+        foreach (var c in def.EntryConditions) if (seen.Add(c)) list.Add(c);
+        foreach (var block in def.ConditionalBlocks)
+            foreach (var branch in block.Branches)
+                foreach (var c in branch.Overrides.EntryConditions)
+                    if (seen.Add(c)) list.Add(c);
+        return list;
+    }
+
     private static List<TrackedTrigger> BuildTriggers(IReadOnlyList<ICondition> conditions)
         => conditions.Select(c => new TrackedTrigger(c)).ToList();
 
@@ -414,8 +439,7 @@ public static class StrategyBacktester
             }
         }
 
-        /// <summary>Returns true if the condition fired (became true) for the first time this cycle.</summary>
-        public bool Update(Candle bar, Shared.IndicatorSnapshot snapshot, List<TrackedTrigger> all)
+        public void Update(Candle bar, Shared.IndicatorSnapshot snapshot, List<TrackedTrigger> all)
         {
             if (IsBreakout)
             {
@@ -442,13 +466,14 @@ public static class StrategyBacktester
             {
                 Satisfied = condition.Evaluate(snapshot);
             }
+        }
 
-            if (Satisfied && !everFired)
-            {
-                everFired = true;
-                return true;
-            }
-            return false;
+        /// <summary>True the first time this cycle the condition is seen satisfied while it is part of the active branch.</summary>
+        public bool TryReportFire()
+        {
+            if (!Satisfied || everFired) return false;
+            everFired = true;
+            return true;
         }
 
         public void Reset()
