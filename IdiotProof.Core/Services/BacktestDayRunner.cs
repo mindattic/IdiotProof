@@ -29,6 +29,11 @@ public static class BacktestDayRunner
     }
 
     public static async Task<BacktestReport> RunAsync(
+        StrategyDefinition def, DateOnly dayEt, IMarketDataFeed feed, CancellationToken ct = default) =>
+        (await RunWithCandlesAsync(def, dayEt, feed, ct)).Report;
+
+    /// <summary>The day run plus the candles it replayed, so the page can chart exactly what was tested.</summary>
+    public static async Task<(BacktestReport Report, IReadOnlyList<Candle> Candles)> RunWithCandlesAsync(
         StrategyDefinition def, DateOnly dayEt, IMarketDataFeed feed, CancellationToken ct = default)
     {
         var (start, end) = SessionWindowUtc(dayEt, def.Session);
@@ -38,7 +43,7 @@ public static class BacktestDayRunner
 
         // Without the previous close every gap condition fails closed and a gap strategy never triggers.
         var previousClose = await feed.GetPreviousCloseAsync(def.Symbol, start.AddHours(2), ct);
-        return StrategyBacktester.Run(def, candles, new BacktestOptions { PreviousClose = previousClose });
+        return (StrategyBacktester.Run(def, candles, new BacktestOptions { PreviousClose = previousClose }), candles);
     }
 
     private static DateTime ToUtc(DateOnly day, TimeOnly et) =>

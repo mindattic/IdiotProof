@@ -85,6 +85,13 @@
                 <div class="alert alert-warning small" id="backtest-note">@report.Note</div>
             }
 
+            @if (chart is { Bars.Count: > 0 })
+            {
+                <div class="trading-card p-2 mb-3" id="backtest-chart">
+                    <Chart Payload="chart" />
+                </div>
+            }
+
             <div class="trading-card p-3 mb-3" id="backtest-summary">
                 <div class="d-flex flex-wrap gap-4">
                     <div><div class="text-muted small">Symbol</div><div class="fw-semibold">@report.Symbol</div></div>
@@ -243,6 +250,7 @@
     private string activeDataSource = "Mock";
     private string? loadError;
     private BacktestReport? report;
+    private ChartPayload? chart;
 
     private string? alpacaKeyId;
     private string? alpacaSecretKey;
@@ -291,6 +299,7 @@
     {
         loadError = null;
         report = null;
+        chart = null;
         var strategy = strategies.FirstOrDefault(s => s.Id == selectedStrategyId);
         if (strategy is null) { loadError = "Pick a strategy to backtest."; return; }
 
@@ -323,7 +332,9 @@
 
             activeDataSource = dataSource;
             await using var disposable = feed as IAsyncDisposable;
-            report = await BacktestDayRunner.RunAsync(def, day, feed);
+            var run = await BacktestDayRunner.RunWithCandlesAsync(def, day, feed);
+            report = run.Report;
+            chart = ChartSeries.Payload(def.Symbol, run.Candles, run.Report);
         }
         catch (Exception ex)
         {

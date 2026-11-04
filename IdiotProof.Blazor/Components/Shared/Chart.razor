@@ -1,0 +1,34 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@*
+    Price chart for a strategy's ticker: TradingView Lightweight Charts (vendored under
+    wwwroot/lib/lightweight-charts) driven through js/ip-chart.js. The surface the ghost
+    overlay (IP-US-G2..G4) draws on.
+*@
+
+<div class="ip-chart" @ref="host" role="img"
+     aria-label="@($"{Payload?.Symbol} price chart, {Payload?.Bars.Count ?? 0} bars")"
+     style="height:@(Height)px"></div>
+
+@code {
+    [Parameter, EditorRequired] public ChartPayload? Payload { get; set; }
+    [Parameter] public int Height { get; set; } = 360;
+
+    private ElementReference host;
+    private ChartPayload? rendered;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Payload is null || ReferenceEquals(Payload, rendered)) return;
+        rendered = Payload;
+        await JS.InvokeVoidAsync("ipChart.render", host, Payload);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("ipChart.dispose", host); }
+        catch (JSDisconnectedException) { }
+        catch (InvalidOperationException) { }
+    }
+}
