@@ -1,3 +1,4 @@
+using IdiotProof.Evidence.Liquidity;
 using IdiotProof.Models;
 
 namespace IdiotProof.Evidence.Adaptation;
@@ -11,7 +12,27 @@ public sealed record DerivedParameters(
     int Samples,
     int Horizon,
     double StopQuantile,
-    RegimeReading Regime);
+    RegimeReading Regime)
+{
+    /// <summary>Why the stop was widened past a raided stop pool; null when it wasn't.</summary>
+    public string? StopNudge { get; init; }
+}
+
+/// <summary>
+/// Optional stop-pool awareness for <see cref="AdaptiveParameterDeriver.Derive"/> (off unless supplied):
+/// pools below the entry and the learned raid table. A stop resting within a pool's typical raid depth
+/// is moved just beyond that depth when raids there are measured to reverse at least
+/// <see cref="MinRaidRate"/> of the time over at least <see cref="MinSamples"/> pierces. Stops only widen,
+/// and never past <see cref="MaxWidenFactor"/> times the measured stop.
+/// </summary>
+public sealed record StopPoolNudge(IReadOnlyList<StopPool> PoolsBelow, PoolRaidTable Table, int Tier)
+{
+    public double MinRaidRate { get; init; } = 0.6;
+    public int MinSamples { get; init; } = 20;
+    /// <summary>Extra room beyond the median raid depth, as a fraction of the pool price.</summary>
+    public double Buffer { get; init; } = 0.001;
+    public double MaxWidenFactor { get; init; } = 2.0;
+}
 
 /// <summary>
 /// Derives stop / trail / target per ticker from what its price actually did (IP-US-S3), not from a
@@ -23,7 +44,7 @@ public sealed record DerivedParameters(
 public static class AdaptiveParameterDeriver
 {
     public static DerivedParameters Derive(IReadOnlyList<Candle> closed, int horizon = 10, double stopQuantile = 0.8,
-        double minPercent = 0.25)
+        double minPercent = 0.25, StopPoolNudge? nudge = null)
     {
         if (horizon < 1) throw new ArgumentOutOfRangeException(nameof(horizon));
         var mae = new List<double>();
@@ -48,12 +69,39 @@ public static class AdaptiveParameterDeriver
         double atrPct = AtrPercent(closed);
         var closes = closed.Select(c => (double)c.Close).ToList();
         var regime = RegimeStats.Read(closes);
-        return new DerivedParameters(
+        var derived = new DerivedParameters(
             atrPct,
             Math.Max(minPercent, Quantile(mae, stopQuantile)),
             Math.Max(minPercent, Quantile(pullback, stopQuantile)),
             Math.Max(minPercent, Quantile(mfe, 0.5)),
             mae.Count, horizon, stopQuantile, regime);
+        return nudge is null || closed.Count == 0 ? derived : NudgePastRaidedPools(derived, (double)closed[^1].Close, nudge);
+    }
+
+    /// <summary>Widens the stop past any raided pool whose typical raid would reach it.</summary>
+    public static DerivedParameters NudgePastRaidedPools(DerivedParameters p, double entry, StopPoolNudge nudge)
+    {
+        if (entry <= 0) return p;
+        double stopPrice = entry * (1 - p.StopLossPercent / 100);
+        double required = stopPrice;
+        string? why = null;
+        foreach (var pool in nudge.PoolsBelow)
+        {
+            if (pool.Price >= entry) continue;
+            var key = new PoolKey(pool.Kind, PoolSide.Below, nudge.Tier);
+            var rate = nudge.Table.ReverseRate(key);
+            if (rate.Samples < nudge.MinSamples || rate.Probability < nudge.MinRaidRate) continue;
+            double depth = nudge.Table.MedianRaidDepth(key) ?? 0;
+            double beyond = pool.Price * (1 - depth - nudge.Buffer);
+            if (stopPrice < beyond || beyond >= required) continue;
+            required = beyond;
+            why = $"{pool.Kind} {pool.Price:0.####}: raids reversed {rate.Probability:P0} of {rate.Samples}, median depth {depth:P2}";
+        }
+        if (why is null) return p;
+        double widened = (entry - required) / entry * 100;
+        if (widened > p.StopLossPercent * nudge.MaxWidenFactor)
+            return p with { StopNudge = $"not widened (would exceed {nudge.MaxWidenFactor}x): {why}" };
+        return p with { StopLossPercent = Round(widened), StopNudge = $"widened past {why}" };
     }
 
     /// <summary>
