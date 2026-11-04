@@ -7,7 +7,7 @@ namespace IdiotProof.Evidence;
 /// direct neighbor feels it at strength β, a neighbor-of-neighbor at most β², and so on: the pull
 /// weakens with every hop.
 /// </summary>
-public sealed class InfluenceGraph
+public sealed partial class InfluenceGraph
 {
     private readonly double[,] weights;
     public IReadOnlyList<string> Symbols { get; }
