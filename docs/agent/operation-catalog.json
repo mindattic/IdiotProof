@@ -5955,6 +5955,226 @@
       }
     },
     {
+      "name": "evidence search",
+      "noun": "evidence",
+      "verb": "search",
+      "tool_name": "evidence_search",
+      "summary": "Grid-search a strategy template with multiple-testing corrections: BH q-values, deflated Sharpe, reality check/SPA, and a held-out score for the winner.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence search \u003Csymbols\u003E... [--script \u003Cstring\u003E] [--grid \u003Cstring[]\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--holdout \u003Cnumber\u003E] [--top \u003Cint\u003E] [--resamples \u003Cint\u003E] [--block \u003Cnumber\u003E] [--seed \u003Cint\u003E] [--max-configs \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string[]",
+          "required": true,
+          "description": "Tickers to score every config on, e.g. SNDL MULN.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "script",
+          "json_name": "script",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "IdiotScript template with {name} placeholders, e.g. \u0022Ticker(X).IsAboveVwap().TakeProfit({tp}).StopLoss({sl})\u0022.",
+          "default": "",
+          "enum_values": null
+        },
+        {
+          "name": "grid",
+          "json_name": "grid",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string[]",
+          "required": false,
+          "description": "Repeatable: a placeholder and its values, e.g. --grid tp=1,2,3 --grid sl=0.5,1.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET day (yyyy-MM-dd, default: 30 days before --to).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last ET day (yyyy-MM-dd, default: today ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "holdout",
+          "json_name": "holdout",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Fraction of the latest days kept out of selection and scored once on the chosen config (default 0.3).",
+          "default": 0.3,
+          "enum_values": null
+        },
+        {
+          "name": "top",
+          "json_name": "top",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Configs to list (default 10).",
+          "default": 10,
+          "enum_values": null
+        },
+        {
+          "name": "resamples",
+          "json_name": "resamples",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Reality-check bootstrap resamples (default 1000).",
+          "default": 1000,
+          "enum_values": null
+        },
+        {
+          "name": "block",
+          "json_name": "block",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Mean bootstrap block length in symbol-days (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "seed",
+          "json_name": "seed",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Bootstrap seed (default 1337).",
+          "default": 1337,
+          "enum_values": null
+        },
+        {
+          "name": "max-configs",
+          "json_name": "max_configs",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Refuse grids larger than this (default 2000).",
+          "default": 2000,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence search SNDL MULN --script \u0022Ticker(X).IsAboveVwap().TakeProfit({tp}).StopLoss({sl})\u0022 --grid tp=0.2,0.4 --grid sl=0.1,0.2",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Grid-search a strategy template with multiple-testing corrections: BH q-values, deflated Sharpe, reality check/SPA, and a held-out score for the winner.",
+        "properties": {
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tickers to score every config on, e.g. SNDL MULN."
+          },
+          "script": {
+            "type": "string",
+            "description": "IdiotScript template with {name} placeholders, e.g. \u0022Ticker(X).IsAboveVwap().TakeProfit({tp}).StopLoss({sl})\u0022.",
+            "default": ""
+          },
+          "grid": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Repeatable: a placeholder and its values, e.g. --grid tp=1,2,3 --grid sl=0.5,1."
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET day (yyyy-MM-dd, default: 30 days before --to)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last ET day (yyyy-MM-dd, default: today ET)."
+          },
+          "holdout": {
+            "type": "number",
+            "description": "Fraction of the latest days kept out of selection and scored once on the chosen config (default 0.3).",
+            "default": 0.3
+          },
+          "top": {
+            "type": "integer",
+            "description": "Configs to list (default 10).",
+            "default": 10
+          },
+          "resamples": {
+            "type": "integer",
+            "description": "Reality-check bootstrap resamples (default 1000).",
+            "default": 1000
+          },
+          "block": {
+            "type": "number",
+            "description": "Mean bootstrap block length in symbol-days (default 5).",
+            "default": 5
+          },
+          "seed": {
+            "type": "integer",
+            "description": "Bootstrap seed (default 1337).",
+            "default": 1337
+          },
+          "max_configs": {
+            "type": "integer",
+            "description": "Refuse grids larger than this (default 2000).",
+            "default": 2000
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbols"
+        ]
+      }
+    },
+    {
       "name": "evidence similar",
       "noun": "evidence",
       "verb": "similar",
