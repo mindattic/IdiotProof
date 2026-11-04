@@ -5242,6 +5242,201 @@
       }
     },
     {
+      "name": "evidence flow",
+      "noun": "evidence",
+      "verb": "flow",
+      "tool_name": "evidence_flow",
+      "summary": "Order-flow evidence: imbalance, VPIN, Kyle\u0027s lambda and absorption bucketed against forward returns, scored on held-out sessions.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence flow \u003Csymbol\u003E [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--horizon \u003Cint\u003E] [--bins \u003Cint\u003E] [--signing \u003Ctick|lee-ready|bulk\u003E] [--train \u003Cnumber\u003E] [--vpin-window \u003Cint\u003E] [--lambda-window \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "symbol",
+          "json_name": "symbol",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "Ticker, e.g. SNDL.",
+          "default": "",
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET day (yyyy-MM-dd, default: 10 days before --to).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last ET day (yyyy-MM-dd, default: yesterday ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "horizon",
+          "json_name": "horizon",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Minute bars ahead to measure (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "bins",
+          "json_name": "bins",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Quantile buckets per metric (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "signing",
+          "json_name": "signing",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "tick|lee-ready|bulk",
+          "required": false,
+          "description": "tick (default: tick rule on trades), lee-ready (trades vs quote midpoint; fetches quotes) or bulk (bar-only bulk classification).",
+          "default": "tick",
+          "enum_values": [
+            "tick",
+            "lee-ready",
+            "bulk"
+          ]
+        },
+        {
+          "name": "train",
+          "json_name": "train",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Share of sessions used to learn bucket edges (default 0.67); the rest is the held-out test.",
+          "default": 0.67,
+          "enum_values": null
+        },
+        {
+          "name": "vpin-window",
+          "json_name": "vpin_window",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "VPIN buckets averaged (default 50).",
+          "default": 50,
+          "enum_values": null
+        },
+        {
+          "name": "lambda-window",
+          "json_name": "lambda_window",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Bars per Kyle\u0027s lambda regression (default 30).",
+          "default": 30,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence flow SNDL --from 2026-10-20 --to 2026-10-31",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence flow MULN --signing bulk --horizon 10",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Order-flow evidence: imbalance, VPIN, Kyle\u0027s lambda and absorption bucketed against forward returns, scored on held-out sessions.",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Ticker, e.g. SNDL.",
+            "default": ""
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET day (yyyy-MM-dd, default: 10 days before --to)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last ET day (yyyy-MM-dd, default: yesterday ET)."
+          },
+          "horizon": {
+            "type": "integer",
+            "description": "Minute bars ahead to measure (default 5).",
+            "default": 5
+          },
+          "bins": {
+            "type": "integer",
+            "description": "Quantile buckets per metric (default 5).",
+            "default": 5
+          },
+          "signing": {
+            "type": "string",
+            "enum": [
+              "tick",
+              "lee-ready",
+              "bulk"
+            ],
+            "description": "tick (default: tick rule on trades), lee-ready (trades vs quote midpoint; fetches quotes) or bulk (bar-only bulk classification).",
+            "default": "tick"
+          },
+          "train": {
+            "type": "number",
+            "description": "Share of sessions used to learn bucket edges (default 0.67); the rest is the held-out test.",
+            "default": 0.67
+          },
+          "vpin_window": {
+            "type": "integer",
+            "description": "VPIN buckets averaged (default 50).",
+            "default": 50
+          },
+          "lambda_window": {
+            "type": "integer",
+            "description": "Bars per Kyle\u0027s lambda regression (default 30).",
+            "default": 30
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbol"
+        ]
+      }
+    },
+    {
       "name": "evidence graph",
       "noun": "evidence",
       "verb": "graph",
