@@ -34,6 +34,10 @@ public sealed class DslValidateOperation : IOperation<DslTextArgs>
         StrategyDefinition? def = null;
         string source = "?";
         var findings = new List<DslFinding>();
+        if (StrategyImportOperation.IsScriptText(args.Text))
+            foreach (var d in ScriptDiagnostics.Analyze(args.Text))
+                findings.Add(new(d.IsError ? "error" : "warn", "Setup", "syntax " + d.Code,
+                    $"line {d.Line}, col {d.Column}: {d.Message}" + (d.Suggestion is null ? "" : $" Did you mean '{d.Suggestion}'?")));
         try
         {
             (def, source) = StrategyImportOperation.Parse(args.Text);

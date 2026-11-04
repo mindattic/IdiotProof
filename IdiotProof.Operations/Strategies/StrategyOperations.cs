@@ -275,6 +275,21 @@ public sealed class StrategyImportOperation : IOperation<StrategyImportArgs>
         return OperationResult.Ok(new { created.Id, Stamp = def.ShortId(), def.Symbol, Title = title, Mode = args.Mode.ToString(), Source = source, Warning = warning }, human);
     }
 
+    /// <summary>True when the text is IdiotScript rather than canonical JSON or a stamp.</summary>
+    internal static bool IsScriptText(string? text)
+    {
+        var t = (text ?? "").Trim();
+        return t.Length > 0 && !t.StartsWith('{') && !t.StartsWith("IPS1:", StringComparison.Ordinal)
+               && !t.Contains("BEGIN IDIOTPROOF STRATEGY", StringComparison.Ordinal);
+    }
+
+    /// <summary>Every line/column diagnostic for an IdiotScript, one block per finding (empty when clean).</summary>
+    internal static string RenderDiagnostics(string script)
+    {
+        var diags = ScriptDiagnostics.Analyze(script);
+        return diags.Count == 0 ? "" : "\n" + string.Join("\n", diags.Select(d => d.ToString()));
+    }
+
     internal static (StrategyDefinition Definition, string Source) Parse(string text)
     {
         var t = (text ?? "").Trim();
@@ -285,7 +300,7 @@ public sealed class StrategyImportOperation : IOperation<StrategyImportArgs>
                 return (StrategyStamp.Decode(t), "stamp");
             if (t.StartsWith('{'))
                 return (StrategyJson.Deserialize(t), "canonical JSON");
-            return (ScriptParser.ParseScript(t) ?? throw OperationException.Usage("That IdiotScript didn't parse."), "IdiotScript");
+            return (ScriptParser.ParseScript(t) ?? throw OperationException.Usage("That IdiotScript didn't parse." + RenderDiagnostics(t)), "IdiotScript");
         }
         catch (OperationException) { throw; }
         catch (Exception ex)

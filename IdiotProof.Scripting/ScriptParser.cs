@@ -6,8 +6,9 @@ namespace IdiotProof.Scripting;
 /// <summary>
 /// Best-effort IdiotScript parser. Walks fluent-style <c>.Verb(args)</c> tokens
 /// in a stored ScriptText and dispatches onto the canonical <see cref="StrategyBuilder"/>.
-/// Unknown verbs are silently skipped — the goal is "render what we can" rather
-/// than "fail on first surprise." A Roslyn-based proper parser is on the roadmap.
+/// Unknown verbs are skipped — the goal is "render what we can" rather than
+/// "fail on first surprise" — but never silently: <see cref="ScriptDiagnostics.Analyze"/>
+/// reports each one (and every other misread) with its exact line and column.
 ///
 /// Used by the Monitor (autonomous evaluation) and by any UI surface that wants
 /// to visualize a saved strategy. Adding a new builder verb? Add one case here
@@ -34,7 +35,8 @@ public static class ScriptParser
         return builder.Build();
     }
 
-    private static void ApplyVerb(StrategyBuilder b, string name, string args)
+    /// <returns>False when the parser has no case for the verb (it is skipped; <see cref="ScriptDiagnostics"/> reports it).</returns>
+    internal static bool ApplyVerb(StrategyBuilder b, string name, string args)
     {
         var nums = ParseNumericArgs(args);
         var strs = ParseStringArgs(args);
@@ -206,7 +208,9 @@ public static class ScriptParser
             case "for":            if (nums.Count >= 3 && nums[2] >= 1) b.For((double)nums[0], (double)nums[1], (int)nums[2]); break;
             case "foreach":        if (nums.Count >= 1) b.ForEach(nums.Select(n => (double)n).ToArray()); break;
             case "takeprofiteach": b.TakeProfitEach(); break;
+            default: return false;
         }
+        return true;
     }
 
     /// <summary>

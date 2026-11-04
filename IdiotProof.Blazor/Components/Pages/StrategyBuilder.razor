@@ -744,7 +744,13 @@
                 // strategy. Warning only — the script stays in the editor.
                 try
                 {
-                    if (ScriptParser.ParseScript(result.Script) is null)
+                    var problems = ScriptDiagnostics.Analyze(result.Script).Where(d => d.IsError).ToList();
+                    if (problems.Count > 0)
+                        aiError = "Heads up: the generated script has problems the parser would skip — review it (or regenerate) before saving. "
+                            + string.Join(" · ", problems.Take(3).Select(d => $"line {d.Line}, col {d.Column}: {d.Message}"
+                                + (d.Suggestion is null ? "" : $" (did you mean {d.Suggestion}?)")))
+                            + (problems.Count > 3 ? $" · and {problems.Count - 3} more" : "");
+                    else if (ScriptParser.ParseScript(result.Script) is null)
                         aiError = "Heads up: the generated script could not be parsed — review it (or regenerate) before saving.";
                 }
                 catch (Exception)

@@ -26,7 +26,15 @@ public sealed class DslParseOperation : IOperation<DslTextArgs>
         var canon = StrategyJson.Serialize(def);
         using var doc = JsonDocument.Parse(canon);
         var pretty = JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
-        var data = new { source, stamp = def.ShortId(), symbol = def.Symbol, canon = doc.RootElement.Clone() };
-        return Task.FromResult(OperationResult.Ok(data, $"{def.Symbol} {def.ShortId()} (from {source})\n{pretty}"));
+        var diagnostics = StrategyImportOperation.IsScriptText(args.Text) ? ScriptDiagnostics.Analyze(args.Text) : [];
+        var data = new
+        {
+            source, stamp = def.ShortId(), symbol = def.Symbol, canon = doc.RootElement.Clone(),
+            diagnostics = diagnostics.Select(d => new { severity = d.IsError ? "error" : "warning", d.Code, d.Line, d.Column, d.Message, d.Suggestion }),
+        };
+        var trailer = diagnostics.Count == 0 ? ""
+            : "\n\nThe parser skipped or misread part of this script, so the JSON above may not be what you meant:"
+              + StrategyImportOperation.RenderDiagnostics(args.Text);
+        return Task.FromResult(OperationResult.Ok(data, $"{def.Symbol} {def.ShortId()} (from {source})\n{pretty}{trailer}"));
     }
 }
