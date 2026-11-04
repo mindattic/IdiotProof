@@ -7,11 +7,21 @@
         return v || fallback;
     }
 
+    // tickMarkType: 0 year, 1 month, 2 day of month, 3 time, 4 time with seconds.
+    function etTick(t, tickMarkType) {
+        var d = new Date(t * 1000), tz = { timeZone: 'America/New_York' };
+        if (tickMarkType === 0) return d.toLocaleDateString('en-US', Object.assign({ year: 'numeric' }, tz));
+        if (tickMarkType === 1) return d.toLocaleDateString('en-US', Object.assign({ month: 'short' }, tz));
+        if (tickMarkType === 2) return d.toLocaleDateString('en-US', Object.assign({ month: 'short', day: 'numeric' }, tz));
+        return d.toLocaleTimeString('en-US', Object.assign({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }, tz));
+    }
+
     function themeOptions() {
         return {
             layout: { background: { color: 'transparent' }, textColor: css('--text-secondary', '#8b949e') },
             grid: { vertLines: { color: css('--border', '#30363d') }, horzLines: { color: css('--border', '#30363d') } },
-            timeScale: { timeVisible: true, secondsVisible: false },
+            // Axis ticks default to UTC; label them on the ET clock like the rest of the app.
+            timeScale: { timeVisible: true, secondsVisible: false, tickMarkFormatter: etTick },
             rightPriceScale: { borderVisible: false },
             localization: {
                 timeFormatter: function (t) {

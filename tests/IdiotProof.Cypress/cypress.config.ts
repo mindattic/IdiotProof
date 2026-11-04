@@ -1,5 +1,8 @@
 import { defineConfig } from "cypress";
 import { execFileSync } from "child_process";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 /**
  * Cypress configuration for IdiotProof's Blazor Server app.
@@ -67,6 +70,29 @@ export default defineConfig({
           execFileSync("sqlcmd", ["-S", SQL_SERVER, "-d", SQL_DB, "-E", "-b", "-Q", sql], {
             stdio: "pipe",
           });
+          return null;
+        },
+
+        /**
+         * Replace a strategy's canonical JSON by its (unique) title. The text parser has no
+         * If/Else syntax, so a branched strategy can only be saved through its JSON.
+         */
+        setStrategyScriptJson({ title, json }: { title: string; json: string }) {
+          JSON.parse(json);
+          const esc = (s: string) => s.replace(/'/g, "''");
+          const sql =
+            `UPDATE Strategies SET ScriptJson=N'${esc(json)}', UpdatedUtc=SYSUTCDATETIME() ` +
+            `WHERE Title=N'${esc(title)}'; IF @@ROWCOUNT <> 1 THROW 50000, 'expected exactly one strategy', 1;`;
+          // Via a file: JSON's double quotes don't survive Windows command-line quoting for -Q.
+          const file = path.join(os.tmpdir(), `ip-cy-${Date.now()}.sql`);
+          fs.writeFileSync(file, sql, "utf8");
+          try {
+            execFileSync("sqlcmd", ["-S", SQL_SERVER, "-d", SQL_DB, "-E", "-b", "-f", "65001", "-i", file], {
+              stdio: "pipe",
+            });
+          } finally {
+            fs.unlinkSync(file);
+          }
           return null;
         },
 
