@@ -5178,6 +5178,70 @@
       }
     },
     {
+      "name": "evidence calibration",
+      "noun": "evidence",
+      "verb": "calibration",
+      "tool_name": "evidence_calibration",
+      "summary": "Learned-vs-realized calibration per template: predicted probability buckets vs realized win rate, Brier score against the base-rate baseline, sample counts.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence calibration [--source \u003Cstring\u003E] [--buckets \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "source",
+          "json_name": "source",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "exhaustion, adaptation or all (default).",
+          "default": "all",
+          "enum_values": null
+        },
+        {
+          "name": "buckets",
+          "json_name": "buckets",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Probability buckets across 0..1 (default 5).",
+          "default": 5,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence calibration",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence calibration --source exhaustion --buckets 4",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Learned-vs-realized calibration per template: predicted probability buckets vs realized win rate, Brier score against the base-rate baseline, sample counts.",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "exhaustion, adaptation or all (default).",
+            "default": "all"
+          },
+          "buckets": {
+            "type": "integer",
+            "description": "Probability buckets across 0..1 (default 5).",
+            "default": 5
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "evidence graph",
       "noun": "evidence",
       "verb": "graph",

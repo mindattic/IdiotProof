@@ -158,6 +158,31 @@ public sealed class ExhaustionScanner(
         return mutation == StrategyMutation.Ok ? created.Id : null;
     }
 
+    /// <summary>Joins the closed TradeDiary rows of each armed strategy onto its decision (the realized-P&amp;L label for S4).</summary>
+    public async Task<int> RecordOutcomesAsync(CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var pending = await db.ExhaustionDecisions
+            .Where(d => d.Armed && d.StrategyId != null && d.OutcomeRecordedUtc == null).ToListAsync(ct);
+        int updated = 0;
+        foreach (var d in pending)
+        {
+            var dayEnd = d.DecidedUtc.Date.AddDays(1).AddHours(12);
+            var trades = await db.TradeDiary
+                .Where(t => t.StrategyId == d.StrategyId && t.EntryUtc >= d.DecidedUtc && t.EntryUtc < dayEnd && t.ExitUtc != null)
+                .ToListAsync(ct);
+            bool anyOpen = await db.TradeDiary.AnyAsync(t => t.StrategyId == d.StrategyId && t.EntryUtc >= d.DecidedUtc && t.ExitUtc == null, ct);
+            if (trades.Count == 0 || anyOpen) continue;
+            d.RealizedTrades = trades.Count;
+            d.RealizedPnL = trades.Sum(t => t.RealizedPnL ?? 0);
+            d.RealizedReturnPercent = trades.Average(t => t.ReturnPercent ?? 0);
+            d.OutcomeRecordedUtc = DateTime.UtcNow;
+            updated++;
+        }
+        await db.SaveChangesAsync(ct);
+        return updated;
+    }
+
     private async Task<bool> AlreadyArmedTodayAsync(string symbol, string etDate, CancellationToken ct)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);

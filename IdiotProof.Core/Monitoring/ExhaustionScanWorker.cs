@@ -33,6 +33,7 @@ public sealed class ExhaustionScanWorker(
         if (!await scanner.IsEnabledAsync(ct)) return false;
         if (!await monitor.IsLeaderAsync(ct)) return false;
         await scanner.RunScanAsync(time.GetUtcNow().UtcDateTime, ct: ct);
+        await scanner.RecordOutcomesAsync(ct);
         return true;
     }
 }

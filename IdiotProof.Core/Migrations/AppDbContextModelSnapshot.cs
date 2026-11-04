@@ -447,8 +447,20 @@ namespace IdiotProof.Core.Migrations
                     b.Property<double>("MoveAtr")
                         .HasColumnType("float");
 
+                    b.Property<DateTime?>("OutcomeRecordedUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("RealizedPnL")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("RealizedReturnPercent")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("RealizedTrades")
+                        .HasColumnType("int");
 
                     b.Property<string>("Reason")
                         .IsRequired()

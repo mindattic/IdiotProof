@@ -50,4 +50,10 @@ public sealed class ExhaustionDecisionRow
 
     /// <summary>The trap detector's feature vector and bucket, JSON.</summary>
     public string FeaturesJson { get; set; } = "";
+
+    /// <summary>Closed TradeDiary rows of the armed strategy, joined once none is still open (the realized-P&amp;L label).</summary>
+    public int? RealizedTrades { get; set; }
+    public decimal? RealizedPnL { get; set; }
+    public decimal? RealizedReturnPercent { get; set; }
+    public DateTime? OutcomeRecordedUtc { get; set; }
 }
