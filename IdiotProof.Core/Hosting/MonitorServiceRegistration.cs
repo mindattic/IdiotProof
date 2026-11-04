@@ -43,6 +43,10 @@ public static class MonitorServiceRegistration
         // Living strategies (IP-T373): idle unless SettingsKv adaptation.enabled = "true"; paper-only, per-strategy opt-in.
         services.AddSingleton<IdiotProof.Core.Adaptation.AdaptationService>();
         services.AddHostedService<IdiotProof.Core.Adaptation.AdaptationWorker>();
+
+        // Intraday exhaustion templates (IP-US-S2): idle unless SettingsKv exhaustion.enabled = "true"; paper-only, leader-only.
+        services.AddSingleton<ExhaustionScanner>();
+        services.AddHostedService<ExhaustionScanWorker>();
         return services;
     }
 }

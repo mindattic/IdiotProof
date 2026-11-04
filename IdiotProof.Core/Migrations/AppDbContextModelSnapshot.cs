@@ -411,6 +411,113 @@ namespace IdiotProof.Core.Migrations
                     b.ToTable("ConditionProgress");
                 });
 
+            modelBuilder.Entity("IdiotProof.Core.Data.ExhaustionDecisionRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AnalysisOnly")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Armed")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("AtrPercent")
+                        .HasColumnType("float");
+
+                    b.Property<int>("ClosedBars")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("DecidedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EtDate")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<double>("ExtremePrice")
+                        .HasColumnType("float");
+
+                    b.Property<string>("FeaturesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("MoveAtr")
+                        .HasColumnType("float");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Regime")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<double?>("ReversalHigh")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("ReversalLow")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("ReversalProbability")
+                        .HasColumnType("float");
+
+                    b.Property<int?>("ReversalSamples")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ReversalSuccesses")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Side")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<double?>("StopLossPercent")
+                        .HasColumnType("float");
+
+                    b.Property<Guid?>("StrategyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<double?>("TakeProfitPercent")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("TrailingStopPercent")
+                        .HasColumnType("float");
+
+                    b.Property<string>("TrapDetector")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<double?>("TrapProbability")
+                        .HasColumnType("float");
+
+                    b.Property<int?>("TrapSamples")
+                        .HasColumnType("int");
+
+                    b.Property<double>("TriggerPrice")
+                        .HasColumnType("float");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StrategyId");
+
+                    b.HasIndex("Symbol", "EtDate");
+
+                    b.ToTable("ExhaustionDecisions", (string)null);
+                });
+
             modelBuilder.Entity("IdiotProof.Core.Data.HistoricalBar", b =>
                 {
                     b.Property<long>("Id")

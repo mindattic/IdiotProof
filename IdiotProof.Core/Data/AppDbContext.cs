@@ -38,6 +38,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<HistoricalBar>        HistoricalBars       => Set<HistoricalBar>();
     public DbSet<HistoricalBarCoverage> HistoricalBarCoverage => Set<HistoricalBarCoverage>();
     public DbSet<AdaptationDecision>   AdaptationDecisions  => Set<AdaptationDecision>();
+    public DbSet<ExhaustionDecisionRow> ExhaustionDecisions => Set<ExhaustionDecisionRow>();
     public DbSet<ResearchClaim>        ResearchClaims       => Set<ResearchClaim>();
     public DbSet<SourceTrustScore>     SourceTrustScores    => Set<SourceTrustScore>();
     public DbSet<ResearchClaimVector>  ResearchClaimVectors => Set<ResearchClaimVector>();
@@ -203,6 +204,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasIndex(x => new { x.Outcome, x.OutcomeRecordedUtc });
             e.Property(x => x.RealizedPnL).HasPrecision(18, 4);
             e.Property(x => x.RealizedReturnPercent).HasPrecision(18, 4);
+        });
+
+        b.Entity<ExhaustionDecisionRow>(e =>
+        {
+            e.ToTable("ExhaustionDecisions");
+            e.HasIndex(x => new { x.Symbol, x.EtDate });
+            e.HasIndex(x => x.StrategyId);
         });
 
         b.Entity<ResearchClaim>(e =>
