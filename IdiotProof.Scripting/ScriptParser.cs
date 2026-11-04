@@ -121,6 +121,10 @@ public static class ScriptParser
                 b.NotStopHunt(nums.Count >= 1 ? (double)nums[0] : 0.5, nums.Count >= 2 ? (int)nums[1] : 30); break;
             case "notvwaploss":
                 b.NotVwapLoss(nums.Count >= 1 ? (double)nums[0] : 0.5, nums.Count >= 2 ? (int)nums[1] : 30); break;
+            case "notintoraidedpool":
+                b.NotIntoRaidedPool(nums.Count >= 1 ? (double)nums[0] : 0.5, nums.Count >= 2 ? (int)nums[1] : 30); break;
+            case "nearraidedpool":
+                b.NearRaidedPool(nums.Count >= 1 ? (double)nums[0] : 0.6, nums.Count >= 2 ? (int)nums[1] : 30); break;
             case "leaderconfirms":
                 b.LeaderConfirms(nums.Count >= 1 ? (int)nums[0] : 2, nums.Count >= 2 ? (double)nums[1] : 0.1); break;
             case "notleaderdiverging":

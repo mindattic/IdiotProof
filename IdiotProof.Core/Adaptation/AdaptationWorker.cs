@@ -93,7 +93,9 @@ public sealed class AdaptationWorker(
                 bars.Add(c);
             var dayEt = DateOnly.FromDateTime(nowEt);
             var result = await adaptation.AdaptAsync(id, bars, periodStartUtc, nowUtc, ct: ct,
-                leaders: (def, token) => LeadersAsync(def, dayEt, ids, token));
+                leaders: (def, token) => LeadersAsync(def, dayEt, ids, token),
+                priorSessions: barStore is null ? null
+                    : token => barStore.GetBarsAsync(symbol, dayEt.AddDays(-14), dayEt.AddDays(-1), IdiotProof.Core.Evidence.BarTimeframe.Minute1, token));
             log.LogInformation("Adaptation {Symbol} {Strategy}: {Outcome} ({Reason})", symbol, id, result.Outcome, result.Reason);
         }
     }

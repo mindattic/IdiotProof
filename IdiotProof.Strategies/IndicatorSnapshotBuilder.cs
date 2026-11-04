@@ -1,3 +1,4 @@
+using IdiotProof.Evidence.Liquidity;
 using IdiotProof.Evidence.Traps;
 using IdiotProof.Indicators;
 using IdiotProof.Models;
@@ -103,6 +104,7 @@ public static class IndicatorSnapshotBuilder
             (p, r, n) => { snapshot.BullTrapPresent = p; snapshot.BullTrapRisk = r; snapshot.BullTrapSamples = n; });
         ApplyTrap(candles, TrapDetectors.StopHuntWick(),
             (p, r, n) => { snapshot.StopHuntPresent = p; snapshot.StopHuntRisk = r; snapshot.StopHuntSamples = n; });
+        ApplyPools(candles, snapshot);
         ApplyTrap(candles, TrapDetectors.VwapLoss(),
             (p, r, n) => { snapshot.VwapLossPresent = p; snapshot.VwapLossRisk = r; snapshot.VwapLossSamples = n; });
 
@@ -293,6 +295,31 @@ public static class IndicatorSnapshotBuilder
     /// resolved, so the newest bar never grades itself) and reads the newest bar against it.
     /// Leaves the fields null when the window is too short to hold a single resolved case.
     /// </summary>
+    /// <summary>
+    /// Stop-pool readings for the newest bar (IP-T404): learns raid outcomes only from approaches whose
+    /// horizon resolved on an earlier ET day than the newest bar, then reads the newest bar against them.
+    /// Leaves the fields null when the window can't hold a single resolved approach.
+    /// </summary>
+    private static void ApplyPools(IReadOnlyList<Candle> candles, IndicatorSnapshot snapshot)
+    {
+        var options = new PoolRaidOptions();
+        if (candles.Count < options.Horizon + 2) return;
+        var series = new StopPoolSeries(candles);
+        int last = candles.Count - 1;
+        var today = series.Day(last);
+        var table = PoolRaidTable.Learn(PoolRaidDetector.Touches(series, options), t => series.Day(t.ResolvedAt) < today);
+
+        var into = PoolAssessor.IntoPool(series, last, table, options);
+        snapshot.IntoPoolPresent = into.Present;
+        snapshot.IntoPoolFailRate = into.Rate?.Probability;
+        snapshot.IntoPoolSamples = into.Rate?.Samples;
+
+        var raid = PoolAssessor.RecentRaid(series, last, table, options);
+        snapshot.RaidedPoolPresent = raid.Present;
+        snapshot.RaidedPoolReverseRate = raid.Rate?.Probability;
+        snapshot.RaidedPoolSamples = raid.Rate?.Samples;
+    }
+
     private static void ApplyTrap(IReadOnlyList<Candle> candles, TrapDetector detector,
         Action<bool?, double?, int?> set)
     {

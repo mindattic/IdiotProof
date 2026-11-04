@@ -116,7 +116,7 @@ public sealed class DslValidateOperation : IOperation<DslTextArgs>
                 yield return new("error", c.Phase.ToString(), "count", $"{script} needs a whole count of 1 or more: it would never pass");
             if (c is IndicatorCondition { Type: IndicatorType.DippedTo, Parameter: var dip } && dip is not > 0)
                 yield return new("error", c.Phase.ToString(), "level", $"{script} needs a positive price level: it would never pass");
-            if (c is IndicatorCondition { Type: IndicatorType.NotFallingKnife or IndicatorType.NotBullTrap or IndicatorType.NotStopHunt or IndicatorType.NotVwapLoss, Parameter: var kp, Parameter2: var kn }
+            if (c is IndicatorCondition { Type: IndicatorType.NotFallingKnife or IndicatorType.NotBullTrap or IndicatorType.NotStopHunt or IndicatorType.NotVwapLoss or IndicatorType.NotIntoRaidedPool or IndicatorType.NearRaidedPool, Parameter: var kp, Parameter2: var kn }
                 && (kp is not (> 0 and <= 1) || kn is not >= 1))
                 yield return new("error", c.Phase.ToString(), "trap", $"{script} needs a probability in (0, 1] and a sample minimum of 1 or more");
             if (c is IndicatorCondition { Type: IndicatorType.LeaderConfirms or IndicatorType.NotLeaderDiverging, Parameter: var lh, Parameter2: var li }

@@ -3,6 +3,7 @@ using IdiotProof.Core.Data;
 using IdiotProof.Core.Monitoring;
 using IdiotProof.Core.Services;
 using IdiotProof.Evidence.Adaptation;
+using IdiotProof.Evidence.Liquidity;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using IdiotProof.Strategies.Backtesting;
@@ -47,6 +48,27 @@ public sealed class AdaptationService(IDbContextFactory<AppDbContext> dbFactory,
     public const string ChangePointThresholdKey = "adaptation.changePointThreshold";
 
     /// <summary>
+    /// SettingsKv switch (absent = off): when "true", a pass widens a measured stop that rests inside a
+    /// stop pool whose prior-session raids reversed often (IP-T404). Needs the caller to supply prior sessions.
+    /// </summary>
+    public const string StopPoolNudgeKey = "adaptation.stopPoolNudge";
+
+    /// <summary>
+    /// Stop-pool context for today's closed bars: pools below the last close, and raid outcomes learned
+    /// only from approaches that resolved on an earlier ET day.
+    /// </summary>
+    public static StopPoolNudge StopPoolNudgeFor(IReadOnlyList<Candle> priorSessions, IReadOnlyList<Candle> closed)
+    {
+        var combined = priorSessions.Where(c => c.StartUtc < closed[0].StartUtc).OrderBy(c => c.StartUtc).Concat(closed).ToList();
+        var series = new StopPoolSeries(combined);
+        int last = combined.Count - 1;
+        var today = series.Day(last);
+        var table = PoolRaidTable.Learn(PoolRaidDetector.Touches(series), t => series.Day(t.ResolvedAt) < today);
+        double close = series.Close(last);
+        return new StopPoolNudge(series.PoolsAt(last).Where(p => p.Price < close).ToList(), table, StopPoolSeries.Tier(close));
+    }
+
+    /// <summary>
     /// Gate options used when the caller passes none; BOCPD regime-change resets apply only when the
     /// <see cref="ChangePointThresholdKey"/> setting holds a probability in (0, 1).
     /// </summary>
@@ -60,7 +82,8 @@ public sealed class AdaptationService(IDbContextFactory<AppDbContext> dbFactory,
 
     public async Task<AdaptationResult> AdaptAsync(Guid strategyId, IReadOnlyList<Candle> todaysCandles,
         DateTime periodStartUtc, DateTime nowUtc, InformationGateOptions? gate = null, CancellationToken ct = default,
-        Func<StrategyDefinition, CancellationToken, Task<BacktestLeaderContext?>>? leaders = null)
+        Func<StrategyDefinition, CancellationToken, Task<BacktestLeaderContext?>>? leaders = null,
+        Func<CancellationToken, Task<IReadOnlyList<Candle>>>? priorSessions = null)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == strategyId, ct);
@@ -81,7 +104,10 @@ public sealed class AdaptationService(IDbContextFactory<AppDbContext> dbFactory,
         var evidenceStart = check.EvidenceStartUtc ?? periodStartUtc;
         var closed = InformationGate.ClosedBars(todaysCandles.Where(c => c.StartUtc >= evidenceStart), nowUtc);
         var baseDef = StrategyJson.Deserialize(strategy.ScriptJson);
-        var derived = AdaptiveParameterDeriver.Derive(closed);
+        StopPoolNudge? nudge = null;
+        if (priorSessions is not null && closed.Count > 0 && (await settings.GetBoolAsync(StopPoolNudgeKey, ct) ?? false))
+            nudge = StopPoolNudgeFor(await priorSessions(ct), closed);
+        var derived = AdaptiveParameterDeriver.Derive(closed, nudge: nudge);
         var variants = AdaptiveParameterDeriver.VariantsAround(derived)
             .Select(v => v with { TakeProfitPercent = null })
             .DistinctBy(v => (v.StopLossPercent, v.TrailingStopPercent))

@@ -493,6 +493,24 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>Stop-pool guard: passes when no stop pool (round number, prior-day/premarket/opening-range
+    /// level, VWAP band) sits just overhead, or when moves into pools like it failed at most maxProbability
+    /// of the time over at least minSamples prior-session approaches; thin or unknown history blocks.</summary>
+    public StrategyBuilder NotIntoRaidedPool(double maxProbability = 0.5, int minSamples = 30)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.NotIntoRaidedPool, maxProbability, minSamples));
+        return this;
+    }
+
+    /// <summary>Raid-reversal trigger: passes only when a stop pool below was just pierced and price closed
+    /// back above it, and pierces of pools like it reversed at least minProbability of the time over at least
+    /// minSamples prior-session cases; no raid, or thin history, blocks.</summary>
+    public StrategyBuilder NearRaidedPool(double minProbability = 0.6, int minSamples = 30)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.NearRaidedPool, minProbability, minSamples));
+        return this;
+    }
+
     /// <summary>VWAP-loss guard (close slipping below VWAP) backed by measured history; same
     /// rules as <see cref="NotFallingKnife"/>.</summary>
     public StrategyBuilder NotVwapLoss(double maxProbability = 0.5, int minSamples = 30)
@@ -1264,7 +1282,7 @@ public enum IndicatorType
     VolumeAbove,
     AtSupport, AtResistance,
     HigherLows, DippedTo,
-    NotFallingKnife, NotBullTrap, NotStopHunt, NotVwapLoss,
+    NotFallingKnife, NotBullTrap, NotStopHunt, NotVwapLoss, NotIntoRaidedPool, NearRaidedPool,
     LeaderConfirms, NotLeaderDiverging
 }
 
@@ -1403,6 +1421,8 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
             IndicatorType.NotBullTrap          => "NotBullTrap",
             IndicatorType.NotStopHunt          => "NotStopHunt",
             IndicatorType.NotVwapLoss          => "NotVwapLoss",
+            IndicatorType.NotIntoRaidedPool    => "NotIntoRaidedPool",
+            IndicatorType.NearRaidedPool       => "NearRaidedPool",
             IndicatorType.LeaderConfirms       => "LeaderConfirms",
             IndicatorType.NotLeaderDiverging   => "NotLeaderDiverging",
             _                                  => $"Is{Type}"
@@ -1488,6 +1508,10 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
         IndicatorType.NotBullTrap        => TrapGuardPasses(s.BullTrapPresent, s.BullTrapRisk, s.BullTrapSamples),
         IndicatorType.NotStopHunt        => TrapGuardPasses(s.StopHuntPresent, s.StopHuntRisk, s.StopHuntSamples),
         IndicatorType.NotVwapLoss        => TrapGuardPasses(s.VwapLossPresent, s.VwapLossRisk, s.VwapLossSamples),
+        IndicatorType.NotIntoRaidedPool  => TrapGuardPasses(s.IntoPoolPresent, s.IntoPoolFailRate, s.IntoPoolSamples),
+        IndicatorType.NearRaidedPool     => s.RaidedPoolPresent == true
+                                              && s.RaidedPoolSamples is { } raids && raids >= (int)(Parameter2 ?? 30)
+                                              && s.RaidedPoolReverseRate is { } reverse && reverse >= (Parameter ?? 0.6),
         IndicatorType.LeaderConfirms     => LeaderMove(s) is { } up && up > 0,
         IndicatorType.NotLeaderDiverging => LeaderMove(s) is { } notDown && notDown >= 0,
         // Fail closed on anything unrecognized: a condition this evaluator
@@ -2108,6 +2132,8 @@ public sealed class ConditionFactory
     public ICondition NotBullTrap(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotBullTrap, maxProbability, minSamples);
     public ICondition NotStopHunt(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotStopHunt, maxProbability, minSamples);
     public ICondition NotVwapLoss(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotVwapLoss, maxProbability, minSamples);
+    public ICondition NotIntoRaidedPool(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotIntoRaidedPool, maxProbability, minSamples);
+    public ICondition NearRaidedPool(double minProbability = 0.6, int minSamples = 30) => new IndicatorCondition(IndicatorType.NearRaidedPool, minProbability, minSamples);
     public ICondition LeaderConfirms(int maxHops = 2, double minInfluence = 0.1) => new IndicatorCondition(IndicatorType.LeaderConfirms, maxHops, minInfluence);
     public ICondition NotLeaderDiverging(int maxHops = 2, double minInfluence = 0.1) => new IndicatorCondition(IndicatorType.NotLeaderDiverging, maxHops, minInfluence);
     public ICondition IsLowerHigh() => new IndicatorCondition(IndicatorType.LowerHigh);
@@ -2186,6 +2212,8 @@ public static class Conditions
     public static ICondition NotBullTrap(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotBullTrap, maxProbability, minSamples);
     public static ICondition NotStopHunt(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotStopHunt, maxProbability, minSamples);
     public static ICondition NotVwapLoss(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotVwapLoss, maxProbability, minSamples);
+    public static ICondition NotIntoRaidedPool(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotIntoRaidedPool, maxProbability, minSamples);
+    public static ICondition NearRaidedPool(double minProbability = 0.6, int minSamples = 30) => new IndicatorCondition(IndicatorType.NearRaidedPool, minProbability, minSamples);
     public static ICondition LeaderConfirms(int maxHops = 2, double minInfluence = 0.1) => new IndicatorCondition(IndicatorType.LeaderConfirms, maxHops, minInfluence);
     public static ICondition NotLeaderDiverging(int maxHops = 2, double minInfluence = 0.1) => new IndicatorCondition(IndicatorType.NotLeaderDiverging, maxHops, minInfluence);
     public static ICondition IsLowerHigh => new IndicatorCondition(IndicatorType.LowerHigh);

@@ -158,6 +158,8 @@ public static class StrategyNarrator
             IndicatorType.NotBullTrap => $"price is not in a failed breakout, or past failed breakouts like this one on the same symbol were hit at most {Num((i.Parameter ?? 0.5) * 100)}% of the time over at least {Num(i.Parameter2 ?? 30)} cases",
             IndicatorType.NotStopHunt => $"price is not in a stop-hunt wick, or past wicks like this one on the same symbol were hit at most {Num((i.Parameter ?? 0.5) * 100)}% of the time over at least {Num(i.Parameter2 ?? 30)} cases",
             IndicatorType.NotVwapLoss => $"price has not lost VWAP, or past VWAP losses like this one on the same symbol were hit at most {Num((i.Parameter ?? 0.5) * 100)}% of the time over at least {Num(i.Parameter2 ?? 30)} cases",
+            IndicatorType.NotIntoRaidedPool => $"no stop pool sits just overhead, or moves into pools like it on the same symbol failed at most {Num((i.Parameter ?? 0.5) * 100)}% of the time over at least {Num(i.Parameter2 ?? 30)} prior-session approaches",
+            IndicatorType.NearRaidedPool => $"a stop pool below was just pierced and reclaimed, and pierces of pools like it on the same symbol reversed at least {Num((i.Parameter ?? 0.6) * 100)}% of the time over at least {Num(i.Parameter2 ?? 30)} prior-session cases",
             IndicatorType.LeaderConfirms => $"its measured leaders within {Num(i.Parameter ?? 2)} hops (influence at least {Num(i.Parameter2 ?? 0.1)}) moved up on their last closed bars",
             IndicatorType.NotLeaderDiverging => $"its measured leaders within {Num(i.Parameter ?? 2)} hops (influence at least {Num(i.Parameter2 ?? 0.1)}) are not moving down",
             IndicatorType.MacdBullish => "MACD is bullish (above its signal line)",

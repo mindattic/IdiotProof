@@ -175,6 +175,23 @@ public sealed class IndicatorSnapshot
     public int? VwapLossSamples { get; set; }
 
     /// <summary>
+    /// Stop pool just overhead (IdiotProof.Evidence.Liquidity, IP-T404): whether one lies within reach,
+    /// the counted rate at which prior-session moves into pools of its kind and price tier failed there,
+    /// and how many approaches back it. Null when the window is too short. Used by NotIntoRaidedPool.
+    /// </summary>
+    public bool? IntoPoolPresent { get; set; }
+    public double? IntoPoolFailRate { get; set; }
+    public int? IntoPoolSamples { get; set; }
+
+    /// <summary>
+    /// A pool below raided in the last few bars with price back above it, the counted rate at which
+    /// prior-session pierces of pools like it reversed, and how many pierces back it. Used by NearRaidedPool.
+    /// </summary>
+    public bool? RaidedPoolPresent { get; set; }
+    public double? RaidedPoolReverseRate { get; set; }
+    public int? RaidedPoolSamples { get; set; }
+
+    /// <summary>
     /// This symbol's measured lag-1 leaders (IP-T391), each with its move over its last closed bars;
     /// null when leaders were not computed. Used by LeaderConfirms / NotLeaderDiverging.
     /// </summary>
