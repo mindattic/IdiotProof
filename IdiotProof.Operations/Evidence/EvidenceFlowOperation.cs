@@ -1,5 +1,6 @@
 using IdiotProof.Core.Evidence;
 using IdiotProof.Evidence;
+using IdiotProof.Evidence.Evaluation;
 using IdiotProof.Evidence.Microstructure;
 using IdiotProof.Models;
 using IdiotProof.Operations.Rendering;
@@ -77,6 +78,7 @@ public sealed class EvidenceFlowOperation : IOperation<EvidenceFlowArgs>
         var lambda = new List<double>();
         var absorption = new List<int>();
         var labels = new List<ForwardLabel>();
+        var dayAt = new List<DateOnly>();
         int trainEnd = 0;
         long trades = 0;
         for (int s = 0; s < sessions.Count; s++)
@@ -99,50 +101,34 @@ public sealed class EvidenceFlowOperation : IOperation<EvidenceFlowArgs>
             vpin.AddRange(FlowMetrics.Vpin(flows, bucketVolume, args.VpinWindow));
             lambda.AddRange(FlowMetrics.RollingKylesLambda(bars, flows, args.LambdaWindow));
             absorption.AddRange(FlowMetrics.Absorption(bars, flows).Select(a => a + 1));
+            dayAt.AddRange(Enumerable.Repeat(sessions[s].Day, bars.Count));
             labels.AddRange(ForwardReturnLabeler.Label(bars, args.Horizon).Select(l => l with { Index = l.Index + offset }));
         }
 
-        var evaluations = new[]
+        DateOnly DayOf(int i) => dayAt[Math.Min(i, dayAt.Count - 1)];
+        var report = HoldoutBucketEvaluator.Evaluate(new[]
         {
-            FlowEvaluator.Evaluate("imbalance", imbalance, labels, args.Horizon, trainEnd, args.Bins),
-            FlowEvaluator.Evaluate("vpin", vpin, labels, args.Horizon, trainEnd, args.Bins),
-            FlowEvaluator.Evaluate("kyle-lambda", lambda, labels, args.Horizon, trainEnd, args.Bins),
-            FlowEvaluator.EvaluateCategories("absorption", absorption, labels, args.Horizon, trainEnd, 3),
-        };
+            FlowEvaluator.Samples("imbalance", imbalance, labels, args.Horizon, trainEnd, DayOf),
+            FlowEvaluator.Samples("vpin", vpin, labels, args.Horizon, trainEnd, DayOf),
+            FlowEvaluator.Samples("kyle-lambda", lambda, labels, args.Horizon, trainEnd, DayOf),
+            FlowEvaluator.CategorySamples("absorption", absorption, labels, args.Horizon, trainEnd, DayOf, 3),
+        }, args.Bins);
 
-        var table = new TextTable { MaxWidth = ctx.Width }
-            .Column("metric").Column("bucket", Align.Right).Column("train up", Align.Right).Column("n", Align.Right)
-            .Column("test up", Align.Right).Column("95% CI", Align.Right).Column("n", Align.Right).Column("lift", Align.Right);
-        foreach (var e in evaluations)
-            foreach (var b in e.Buckets)
-            {
-                var lift = e.TestBaseRate > 0 && b.Test.Samples > 0 ? (double)b.Test.Successes / b.Test.Samples / e.TestBaseRate : double.NaN;
-                table.Row(e.Metric, b.Bin.ToString(), EvidenceSupport.Rate((double)b.Train.Successes / Math.Max(1, b.Train.Samples)), b.Train.Samples.ToString(),
-                    b.Test.Samples == 0 ? "—" : EvidenceSupport.Rate((double)b.Test.Successes / b.Test.Samples),
-                    b.Test.Samples == 0 ? "—" : $"{b.Test.Low * 100:0.0}–{b.Test.High * 100:0.0}%", b.Test.Samples.ToString(),
-                    double.IsNaN(lift) ? "—" : lift.ToString("0.00"));
-            }
+        var table = BucketReportView.Table(report, ctx.Width);
 
         string signing = args.Signing switch { FlowSigning.LeeReady => "Lee-Ready", FlowSigning.Bulk => "bulk volume classification", _ => "tick rule" };
         var data = new
         {
             Symbol = symbol, From = from, To = to, args.Horizon, Signing = signing, Sessions = sessions.Count, TrainSessions = trainSessions,
             Trades = trades, BucketVolume = Math.Round(bucketVolume),
-            Metrics = evaluations.Select(e => new
-            {
-                e.Metric, e.Bins, e.TrainBaseRate, e.TestBaseRate, e.TrainSamples, e.TestSamples,
-                Buckets = e.Buckets.Select(b => new
-                {
-                    b.Bin, TrainUp = b.Train.Successes, TrainN = b.Train.Samples,
-                    TestUp = b.Test.Successes, TestN = b.Test.Samples, TestLow = b.Test.Low, TestHigh = b.Test.High,
-                }),
-            }),
+            report.Tests,
+            Metrics = BucketReportView.Data(report),
         };
-        var testBase = evaluations[0].TestBaseRate;
+        var testBase = report.Features[0].HoldoutBaseRate;
         return OperationResult.Ok(data,
             $"{symbol} order flow {from:yyyy-MM-dd}..{to:yyyy-MM-dd}  {sessions.Count} sessions ({trainSessions} train / {sessions.Count - trainSessions} test)  signing: {signing}" +
             (ticks is null ? "" : $"  {trades:N0} trades") + $"\nup = forward return > 0 after {args.Horizon} min; held-out base rate {EvidenceSupport.Rate(testBase)}\n" +
             table.Render() +
-            "\nBucket edges come from training sessions only; a bucket matters only if its test CI excludes the base rate. Absorption buckets: 0 = buying absorbed, 1 = none, 2 = selling absorbed.");
+            "\n" + BucketReportView.Footnote(report) + " Absorption buckets: 0 = buying absorbed, 1 = none, 2 = selling absorbed.");
     }
 }

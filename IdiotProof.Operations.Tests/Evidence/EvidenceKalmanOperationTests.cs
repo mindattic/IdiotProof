@@ -25,7 +25,7 @@ public class EvidenceKalmanOperationTests
     [Test]
     public async Task APlantedRepeatingPattern_IsSignificant_RandomWalkIsNot()
     {
-        var days = Weekdays(8);
+        var days = Weekdays(20);
         var store = new FakeBarStore();
         store.Minute["SAW"] = days.SelectMany(d => Session("SAW", d, Sawtooth)).ToList();
         store.Minute["RW"] = days.SelectMany((d, k) => Session("RW", d, RandomWalk(100 + k))).ToList();
@@ -37,8 +37,8 @@ public class EvidenceKalmanOperationTests
 
         Assert.That(result.IsOk, Is.True, result.Message);
         var lines = result.Human!.Split('\n');
-        Assert.That(lines.Any(l => l.StartsWith("SAW") && l.Contains('*')), Is.True, result.Human);
-        Assert.That(lines.Any(l => l.StartsWith("RW") && l.Contains('*')), Is.False, result.Human);
+        Assert.That(lines.Any(l => l.StartsWith("SAW") && IsSignificant(l)), Is.True, result.Human);
+        Assert.That(lines.Any(l => l.StartsWith("RW") && IsSignificant(l)), Is.False, result.Human);
     }
 
     [Test]
@@ -61,7 +61,7 @@ public class EvidenceKalmanOperationTests
     [Test]
     public async Task BidAskBounce_LooksSignificantWithCloseEntry_ButNotWithNextOpenEntry()
     {
-        var days = Weekdays(8);
+        var days = Weekdays(20);
         var store = new FakeBarStore();
         var rng = new Random(42);
         var bars = new List<IdiotProof.Models.Candle>();
@@ -90,8 +90,8 @@ public class EvidenceKalmanOperationTests
             Symbols = ["BNC"], From = days[0], To = days[^1], Horizon = 3,
         }, Context(store));
 
-        Assert.That(close.Human!.Split('\n').Any(l => l.Contains("innovation-z *")), Is.True, close.Human);
-        Assert.That(next.Human!.Split('\n').Any(l => l.Contains("innovation-z *")), Is.False, next.Human);
+        Assert.That(close.Human!.Split('\n').Any(l => l.Contains("innovation-z") && IsSignificant(l)), Is.True, close.Human);
+        Assert.That(next.Human!.Split('\n').Any(l => l.Contains("innovation-z") && IsSignificant(l)), Is.False, next.Human);
         Assert.That(next.Human, Does.Contain("entry next open"));
     }
 
@@ -105,4 +105,7 @@ public class EvidenceKalmanOperationTests
         Assert.That(result.IsOk, Is.True);
         Assert.That(result.Human, Does.Contain("need at least 2 sessions"));
     }
+
+    /// <summary>A table row whose verdict column says significant (q below alpha), not "not significant".</summary>
+    private static bool IsSignificant(string line) => line.TrimEnd().EndsWith(" significant") && !line.Contains("not significant");
 }

@@ -1,5 +1,6 @@
 using IdiotProof.Core.Evidence;
 using IdiotProof.Evidence;
+using IdiotProof.Evidence.Evaluation;
 using IdiotProof.Evidence.Microstructure;
 using IdiotProof.Evidence.StateSpace;
 using IdiotProof.Models;
@@ -39,8 +40,8 @@ public enum KalmanEntry { NextOpen, Close }
 /// <summary>
 /// Kalman state-space features (trend slope, innovation surprise, pair residual against a leader)
 /// scored against forward returns. The filter's noise variances and the bucket edges come from the
-/// training sessions only; a feature counts as evidence only if a held-out bucket beats the base rate
-/// after a Bonferroni correction.
+/// training sessions only; a bucket counts as evidence only if it beats the held-out base rate under the
+/// shared holdout evaluator (day-clustered, Benjamini-Hochberg across every symbol, feature and bucket).
 /// </summary>
 [Operation("evidence kalman", Summary = "Kalman trend slope, innovation z and leader pair-residual z bucketed against forward returns, fitted on training sessions and tested on held-out ones.", Risk = OperationRisk.Read)]
 [Example("idiotproof evidence kalman SNDL --from 2026-09-01 --to 2026-10-30")]
@@ -66,9 +67,7 @@ public sealed class EvidenceKalmanOperation : IOperation<EvidenceKalmanArgs>
             ? EvidenceSupport.Filter(lraw, EvidenceTimeframe.Minute, EvidenceSession.Rth).GroupBy(c => c.StartUtc).ToDictionary(g => g.Key, g => Math.Log((double)g.Last().Close))
             : null;
 
-        var table = new TextTable { MaxWidth = ctx.Width }
-            .Column("symbol").Column("feature").Column("bucket", Align.Right).Column("test up", Align.Right)
-            .Column("n", Align.Right).Column("lift", Align.Right).Column("adj p", Align.Right);
+        var samples = new List<FeatureSamples>();
         var results = new List<object>();
         var notes = new List<string>();
         foreach (var symbol in symbols)
@@ -88,6 +87,7 @@ public sealed class EvidenceKalmanOperation : IOperation<EvidenceKalmanArgs>
             var surprise = new List<double>();
             var pair = new List<double>();
             var labels = new List<ForwardLabel>();
+            var dayAt = new List<DateOnly>();
             int trainEnd = 0;
             for (int s = 0; s < sessions.Count; s++)
             {
@@ -101,45 +101,29 @@ public sealed class EvidenceKalmanOperation : IOperation<EvidenceKalmanArgs>
                 slope.AddRange(f.Slope);
                 surprise.AddRange(f.InnovationZ);
                 pair.AddRange(f.PairResidualZ);
+                dayAt.AddRange(Enumerable.Repeat(EvidenceSupport.DateEt(session[0]), logs.Count));
                 var sessionLabels = args.Entry == KalmanEntry.Close ? ForwardReturnLabeler.Label(session, args.Horizon) : NextOpenLabels(session, args.Horizon);
                 labels.AddRange(sessionLabels.Select(l => l with { Index = l.Index + offset }));
             }
 
-            var evaluations = new List<FlowEvaluation>
-            {
-                FlowEvaluator.Evaluate("slope", slope, labels, args.Horizon, trainEnd, args.Bins),
-                FlowEvaluator.Evaluate("innovation-z", surprise, labels, args.Horizon, trainEnd, args.Bins),
-            };
+            DateOnly DayOf(int i) => dayAt[Math.Min(i, dayAt.Count - 1)];
+            samples.Add(FlowEvaluator.Samples($"{symbol} slope", slope, labels, args.Horizon, trainEnd, DayOf));
+            samples.Add(FlowEvaluator.Samples($"{symbol} innovation-z", surprise, labels, args.Horizon, trainEnd, DayOf));
             if (leader is not null && pair.Any(v => !double.IsNaN(v)))
-                evaluations.Add(FlowEvaluator.Evaluate("pair-residual-z", pair, labels, args.Horizon, trainEnd, args.Bins));
-
-            var features = new List<object>();
-            foreach (var e in evaluations)
-            {
-                var tests = BucketSignificance.Test(e.Buckets.Select(b => (b.Bin, b.Test.Successes, b.Test.Samples)).ToList(), e.TestBaseRate);
-                bool significant = BucketSignificance.AnySignificant(tests);
-                foreach (var t in tests)
-                    table.Row(symbol, e.Metric + (significant ? " *" : ""), t.Bin.ToString(),
-                        t.Samples == 0 ? "—" : EvidenceSupport.Rate(t.Rate), t.Samples.ToString(),
-                        double.IsNaN(t.Lift) ? "—" : t.Lift.ToString("0.00"), t.Samples == 0 ? "—" : t.AdjustedPValue.ToString("0.000"));
-                features.Add(new
-                {
-                    e.Metric, e.TestBaseRate, e.TestSamples, Significant = significant,
-                    Buckets = tests.Select(t => new { t.Bin, Up = t.Successes, N = t.Samples, t.Rate, t.Lift, t.PValue, t.AdjustedPValue }),
-                });
-            }
+                samples.Add(FlowEvaluator.Samples($"{symbol} pair-residual-z", pair, labels, args.Horizon, trainEnd, DayOf));
             results.Add(new
             {
                 Symbol = symbol, Sessions = sessions.Count, TrainSessions = trainSessions,
                 Fit = new { parameters.QLevel, parameters.QSlope, parameters.R },
-                TestBaseRate = evaluations[0].TestBaseRate, Features = features,
             });
         }
 
+        var report = HoldoutBucketEvaluator.Evaluate(samples, args.Bins);
+        var table = BucketReportView.Table(report, ctx.Width);
         var human = $"Kalman evidence {from:yyyy-MM-dd}..{to:yyyy-MM-dd}  horizon {args.Horizon} min  entry {(args.Entry == KalmanEntry.Close ? "signal close" : "next open")}" + (leader is null ? "" : $"  leader {leader}") + "\n" +
             (notes.Count > 0 ? string.Join("\n", notes) + "\n" : "") + table.Render() +
-            "\nup = forward return > 0. Filter variances (MLE) and bucket edges come from training sessions only; adj p = two-sided binomial vs the held-out base rate, Bonferroni across buckets. * = some bucket significant at 5%.";
-        return OperationResult.Ok(new { From = from, To = to, args.Horizon, Entry = args.Entry.ToString(), Leader = leader, Symbols = results }, human);
+            "\nup = forward return > 0. Filter variances (MLE) come from training sessions only. " + BucketReportView.Footnote(report);
+        return OperationResult.Ok(new { From = from, To = to, args.Horizon, Entry = args.Entry.ToString(), Leader = leader, Symbols = results, report.Tests, Features = BucketReportView.Data(report) }, human);
     }
 
     /// <summary>

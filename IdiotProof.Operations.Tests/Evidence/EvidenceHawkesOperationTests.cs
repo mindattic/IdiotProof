@@ -75,13 +75,4 @@ public class EvidenceHawkesOperationTests
             WithTicks(store, new FakeTicks(SteadyWithBursts)));
         Assert.That(result.Human, Does.Contain("need at least 3 sessions"));
     }
-
-    [Test]
-    public void TwoSidedP_MatchesExactBinomial()
-    {
-        // 8 of 10 at p0 = 0.5: upper tail 56/1024, doubled.
-        Assert.That(EvidenceHawkesOperation.TwoSidedP(8, 10, 0.5), Is.EqualTo(112.0 / 1024).Within(1e-12));
-        Assert.That(EvidenceHawkesOperation.TwoSidedP(5, 10, 0.5), Is.EqualTo(1.0));
-        Assert.That(EvidenceHawkesOperation.TwoSidedP(0, 0, 0.5), Is.EqualTo(1.0));
-    }
 }

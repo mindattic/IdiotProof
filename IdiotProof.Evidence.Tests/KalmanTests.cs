@@ -110,25 +110,6 @@ public class KalmanTests
         Assert.That(KalmanFeatures.Compute(y, p, y).PairResidualZ.Count(v => !double.IsNaN(v)), Is.GreaterThan(100));
     }
 
-    [Test]
-    public void BucketSignificance_FlagsARealDifference_ButCorrectsForScanning()
-    {
-        var strong = BucketSignificance.Test([(0, 300, 400), (1, 200, 400)], 0.5);
-        Assert.That(BucketSignificance.AnySignificant(strong), Is.True);
-
-        // 56% of 100 vs 50% is p≈0.27 for one bucket: not a discovery, and never one after correction.
-        var weak = BucketSignificance.Test([(0, 56, 100), (1, 50, 100), (2, 48, 100), (3, 51, 100), (4, 45, 100)], 0.5);
-        Assert.That(BucketSignificance.AnySignificant(weak), Is.False);
-        Assert.That(weak[0].AdjustedPValue, Is.GreaterThanOrEqualTo(weak[0].PValue));
-    }
-
-    [Test]
-    public void TwoSidedBinomial_IsSymmetricAtHalf()
-    {
-        Assert.That(BucketSignificance.TwoSided(3, 10, 0.5), Is.EqualTo(BucketSignificance.TwoSided(7, 10, 0.5)).Within(1e-12));
-        Assert.That(BucketSignificance.TwoSided(5, 10, 0.5), Is.EqualTo(1).Within(1e-12));
-    }
-
     private static List<double> SimulateTrend(int n, double qLevel, double qSlope, double r, int seed)
     {
         var rng = new Random(seed);

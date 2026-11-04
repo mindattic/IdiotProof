@@ -1,5 +1,6 @@
 using IdiotProof.Core.Evidence;
 using IdiotProof.Evidence;
+using IdiotProof.Evidence.Evaluation;
 using IdiotProof.Evidence.Microstructure;
 using IdiotProof.Evidence.PointProcess;
 using IdiotProof.Models;
@@ -77,6 +78,7 @@ public sealed class EvidenceHawkesOperation : IOperation<EvidenceHawkesArgs>
         var branching = new List<double>();
         var ignition = new List<int>();
         var labels = new List<ForwardLabel>();
+        var dayAt = new List<DateOnly>();
         int trainEnd = 0, ignitionBars = 0;
         HawkesFit? previous = null;
 
@@ -100,17 +102,19 @@ public sealed class EvidenceHawkesOperation : IOperation<EvidenceHawkesArgs>
                 branching.AddRange(readings.Select(r => r.BranchingRatio));
                 ignition.AddRange(readings.Select(r => r.Ignition ? 1 : 0));
                 ignitionBars += readings.Count(r => r.Ignition);
+                dayAt.AddRange(Enumerable.Repeat(sessions[s].Day, readings.Count));
                 labels.AddRange(ForwardReturnLabeler.Label(bars, args.Horizon).Select(l => l with { Index = l.Index + offset }));
             }
             previous = fit;
         }
 
-        var evaluations = new[]
+        DateOnly DayOf(int i) => dayAt[Math.Min(i, dayAt.Count - 1)];
+        var report = HoldoutBucketEvaluator.Evaluate(new[]
         {
-            FlowEvaluator.Evaluate("intensity-ratio", intensity, labels, args.Horizon, trainEnd, args.Bins),
-            FlowEvaluator.Evaluate("branching", branching, labels, args.Horizon, trainEnd, args.Bins),
-            FlowEvaluator.EvaluateCategories("ignition", ignition, labels, args.Horizon, trainEnd, 2),
-        };
+            FlowEvaluator.Samples("intensity-ratio", intensity, labels, args.Horizon, trainEnd, DayOf),
+            FlowEvaluator.Samples("branching", branching, labels, args.Horizon, trainEnd, DayOf),
+            FlowEvaluator.CategorySamples("ignition", ignition, labels, args.Horizon, trainEnd, DayOf, 2),
+        }, args.Bins);
 
         var fitTable = new TextTable { MaxWidth = ctx.Width }
             .Column("day").Column("trades", Align.Right).Column("μ/s", Align.Right).Column("α", Align.Right)
@@ -123,21 +127,7 @@ public sealed class EvidenceHawkesOperation : IOperation<EvidenceHawkesArgs>
                 f.Params.Beta.ToString("0.000"), f.Params.BranchingRatio.ToString("0.00"), f.LikelihoodRatio.ToString("0.0"), role);
         }
 
-        var bucketTable = new TextTable { MaxWidth = ctx.Width }
-            .Column("feature").Column("bucket", Align.Right).Column("test up", Align.Right).Column("95% CI", Align.Right)
-            .Column("n", Align.Right).Column("p vs base", Align.Right).Column("verdict");
-        var scoredBuckets = new List<object>();
-        foreach (var e in evaluations)
-            foreach (var b in e.Buckets)
-            {
-                double p = b.Test.Samples == 0 ? 1 : TwoSidedP(b.Test.Successes, b.Test.Samples, e.TestBaseRate);
-                string verdict = b.Test.Samples == 0 ? "no data" : p < 0.05 ? "significant" : "not significant";
-                bucketTable.Row(e.Metric, b.Bin.ToString(),
-                    b.Test.Samples == 0 ? "—" : EvidenceSupport.Rate((double)b.Test.Successes / b.Test.Samples),
-                    b.Test.Samples == 0 ? "—" : $"{b.Test.Low * 100:0.0}–{b.Test.High * 100:0.0}%",
-                    b.Test.Samples.ToString(), b.Test.Samples == 0 ? "—" : p.ToString("0.000"), verdict);
-                scoredBuckets.Add(new { e.Metric, b.Bin, TestUp = b.Test.Successes, TestN = b.Test.Samples, b.Test.Low, b.Test.High, P = p, Verdict = verdict });
-            }
+        var bucketTable = BucketReportView.Table(report, ctx.Width);
 
         var data = new
         {
@@ -148,25 +138,16 @@ public sealed class EvidenceHawkesOperation : IOperation<EvidenceHawkesArgs>
                 Day = f.Day, f.Fit.Events, f.Fit.Params.Mu, f.Fit.Params.Alpha, f.Fit.Params.Beta,
                 Branching = f.Fit.Params.BranchingRatio, f.Fit.LikelihoodRatio,
             }),
-            TestBaseRate = evaluations[0].TestBaseRate,
-            Buckets = scoredBuckets,
+            TestBaseRate = report.Features[0].HoldoutBaseRate,
+            report.Tests,
+            Metrics = BucketReportView.Data(report),
         };
         return OperationResult.Ok(data,
             $"{symbol} Hawkes {from:yyyy-MM-dd}..{to:yyyy-MM-dd}  {sessions.Count} sessions (1 warm-up, {trainSessions} train, {scored - trainSessions} test)  ignition bars: {ignitionBars}\n" +
             "n = branching ratio, the share of trades triggered by earlier trades rather than outside arrivals.\n" +
             fitTable.Render() +
-            $"\nup = forward return > 0 after {args.Horizon} min; held-out base rate {EvidenceSupport.Rate(evaluations[0].TestBaseRate)}\n" +
+            $"\nup = forward return > 0 after {args.Horizon} min; held-out base rate {EvidenceSupport.Rate(report.Features[0].HoldoutBaseRate)}\n" +
             bucketTable.Render() +
-            "\nEach session's detector baseline is the previous session's fit; bucket edges come from training sessions only. " +
-            "p is two-sided exact binomial against the held-out base rate, uncorrected for the number of buckets shown.");
-    }
-
-    /// <summary>Exact two-sided binomial p-value of k successes in n trials against rate p0 (doubling the smaller tail).</summary>
-    internal static double TwoSidedP(int k, int n, double p0)
-    {
-        if (n == 0 || double.IsNaN(p0)) return 1;
-        double upper = EvidenceStats.BinomialUpperTail(k, n, p0);
-        double lower = 1 - EvidenceStats.BinomialUpperTail(k + 1, n, p0);
-        return Math.Min(1, 2 * Math.Min(upper, lower));
+            "\nEach session's detector baseline is the previous session's fit. " + BucketReportView.Footnote(report));
     }
 }

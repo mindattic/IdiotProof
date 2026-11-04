@@ -1,3 +1,4 @@
+using IdiotProof.Evidence.Evaluation;
 using IdiotProof.Evidence.Microstructure;
 using IdiotProof.Models;
 
@@ -186,12 +187,15 @@ public class MicrostructureTests
         }
         var candles = Synthetic.Candles(closes);
         var labels = ForwardReturnLabeler.Label(candles, 1);
-        var eval = FlowEvaluator.Evaluate("planted", metric, labels, horizon: 1, trainEnd: 2000, bins: 2);
+        var day0 = new DateOnly(2026, 6, 1);
+        var samples = FlowEvaluator.Samples("planted", metric, labels, horizon: 1, trainEnd: 2000, dayOf: i => day0.AddDays(i / 100));
+        Assert.That(samples.Train, Has.Count.EqualTo(1999), "a training label must resolve before trainEnd");
+        Assert.That(samples.Holdout, Has.Count.EqualTo(1000));
 
+        var eval = HoldoutBucketEvaluator.Evaluate(new[] { samples }, bins: 2).Features[0];
         Assert.That(eval.Bins, Is.EqualTo(2));
-        Assert.That(eval.Buckets[1].Test.Probability, Is.EqualTo(0.8).Within(0.05));
-        Assert.That(eval.Buckets[0].Test.Probability, Is.EqualTo(0.2).Within(0.05));
-        Assert.That(eval.TrainSamples, Is.EqualTo(1999), "a training label must resolve before trainEnd");
-        Assert.That(eval.TestSamples, Is.EqualTo(1000));
+        Assert.That(eval.Buckets[1].HoldoutRate, Is.EqualTo(0.8).Within(0.05));
+        Assert.That(eval.Buckets[0].HoldoutRate, Is.EqualTo(0.2).Within(0.05));
+        Assert.That(eval.Buckets.All(b => b.Significant), Is.True, "a strong planted edge survives BH and day clustering");
     }
 }
