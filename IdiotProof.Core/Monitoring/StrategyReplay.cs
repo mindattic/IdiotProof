@@ -45,7 +45,7 @@ public static partial class StrategyReplay
         new("classic-gapper", "Premarket gap-and-go (gapper profile): gap ≥5% on 2× volume, in from 4 AM, giveback exit from 9:15, flat by 9:28."),
         new("momentum", "Repeating premarket VWAP-reclaim continuation on 1.5× volume; 8% trail, re-arms after each exit, flat by 9:29."),
         new("reversal", "Dip-buy: reclaim EMA9 off a low near support on volume; 3% stop, 6% trail, repeats, flat by 15:55."),
-        new("rsireversal", "Oversold capitulation at the low of day (RSI ≤35 at support on volume), buy the bounce; flat by 15:55."),
+        new("rsireversal", "Oversold capitulation at the low of day (RSI ≤40 with a confirmed bullish RSI divergence at support on volume), buy the bounce; flat by 15:55."),
         new("emabreak", "Trend reclaim: price retakes EMA200 while above VWAP on volume; 3% stop, 8% trail, repeats."),
         new("rthdrive", "RTH open-drive: above VWAP and EMA9 with EMA9 over EMA34 on 1.5× volume; ride with an 8% trail, flat by 15:55."),
         new("shortfade", "Failed-high fade: SHORT below VWAP and EMA9 on volume, cover on a bounce (6% trail); flat by 15:55."),
@@ -446,8 +446,10 @@ public static partial class StrategyReplay
             // The ORCL-style flush: wait for RSI to print oversold WHILE price is
             // at support (the low of day) on volume — capitulation, not a mid-fall
             // knife — then buy the bounce. Tight stop, trail, flatten before close.
+            // A knife makes lower RSI lows with its lower price lows; capitulation
+            // shows a confirmed bullish divergence (lower price low, higher RSI low).
             .Session(TradingSession.Extended).RequireEntryWindow("04:00", "15:30")
-            .IsRsiOversold(35).IsAtSupport(2.0).WithVolumeConfirm(1.2).IsPriceBetween(1, 100000)
+            .IsRsiOversold(40).IsRsiBullishDivergence().IsAtSupport(2.0).WithVolumeConfirm(1.2).IsPriceBetween(1, 100000)
             .Long().QuantityNotional(1000).StopLossPercent(2.5).TrailingStopLoss(5).SellBy("15:55").Repeat().Build(),
         "emabreak" => Stock.Ticker(symbol)
             .Name($"{symbol} EMA200 break (trend reclaim)")
