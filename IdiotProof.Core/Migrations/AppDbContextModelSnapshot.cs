@@ -327,6 +327,104 @@ namespace IdiotProof.Core.Migrations
                     b.ToTable("ConditionProgress");
                 });
 
+            modelBuilder.Entity("IdiotProof.Core.Data.HistoricalBar", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Close")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("DateEt")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Feed")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<decimal>("High")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("Low")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("Open")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime>("StartUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Timeframe")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<decimal>("Volume")
+                        .HasPrecision(20, 2)
+                        .HasColumnType("decimal(20,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Symbol", "Timeframe", "DateEt");
+
+                    b.HasIndex("Symbol", "Timeframe", "StartUtc")
+                        .IsUnique();
+
+                    b.ToTable("HistoricalBars");
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.HistoricalBarCoverage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("BarCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DateEt")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime>("FetchedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Timeframe")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Symbol", "Timeframe", "DateEt")
+                        .IsUnique();
+
+                    b.ToTable("HistoricalBarCoverage");
+                });
+
             modelBuilder.Entity("IdiotProof.Core.Data.InsiderTransaction", b =>
                 {
                     b.Property<Guid>("Id")

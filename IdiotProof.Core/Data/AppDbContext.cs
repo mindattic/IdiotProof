@@ -35,6 +35,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<AutoGapperScan>       AutoGapperScans      => Set<AutoGapperScan>();
     public DbSet<AutoGapperCandidate>  AutoGapperCandidates => Set<AutoGapperCandidate>();
     public DbSet<LiveBar>              LiveBars             => Set<LiveBar>();
+    public DbSet<HistoricalBar>        HistoricalBars       => Set<HistoricalBar>();
+    public DbSet<HistoricalBarCoverage> HistoricalBarCoverage => Set<HistoricalBarCoverage>();
     public DbSet<ResearchClaim>        ResearchClaims       => Set<ResearchClaim>();
     public DbSet<SourceTrustScore>     SourceTrustScores    => Set<SourceTrustScore>();
     public DbSet<ResearchClaimVector>  ResearchClaimVectors => Set<ResearchClaimVector>();
@@ -169,6 +171,29 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.Property(x => x.CondBitsJson).HasMaxLength(2000);
             // No FK to Strategy: bars are observational history and must survive
             // strategy edits or deletion (same rationale as TradeDiaryEntry).
+        });
+
+        b.Entity<HistoricalBar>(e =>
+        {
+            e.HasIndex(x => new { x.Symbol, x.Timeframe, x.StartUtc }).IsUnique();
+            e.HasIndex(x => new { x.Symbol, x.Timeframe, x.DateEt });
+            e.Property(x => x.Symbol).HasMaxLength(16).IsRequired();
+            e.Property(x => x.Timeframe).HasMaxLength(8).IsRequired();
+            e.Property(x => x.DateEt).HasMaxLength(10).IsRequired();
+            e.Property(x => x.Feed).HasMaxLength(16);
+            e.Property(x => x.Open).HasPrecision(18, 6);
+            e.Property(x => x.High).HasPrecision(18, 6);
+            e.Property(x => x.Low).HasPrecision(18, 6);
+            e.Property(x => x.Close).HasPrecision(18, 6);
+            e.Property(x => x.Volume).HasPrecision(20, 2);
+        });
+
+        b.Entity<HistoricalBarCoverage>(e =>
+        {
+            e.HasIndex(x => new { x.Symbol, x.Timeframe, x.DateEt }).IsUnique();
+            e.Property(x => x.Symbol).HasMaxLength(16).IsRequired();
+            e.Property(x => x.Timeframe).HasMaxLength(8).IsRequired();
+            e.Property(x => x.DateEt).HasMaxLength(10).IsRequired();
         });
 
         b.Entity<ResearchClaim>(e =>

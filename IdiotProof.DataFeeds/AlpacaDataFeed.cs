@@ -115,7 +115,8 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
             {
                 var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
                 throw new HttpRequestException(
-                    $"Alpaca bars request failed for {symbol} ({(int)response.StatusCode} {response.StatusCode}): {Truncate(body)}");
+                    $"Alpaca bars request failed for {symbol} ({(int)response.StatusCode} {response.StatusCode}): {Truncate(body)}",
+                    null, response.StatusCode);
             }
 
             var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
