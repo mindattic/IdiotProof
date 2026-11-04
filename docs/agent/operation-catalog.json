@@ -5242,6 +5242,259 @@
       }
     },
     {
+      "name": "evidence conformal",
+      "noun": "evidence",
+      "verb": "conformal",
+      "tool_name": "evidence_conformal",
+      "summary": "Split and adaptive conformal intervals around analog or Kalman forward-return forecasts: coverage vs nominal per month, and an abstain-unless-the-interval-excludes-zero rule scored with day-clustered significance.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof evidence conformal \u003Csymbols\u003E... [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--model \u003Canalog|kalman\u003E] [--alpha \u003Cnumber\u003E] [--gamma \u003Cnumber\u003E] [--horizon \u003Cint\u003E] [--window \u003Cint\u003E] [--train-days \u003Cint\u003E] [--warmup-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--entry \u003Cnext-open|close\u003E]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string[]",
+          "required": true,
+          "description": "One or more tickers, e.g. SNDL MULN.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET day (yyyy-MM-dd, default: 40 days before --to).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last ET day (yyyy-MM-dd, default: yesterday ET).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "model",
+          "json_name": "model",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "analog|kalman",
+          "required": false,
+          "description": "analog: the mean forward return of LSH look-alike windows from prior sessions. kalman: the local-trend filter\u0027s slope \u00D7 horizon, fitted on the warm-up sessions.",
+          "default": "analog",
+          "enum_values": [
+            "analog",
+            "kalman"
+          ]
+        },
+        {
+          "name": "alpha",
+          "json_name": "alpha",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Miss rate the intervals target (default 0.1 = 90% intervals).",
+          "default": 0.1,
+          "enum_values": null
+        },
+        {
+          "name": "gamma",
+          "json_name": "gamma",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Adaptive conformal learning rate (default 0.005).",
+          "default": 0.005,
+          "enum_values": null
+        },
+        {
+          "name": "horizon",
+          "json_name": "horizon",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Minute bars ahead (default 15).",
+          "default": 15,
+          "enum_values": null
+        },
+        {
+          "name": "window",
+          "json_name": "window",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Bars per pattern window / filter burn-in (default 30).",
+          "default": 30,
+          "enum_values": null
+        },
+        {
+          "name": "train-days",
+          "json_name": "train_days",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Analog: prior sessions searched for look-alikes (default 20).",
+          "default": 20,
+          "enum_values": null
+        },
+        {
+          "name": "warmup-days",
+          "json_name": "warmup_days",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Sessions before the first forecast; kalman fits its noise variances on them (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "min-similarity",
+          "json_name": "min_similarity",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "Analog: least cosine similarity of a look-alike (default 0.8).",
+          "default": 0.8,
+          "enum_values": null
+        },
+        {
+          "name": "entry",
+          "json_name": "entry",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "next-open|close",
+          "required": false,
+          "description": "next-open (default: fill at the next bar\u0027s open, immune to bid-ask bounce) or close (fill at the signal bar\u0027s close; a diagnostic).",
+          "default": "next-open",
+          "enum_values": [
+            "next-open",
+            "close"
+          ]
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof evidence conformal SNDL MULN --from 2026-08-03 --to 2026-10-30",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof evidence conformal SNDL --model kalman --alpha 0.2 --horizon 10",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Split and adaptive conformal intervals around analog or Kalman forward-return forecasts: coverage vs nominal per month, and an abstain-unless-the-interval-excludes-zero rule scored with day-clustered significance.",
+        "properties": {
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "One or more tickers, e.g. SNDL MULN."
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET day (yyyy-MM-dd, default: 40 days before --to)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last ET day (yyyy-MM-dd, default: yesterday ET)."
+          },
+          "model": {
+            "type": "string",
+            "enum": [
+              "analog",
+              "kalman"
+            ],
+            "description": "analog: the mean forward return of LSH look-alike windows from prior sessions. kalman: the local-trend filter\u0027s slope \u00D7 horizon, fitted on the warm-up sessions.",
+            "default": "analog"
+          },
+          "alpha": {
+            "type": "number",
+            "description": "Miss rate the intervals target (default 0.1 = 90% intervals).",
+            "default": 0.1
+          },
+          "gamma": {
+            "type": "number",
+            "description": "Adaptive conformal learning rate (default 0.005).",
+            "default": 0.005
+          },
+          "horizon": {
+            "type": "integer",
+            "description": "Minute bars ahead (default 15).",
+            "default": 15
+          },
+          "window": {
+            "type": "integer",
+            "description": "Bars per pattern window / filter burn-in (default 30).",
+            "default": 30
+          },
+          "train_days": {
+            "type": "integer",
+            "description": "Analog: prior sessions searched for look-alikes (default 20).",
+            "default": 20
+          },
+          "warmup_days": {
+            "type": "integer",
+            "description": "Sessions before the first forecast; kalman fits its noise variances on them (default 5).",
+            "default": 5
+          },
+          "min_similarity": {
+            "type": "number",
+            "description": "Analog: least cosine similarity of a look-alike (default 0.8).",
+            "default": 0.8
+          },
+          "entry": {
+            "type": "string",
+            "enum": [
+              "next-open",
+              "close"
+            ],
+            "description": "next-open (default: fill at the next bar\u0027s open, immune to bid-ask bounce) or close (fill at the signal bar\u0027s close; a diagnostic).",
+            "default": "next-open"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbols"
+        ]
+      }
+    },
+    {
       "name": "evidence events",
       "noun": "evidence",
       "verb": "events",
@@ -7783,7 +8036,7 @@
       "summary": "Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilson CI, coverage and edge after costs.",
       "description": "Each day\u0027s model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.",
       "risk": "read",
-      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--clean \u003Cnone|rmt\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--entry \u003Cnext-open|close\u003E] [--allow-mixed-feeds] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
+      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--clean \u003Cnone|rmt\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--entry \u003Cnext-open|close\u003E] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -8017,18 +8270,6 @@
           ]
         },
         {
-          "name": "allow-mixed-feeds",
-          "json_name": "allow_mixed_feeds",
-          "kind": "option",
-          "position": null,
-          "short": null,
-          "type": "bool",
-          "required": false,
-          "description": "Report a verdict even when the bars mix SIP and IEX tiers (refused by default: IEX prices and volumes are one exchange\u0027s, not the consolidated tape).",
-          "default": false,
-          "enum_values": null
-        },
-        {
           "name": "shares",
           "json_name": "shares",
           "kind": "option",
@@ -8218,11 +8459,6 @@
             ],
             "description": "next-open (default: a call fills at the next bar\u0027s open, immune to bid-ask bounce) or close (fills at the signal bar\u0027s close; a diagnostic that inflates mean-reversion edge on low-priced names).",
             "default": "next-open"
-          },
-          "allow_mixed_feeds": {
-            "type": "boolean",
-            "description": "Report a verdict even when the bars mix SIP and IEX tiers (refused by default: IEX prices and volumes are one exchange\u0027s, not the consolidated tape).",
-            "default": false
           },
           "shares": {
             "type": "number",
