@@ -15,7 +15,8 @@ namespace IdiotProof.Engine.Settings;
 [UsesCredential("gemini", Purpose = "LLM voting")]
 [UsesCredential("deepseek", Purpose = "LLM voting")]
 [UsesCredential("mistral", Purpose = "LLM voting")]
-[UsesCredential("alpaca", Purpose = "Market data and paper/live trading")]
+// No [UsesCredential("alpaca")]: the Alpaca key+secret pairs live in Vault's Brokers group (alpaca-paper / alpaca-live,
+// read by AppSettings.OverlayFromBrokerCredentials), so a single "alpaca" key row would always show empty.
 public sealed class IdiotProofSettings
 {
     public const string AppId = "IdiotProof";

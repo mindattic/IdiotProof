@@ -20,6 +20,22 @@ public sealed class LegionProviderContractTests
             "every IdiotProof CallAsync site pins providerId: \"claude\"");
 
     [Test]
+    public void EveryDeclaredCredential_IsAProviderIdiotProofActuallyResolves()
+    {
+        var declared = typeof(IdiotProofSettings)
+            .GetCustomAttributes(typeof(MindAttic.Vault.Settings.Manifest.UsesCredentialAttribute), false)
+            .Cast<MindAttic.Vault.Settings.Manifest.UsesCredentialAttribute>()
+            .Select(a => a.ProviderId)
+            .ToList();
+        Assert.That(declared, Is.Not.Empty);
+        Assert.That(declared, Has.None.EqualTo("alpaca"),
+            "Alpaca pairs come from the Brokers group (alpaca-paper/alpaca-live), not a single 'alpaca' key");
+        foreach (var id in declared)
+            Assert.That(LlmProviderCatalog.IsSupported(id), Is.True,
+                $"[UsesCredential(\"{id}\")] must be an LLM provider IdiotProof resolves through Legion");
+    }
+
+    [Test]
     public void DefaultLlmVoterModel_IsKnownToTheClaudeProvider()
         => Assert.That(LlmProviderCatalog.IsKnownModel("claude", new AppSettings().LlmVoterModel), Is.True,
             "AppSettings.LlmVoterModel default must exist in Legion's claude model catalog");
