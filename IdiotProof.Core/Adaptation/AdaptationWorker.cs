@@ -1,4 +1,5 @@
 using IdiotProof.Core.Data;
+using IdiotProof.Core.Monitoring;
 using IdiotProof.Core.Services;
 using IdiotProof.DataFeeds;
 using IdiotProof.Models;
@@ -19,6 +20,7 @@ public sealed class AdaptationWorker(
     IDbContextFactory<AppDbContext> dbFactory,
     IMarketDataFeed feed,
     TimeProvider time,
+    MonitorRuntimeState monitor,
     ILogger<AdaptationWorker> log) : BackgroundService
 {
     private static readonly TimeSpan Cadence = TimeSpan.FromMinutes(5);
@@ -30,13 +32,29 @@ public sealed class AdaptationWorker(
         {
             try
             {
-                if (!await adaptation.IsGloballyEnabledAsync(stoppingToken)) continue;
-                await PassAsync(stoppingToken);
-                await adaptation.RecordOutcomesAsync(stoppingToken);
+                await RunOnceAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex) { log.LogWarning(ex, "Adaptation pass failed"); }
         }
+    }
+
+    /// <summary>
+    /// One adaptation pass, run only by the instance holding the Monitor leader lease (re-checked
+    /// against SQL each pass), so a standby never writes duplicate decisions or retunes strategies.
+    /// Returns false when the pass was skipped.
+    /// </summary>
+    public async Task<bool> RunOnceAsync(CancellationToken ct)
+    {
+        if (!await adaptation.IsGloballyEnabledAsync(ct)) return false;
+        if (!await monitor.IsLeaderAsync(ct))
+        {
+            log.LogDebug("Adaptation pass skipped: this instance does not hold the Monitor leader lease.");
+            return false;
+        }
+        await PassAsync(ct);
+        await adaptation.RecordOutcomesAsync(ct);
+        return true;
     }
 
     private async Task PassAsync(CancellationToken ct)

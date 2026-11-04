@@ -202,6 +202,7 @@ public sealed class MonitorWorker(
         logger.LogInformation("IdiotProof.Monitor starting — interval {Interval}s, feed {Feed}",
             EvaluationInterval.TotalSeconds, feed.FeedName);
         runtime.MarkStarting(feed.FeedName, EvaluationInterval);
+        runtime.SetLeaderCheck(LeaseHeldAsync);
 
         try
         {

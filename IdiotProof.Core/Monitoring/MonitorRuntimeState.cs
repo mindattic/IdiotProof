@@ -33,6 +33,22 @@ public sealed class MonitorRuntimeState(TimeProvider? clock = null)
     private string? feed;
     private TimeSpan interval;
 
+    private Func<CancellationToken, Task<bool>>? leaderCheck;
+
+    /// <summary>The Monitor hands over its live lease re-check so co-hosted workers never take a second lease.</summary>
+    public void SetLeaderCheck(Func<CancellationToken, Task<bool>> check) => leaderCheck = check;
+
+    /// <summary>
+    /// Re-confirms against SQL that this process holds the Monitor leader lease right now.
+    /// Fails closed: no Monitor, no lease yet, or a failed check all answer false.
+    /// </summary>
+    public async Task<bool> IsLeaderAsync(CancellationToken ct = default)
+    {
+        if (leaderCheck is not { } check) return false;
+        try { return await check(ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { return false; }
+    }
+
     /// <summary>The worker started and is waiting for (or holds) the lease.</summary>
     public void MarkStarting(string feedName, TimeSpan tickInterval)
     {
