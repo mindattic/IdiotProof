@@ -43,7 +43,8 @@ public sealed class EvidenceLabelOperation : IOperation<EvidenceLabelArgs>
         var from = args.From ?? to.AddDays(-20);
         if (to < from) return OperationResult.Usage("--to must be on or after --from.");
 
-        var raw = await ctx.Get<IHistoricalBarStore>().GetBarsAsync(symbol, from, to, EvidenceSupport.Store(args.Timeframe), ctx.CancellationToken);
+        var adjusted = await ctx.Get<IHistoricalBarStore>().GetSplitAdjustedBarsForSymbolsAsync(new[] { symbol }, from, to, EvidenceSupport.Store(args.Timeframe), ct: ctx.CancellationToken);
+        var raw = adjusted.Bars.TryGetValue(symbol, out var list) ? list : Array.Empty<IdiotProof.Models.Candle>();
         var bars = EvidenceSupport.Filter(raw, args.Timeframe, args.Session);
         // Minute labels stay inside one session: a label crossing the overnight gap measures the gap, not the pattern.
         var labels = args.Timeframe == EvidenceTimeframe.Day

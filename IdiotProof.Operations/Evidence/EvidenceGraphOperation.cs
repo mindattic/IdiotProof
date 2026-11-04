@@ -66,7 +66,7 @@ public sealed class EvidenceGraphOperation : IOperation<EvidenceGraphArgs>
         var from = args.From ?? to.AddDays(args.Timeframe == EvidenceTimeframe.Day ? -120 : -5);
         if (to < from) return OperationResult.Usage("--to must be on or after --from.");
 
-        var bars = await ctx.Get<IHistoricalBarStore>().GetBarsForSymbolsAsync(symbols, from, to, EvidenceSupport.Store(args.Timeframe), ct: ctx.CancellationToken);
+        var bars = (await ctx.Get<IHistoricalBarStore>().GetSplitAdjustedBarsForSymbolsAsync(symbols, from, to, EvidenceSupport.Store(args.Timeframe), ct: ctx.CancellationToken)).Bars;
         var closes = symbols.ToDictionary(s => s, s => (bars.TryGetValue(s, out var raw) ? EvidenceSupport.Filter(raw, args.Timeframe, args.Session) : [])
             .GroupBy(c => c.StartUtc).ToDictionary(g => g.Key, g => (double)g.First().Close));
 

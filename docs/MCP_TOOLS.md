@@ -2744,7 +2744,7 @@ Read-only. Times are US Eastern.
     },
     "max_daily_move": {
       "type": "number",
-      "description": "Drop events whose windows hold a daily return above this (default 2.0 = \u002B200%, or below -66.7%): bars are split-unadjusted, so such days are usually splits.",
+      "description": "Drop events whose windows hold a daily return above this (default 2.0 = \u002B200%, or below -66.7%). Bars are split-adjusted from Alpaca corporate actions; this guard catches splits the feed missed.",
       "default": 2
     }
   },

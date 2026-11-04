@@ -56,7 +56,7 @@ public sealed class EvidenceRegimeOperation : IOperation<EvidenceRegimeArgs>
         if (args.Threshold is <= 0 or >= 1) return OperationResult.Usage("--threshold must be between 0 and 1.");
         if (args.States is < 2 or > 3) return OperationResult.Usage("--states must be 2 or 3.");
 
-        var bars = await ctx.Get<IHistoricalBarStore>().GetBarsForSymbolsAsync(symbols, from, to, EvidenceSupport.Store(args.Timeframe), ct: ctx.CancellationToken);
+        var bars = (await ctx.Get<IHistoricalBarStore>().GetSplitAdjustedBarsForSymbolsAsync(symbols, from, to, EvidenceSupport.Store(args.Timeframe), ct: ctx.CancellationToken)).Bars;
         if (args.Method == RegimeMethod.Bocpd) return ChangePoints(args, symbols, bars, from, to, ctx.Width);
         if (args.Method == RegimeMethod.Hmm) return HiddenMarkov(args, symbols, bars, from, to, ctx.Width);
         var rows = new List<object>();

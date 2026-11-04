@@ -38,7 +38,7 @@ public sealed record EvidenceEventsArgs
     [Option("benchmark", Description = "Market benchmark symbol (default SPY).")]
     public string Benchmark { get; init; } = "SPY";
 
-    [Option("max-daily-move", Description = "Drop events whose windows hold a daily return above this (default 2.0 = +200%, or below -66.7%): bars are split-unadjusted, so such days are usually splits.")]
+    [Option("max-daily-move", Description = "Drop events whose windows hold a daily return above this (default 2.0 = +200%, or below -66.7%). Bars are split-adjusted from Alpaca corporate actions; this guard catches splits the feed missed.")]
     public double MaxDailyMove { get; init; } = 2.0;
 }
 
@@ -87,7 +87,8 @@ public sealed class EvidenceEventsOperation : IOperation<EvidenceEventsArgs>
         if (barsTo > today) barsTo = today;
 
         var symbols = claims.Select(c => c.Ticker.Trim().ToUpperInvariant()).Append(benchmark).Distinct().ToList();
-        var bars = await ctx.Get<IHistoricalBarStore>().GetBarsForSymbolsAsync(symbols, barsFrom, barsTo, BarTimeframe.Day1, ct: ctx.CancellationToken);
+        var adjusted = await ctx.Get<IHistoricalBarStore>().GetSplitAdjustedBarsForSymbolsAsync(symbols, barsFrom, barsTo, BarTimeframe.Day1, ct: ctx.CancellationToken);
+        var bars = adjusted.Bars;
         if (!bars.TryGetValue(benchmark, out var benchBars) || benchBars.Count == 0)
             return OperationResult.Fail($"No daily bars for the benchmark {benchmark}.");
 
@@ -144,7 +145,10 @@ public sealed class EvidenceEventsOperation : IOperation<EvidenceEventsArgs>
                 g.SignedEvents == 0 ? "—" : EvidenceSupport.Pct(g.MeanSignedCar), g.SignedEvents < 2 ? "—" : P(g.SignedBmpP));
 
         var skippedText = skipped.Count == 0 ? "none" : string.Join(", ", skipped.OrderByDescending(k => k.Value).Select(k => $"{k.Value} {k.Key}"));
-        var footer = $"{claims.Count} claims, {valid} with a full estimation + event window; skipped: {skippedText}.\n" +
+        var splitText = adjusted.SplitDataAvailable
+            ? $"{adjusted.TotalSplits} split(s) across {adjusted.SplitsApplied.Count} symbol(s) back-adjusted"
+            : "no split data (bars are raw; only the daily-move guard catches splits)";
+        var footer = $"{claims.Count} claims, {valid} with a full estimation + event window; skipped: {skippedText}; {splitText}.\n" +
                      $"Market model vs {benchmark}, estimation {args.Estimation} trading days ending {args.Gap} before the window; day 0 = first trading day on/after the article date. " +
                      "BMP is robust to event-induced variance; placebo p compares the mean CAR with random non-event days of the same symbols. " +
                      $"Signed CAR flips bearish claims (positive = the sentiment was right). Groups with fewer than {args.MinEvents} events are omitted; " +
@@ -153,6 +157,7 @@ public sealed class EvidenceEventsOperation : IOperation<EvidenceEventsArgs>
         return OperationResult.Ok(new
         {
             From = from, To = to, Benchmark = benchmark, Claims = claims.Count, ValidEvents = valid, Skipped = skipped,
+            SplitDataAvailable = adjusted.SplitDataAvailable, SplitsApplied = adjusted.TotalSplits,
             Windows = windows.Select(w => w.ToString()).ToList(), Tests = groups.Count,
             Groups = groups.Select(g => new
             {

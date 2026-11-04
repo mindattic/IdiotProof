@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using IdiotProof.Core.Data;
 using IdiotProof.DataFeeds;
+using IdiotProof.Evidence;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using Microsoft.EntityFrameworkCore;
@@ -22,14 +23,36 @@ public sealed class HistoricalBarStore : IHistoricalBarStore
     private readonly IMarketDataFeed feed;
     private readonly TimeProvider clock;
     private readonly Func<TimeSpan, CancellationToken, Task> delay;
+    private readonly ISplitSource? splits;
 
     public HistoricalBarStore(IDbContextFactory<AppDbContext> dbFactory, IMarketDataFeed feed,
-        TimeProvider? clock = null, Func<TimeSpan, CancellationToken, Task>? delay = null)
+        TimeProvider? clock = null, Func<TimeSpan, CancellationToken, Task>? delay = null, ISplitSource? splits = null)
     {
         this.dbFactory = dbFactory;
         this.feed = feed;
         this.clock = clock ?? TimeProvider.System;
         this.delay = delay ?? Task.Delay;
+        this.splits = splits;
+    }
+
+    public async Task<SplitAdjustedBars> GetSplitAdjustedBarsForSymbolsAsync(
+        IEnumerable<string> symbols, DateOnly fromEt, DateOnly toEt, BarTimeframe timeframe, int maxConcurrency = 4, CancellationToken ct = default)
+    {
+        var raw = await GetBarsForSymbolsAsync(symbols, fromEt, toEt, timeframe, maxConcurrency, ct).ConfigureAwait(false);
+        if (splits is null || raw.Count == 0)
+            return new SplitAdjustedBars(raw, new Dictionary<string, int>(), SplitDataAvailable: false);
+
+        var events = await splits.GetSplitsAsync(raw.Keys, fromEt, toEt, ct).ConfigureAwait(false);
+        var bars = new Dictionary<string, IReadOnlyList<Candle>>(StringComparer.OrdinalIgnoreCase);
+        var applied = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (symbol, list) in raw)
+        {
+            var symbolSplits = events.TryGetValue(symbol, out var s) ? s : Array.Empty<SplitEvent>();
+            var adjusted = SplitAdjuster.Adjust(list, symbolSplits, c => DateOf(c, timeframe));
+            bars[symbol] = adjusted.Bars;
+            if (adjusted.SplitsApplied > 0) applied[symbol] = adjusted.SplitsApplied;
+        }
+        return new SplitAdjustedBars(bars, applied, SplitDataAvailable: true);
     }
 
     public async Task<IReadOnlyList<Candle>> GetBarsAsync(string symbol, DateOnly fromEt, DateOnly toEt, BarTimeframe timeframe, CancellationToken ct = default)

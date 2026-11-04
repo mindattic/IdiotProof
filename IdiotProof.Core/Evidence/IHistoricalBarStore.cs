@@ -41,4 +41,25 @@ public interface IHistoricalBarStore
     /// </summary>
     Task<IReadOnlyList<UniverseMember>> GetPointInTimeUniverseAsync(
         DateOnly asOfEt, IEnumerable<string> candidates, UniverseFilter? filter = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Bars back-adjusted for splits inside each symbol's window, for anything that computes returns
+    /// across days. Price-level filters must keep using the raw bars. A store without a split source
+    /// returns the raw bars with no splits applied.
+    /// </summary>
+    async Task<SplitAdjustedBars> GetSplitAdjustedBarsForSymbolsAsync(
+        IEnumerable<string> symbols, DateOnly fromEt, DateOnly toEt, BarTimeframe timeframe, int maxConcurrency = 4, CancellationToken ct = default)
+    {
+        var raw = await GetBarsForSymbolsAsync(symbols, fromEt, toEt, timeframe, maxConcurrency, ct).ConfigureAwait(false);
+        return new SplitAdjustedBars(raw, new Dictionary<string, int>(), SplitDataAvailable: false);
+    }
+}
+
+/// <summary>Split-adjusted bars per symbol, the count of splits applied per symbol, and whether split data was consulted.</summary>
+public sealed record SplitAdjustedBars(
+    IReadOnlyDictionary<string, IReadOnlyList<Candle>> Bars,
+    IReadOnlyDictionary<string, int> SplitsApplied,
+    bool SplitDataAvailable)
+{
+    public int TotalSplits => SplitsApplied.Values.Sum();
 }

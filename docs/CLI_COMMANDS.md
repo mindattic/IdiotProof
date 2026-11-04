@@ -1356,7 +1356,7 @@ Parameters:
       --bootstrap <int>          Placebo bootstrap draws (default 1000; 0 skips it). (default: 1000)
       --seed <int>               Bootstrap seed (default 1337). (default: 1337)
       --benchmark <string>       Market benchmark symbol (default SPY). (default: SPY)
-      --max-daily-move <number>  Drop events whose windows hold a daily return above this (default 2.0 = +200%, or below -66.7%): bars are split-unadjusted, so such days are usually splits. (default: 2)
+      --max-daily-move <number>  Drop events whose windows hold a daily return above this (default 2.0 = +200%, or below -66.7%). Bars are split-adjusted from Alpaca corporate actions; this guard catches splits the feed missed. (default: 2)
 
 Examples:
   idiotproof evidence events

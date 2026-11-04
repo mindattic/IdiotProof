@@ -28,8 +28,10 @@ public static class TradingServiceRegistration
     public static IServiceCollection AddIdiotProofTrading(this IServiceCollection services)
     {
         services.AddSingleton<IMarketDataFeed>(sp => CreateFeed(sp.GetRequiredService<AppSettings>()));
+        services.AddSingleton<ISplitSource>(sp => CreateSplitSource(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<IHistoricalBarStore>(sp => new HistoricalBarStore(
-            sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), sp.GetRequiredService<IMarketDataFeed>()));
+            sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), sp.GetRequiredService<IMarketDataFeed>(),
+            splits: sp.GetRequiredService<ISplitSource>()));
         services.AddSingleton(sp => CreateRouter(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<UserBrokerResolver>();
         // Every order — Monitor, manual, options, flatten — goes through the gateway.
@@ -46,6 +48,12 @@ public static class TradingServiceRegistration
     /// so <c>idiotproof market feed switch</c> can change it without a restart; every synthetic-data
     /// guard asks <see cref="MarketDataFeedExtensions.IsSynthetic"/>, which sees through the switch.
     /// </summary>
+    /// <summary>Split data for return studies: Alpaca corporate actions when keys exist, none otherwise.</summary>
+    public static ISplitSource CreateSplitSource(AppSettings settings) =>
+        HasAlpacaKeys(settings)
+            ? new AlpacaSplitSource(settings.AlpacaApiKeyId, settings.AlpacaApiSecretKey)
+            : new NullSplitSource();
+
     public static IMarketDataFeed CreateFeed(AppSettings settings)
     {
         var choice = Environment.GetEnvironmentVariable(FeedEnvVar)?.ToLowerInvariant();
