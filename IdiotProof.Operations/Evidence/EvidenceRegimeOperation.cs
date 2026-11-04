@@ -107,9 +107,10 @@ public sealed class EvidenceRegimeOperation : IOperation<EvidenceRegimeArgs>
                 continue;
             }
             // Prior scaled to the first warm-up returns only; detection never reads ahead of the bar it flags.
-            var prior = NormalGammaPrior.FromSample(returns.Take(warmup).ToList());
-            var events = Bocpd.Detect(returns, prior, window: window, threshold: args.Threshold, warmup: warmup);
-            var model = new Bocpd(prior);
+            double tickFloor = TickNoise.ReturnVarianceFloor(series.Select(c => c.Close).ToList());
+            var prior = NormalGammaPrior.FromSample(returns.Take(warmup).ToList(), tickFloor);
+            var events = Bocpd.Detect(returns, prior, window: window, threshold: args.Threshold, warmup: warmup, minVariance: tickFloor);
+            var model = new Bocpd(prior, minVariance: tickFloor);
             foreach (var x in returns) model.Update(x);
             DateTime? last = events.Count == 0 ? null : series[Math.Min(series.Count - 1, events[^1].StartsAt + 1)].StartUtc;
             double pNow = model.ShortRunProbability(window);
@@ -150,7 +151,7 @@ public sealed class EvidenceRegimeOperation : IOperation<EvidenceRegimeArgs>
                 table.Row(s, trainReturns.Count.ToString(), "too few bars", "—", "—", "—");
                 continue;
             }
-            var hmm = GaussianHmm.Fit(trainReturns, args.States);
+            var hmm = GaussianHmm.Fit(trainReturns, args.States, minVariance: TickNoise.ReturnVarianceFloor(series.Take(split).Select(c => c.Close).ToList()));
             var filtered = hmm.Filter(liveReturns);
             var now = filtered.Length == 0 ? hmm.Initial.ToArray() : filtered[^1];
             int state = Array.IndexOf(now, now.Max());

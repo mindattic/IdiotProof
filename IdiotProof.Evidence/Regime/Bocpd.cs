@@ -5,13 +5,14 @@ public readonly record struct NormalGammaPrior(double Mu, double Kappa, double A
 {
     /// <summary>
     /// A weak prior scaled to a warm-up sample: centered on its mean, worth one observation, with a
-    /// prior variance equal to the sample variance. Pass only data that precedes what will be scored.
+    /// prior variance equal to the sample variance (never below <paramref name="minVariance"/>, the
+    /// tick-rounding floor from <see cref="TickNoise"/>). Pass only data that precedes what will be scored.
     /// </summary>
-    public static NormalGammaPrior FromSample(IReadOnlyList<double> warmup)
+    public static NormalGammaPrior FromSample(IReadOnlyList<double> warmup, double minVariance = 0)
     {
         double mean = warmup.Count == 0 ? 0 : EvidenceStats.Mean(warmup);
         double sd = warmup.Count < 2 ? 0 : EvidenceStats.StdDev(warmup);
-        double variance = sd > 0 ? sd * sd : 1e-8;
+        double variance = Math.Max(sd > 0 ? sd * sd : 1e-8, minVariance);
         return new NormalGammaPrior(mean, 1, 2, variance);
     }
 }
@@ -29,16 +30,23 @@ public sealed class Bocpd
     private readonly NormalGammaPrior prior;
     private readonly double hazard;
     private readonly int maxRunLength;
+    private readonly double minVariance;
+    private readonly double halfTick;
     private double[] runProbs;
     private double[] mu, kappa, alpha, beta;
 
-    public Bocpd(NormalGammaPrior prior, double hazard = 1.0 / 250, int maxRunLength = 1000)
+    /// <param name="minVariance">Floor on the predictive variance of every run hypothesis: the tick-rounding
+    /// noise (<see cref="TickNoise"/>), so a run of unchanged prices can't make a 1-tick move look like a break.</param>
+    public Bocpd(NormalGammaPrior prior, double hazard = 1.0 / 250, int maxRunLength = 1000, double minVariance = 0)
     {
         if (hazard <= 0 || hazard >= 1) throw new ArgumentOutOfRangeException(nameof(hazard));
         if (maxRunLength < 2) throw new ArgumentOutOfRangeException(nameof(maxRunLength));
         this.prior = prior;
         this.hazard = hazard;
         this.maxRunLength = maxRunLength;
+        this.minVariance = Math.Max(0, minVariance);
+        // TickNoise's floor is (tick/price)²/6, so half a tick in return units is √(6·floor)/2.
+        halfTick = Math.Sqrt(6 * this.minVariance) / 2;
         runProbs = [1.0];
         mu = [prior.Mu];
         kappa = [prior.Kappa];
@@ -76,6 +84,8 @@ public sealed class Bocpd
         double changeMass = 0;
         for (int r = 0; r < n; r++)
         {
+            // A hypothesis with no posterior mass contributes nothing; skipping it keeps the binned likelihood cheap.
+            if (runProbs[r] < 1e-15) continue;
             double pred = Math.Exp(StudentTLogPdf(x, r));
             double joint = runProbs[r] * pred;
             growth[r + 1] = joint * (1 - hazard);
@@ -142,9 +152,9 @@ public sealed class Bocpd
     /// (a calm patch looks like a calmer regime); pass a large <paramref name="minMapDrop"/> to disable it.
     /// </summary>
     public static IReadOnlyList<ChangePoint> Detect(IReadOnlyList<double> xs, NormalGammaPrior prior, double hazard = 1.0 / 250,
-        int window = 5, double threshold = 0.5, int warmup = 50, int minMapDrop = 10)
+        int window = 5, double threshold = 0.5, int warmup = 50, int minMapDrop = 10, double minVariance = 0)
     {
-        var model = new Bocpd(prior, hazard);
+        var model = new Bocpd(prior, hazard, minVariance: minVariance);
         var events = new List<ChangePoint>();
         bool inEpisode = false;
         int prevMap = 0, lastEvent = int.MinValue / 2;
@@ -181,9 +191,26 @@ public sealed class Bocpd
     private double StudentTLogPdf(double x, int r)
     {
         double nu = 2 * alpha[r];
-        double scale2 = beta[r] * (kappa[r] + 1) / (alpha[r] * kappa[r]);
+        double scale2 = Math.Max(beta[r] * (kappa[r] + 1) / (alpha[r] * kappa[r]), minVariance);
+        if (halfTick > 0)
+        {
+            // Prices print on a tick grid, so a return is only known to its tick bin: score the predictive
+            // mass of the bin (interval-censored likelihood) per unit width, not a density at a point.
+            double s = Math.Sqrt(scale2);
+            double mass = BinMass((x - halfTick - mu[r]) / s, (x + halfTick - mu[r]) / s, nu);
+            return Math.Log(Math.Max(mass, 1e-300) / (2 * halfTick));
+        }
         double z = (x - mu[r]) * (x - mu[r]) / (nu * scale2);
         return EvidenceStats.LogGamma((nu + 1) / 2) - EvidenceStats.LogGamma(nu / 2)
                - 0.5 * Math.Log(nu * Math.PI * scale2) - (nu + 1) / 2 * Math.Log(1 + z);
+    }
+
+    /// <summary>P(a &lt; T ≤ b) for Student's t, computed from the tail that avoids cancellation.</summary>
+    private static double BinMass(double a, double b, double nu)
+    {
+        double U(double t) => Search.Distributions.StudentTUpperTail(t, nu);
+        if (a >= 0) return U(a) - U(b);
+        if (b <= 0) return U(-b) - U(-a);
+        return 1 - U(b) - U(-a);
     }
 }

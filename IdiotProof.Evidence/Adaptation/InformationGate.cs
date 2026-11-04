@@ -97,8 +97,9 @@ public static class InformationGate
         }
         int warmup = Math.Max(20, 2 * options.ChangePointWindow);
         if (returns.Count <= warmup) return null;
-        var prior = Regimes.NormalGammaPrior.FromSample(returns.Take(warmup).ToList());
-        var events = Regimes.Bocpd.Detect(returns, prior, options.ChangePointHazard, options.ChangePointWindow, threshold, warmup);
+        double tickFloor = Regimes.TickNoise.ReturnVarianceFloor(closedBars.Select(c => c.Close).ToList());
+        var prior = Regimes.NormalGammaPrior.FromSample(returns.Take(warmup).ToList(), tickFloor);
+        var events = Regimes.Bocpd.Detect(returns, prior, options.ChangePointHazard, options.ChangePointWindow, threshold, warmup, minVariance: tickFloor);
         if (events.Count == 0) return null;
         return Math.Clamp(events[^1].StartsAt + 1, 0, closedBars.Count - 1);
     }

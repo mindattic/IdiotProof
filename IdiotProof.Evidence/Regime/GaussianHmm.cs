@@ -29,7 +29,9 @@ public sealed class GaussianHmm
     /// <summary>P(stay in state k for the next bar).</summary>
     public double Persistence(int k) => Transition[k, k];
 
-    public static GaussianHmm Fit(IReadOnlyList<double> obs, int states = 2, int maxIterations = 200, double tolerance = 1e-6)
+    /// <param name="minVariance">Floor on every state's variance: the tick-rounding noise (<see cref="TickNoise"/>),
+    /// so no state can collapse onto the bars whose price didn't change.</param>
+    public static GaussianHmm Fit(IReadOnlyList<double> obs, int states = 2, int maxIterations = 200, double tolerance = 1e-6, double minVariance = 0)
     {
         if (states < 2 || states > 5) throw new ArgumentOutOfRangeException(nameof(states));
         if (obs.Count < states * 10) throw new ArgumentException("Too few observations to fit the model.", nameof(obs));
@@ -40,20 +42,20 @@ public sealed class GaussianHmm
         var byDeviation = obs.OrderBy(x => Math.Abs(x - globalMean)).ToArray();
         var means = new double[k];
         var vars = new double[k];
+        double varFloor = Math.Max(Math.Max(1e-12, EvidenceStats.StdDev(obs) * EvidenceStats.StdDev(obs) * 1e-4), minVariance);
         for (int s = 0; s < k; s++)
         {
             int lo = s * n / k, hi = (s + 1) * n / k;
             var slice = new ArraySegment<double>(byDeviation, lo, Math.Max(2, hi - lo));
             means[s] = globalMean;
             double sd = Math.Sqrt(slice.Select(x => (x - globalMean) * (x - globalMean)).Average());
-            vars[s] = Math.Max(sd * sd, 1e-12);
+            vars[s] = Math.Max(sd * sd, varFloor);
         }
         var trans = new double[k, k];
         for (int i = 0; i < k; i++)
         for (int j = 0; j < k; j++)
             trans[i, j] = i == j ? 0.9 : 0.1 / (k - 1);
         var init = Enumerable.Repeat(1.0 / k, k).ToArray();
-        double varFloor = Math.Max(1e-12, EvidenceStats.StdDev(obs) * EvidenceStats.StdDev(obs) * 1e-4);
 
         double prevLl = double.NegativeInfinity, ll = double.NegativeInfinity;
         for (int iter = 0; iter < maxIterations; iter++)
