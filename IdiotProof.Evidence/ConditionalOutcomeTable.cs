@@ -46,10 +46,18 @@ public sealed class QuantileBinner
     {
         if (bins < 2) throw new ArgumentOutOfRangeException(nameof(bins));
         var sorted = trainingValues.Where(v => !double.IsNaN(v)).OrderBy(v => v).ToArray();
-        edges = new double[bins - 1];
-        if (sorted.Length == 0) return;
-        for (int i = 1; i < bins; i++)
-            edges[i - 1] = sorted[Math.Min(sorted.Length - 1, (int)((long)i * sorted.Length / bins))];
+        var cuts = new SortedSet<double>();
+        for (int i = 1; i < bins && sorted.Length > 1; i++)
+        {
+            int idx = Math.Clamp((int)((long)i * sorted.Length / bins), 1, sorted.Length - 1);
+            double below = sorted[idx - 1], at = sorted[idx];
+            if (below < at) { cuts.Add((below + at) / 2); continue; }
+            // The quantile falls inside a run of ties: cut just above the run so tied values share a bucket.
+            int j = idx + 1;
+            while (j < sorted.Length && sorted[j] <= at) j++;
+            if (j < sorted.Length) cuts.Add((at + sorted[j]) / 2);
+        }
+        edges = cuts.ToArray();
     }
 
     public int Bins => edges.Length + 1;
