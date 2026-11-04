@@ -467,6 +467,16 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>Falling-knife guard backed by measured history: passes when price isn't in a
+    /// knife setup, or when this symbol's own history says a long entered in this kind of knife
+    /// was hit (fell 1 ATR within 10 bars) at most <paramref name="maxProbability"/> of the time
+    /// over at least <paramref name="minSamples"/> past cases. Too little history fails closed.</summary>
+    public StrategyBuilder NotFallingKnife(double maxProbability = 0.5, int minSamples = 30)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.NotFallingKnife, maxProbability, minSamples));
+        return this;
+    }
+
     /// <summary>Newest pivot high below the prior pivot high — a lower high
     /// (weakening rally), the failed-high short tell.</summary>
     public StrategyBuilder IsLowerHigh()
@@ -1066,7 +1076,8 @@ public enum IndicatorType
     GapUp, GapDown,
     VolumeAbove,
     AtSupport, AtResistance,
-    HigherLows, DippedTo
+    HigherLows, DippedTo,
+    NotFallingKnife
 }
 
 /// <summary>
@@ -1200,6 +1211,7 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
             IndicatorType.AtResistance         => "IsAtResistance",
             IndicatorType.HigherLows           => "HigherLows",
             IndicatorType.DippedTo             => "DippedTo",
+            IndicatorType.NotFallingKnife      => "NotFallingKnife",
             _                                  => $"Is{Type}"
         };
 
@@ -1279,6 +1291,10 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
                                               && s.ConsecutiveHigherLows is { } rising && rising >= (int)need,
         IndicatorType.DippedTo           => Parameter is { } dipLevel
                                               && s.SessionLow is { } sessionLow && sessionLow <= dipLevel,
+        IndicatorType.NotFallingKnife    => s.FallingKnifePresent == false
+                                              || (s.FallingKnifePresent == true
+                                                  && s.FallingKnifeSamples is { } knifeN && knifeN >= (int)(Parameter2 ?? 30)
+                                                  && s.FallingKnifeRisk is { } knifeRisk && knifeRisk <= (Parameter ?? 0.5)),
         // Fail closed on anything unrecognized: a condition this evaluator
         // doesn't understand must block the fire, never wave it through
         // (IP-LAW-1 — same doctrine as the gap conditions above).
@@ -1845,6 +1861,7 @@ public sealed class ConditionFactory
     public ICondition IsHigherLow() => new IndicatorCondition(IndicatorType.HigherLow);
     public ICondition HigherLows(int count) => new IndicatorCondition(IndicatorType.HigherLows, count);
     public ICondition DippedTo(double price) => new IndicatorCondition(IndicatorType.DippedTo, price);
+    public ICondition NotFallingKnife(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotFallingKnife, maxProbability, minSamples);
     public ICondition IsLowerHigh() => new IndicatorCondition(IndicatorType.LowerHigh);
     public ICondition IsMacdBullish() => new IndicatorCondition(IndicatorType.MacdBullish);
     public ICondition IsMacdBearish() => new IndicatorCondition(IndicatorType.MacdBearish);
@@ -1917,6 +1934,7 @@ public static class Conditions
     public static ICondition IsHigherLow => new IndicatorCondition(IndicatorType.HigherLow);
     public static ICondition HigherLows(int count) => new IndicatorCondition(IndicatorType.HigherLows, count);
     public static ICondition DippedTo(double price) => new IndicatorCondition(IndicatorType.DippedTo, price);
+    public static ICondition NotFallingKnife(double maxProbability = 0.5, int minSamples = 30) => new IndicatorCondition(IndicatorType.NotFallingKnife, maxProbability, minSamples);
     public static ICondition IsLowerHigh => new IndicatorCondition(IndicatorType.LowerHigh);
 
     // ── MACD ──

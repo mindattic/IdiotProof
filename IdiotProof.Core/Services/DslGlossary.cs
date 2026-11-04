@@ -86,6 +86,8 @@ public static class DslGlossary
             "At least N higher lows in a row: each of the last N+1 swing lows sits above the one before. A chain rising out of a dip starts at the dip, so these are the bounce's higher lows."),
         ["DippedTo"] = new("DippedTo", "bi-arrow-down-circle", Green, "Dipped To",
             "Sticky dip gate: price has traded at or below this level at some point today (ET, premarket included) and the gate stays true for the rest of the day. Pair with BreaksAbove for \"dip to X, then reclaim Y\"."),
+        ["NotFallingKnife"] = new("NotFallingKnife", "bi-shield-check", Green, "Not a Falling Knife",
+            "NotFallingKnife(maxProb, minSamples): passes when price isn't in a falling-knife setup, or when the symbol's own history shows longs entered in knives like this one fell 1 ATR within 10 bars at most maxProb of the time over at least minSamples past cases. Too little history blocks the entry."),
         ["IsLowerHigh"] = new("IsLowerHigh", "bi-graph-down-arrow", Red, "Lower High",
             "The newest swing high sits below the prior swing high — a weakening rally, the failed-high short tell."),
         ["IsAtSupport"] = new("IsAtSupport", "bi-shield-check", Green, "At Support",

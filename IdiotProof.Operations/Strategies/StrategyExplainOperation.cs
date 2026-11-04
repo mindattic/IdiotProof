@@ -148,6 +148,7 @@ public static class StrategyNarrator
             IndicatorType.LowerHigh => "price has made a lower high",
             IndicatorType.HigherLows => $"price has made at least {p1 ?? "?"} higher lows in a row",
             IndicatorType.DippedTo => $"price has traded at or below {(i.Parameter is { } d ? $"${Num(d)}" : "?")} at some point today",
+            IndicatorType.NotFallingKnife => $"price is not a falling knife, or past knives like this one on the same symbol were hit at most {Num((i.Parameter ?? 0.5) * 100)}% of the time over at least {Num(i.Parameter2 ?? 30)} cases",
             IndicatorType.MacdBullish => "MACD is bullish (above its signal line)",
             IndicatorType.MacdBearish => "MACD is bearish (below its signal line)",
             IndicatorType.GapUp => $"it gapped up at least {(i.Parameter is { } g ? Pct(g) : "3%")}",

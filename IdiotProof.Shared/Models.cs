@@ -144,6 +144,17 @@ public sealed class IndicatorSnapshot
     /// </summary>
     public double? SessionLow { get; set; }
 
+    /// <summary>
+    /// Falling-knife evidence for the newest bar, learned from the window's own history
+    /// (IdiotProof.Evidence FallingKnife detector): whether the bar is in a knife setup, the
+    /// counted rate at which past knives in the same feature bucket fell 1 ATR within 10 bars,
+    /// and how many past cases back that rate. Null when the window is too short to say.
+    /// Used by NotFallingKnife(maxProb, minSamples).
+    /// </summary>
+    public bool? FallingKnifePresent { get; set; }
+    public double? FallingKnifeRisk { get; set; }
+    public int? FallingKnifeSamples { get; set; }
+
     // RSI
     public double? Rsi { get; set; }
     public bool? HasBullishDivergence { get; set; }

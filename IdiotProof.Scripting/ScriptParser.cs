@@ -102,6 +102,8 @@ public static class ScriptParser
                 if (nums.Count >= 1) b.HigherLows((int)nums[0]); else b.IsHigherLow(); break;
             case "dippedto": case "hasdippedto":
                 if (nums.Count >= 1) b.DippedTo((double)nums[0]); break;
+            case "notfallingknife":
+                b.NotFallingKnife(nums.Count >= 1 ? (double)nums[0] : 0.5, nums.Count >= 2 ? (int)nums[1] : 30); break;
 
             // RSI
             case "isrsioversold":          b.IsRsiOversold(nums.Count >= 1 ? (double)nums[0] : 30); break;

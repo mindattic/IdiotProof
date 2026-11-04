@@ -94,6 +94,7 @@ internal static class StampText
             IndicatorType.LowerHigh => "lower high printed",
             IndicatorType.HigherLows => $"{P(1)} higher lows in a row",
             IndicatorType.DippedTo => $"traded at or below {P(0)} today",
+            IndicatorType.NotFallingKnife => $"not a falling knife (past knives like it hit at most {Pct((p ?? 0.5) * 100)} of the time)",
             IndicatorType.MacdBullish => "MACD above its signal line",
             IndicatorType.MacdBearish => "MACD below its signal line",
             IndicatorType.GapUp => $"gapped up at least {Pct(p ?? 3)}",
