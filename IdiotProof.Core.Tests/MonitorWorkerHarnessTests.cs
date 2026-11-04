@@ -7,6 +7,7 @@ using IdiotProof.DataFeeds;
 using IdiotProof.Engine.Storage;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
+using IdiotProof.Strategies;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -74,10 +75,15 @@ public sealed class MonitorWorkerHarnessTests
         try { Directory.Delete(root, recursive: true); } catch { /* best-effort temp cleanup */ }
     }
 
-    /// <summary>Rising 1-minute bars ending at the requested end, so price stays above VWAP.</summary>
+    /// <summary>
+    /// Rising 1-minute bars ending at the requested end, so price stays above VWAP. With
+    /// <see cref="Falling"/> set, the last three bars slide back under VWAP (about 4% off the high,
+    /// inside a wide stop), the shape that should trip an ExitWhenFalse While(IsAboveVwap) guard.
+    /// </summary>
     private sealed class RisingFeed : IMarketDataFeed
     {
         public string FeedName => "HarnessFeed";
+        public volatile bool Falling;
 
         public async IAsyncEnumerable<Candle> GetHistoricalCandlesAsync(string symbol, DateTime startUtc, DateTime endUtc,
             TimeSpan candleSize, [EnumeratorCancellation] CancellationToken ct = default)
@@ -86,9 +92,10 @@ public sealed class MonitorWorkerHarnessTests
             var end = new DateTime(endUtc.Ticks - endUtc.Ticks % TimeSpan.TicksPerMinute, DateTimeKind.Utc);
             var first = end.AddMinutes(-60) < startUtc ? startUtc : end.AddMinutes(-60);
             var i = 0;
+            var count = (int)(end - first).TotalMinutes;
             for (var t = first; t < end; t = t.AddMinutes(1), i++)
             {
-                var px = 10m + 0.01m * i;
+                var px = Falling && i >= count - 3 ? 10.15m : 10m + 0.01m * i;
                 yield return new Candle { Symbol = symbol, StartUtc = t, EndUtc = t.AddMinutes(1), Open = px, High = px + 0.02m, Low = px - 0.01m, Close = px + 0.01m, Volume = 5000m };
             }
             await Task.CompletedTask;
@@ -98,7 +105,9 @@ public sealed class MonitorWorkerHarnessTests
         public Task<decimal?> GetPreviousCloseAsync(string symbol, DateTime beforeUtc, CancellationToken ct = default) => Task.FromResult<decimal?>(9.5m);
     }
 
-    private ServiceProvider Build(DateTimeOffset now)
+    private ServiceProvider Build(DateTimeOffset now) => Build(new FakeTimeProvider(now), new RisingFeed());
+
+    private ServiceProvider Build(FakeTimeProvider clock, RisingFeed feed)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["DataProtection:KeyRingPath"] = Path.Combine(root, "keys") })
@@ -107,11 +116,11 @@ public sealed class MonitorWorkerHarnessTests
             .AddSingleton<IConfiguration>(configuration)
             .AddLogging()
             .AddRouting()
-            .AddSingleton<TimeProvider>(new FakeTimeProvider(now))
+            .AddSingleton<TimeProvider>(clock)
             .AddIdiotProofCore(configuration, new WebStorageProvider(root), new CoreHostOptions { PinDevKeyRing = true })
             .AddIdiotProofTrading()
             .AddIdiotProofMonitor();
-        services.AddSingleton<IMarketDataFeed>(new RisingFeed());
+        services.AddSingleton<IMarketDataFeed>(feed);
         var sp = services.BuildServiceProvider();
 
         using var db = sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext();
@@ -122,7 +131,10 @@ public sealed class MonitorWorkerHarnessTests
         return sp;
     }
 
-    private static async Task<Strategy> ArmAsync(IServiceProvider sp, string symbol, TradingSession session)
+    private static Task<Strategy> ArmAsync(IServiceProvider sp, string symbol, TradingSession session) =>
+        ArmAsync(sp, symbol, Stock.Ticker(symbol).Session(session).IsAboveVwap().StopLossPercent(2).TakeProfitPercent(4).Build());
+
+    private static async Task<Strategy> ArmAsync(IServiceProvider sp, string symbol, StrategyDefinition def)
     {
         var factory = sp.GetRequiredService<IDbContextFactory<AppDbContext>>();
         await using var db = await factory.CreateDbContextAsync();
@@ -133,7 +145,6 @@ public sealed class MonitorWorkerHarnessTests
             PasswordHash = "x", Role = "User", IsActive = true,
         };
         db.AuthUsers.Add(user);
-        var def = Stock.Ticker(symbol).Session(session).IsAboveVwap().StopLossPercent(2).TakeProfitPercent(4).Build();
         var strategy = new Strategy
         {
             OwnerUserId = user.Id, Title = $"harness {symbol}", Symbol = symbol,
@@ -231,6 +242,41 @@ public sealed class MonitorWorkerHarnessTests
             Assert.That(progress, Is.Null, "hibernate returns before any strategy is read");
             Assert.That(row.PositionQty, Is.EqualTo(0));
             Assert.That(runtime.Window, Is.EqualTo(nameof(TradingWindow.Hibernate)));
+        });
+    }
+    [Test]
+    public async Task HeldPosition_WhoseWhileStopsHolding_ExitsWithWhileFailed_UnderExitWhenFalse()
+    {
+        var clock = new FakeTimeProvider(RthInstant);
+        var feed = new RisingFeed();
+        await using var sp = Build(clock, feed);
+        var def = Stock.Ticker("HRND").Session(TradingSession.RTH)
+            .While(c => c.IsAboveVwap()).ExitWhenFalse()
+            .IsAboveVwap().StopLossPercent(10).TakeProfitPercent(20).Build();
+        var armed = await ArmAsync(sp, "HRND", def);
+
+        // Enter on the rising tape; once the Sandbox holds the shares, roll the tape under VWAP once the bar cache refreshes.
+        await RunWorkerUntilAsync(sp, async () =>
+        {
+            var row = (await ReadAsync(sp, armed.Id)).Row;
+            if (row.PositionQty > 0 && !feed.Falling)
+            {
+                feed.Falling = true;
+                clock.Advance(TimeSpan.FromMinutes(6)); // past the Monitor's 5-minute REST bar refresh
+            }
+            return row.LastExitReason is not null;
+        }, TimeSpan.FromSeconds(60));
+
+        var (after, progress) = await ReadAsync(sp, armed.Id);
+        var sandbox = sp.GetRequiredService<BrokerRouter>().GetAll().Single(b => b.BrokerType == BrokerType.Sandbox);
+        var positions = await sandbox.GetPositionsAsync();
+        var trail = await AuditTrailAsync(sp);
+        Assert.Multiple(() =>
+        {
+            Assert.That(feed.Falling, Is.True, $"the entry never filled. Progress: {progress?.FirstFailingVerb}. Audit:\n{trail}");
+            Assert.That(after.LastExitReason, Is.EqualTo(nameof(GapperExitReason.WhileFailed)), $"Audit:\n{trail}");
+            Assert.That(after.PositionQty, Is.EqualTo(0), "the Strategy row is flat");
+            Assert.That(positions.Any(p => p.Symbol == "HRND" && p.Quantity != 0), Is.False, "the Sandbox book is flat");
         });
     }
 }
