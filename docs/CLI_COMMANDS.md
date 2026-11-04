@@ -1484,7 +1484,7 @@ Examples:
 ```text
 Per-symbol regime: Hurst, variance ratio (z-tested vs random walk), efficiency ratio, realized vol, lag-1 autocorrelation.
 
-Usage: idiotproof evidence regime <symbols>... [--from <date>] [--to <date>] [--timeframe <minute|day>] [--q <int>] [--session <rth|all>]
+Usage: idiotproof evidence regime <symbols>... [--from <date>] [--to <date>] [--timeframe <minute|day>] [--q <int>] [--session <rth|all>] [--method <vr|bocpd|hmm>] [--threshold <number>] [--states <int>]
 Risk: read
 
 Parameters:
@@ -1494,6 +1494,9 @@ Parameters:
       --timeframe <minute|day>  minute (default) or day. (default: minute)
       --q <int>                 Variance-ratio aggregation in bars (default 4). (default: 4)
       --session <rth|all>       rth (default) or all. (default: rth)
+      --method <vr|bocpd|hmm>   vr (default: variance-ratio z-test), bocpd (Bayesian online change points) or hmm (Gaussian hidden Markov regimes, trained on earlier sessions, filtered forward on the last). (default: vr)
+      --threshold <number>      bocpd: probability that a regime began within the last 5 bars needed to flag a change (default 0.5). (default: 0.5)
+      --states <int>            hmm: hidden states, 2 or 3 (default 2). (default: 2)
 
 Examples:
   idiotproof evidence regime SNDL MULN

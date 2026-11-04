@@ -6414,7 +6414,7 @@
       "summary": "Per-symbol regime: Hurst, variance ratio (z-tested vs random walk), efficiency ratio, realized vol, lag-1 autocorrelation.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof evidence regime \u003Csymbols\u003E... [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--q \u003Cint\u003E] [--session \u003Crth|all\u003E]",
+      "usage": "idiotproof evidence regime \u003Csymbols\u003E... [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--timeframe \u003Cminute|day\u003E] [--q \u003Cint\u003E] [--session \u003Crth|all\u003E] [--method \u003Cvr|bocpd|hmm\u003E] [--threshold \u003Cnumber\u003E] [--states \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -6493,6 +6493,46 @@
             "rth",
             "all"
           ]
+        },
+        {
+          "name": "method",
+          "json_name": "method",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "vr|bocpd|hmm",
+          "required": false,
+          "description": "vr (default: variance-ratio z-test), bocpd (Bayesian online change points) or hmm (Gaussian hidden Markov regimes, trained on earlier sessions, filtered forward on the last).",
+          "default": "vr",
+          "enum_values": [
+            "vr",
+            "bocpd",
+            "hmm"
+          ]
+        },
+        {
+          "name": "threshold",
+          "json_name": "threshold",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "number",
+          "required": false,
+          "description": "bocpd: probability that a regime began within the last 5 bars needed to flag a change (default 0.5).",
+          "default": 0.5,
+          "enum_values": null
+        },
+        {
+          "name": "states",
+          "json_name": "states",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "hmm: hidden states, 2 or 3 (default 2).",
+          "default": 2,
+          "enum_values": null
         }
       ],
       "examples": [
@@ -6549,6 +6589,26 @@
             ],
             "description": "rth (default) or all.",
             "default": "rth"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "vr",
+              "bocpd",
+              "hmm"
+            ],
+            "description": "vr (default: variance-ratio z-test), bocpd (Bayesian online change points) or hmm (Gaussian hidden Markov regimes, trained on earlier sessions, filtered forward on the last).",
+            "default": "vr"
+          },
+          "threshold": {
+            "type": "number",
+            "description": "bocpd: probability that a regime began within the last 5 bars needed to flag a change (default 0.5).",
+            "default": 0.5
+          },
+          "states": {
+            "type": "integer",
+            "description": "hmm: hidden states, 2 or 3 (default 2).",
+            "default": 2
           }
         },
         "additionalProperties": false,
