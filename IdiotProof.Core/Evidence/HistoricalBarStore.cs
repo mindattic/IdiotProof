@@ -105,7 +105,7 @@ public sealed class HistoricalBarStore : IHistoricalBarStore
                     {
                         Symbol = symbol, Timeframe = tf, DateEt = Key(d), StartUtc = c.StartUtc,
                         Open = c.Open, High = c.High, Low = c.Low, Close = c.Close, Volume = c.Volume,
-                        Feed = feed.FeedName,
+                        Feed = BarProvenance.SourceOf(c, feed.FeedName),
                     });
                 }
                 db.HistoricalBarCoverage.Add(new HistoricalBarCoverage
@@ -127,7 +127,7 @@ public sealed class HistoricalBarStore : IHistoricalBarStore
             {
                 Symbol = b.Symbol, StartUtc = DateTime.SpecifyKind(b.StartUtc, DateTimeKind.Utc),
                 EndUtc = DateTime.SpecifyKind(b.StartUtc, DateTimeKind.Utc) + step,
-                Open = b.Open, High = b.High, Low = b.Low, Close = b.Close, Volume = b.Volume,
+                Open = b.Open, High = b.High, Low = b.Low, Close = b.Close, Volume = b.Volume, Note = b.Feed,
             })
             .Concat(live)
             .DistinctBy(c => c.StartUtc)

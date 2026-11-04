@@ -1659,7 +1659,7 @@ Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilso
 
 Each day's model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.
 
-Usage: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--clean <none|rmt>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--entry <next-open|close>] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
+Usage: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--clean <none|rmt>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--entry <next-open|close>] [--allow-mixed-feeds] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
 Risk: read
 
 Parameters:
@@ -1681,6 +1681,7 @@ Parameters:
       --min-agreement <number>         Smoothed share of look-alikes that must agree to call (default 0.6). (default: 0.6)
       --cost <number>                  Flat round-trip cost per call as a fraction (e.g. 0.003). Omit it to model each symbol-day's cost from its prior sessions: Corwin-Schultz spread + square-root impact for --shares.
       --entry <next-open|close>        next-open (default: a call fills at the next bar's open, immune to bid-ask bounce) or close (fills at the signal bar's close; a diagnostic that inflates mean-reversion edge on low-priced names). (default: next-open)
+      --allow-mixed-feeds              Report a verdict even when the bars mix SIP and IEX tiers (refused by default: IEX prices and volumes are one exchange's, not the consolidated tape). (default: false)
       --shares <number>                Shares per call for the modeled impact cost (default 1, the default order size). (default: 1)
       --volume                         Include the volume shape in the pattern vector. (default: false)
       --session <rth|all>              rth (default) or all (adds pre/after-hours bars). (default: rth)

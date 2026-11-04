@@ -71,8 +71,9 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
 
         do
         {
-            var (bars, nextToken) = await FetchPageAsync(symbol, timeframe, start, end, pageToken, ct).ConfigureAwait(false);
+            var (bars, nextToken, tier) = await FetchPageAsync(symbol, timeframe, start, end, pageToken, ct).ConfigureAwait(false);
             pageToken = nextToken;
+            var source = SourceLabel(tier);
 
             foreach (var bar in bars)
             {
@@ -87,23 +88,30 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
                     Low      = bar.Low,
                     Close    = bar.Close,
                     Volume   = bar.Volume,
-                    Note     = "Alpaca",
+                    Note     = source,
                 };
             }
         }
         while (!string.IsNullOrEmpty(pageToken));
     }
 
+    /// <summary>
+    /// The provenance stamped on each historical bar: <c>Alpaca:sip</c> or <c>Alpaca:iex</c>, the tier
+    /// that actually served the page (a refused SIP request silently falls back to IEX).
+    /// </summary>
+    public static string SourceLabel(string tier) => $"Alpaca:{tier}";
+
     private readonly record struct RawBar(DateTime Start, decimal Open, decimal High, decimal Low, decimal Close, decimal Volume);
 
-    private async Task<(List<RawBar> Bars, string? NextToken)> FetchPageAsync(
+    private async Task<(List<RawBar> Bars, string? NextToken, string Tier)> FetchPageAsync(
         string symbol, string timeframe, string start, string end, string? pageToken, CancellationToken ct)
     {
         while (true)
         {
+            var tier = feedTier;
             var url = $"v2/stocks/{Uri.EscapeDataString(symbol)}/bars"
                     + $"?timeframe={timeframe}&start={Uri.EscapeDataString(start)}&end={Uri.EscapeDataString(end)}"
-                    + $"&limit=1000&adjustment=raw&feed={feedTier}"
+                    + $"&limit=1000&adjustment=raw&feed={tier}"
                     + (pageToken is not null ? $"&page_token={Uri.EscapeDataString(pageToken)}" : "");
 
             using var response = await httpClient.GetAsync(url, ct).ConfigureAwait(false);
@@ -139,7 +147,7 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
                         bar.GetProperty("v").GetDecimal()));
                 }
             }
-            return (list, next);
+            return (list, next, tier);
         }
     }
 

@@ -3655,7 +3655,7 @@ Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilso
 
 Each day's model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.
 
-CLI equivalent: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--clean <none|rmt>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--entry <next-open|close>] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
+CLI equivalent: idiotproof evidence walkforward [<symbols>...] [--universe <none|penny>] --from <date> [--to <date>] [--model <analog|leaders>] [--leaders <string>] [--edge <correlation|te>] [--clean <none|rmt>] [--leader-hops <int>] [--leader-min-influence <number>] [--window <int>] [--horizon <int>] [--train-days <int>] [--min-similarity <number>] [--min-neighbors <int>] [--min-agreement <number>] [--cost <number>] [--entry <next-open|close>] [--allow-mixed-feeds] [--shares <number>] [--volume] [--session <rth|all>] [--max-symbols-per-day <int>] [--max-candidates <int>]
 Examples:
   idiotproof evidence walkforward --universe penny --from 2026-08-03 --to 2026-10-30
   idiotproof evidence walkforward SNDL --from 2026-10-01 --horizon 10
@@ -3779,6 +3779,11 @@ Read-only. Times are US Eastern.
       ],
       "description": "next-open (default: a call fills at the next bar\u0027s open, immune to bid-ask bounce) or close (fills at the signal bar\u0027s close; a diagnostic that inflates mean-reversion edge on low-priced names).",
       "default": "next-open"
+    },
+    "allow_mixed_feeds": {
+      "type": "boolean",
+      "description": "Report a verdict even when the bars mix SIP and IEX tiers (refused by default: IEX prices and volumes are one exchange\u0027s, not the consolidated tape).",
+      "default": false
     },
     "shares": {
       "type": "number",

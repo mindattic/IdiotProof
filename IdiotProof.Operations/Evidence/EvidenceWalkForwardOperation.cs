@@ -66,6 +66,9 @@ public sealed record EvidenceWalkForwardArgs
     [Option("entry", Description = "next-open (default: a call fills at the next bar's open, immune to bid-ask bounce) or close (fills at the signal bar's close; a diagnostic that inflates mean-reversion edge on low-priced names).")]
     public EntryTiming Entry { get; init; } = EntryTiming.NextOpen;
 
+    [Option("allow-mixed-feeds", Description = "Report a verdict even when the bars mix SIP and IEX tiers (refused by default: IEX prices and volumes are one exchange's, not the consolidated tape).")]
+    public bool AllowMixedFeeds { get; init; }
+
     [Option("shares", Description = "Shares per call for the modeled impact cost (default 1, the default order size).")]
     public double Shares { get; init; } = 1;
 
@@ -165,6 +168,12 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
             LeaderCleanRmt = args.Clean == EvidenceClean.Rmt,
         };
         var report = await new EvidenceWalkForward(store).RunAsync(plan, settings, ctx.CancellationToken);
+        var feeds = report.Feeds ?? new FeedMix(new Dictionary<string, int>());
+        if (feeds.IsMixed && !args.AllowMixedFeeds)
+            return OperationResult.Fail($"The bars mix data tiers ({feeds.Describe()}): SIP and IEX bars are not comparable, so no verdict is reported. Re-run on one tier, or pass --allow-mixed-feeds to report anyway.");
+        notes.Add(feeds.Unknown > 0
+            ? $"Data tiers: {feeds.Describe()}. {feeds.Unknown:N0} bar(s) were cached before the tier was recorded, so their SIP/IEX source is unproven."
+            : $"Data tiers: {feeds.Describe()}.");
         var o = report.Overall;
         string costLabel = args.Cost is { } flat ? EvidenceSupport.Rate(flat) : $"modeled {EvidenceSupport.Pct(o.MeanCost, 3)} mean";
         var (lo, hi) = o.HitRateInterval;
@@ -201,6 +210,7 @@ public sealed class EvidenceWalkForwardOperation : IOperation<EvidenceWalkForwar
             From = args.From, To = to, settings.Window, settings.Horizon, settings.TrainDays, settings.MinSimilarity,
             settings.MinNeighbors, settings.MinAgreement, Cost = args.Cost, ModeledCosts = args.Cost is null, MeanCost = EvidenceSupport.Round(o.MeanCost), Session = args.Session.ToString().ToLowerInvariant(),
             UniverseDays = universeDays, Candidates = candidateCount, InactiveCandidates = inactiveCandidates,
+            Feeds = feeds.Bars, FeedsMixed = feeds.IsMixed, SipBars = feeds.Sip, IexBars = feeds.Iex, UnknownTierBars = feeds.Unknown,
             o.Calls, o.Hits, HitRate = EvidenceSupport.Round(o.HitRate), CiLow = EvidenceSupport.Round(lo), CiHigh = EvidenceSupport.Round(hi),
             PValue = o.PValue, Coverage = EvidenceSupport.Round(o.Coverage), MeanEdge = EvidenceSupport.Round(o.MeanEdge),
             MeanEdgeAfterCost = EvidenceSupport.Round(o.MeanEdgeAfterCost()),

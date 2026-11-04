@@ -45,6 +45,18 @@ public class HistoricalBarStoreSplitTests
     }
 
     [Test]
+    public async Task EachBar_KeepsTheDataTierThatServedIt_ThroughTheCache()
+    {
+        var store = Store(null);
+        await store.GetBarsAsync("PNY", new(2026, 7, 6), new(2026, 7, 8), BarTimeframe.Day1);
+        var fromCache = await store.GetBarsAsync("PNY", new(2026, 7, 6), new(2026, 7, 8), BarTimeframe.Day1);
+
+        await using var db = await factory.CreateDbContextAsync();
+        Assert.That(await db.HistoricalBars.Select(b => b.Feed).Distinct().ToListAsync(), Is.EqualTo(new[] { "Alpaca:sip" }));
+        Assert.That(fromCache.Select(c => c.Note).Distinct(), Is.EqualTo(new[] { "Alpaca:sip" }));
+    }
+
+    [Test]
     public async Task Universe_StillFiltersOnRawPrices()
     {
         var store = Store(new FixedSplits(new SplitEvent("PNY", ExDate, 10, 1)));
@@ -120,7 +132,7 @@ public class HistoricalBarStoreSplitTests
                 yield return new Candle
                 {
                     Symbol = symbol, StartUtc = d.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), EndUtc = d.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
-                    Open = close, High = close, Low = close, Close = close, Volume = 1_000_000m,
+                    Open = close, High = close, Low = close, Close = close, Volume = 1_000_000m, Note = "Alpaca:sip",
                 };
             }
         }

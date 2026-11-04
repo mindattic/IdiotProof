@@ -56,7 +56,8 @@ public sealed record WalkForwardReport(
     int EvaluationPoints,
     int UpOutcomes,
     int DownOutcomes,
-    int SkippedSymbolDays)
+    int SkippedSymbolDays,
+    FeedMix? Feeds = null)
 {
     /// <summary>Calls and hits pooled per ET day across symbols: the unit for clustered significance.</summary>
     public IReadOnlyList<DayTally> DayTallies() => Folds
@@ -87,6 +88,11 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
         var perSymbol = new List<WalkForwardSymbolScore>();
         var folds = new List<WalkForwardFold>();
         int points = 0, ups = 0, downs = 0, skipped = 0;
+        var sources = new Dictionary<string, int>(StringComparer.Ordinal);
+        void Tally(IEnumerable<Candle> list)
+        {
+            foreach (var (k, v) in BarProvenance.Mix(list).Bars) sources[k] = sources.GetValueOrDefault(k) + v;
+        }
 
         foreach (var chunk in plan.Where(p => p.Value.Count > 0).OrderBy(p => p.Key, StringComparer.Ordinal).Chunk(FetchChunk))
         {
@@ -94,10 +100,12 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
             var from = chunk.Min(p => p.Value.Min).AddDays(-(s.TrainDays * 3 / 2 + 7));
             var to = chunk.Max(p => p.Value.Max);
             var bars = await store.GetBarsForSymbolsAsync(chunk.Select(p => p.Key), from, to, BarTimeframe.Minute1, ct: ct);
+            foreach (var list in bars.Values) Tally(list);
             var leaderPool = s.Model == EvidenceModel.Leaders
                 ? (await store.GetBarsForSymbolsAsync(s.LeaderCandidates, from, to, BarTimeframe.Minute1, ct: ct))
                     .ToDictionary(kv => kv.Key, kv => (IReadOnlyList<Candle>)EvidenceSupport.Filter(kv.Value, EvidenceTimeframe.Minute, s.Session).ToList(), StringComparer.Ordinal)
                 : null;
+            if (leaderPool is not null) foreach (var list in leaderPool.Values) Tally(list);
 
             foreach (var (symbol, days) in chunk)
             {
@@ -162,7 +170,7 @@ public sealed class EvidenceWalkForward(IHistoricalBarStore store)
                     perSymbol.Add(new WalkForwardSymbolScore(symbol, evaluatedDays, card.Calls, card.Hits, card.HitRate, card.PValue, card.MeanEdge));
             }
         }
-        return new WalkForwardReport(overall, perSymbol, folds, points, ups, downs, skipped);
+        return new WalkForwardReport(overall, perSymbol, folds, points, ups, downs, skipped, new FeedMix(sources));
     }
 
     /// <summary>Round-trip cost for calls on one (symbol, day), from bars before that day only.</summary>

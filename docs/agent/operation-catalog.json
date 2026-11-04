@@ -7783,7 +7783,7 @@
       "summary": "Out-of-sample walk-forward directional test (LSH analogs) with binomial p, Wilson CI, coverage and edge after costs.",
       "description": "Each day\u0027s model trains only on earlier sessions; calls are spaced by --horizon so outcomes never overlap. Analysis only; arms nothing.",
       "risk": "read",
-      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--clean \u003Cnone|rmt\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--entry \u003Cnext-open|close\u003E] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
+      "usage": "idiotproof evidence walkforward [\u003Csymbols\u003E...] [--universe \u003Cnone|penny\u003E] --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--model \u003Canalog|leaders\u003E] [--leaders \u003Cstring\u003E] [--edge \u003Ccorrelation|te\u003E] [--clean \u003Cnone|rmt\u003E] [--leader-hops \u003Cint\u003E] [--leader-min-influence \u003Cnumber\u003E] [--window \u003Cint\u003E] [--horizon \u003Cint\u003E] [--train-days \u003Cint\u003E] [--min-similarity \u003Cnumber\u003E] [--min-neighbors \u003Cint\u003E] [--min-agreement \u003Cnumber\u003E] [--cost \u003Cnumber\u003E] [--entry \u003Cnext-open|close\u003E] [--allow-mixed-feeds] [--shares \u003Cnumber\u003E] [--volume] [--session \u003Crth|all\u003E] [--max-symbols-per-day \u003Cint\u003E] [--max-candidates \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -8017,6 +8017,18 @@
           ]
         },
         {
+          "name": "allow-mixed-feeds",
+          "json_name": "allow_mixed_feeds",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Report a verdict even when the bars mix SIP and IEX tiers (refused by default: IEX prices and volumes are one exchange\u0027s, not the consolidated tape).",
+          "default": false,
+          "enum_values": null
+        },
+        {
           "name": "shares",
           "json_name": "shares",
           "kind": "option",
@@ -8206,6 +8218,11 @@
             ],
             "description": "next-open (default: a call fills at the next bar\u0027s open, immune to bid-ask bounce) or close (fills at the signal bar\u0027s close; a diagnostic that inflates mean-reversion edge on low-priced names).",
             "default": "next-open"
+          },
+          "allow_mixed_feeds": {
+            "type": "boolean",
+            "description": "Report a verdict even when the bars mix SIP and IEX tiers (refused by default: IEX prices and volumes are one exchange\u0027s, not the consolidated tape).",
+            "default": false
           },
           "shares": {
             "type": "number",
