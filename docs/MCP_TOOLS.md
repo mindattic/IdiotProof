@@ -3392,7 +3392,7 @@ Grid-search a strategy template with multiple-testing corrections: BH q-values, 
 
 CLI equivalent: idiotproof evidence search <symbols>... [--script <string>] [--grid <string[]>] [--from <date>] [--to <date>] [--holdout <number>] [--top <int>] [--resamples <int>] [--block <number>] [--seed <int>] [--max-configs <int>] [--cost <number>] [--shares <number>]
 Examples:
-  idiotproof evidence search SNDL MULN --script "Ticker(X).IsAboveVwap().TakeProfit({tp}).StopLoss({sl})" --grid tp=0.2,0.4 --grid sl=0.1,0.2
+  idiotproof evidence search SNDL MULN --script "Ticker(X).IsAboveVwap().Long().StopLossPercent({sl}).TrailingStopLoss({trail})" --grid sl=1,2 --grid trail=1,3
 
 Read-only. Times are US Eastern.
 
@@ -3411,7 +3411,7 @@ Read-only. Times are US Eastern.
     },
     "script": {
       "type": "string",
-      "description": "IdiotScript template with {name} placeholders, e.g. \u0022Ticker(X).IsAboveVwap().TakeProfit({tp}).StopLoss({sl})\u0022.",
+      "description": "IdiotScript template with {name} placeholders, e.g. \u0022Ticker(X).IsAboveVwap().Long().StopLossPercent({sl}).TrailingStopLoss({trail})\u0022. Use percent exits: an absolute TakeProfit/StopLoss price means the same dollar level on every symbol.",
       "default": ""
     },
     "grid": {

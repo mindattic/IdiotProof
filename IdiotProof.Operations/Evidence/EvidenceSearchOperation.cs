@@ -22,7 +22,7 @@ public sealed record EvidenceSearchArgs
     [Argument(0, Name = "symbols", Description = "Tickers to score every config on, e.g. SNDL MULN.")]
     public string[] Symbols { get; init; } = [];
 
-    [Option("script", Description = "IdiotScript template with {name} placeholders, e.g. \"Ticker(X).IsAboveVwap().TakeProfit({tp}).StopLoss({sl})\".")]
+    [Option("script", Description = "IdiotScript template with {name} placeholders, e.g. \"Ticker(X).IsAboveVwap().Long().StopLossPercent({sl}).TrailingStopLoss({trail})\". Use percent exits: an absolute TakeProfit/StopLoss price means the same dollar level on every symbol.")]
     public string Script { get; init; } = "";
 
     [Option("grid", Description = "Repeatable: a placeholder and its values, e.g. --grid tp=1,2,3 --grid sl=0.5,1.")]
@@ -67,10 +67,20 @@ public sealed record EvidenceSearchArgs
 /// selection days only, then scored once on held-out later days it never saw.
 /// </summary>
 [Operation("evidence search", Summary = "Grid-search a strategy template with multiple-testing corrections: BH q-values, deflated Sharpe, reality check/SPA, and a held-out score for the winner.", Risk = OperationRisk.Read)]
-[Example("idiotproof evidence search SNDL MULN --script \"Ticker(X).IsAboveVwap().TakeProfit({tp}).StopLoss({sl})\" --grid tp=0.2,0.4 --grid sl=0.1,0.2")]
+[Example("idiotproof evidence search SNDL MULN --script \"Ticker(X).IsAboveVwap().Long().StopLossPercent({sl}).TrailingStopLoss({trail})\" --grid sl=1,2 --grid trail=1,3")]
 public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
 {
     private static readonly Regex Placeholder = new(@"\{([A-Za-z_][A-Za-z0-9_]*)\}", RegexOptions.Compiled);
+    private static readonly Regex AbsolutePriceVerb = new(@"\.(TakeProfit|StopLoss|AddTarget|ExitAtPrice)\(", RegexOptions.Compiled);
+
+    /// <summary>Absolute-price exit verbs in a multi-symbol template: one grid value becomes the same dollar level on every symbol.</summary>
+    internal static string? AbsolutePriceWarning(string script, int symbolCount)
+    {
+        if (symbolCount < 2) return null;
+        var verbs = AbsolutePriceVerb.Matches(script).Select(m => m.Groups[1].Value).Distinct().ToList();
+        return verbs.Count == 0 ? null
+            : $"Warning: {string.Join(", ", verbs)} set absolute prices, so each grid value is the same dollar level on all {symbolCount} symbols; use StopLossPercent/TrailingStopLoss (or TakeProfitPercent) to compare across symbols.";
+    }
 
     public async Task<OperationResult> ExecuteAsync(EvidenceSearchArgs args, OperationContext ctx)
     {
@@ -89,6 +99,7 @@ public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
         var unused = grid.Axes.Keys.Where(n => !used.Contains(n)).ToList();
         if (unused.Count > 0) return OperationResult.Usage($"--grid names not in the script: {string.Join(", ", unused)}.");
 
+        var priceWarning = AbsolutePriceWarning(args.Script, symbols.Count);
         var configs = Cartesian(used.Select(n => (n, grid.Axes[n])).ToList());
         if (configs.Count > args.MaxConfigs)
             return OperationResult.Usage($"{configs.Count} configs exceeds --max-configs {args.MaxConfigs}.");
@@ -207,10 +218,11 @@ public sealed class EvidenceSearchOperation : IOperation<EvidenceSearchArgs>
             (hasHoldout
                 ? $"held out {cells.Count - selectionCells} symbol-days after {lastSelectionDay:yyyy-MM-dd}: mean {EvidenceSupport.Pct(holdoutMean, 3)}/cell, p={P(holdoutP)}, {holdoutWins[best]}/{holdoutTrades[best]} winning trades\n"
                 : "no holdout (--holdout 0)\n") +
-            verdict;
+            verdict + (priceWarning is null ? "" : "\n" + priceWarning);
 
         return OperationResult.Ok(new
         {
+            AbsolutePriceWarning = priceWarning,
             From = from, To = to, ConfigsTried = configs.Count, CostPerTrade = args.Cost, ModeledCosts = args.Cost is null, MeanCostPerTrade = EvidenceSupport.Round(meanCost), SelectionCells = selectionCells, HoldoutCells = cells.Count - selectionCells,
             LastSelectionDay = lastSelectionDay,
             Best = new

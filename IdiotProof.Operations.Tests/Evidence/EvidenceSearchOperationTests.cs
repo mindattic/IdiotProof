@@ -105,4 +105,14 @@ public class EvidenceSearchOperationTests
         Assert.That(axes["tp"], Is.EqualTo(new[] { "1", "2", "3" }));
         Assert.That(axes["sl"], Is.EqualTo(new[] { "0.5" }));
     }
+
+    [Test]
+    public void AbsolutePriceExits_AcrossSymbols_AreWarned_PercentExitsAreNot()
+    {
+        Assert.That(EvidenceSearchOperation.AbsolutePriceWarning("Ticker(X).Long().TakeProfit({tp}).StopLoss({sl})", 2),
+            Does.Contain("TakeProfit").And.Contain("StopLoss").And.Contain("2 symbols"));
+        Assert.That(EvidenceSearchOperation.AbsolutePriceWarning("Ticker(X).Long().TakeProfit({tp})", 1), Is.Null, "one symbol: a price level is meaningful");
+        Assert.That(EvidenceSearchOperation.AbsolutePriceWarning(Template, 3), Is.Null);
+        Assert.That(EvidenceSearchOperation.AbsolutePriceWarning("Ticker(X).Long().StopLossPercent({sl}).TrailingStopLoss({t})", 3), Is.Null);
+    }
 }

@@ -1569,7 +1569,7 @@ Risk: read
 
 Parameters:
   <symbols>                Tickers to score every config on, e.g. SNDL MULN. (required)
-      --script <string>    IdiotScript template with {name} placeholders, e.g. "Ticker(X).IsAboveVwap().TakeProfit({tp}).StopLoss({sl})". (default: )
+      --script <string>    IdiotScript template with {name} placeholders, e.g. "Ticker(X).IsAboveVwap().Long().StopLossPercent({sl}).TrailingStopLoss({trail})". Use percent exits: an absolute TakeProfit/StopLoss price means the same dollar level on every symbol. (default: )
       --grid <string[]>    Repeatable: a placeholder and its values, e.g. --grid tp=1,2,3 --grid sl=0.5,1.
       --from <date>        First ET day (yyyy-MM-dd, default: 30 days before --to).
       --to <date>          Last ET day (yyyy-MM-dd, default: today ET).
@@ -1583,7 +1583,7 @@ Parameters:
       --shares <number>    Shares per trade for the modeled impact cost (default 1, the default order size). (default: 1)
 
 Examples:
-  idiotproof evidence search SNDL MULN --script "Ticker(X).IsAboveVwap().TakeProfit({tp}).StopLoss({sl})" --grid tp=0.2,0.4 --grid sl=0.1,0.2
+  idiotproof evidence search SNDL MULN --script "Ticker(X).IsAboveVwap().Long().StopLossPercent({sl}).TrailingStopLoss({trail})" --grid sl=1,2 --grid trail=1,3
 ```
 
 ### evidence similar
