@@ -181,7 +181,7 @@ public static class StrategyBacktester
                 entryDef = active;
                 isLong = active.Direction != TradeDirection.Short;
                 stop = ResolveStop(active, entryPrice, isLong);
-                targets = ResolveTargets(active, isLong);
+                targets = ResolveTargets(active, entryPrice, isLong);
                 nextTarget = 0;
                 remaining = qty;
                 openedTradeThisBar = true;
@@ -406,7 +406,11 @@ public static class StrategyBacktester
         return 0m; // no stop configured
     }
 
-    private static List<(decimal Price, int Pct, string Label)> ResolveTargets(StrategyDefinition def, bool isLong)
+    /// <summary>
+    /// Same precedence as the live GapperExitEvaluator: a ladder when one is set, otherwise the single
+    /// price target and the percent target (resolved from the fill), whichever price is reached first.
+    /// </summary>
+    public static List<(decimal Price, int Pct, string Label)> ResolveTargets(StrategyDefinition def, decimal entryPrice, bool isLong)
     {
         var list = new List<(decimal Price, int Pct, string Label)>();
         if (def.TakeProfitTargets.Count > 0)
@@ -414,9 +418,15 @@ public static class StrategyBacktester
             foreach (var t in def.TakeProfitTargets)
                 list.Add(((decimal)t.Price, t.PercentToSell, t.Label));
         }
-        else if (def.TakeProfitPrice is { } tp)
+        else
         {
-            list.Add(((decimal)tp, 100, "Target"));
+            if (def.TakeProfitPrice is { } tp)
+                list.Add(((decimal)tp, 100, "Target"));
+            if (def.TakeProfitPercent is { } pct && pct > 0)
+            {
+                var dist = entryPrice * (decimal)(pct / 100.0);
+                list.Add((isLong ? entryPrice + dist : entryPrice - dist, 100, "Target"));
+            }
         }
 
         // Hit nearest target first: ascending for long, descending for short.
