@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "frozenUtc": "2026-11-06T20:15:00Z",
+  "timeZone": "America/New_York",
+  "universe": {
+    "assetClass": "us_equity",
+    "assetStatus": ["active", "inactive"],
+    "priceMinInclusive": 0.10,
+    "priceMaxExclusive": 20.00,
+    "adv20DollarMin": 300000,
+    "minSessionsOfLast20": 5,
+    "splitExclusionWindowDays": { "before": 25, "after": 1 },
+    "unadjustedSplitGuard": { "maxDailyUp": 2.00, "maxDailyDown": -0.6667, "lookbackDays": 25 },
+    "adrNamePatterns": ["ADR", "ADS"],
+    "reusedTickerGapSessions": 90
+  },
+  "candidate": {
+    "highOverPrevCloseMin": 0.10,
+    "volumeOverAdv20Min": 3.0
+  },
+  "gapper": {
+    "window": { "startEt": "04:00", "endEt": "10:30" },
+    "tiers": { "Tier20": 0.20, "Tier50": 0.50, "Tier100": 1.00 },
+    "premarketCutoffEt": "09:30",
+    "premarketDollarVolumeFloor": 50000
+  },
+  "controls": {
+    "perGapperDay": 1,
+    "matchOn": ["adv20DollarDecileWithinUniverseDay", "priceTier"],
+    "priceTiers": [[0.10, 1.00], [1.00, 3.00], [3.00, 5.00], [5.00, 10.00], [10.00, 20.00]],
+    "hashAlgorithm": "SHA-256",
+    "hashInput": "{symbol}|{D:yyyy-MM-dd}|{salt}",
+    "salt": "gapper-study-2026-11",
+    "fallbackOrder": ["nearestDecileSamePriceTier", "nearestPriceTier"]
+  },
+  "dataTiers": {
+    "alpacaFeed": "sip",
+    "alpacaAdjustment": "raw",
+    "alpacaRequestsPerMinute": 200,
+    "edgarRequestsPerSecond": 10,
+    "edgarHttpClientName": "edgar",
+    "dailyBars": { "from": "2021-09-01", "to": "2026-11-06" },
+    "minuteBars": { "startEt": "04:00", "endEt": "20:00", "priorDays": 5, "includeControlDay": true },
+    "minuteBarStore": "D:\\IdiotProofData\\gapper-study\\bars\\{SYMBOL}\\{yyyy-MM}.bin",
+    "researchDb": "IdiotProof_Research_GAP",
+    "researchDbGuardPattern": "_Research_",
+    "localDbCapGb": 10,
+    "newsWindowDays": { "before": 5, "after": 1 },
+    "newsPageSize": 50,
+    "edgarForms": ["8-K", "8-K/A", "4", "3", "S-1", "S-3", "424B3", "424B4", "424B5", "SC 13D", "25-NSE", "15-12G"],
+    "edgarAcceptanceWindowDays": { "before": 30, "after": 1 },
+    "edgarFullIndexQuarters": 22,
+    "cikSources": ["company_tickers.json", "form4IssuerTradingSymbol", "exactIssuerName"],
+    "optionalTiers": ["finraDailyShortVolume", "xbrlSharesOutstanding"],
+    "sipProvenanceMinShare": 0.95
+  },
+  "decisionTimesEt": ["D-1 16:00", "04:00", "06:00", "07:00", "08:00", "08:30", "09:00", "09:15", "09:25", "09:30", "09:31", "09:35", "09:45"],
+  "features": {
+    "adv20Sessions": 20,
+    "todProfile": { "fitOn": "train", "sample": "controlDays", "statistic": "median", "byAdvDecile": true, "file": "data/tod-profile.json" },
+    "ownProfile": { "priorDays": 5, "shrinkageK": 5 },
+    "velocityWindowsMin": [1, 3, 5, 15],
+    "accelerationWindowMin": 3,
+    "volRocWindowMin": 5,
+    "tradesWindowsMin": [1, 5],
+    "corwinSchultz": { "priorDays": 5, "sessionStartEt": "04:00", "sessionEndEt": "20:00", "minBars": 60 },
+    "abnormalVolumeMultiple": 5.0,
+    "runUpDays": 5,
+    "daysSinceMaxDays": 365,
+    "form4": { "lookbackDays": 30, "transactionCode": "P" },
+    "catalyst": {
+      "lookbackHours": 24,
+      "types": ["Fda", "ContractAward", "ReverseSplit", "OfferingDilution", "Uplisting", "Earnings", "MA", "PromoPr", "Other"],
+      "sourceTiers": ["wire", "filing", "news", "promotional"],
+      "wireSources": ["PRNewswire", "GlobeNewswire", "Business Wire", "ACCESSWIRE"],
+      "promotionalSources": [],
+      "promotionalRule": "preClass == PromoPr (CatalystPreClassifier keyword rules, frozen with the code) OR source in promotionalSources",
+      "noveltyLookbackDays": 90,
+      "noveltyExcludeHours": 24,
+      "classifyOncePerId": true
+    },
+    "priorDayTopMoverMaxRank": 100,
+    "leeMykland": { "localWindowBars": 60, "alpha": 0.01 },
+    "forwardFillEmptyMinutes": true
+  },
+  "labels": {
+    "entry": "nextBarOpenAfterT",
+    "horizonsEt": ["09:30", "09:45", "10:30", "16:00"],
+    "reach20": { "byEt": "09:45", "threshold": 0.20, "relativeTo": "prevClose" },
+    "hodBuckets": ["<09:15", "09:15-09:29", "09:30-09:31", "09:32-09:45", "09:46-10:30", "later"],
+    "fadeFlagThreshold": -0.30,
+    "extensionFromOpenAtEt": "09:45",
+    "velocityDeath": { "window": 3, "armThresholdPctPerMin": 0.5, "consecutiveNegativeBars": 2, "searchFromEt": "08:30", "searchToEt": "16:00" },
+    "haltProxy": { "minConsecutiveEmptyRthMinutes": 5, "requirePrintsInPriorMinutes": 5 },
+    "vwap": { "anchorEt": "04:00", "minConsecutiveAboveBeforeLoss": 3 }
+  },
+  "statistics": {
+    "seed": 1337,
+    "bhQ": 0.05,
+    "holmAlpha": 0.05,
+    "holmOverPrimariesWithPValue": ["H1", "H2", "H3", "H6", "H7", "H8", "H9", "H10", "H11", "H12"],
+    "bucketBins": 5,
+    "minBucketN": 50,
+    "bootstrapDraws": 10000,
+    "placeboDraws": 1000,
+    "clusterBy": "tradingDay",
+    "ciLevel": 0.95,
+    "spaAlpha": 0.05,
+    "dsrMin": 0.95,
+    "f3NeverSignificant": true
+  },
+  "costModel": {
+    "spread": {
+      "method": "CorwinSchultz",
+      "priorDays": 5,
+      "premarketSpreadMultiplier": "calibrated-once",
+      "calibration": { "events": 500, "split": "train", "order": "(D, symbol) ascending", "tier": "Tier20", "quoteSource": "/v2/stocks/{s}/quotes", "atEt": "08:00", "toleranceSeconds": 60, "statistic": "median" },
+      "perSide": 0.5
+    },
+    "impact": {
+      "method": "TradingCosts.SquareRootImpact",
+      "impactConstant": 1.0,
+      "averageDailyVolume": "pmCumVol(t)",
+      "dailyVolatility": "stdev of daily log returns over the prior 20 sessions",
+      "tradeNotionalUsd": 1000
+    },
+    "roundTripFloor": 0.005,
+    "haltFillRule": "firstBarOpenAfterGap",
+    "worthTrading": { "meanNetPctPerTrade": 1.0, "clusteredLowerBoundQuantile": 0.025, "minValidationTrades": 150, "minValidationDays": 40 }
+  },
+  "h12Grid": {
+    "maxConfigs": 24,
+    "passAtEt": "08:30",
+    "pmVolRatioMin": [3, 5, 10],
+    "v3MinPctPerMin": [0.5, 1.0],
+    "exit": {
+      "velocityDeathWindow": [3],
+      "stopLossPct": [5, 10],
+      "sellByEt": ["09:28"],
+      "vwapLossExit": [true, false]
+    },
+    "selection": "highest day-clustered 2.5% bound on train among configs with >= 150 trades"
+  },
+  "splits": {
+    "train": { "from": "2021-11-01", "to": "2024-10-31" },
+    "validation": { "from": "2024-11-03", "to": "2025-10-31" },
+    "holdout": { "from": "2025-11-03", "to": "2026-10-30", "runsAllowed": 1 }
+  },
+  "holdoutLock": {
+    "unlockFile": "holdout-unlock.txt",
+    "unlockContent": "git log -1 --format=%H -- hypotheses.json params.json",
+    "runFile": "holdout-run.json",
+    "refuseSecondRun": true,
+    "refuseUncommittedChanges": true,
+    "refuseWhenFrozenUtcNull": true,
+    "postHocFlagFiles": ["protocol.md", "hypotheses.json", "params.json"]
+  },
+  "promotion": {
+    "trainQ": 0.05,
+    "validationSameSign": true,
+    "h12SpaOnValidation": true,
+    "holdoutMeanNetPctPerTrade": 0.5,
+    "holdoutLowerBoundAbove": 0.0,
+    "paperShadowTradingDays": 20
+  },
+  "killCriteria": {
+    "minTier20Train": 3000,
+    "minSipProvenanceShare": 0.95,
+    "h11MustPassOnValidation": true,
+    "postUnlockEditVoids": true,
+    "h8DropIfCikCoverageBelow": 0.50
+  },
+  "expectedCounts": { "candidateSymbolDays": 60000, "tier20Days": 12000 }
+}
