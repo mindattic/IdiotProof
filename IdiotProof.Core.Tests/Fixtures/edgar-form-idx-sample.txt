@@ -1,0 +1,18 @@
+Description:           Master Index of EDGAR Dissemination Feed by Form Type
+Last Data Received:    November 6, 2026
+Comments:              webmaster@sec.gov
+Anonymous FTP:         ftp://ftp.sec.gov/edgar/
+ 
+ 
+ 
+Form Type   Company Name                                                  CIK         Date Filed  File Name
+---------------------------------------------------------------------------------------------------------------------------------------------
+1-A         Acme Widgets Holdings, Inc.                                   1234567     2026-10-02  edgar/data/1234567/0001234567-26-000001.txt
+10-K        Big Example Corp                                              100         2026-10-15  edgar/data/100/0000000100-26-000010.txt
+4           GOGO INC                                                      1537054     2026-11-04  edgar/data/1537054/0001209191-26-061234.txt
+4           Smith John Q                                                  1800001     2026-11-04  edgar/data/1800001/0001209191-26-061234.txt
+424B4       Penny Pharma Ltd                                              1999999     2026-10-30  edgar/data/1999999/0001213900-26-099999.txt
+8-K         GOGO INC                                                      1537054     2026-11-05  edgar/data/1537054/0001537054-26-000077.txt
+8-K/A       GOGO INC                                                      1537054     2026-11-06  edgar/data/1537054/0001537054-26-000078.txt
+SC 13D      Activist Fund, L.P.                                           1700000     2026-10-21  edgar/data/1700000/0001104659-26-123456.txt
+4                Gogo Inc.                                                     1537054     2026-10-01  edgar/data/1537054/0001537054-26-000008.txt         

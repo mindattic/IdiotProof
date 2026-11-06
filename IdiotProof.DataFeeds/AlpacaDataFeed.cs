@@ -4,6 +4,9 @@ using IdiotProof.Models;
 
 namespace IdiotProof.DataFeeds;
 
+/// <summary>One multi-symbol bars pull: bars per symbol (ascending), pages fetched, and the data tier that served them.</summary>
+public sealed record MultiSymbolBars(IReadOnlyDictionary<string, IReadOnlyList<Candle>> Bars, int Pages, string Tier);
+
 /// <summary>
 /// Alpaca Market Data API historical bar feed. Uses the same API key + secret the
 /// user already has for the broker.
@@ -100,6 +103,109 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
     /// that actually served the page (a refused SIP request silently falls back to IEX).
     /// </summary>
     public static string SourceLabel(string tier) => $"Alpaca:{tier}";
+
+    /// <summary>Largest symbol list the multi-symbol bars endpoint accepts in one request.</summary>
+    public const int MaxSymbolsPerRequest = 100;
+
+    /// <summary>
+    /// Bars for many symbols in one request stream (<c>/v2/stocks/bars?symbols=A,B,...</c>, paged at
+    /// <paramref name="limit"/> bars per page, <c>adjustment=raw</c>). Every bar is a
+    /// <see cref="DetailedCandle"/> with trade count and VWAP. <paramref name="onPage"/> runs before
+    /// each request so a caller can pace to the data API's rate limit. A 429 or gateway error backs
+    /// off exponentially up to five attempts; any other failure throws with status and body.
+    /// </summary>
+    public async Task<MultiSymbolBars> GetHistoricalCandlesForSymbolsAsync(
+        IReadOnlyList<string> symbols, TimeSpan candleSize, DateTime startUtc, DateTime endUtc,
+        int limit = 10000, Func<CancellationToken, Task>? onPage = null, CancellationToken ct = default)
+    {
+        var list = symbols.Select(s => s.Trim().ToUpperInvariant()).Where(s => s.Length > 0).Distinct().ToList();
+        var bars = new Dictionary<string, List<Candle>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in list) bars[s] = [];
+        if (list.Count == 0) return new MultiSymbolBars(Freeze(bars), 0, feedTier);
+        if (list.Count > MaxSymbolsPerRequest)
+            throw new ArgumentException($"At most {MaxSymbolsPerRequest} symbols per request, got {list.Count}.", nameof(symbols));
+
+        var timeframe = ToAlpacaTimeframe(candleSize);
+        var query = $"v2/stocks/bars?symbols={Uri.EscapeDataString(string.Join(',', list))}&timeframe={timeframe}"
+                  + $"&start={Uri.EscapeDataString(startUtc.ToString("O"))}&end={Uri.EscapeDataString(endUtc.ToString("O"))}"
+                  + $"&limit={Math.Clamp(limit, 1, 10000)}&adjustment=raw";
+        string? pageToken = null;
+        int pages = 0;
+        string tierUsed = feedTier;
+        do
+        {
+            if (onPage is not null) await onPage(ct).ConfigureAwait(false);
+            var tier = feedTier;
+            var url = query + $"&feed={tier}" + (pageToken is null ? "" : $"&page_token={Uri.EscapeDataString(pageToken)}");
+            using var response = await SendWithBackoffAsync(url, ct).ConfigureAwait(false);
+            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden && TryDowngradeTier()) continue;
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                throw new HttpRequestException(
+                    $"Alpaca multi-symbol bars request failed ({(int)response.StatusCode} {response.StatusCode}): {Truncate(body)}",
+                    null, response.StatusCode);
+            }
+            pages++;
+            tierUsed = tier;
+            var source = SourceLabel(tier);
+            var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            pageToken = doc.RootElement.TryGetProperty("next_page_token", out var npt) && npt.ValueKind == JsonValueKind.String ? npt.GetString() : null;
+            if (doc.RootElement.TryGetProperty("bars", out var bySymbol) && bySymbol.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var entry in bySymbol.EnumerateObject())
+                {
+                    if (entry.Value.ValueKind != JsonValueKind.Array) continue;
+                    if (!bars.TryGetValue(entry.Name, out var target)) bars[entry.Name] = target = [];
+                    foreach (var bar in entry.Value.EnumerateArray())
+                    {
+                        var start = bar.GetProperty("t").GetDateTime();
+                        target.Add(new DetailedCandle
+                        {
+                            Symbol = entry.Name.ToUpperInvariant(),
+                            StartUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc),
+                            EndUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc) + candleSize,
+                            Open = bar.GetProperty("o").GetDecimal(),
+                            High = bar.GetProperty("h").GetDecimal(),
+                            Low = bar.GetProperty("l").GetDecimal(),
+                            Close = bar.GetProperty("c").GetDecimal(),
+                            Volume = bar.GetProperty("v").GetDecimal(),
+                            TradeCount = bar.TryGetProperty("n", out var n) && n.ValueKind == JsonValueKind.Number ? n.GetInt64() : 0,
+                            Vwap = bar.TryGetProperty("vw", out var vw) && vw.ValueKind == JsonValueKind.Number ? vw.GetDecimal() : 0,
+                            Note = source,
+                        });
+                    }
+                }
+            }
+        }
+        while (!string.IsNullOrEmpty(pageToken));
+        return new MultiSymbolBars(Freeze(bars), pages, tierUsed);
+    }
+
+    private async Task<HttpResponseMessage> SendWithBackoffAsync(string url, CancellationToken ct)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            var response = await httpClient.GetAsync(url, ct).ConfigureAwait(false);
+            var transient = response.StatusCode is System.Net.HttpStatusCode.TooManyRequests or System.Net.HttpStatusCode.BadGateway
+                or System.Net.HttpStatusCode.ServiceUnavailable or System.Net.HttpStatusCode.GatewayTimeout;
+            if (!transient || attempt >= 5) return response;
+            response.Dispose();
+            await Task.Delay(TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, attempt))), ct).ConfigureAwait(false);
+        }
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<Candle>> Freeze(Dictionary<string, List<Candle>> bars)
+    {
+        var result = new Dictionary<string, IReadOnlyList<Candle>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (symbol, list) in bars)
+        {
+            list.Sort((a, b) => a.StartUtc.CompareTo(b.StartUtc));
+            result[symbol] = list;
+        }
+        return result;
+    }
 
     private readonly record struct RawBar(DateTime Start, decimal Open, decimal High, decimal Low, decimal Close, decimal Volume);
 

@@ -47,6 +47,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ScanRun>              ScanRuns             => Set<ScanRun>();
     public DbSet<CatalystEvent>        CatalystEvents       => Set<CatalystEvent>();
     public DbSet<CatalystEventSymbol>  CatalystEventSymbols => Set<CatalystEventSymbol>();
+    public DbSet<GapperStudyDailyBar>  GapperStudyDailyBars => Set<GapperStudyDailyBar>();
+    public DbSet<GapperStudySplit>     GapperStudySplits    => Set<GapperStudySplit>();
+    public DbSet<GapperStudyCikMap>    GapperStudyCikMap    => Set<GapperStudyCikMap>();
+    public DbSet<GapperStudyCoverage>  GapperStudyCoverage  => Set<GapperStudyCoverage>();
+    public DbSet<GapperStudyUniverseDay> GapperStudyUniverseDays => Set<GapperStudyUniverseDay>();
+    public DbSet<GapperStudyEvent>     GapperStudyEvents    => Set<GapperStudyEvent>();
+    public DbSet<GapperFormationSnapshotRow> GapperFormationSnapshots => Set<GapperFormationSnapshotRow>();
+    public DbSet<GapperStudyLabel>     GapperStudyLabels    => Set<GapperStudyLabel>();
+    public DbSet<EdgarFilingIndexRow>  EdgarFilingIndex     => Set<EdgarFilingIndexRow>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -262,6 +271,72 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasKey(x => new { x.EventId, x.Symbol });
             e.HasIndex(x => x.Symbol);
             e.HasOne<CatalystEvent>().WithMany().HasForeignKey(x => x.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Gapper study (IP-T442): research-DB panel tables; minute bars live in the file store.
+        b.Entity<GapperStudyDailyBar>(e =>
+        {
+            e.ToTable("GapperStudyDailyBars");
+            e.HasIndex(x => new { x.Symbol, x.DateEt }).IsUnique();
+            e.HasIndex(x => x.DateEt);
+            foreach (var p in new[] { "Open", "High", "Low", "Close", "Vwap" }) e.Property(p).HasPrecision(18, 6);
+            e.Property(x => x.Volume).HasPrecision(18, 2);
+        });
+        b.Entity<GapperStudySplit>(e =>
+        {
+            e.ToTable("GapperStudySplits");
+            e.HasIndex(x => new { x.Symbol, x.ExDate }).IsUnique();
+            e.Property(x => x.OldRate).HasPrecision(18, 6);
+            e.Property(x => x.NewRate).HasPrecision(18, 6);
+        });
+        b.Entity<GapperStudyCikMap>(e =>
+        {
+            e.ToTable("GapperStudyCikMap");
+            e.HasIndex(x => x.Cik);
+        });
+        b.Entity<GapperStudyCoverage>(e =>
+        {
+            e.ToTable("GapperStudyCoverage");
+            e.HasIndex(x => new { x.Tier, x.Key }).IsUnique();
+        });
+        b.Entity<GapperStudyUniverseDay>(e =>
+        {
+            e.ToTable("GapperStudyUniverseDays");
+            e.HasIndex(x => new { x.Symbol, x.DateEt }).IsUnique();
+            e.HasIndex(x => new { x.DateEt, x.IsCandidate });
+            e.HasIndex(x => new { x.Split, x.IsGapper });
+            foreach (var p in new[] { "AdjPrevClose", "Adv20Dollars", "Adv20Shares", "DayHigh", "DayVolume", "PremarketDollarVolumeAtTier" })
+                e.Property(p).HasPrecision(18, 6);
+        });
+        b.Entity<GapperStudyEvent>(e =>
+        {
+            e.ToTable("GapperStudyEvents");
+            e.HasIndex(x => new { x.Symbol, x.DateEt }).IsUnique();
+            e.HasIndex(x => new { x.Split, x.Tier20 });
+            foreach (var p in new[] { "AdjPrevClose", "PmDollarVolumeAtTier20", "PmDollarVolumeAtTier50", "PmDollarVolumeAtTier100", "PmHigh", "RthHigh", "PmDollarVolume" })
+                e.Property(p).HasPrecision(18, 6);
+        });
+        b.Entity<GapperFormationSnapshotRow>(e =>
+        {
+            e.ToTable("GapperFormationSnapshots");
+            e.HasIndex(x => new { x.Source, x.Symbol, x.DateEt, x.DecisionLabel }).IsUnique();
+            e.HasIndex(x => new { x.Symbol, x.DateEt });
+            e.HasIndex(x => new { x.Split, x.DecisionTimeEt });
+        });
+        b.Entity<GapperStudyLabel>(e =>
+        {
+            e.ToTable("GapperStudyLabels");
+            e.HasIndex(x => new { x.Symbol, x.DateEt, x.DecisionLabel }).IsUnique();
+            e.HasIndex(x => new { x.Split, x.DecisionTimeEt });
+            e.Property(x => x.EntryRef).HasPrecision(18, 6);
+            e.Property(x => x.PmHigh).HasPrecision(18, 6);
+        });
+        b.Entity<EdgarFilingIndexRow>(e =>
+        {
+            e.ToTable("EdgarFilingIndex");
+            e.HasIndex(x => new { x.Cik, x.AccessionNumber }).IsUnique();
+            e.HasIndex(x => new { x.Symbol, x.FiledDate });
+            e.HasIndex(x => new { x.Cik, x.FiledDate });
         });
 
         b.Entity<ResearchClaimVector>(e =>
