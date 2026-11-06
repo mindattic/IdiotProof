@@ -1,3 +1,4 @@
+using IdiotProof.Evidence.Gappers;
 using IdiotProof.Evidence.Liquidity;
 using IdiotProof.Evidence.Traps;
 using IdiotProof.Indicators;
@@ -13,6 +14,13 @@ namespace IdiotProof.Strategies;
 /// evaluator (which speaks IndicatorSnapshot only). One snapshot per evaluation
 /// tick — the latest bar plus enough history for indicator math to converge.
 /// </summary>
+/// <summary>
+/// The time-of-day volume context a caller may hand the builder: the profile, the symbol's
+/// 20-day average share volume and its ADV decile. Without it <see cref="IndicatorSnapshot.VolumeRatioTod"/>
+/// stays null and IsVolumeAbove keeps its 20-bar baseline.
+/// </summary>
+public sealed record VolumeProfileContext(TimeOfDayProfile Profile, double Adv20Shares, int AdvDecile);
+
 public static class IndicatorSnapshotBuilder
 {
     /// <summary>
@@ -30,8 +38,10 @@ public static class IndicatorSnapshotBuilder
     /// periods (e.g. IsBetweenEma(7, 65)) — we union the strategy's required
     /// periods with the defaults. <paramref name="previousClose"/> is the prior
     /// day's official close; without it gap conditions fail closed.
+    /// <paramref name="volumeProfile"/> is optional; it only adds VolumeRatioTod.
     /// </summary>
-    public static IndicatorSnapshot BuildWithEmas(string symbol, IReadOnlyList<Candle> candles, IEnumerable<int> emaPeriods, decimal? previousClose = null)
+    public static IndicatorSnapshot BuildWithEmas(string symbol, IReadOnlyList<Candle> candles, IEnumerable<int> emaPeriods, decimal? previousClose = null,
+        VolumeProfileContext? volumeProfile = null)
     {
         if (candles.Count == 0)
         {
@@ -112,6 +122,22 @@ public static class IndicatorSnapshotBuilder
         var vwap = VWAP.Calculate(candles);
         snapshot.Vwap      = (double)vwap[^1];
         snapshot.PriorVwap = n >= 2 ? (double)vwap[^2] : null;
+
+        // Velocity / acceleration / volume rate of change — wall-clock windows
+        // ending at the newest bar, the same arithmetic the gapper study and
+        // the velocity exit use (IdiotProof.Evidence.Gappers.MinuteBarMath).
+        var nowUtc = lastBar.EndUtc;
+        snapshot.Velocity1m   = MinuteBarMath.Velocity(candles, nowUtc, 1);
+        snapshot.Velocity3m   = MinuteBarMath.Velocity(candles, nowUtc, 3);
+        snapshot.Velocity5m   = MinuteBarMath.Velocity(candles, nowUtc, 5);
+        snapshot.Acceleration = MinuteBarMath.Acceleration(candles, nowUtc);
+        snapshot.VolumeRoc    = MinuteBarMath.VolumeRoc(candles, nowUtc);
+        if (volumeProfile is { } vp)
+        {
+            var sessionVolume = (double)MinuteBarMath.SessionBars(candles, nowUtc).Sum(c => c.Volume);
+            snapshot.VolumeRatioTod = GapperVolumeRatio.Compute(sessionVolume, vp.Adv20Shares, vp.Profile, vp.AdvDecile,
+                MinuteBarMath.ToEastern(nowUtc).TimeOfDay);
+        }
 
         // EMAs — union of requested periods with defaults
         var allPeriods = new HashSet<int>(DefaultEmaPeriods);

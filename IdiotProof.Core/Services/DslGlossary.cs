@@ -124,6 +124,16 @@ public static class DslGlossary
             "The gap over the previous close must fall inside a [min%, max%] band — big enough to matter, not already gone. Fails closed without a previous close."),
         ["IsVolumeAbove"] = new("IsVolumeAbove", "bi-bar-chart-fill", Blue, "Volume Above",
             "The current bar's volume is at least this multiple of the rolling average — a conviction filter for a trigger."),
+        ["VolumeRocBelow"] = new("VolumeRocBelow", "bi-bar-chart-steps", Red, "Volume Fading",
+            "VolumeRocBelow(ratio): the last three clock minutes printed less than this multiple of the volume of the three minutes before them — participation is drying up."),
+
+        // ── Velocity ─────────────────────────────────────────────────────────
+        ["VelocityBelow"] = new("VelocityBelow", "bi-speedometer", Red, "Velocity Below",
+            "VelocityBelow(pctPerMin, windowMinutes): price velocity — the close over the close as of 1, 3 or 5 clock minutes ago, in percent per minute — is under the threshold. Fails closed without enough bars."),
+        ["VelocityAbove"] = new("VelocityAbove", "bi-speedometer2", Green, "Velocity Above",
+            "VelocityAbove(pctPerMin, windowMinutes): price velocity over the last 1, 3 or 5 clock minutes is over the threshold — the run is still accelerating into the entry."),
+        ["Decelerating"] = new("Decelerating", "bi-arrow-down-right", Red, "Decelerating",
+            "The 3-minute velocity is lower than it was three minutes ago — momentum is fading even if price is still rising."),
 
         // ── Price level / band ───────────────────────────────────────────────
         ["HoldsAbove"] = new("HoldsAbove", "bi-shield-check", Green, "Holds Above",
@@ -194,6 +204,16 @@ public static class DslGlossary
             "A hard time-of-day exit — the position is flattened at this ET time regardless of price. Same effect as SellBy."),
         ["PeakGiveback"] = new("PeakGiveback", "bi-arrow-90deg-down", Brand, "Peak Giveback",
             "Momentum-rollover exit: after entry, track the high-water mark, and sell once price gives back this percent of the run from entry to peak. Can be armed only from a given ET time."),
+        ["VelocityExhaustion"] = new("VelocityExhaustion", "bi-speedometer", Brand, "Velocity Exhaustion",
+            "VelocityExhaustion(pctPerMin, windowMinutes, armAtEt): sell once the run's velocity over the last 1, 3 or 5 clock minutes falls under this many percent per minute — the run died. Optionally armed only from an ET time. Evaluated after stops and targets, before PeakGiveback."),
+        ["VelocityExhaustionMinRun"] = new("VelocityExhaustionMinRun", "bi-speedometer", Brand, "Velocity Exit: Minimum Run",
+            "The entry-to-peak run must reach this percent before the velocity-exhaustion exit may fire, so a flat open never reads as exhaustion."),
+        ["VelocityExhaustionRequireLowerHigh"] = new("VelocityExhaustionRequireLowerHigh", "bi-graph-down-arrow", Brand, "Velocity Exit: Lower High",
+            "The velocity-exhaustion exit also needs a confirmed lower high since entry (a higher low for a short) before it fires."),
+        ["VelocityExhaustionRequireVwapLoss"] = new("VelocityExhaustionRequireVwapLoss", "bi-graph-down", Brand, "Velocity Exit: VWAP Loss",
+            "The velocity-exhaustion exit also needs price under the session VWAP (over it for a short) before it fires."),
+        ["VelocityExhaustionExtensionSwitch"] = new("VelocityExhaustionExtensionSwitch", "bi-arrow-up-right", Brand, "Velocity Exit: Extension Switch",
+            "When price is extended more than this percent past the 09:30 open, the velocity-exhaustion exit stands down and the trailing rules manage the exit instead — the sell-vs-trail regime switch."),
         ["ExitAtPriorHigh"] = new("ExitAtPriorHigh", "bi-flag-fill", Green, "Exit at Prior High",
             "Exit a long position into the pre-entry high-of-day — sell into the level the stock already proved it could reach."),
         ["ExitAtRollingHigh"] = new("ExitAtRollingHigh", "bi-graph-up", Green, "Exit at Rolling High",

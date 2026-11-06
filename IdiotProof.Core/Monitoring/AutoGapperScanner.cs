@@ -1,6 +1,7 @@
 using IdiotProof.Core.Data;
 using IdiotProof.DataFeeds;
 using IdiotProof.Engine.Settings;
+using IdiotProof.Evidence.Gappers;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using Microsoft.EntityFrameworkCore;
@@ -47,6 +48,9 @@ public sealed class AutoGapperScanner(
     /// </summary>
     internal Func<string, string, int, Task<List<(string Symbol, double Percent, double Price)>>> FetchMovers { get; init; }
         = StrategyScanner.FetchMoversAsync;
+
+    /// <summary>Time-of-day volume profile for the screen's volume ratio; none ships yet, so the ratio stays cumVol / ADV.</summary>
+    internal TimeOfDayProfile? TimeOfDayProfile { get; init; }
 
     /// <summary>
     /// The pipeline. When <paramref name="dryRun"/> is true it computes and
@@ -270,7 +274,8 @@ public sealed class AutoGapperScanner(
         var gap = pmVol is not null && prevClose is > 0
             ? (px - prevClose.Value) / prevClose.Value * 100.0
             : screenerPct;
-        double? volRatio = avgVol is > 0 && pmVol is not null ? pmVol.Value / avgVol.Value : null;
+        // One formula with the study (GapperVolumeRatio); no time-of-day profile ships yet, so this is still cumVol / ADV.
+        double? volRatio = GapperVolumeRatio.Compute(pmVol, avgVol, TimeOfDayProfile, null, MarketTime.ToEasternTimeOfDay(nowUtc));
         return new Signals(px, gap, prevClose, pmVol, avgVol, volRatio, atrPct);
     }
 

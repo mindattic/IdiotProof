@@ -1,3 +1,4 @@
+using IdiotProof.Evidence.Gappers;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 
@@ -26,7 +27,10 @@ public enum GapperExitReason
     TargetHit,
 
     /// <summary>A While() guard stopped holding on a strategy with ExitWhenFalse().</summary>
-    WhileFailed
+    WhileFailed,
+
+    /// <summary>The run's velocity fell under the configured percent per minute (VelocityExhaustion).</summary>
+    VelocityExhaustion
 }
 
 /// <summary>The evaluator's verdict for one tick.</summary>
@@ -50,7 +54,10 @@ public sealed record GapperExitDecision(GapperExitReason Reason, double CurrentP
 ///   1. SellBy — hard ET flatten time (never hold into the bell).
 ///   2. StopLossPercent — hard stop below entry.
 ///   3. TrailingStopPercent — % off the high-water mark, active from entry.
-///   4. PeakGiveback — armed from PeakGivebackArmTime (default: immediately);
+///   4. Take-profit targets, prior HOD, rolling highs/lows.
+///   5. VelocityExhaustion — the shared VelocityExitRule: the favorable
+///      velocity over 1/3/5 minutes fell under the configured %/min.
+///   6. PeakGiveback — armed from PeakGivebackArmTime (default: immediately);
 ///      sells once price gives back N% of the run from entry to peak. The
 ///      giveback is proportional to the run, so the exit self-scales to the
 ///      gapper's own momentum: a runner that went +40% tolerates a deeper
@@ -58,6 +65,33 @@ public sealed record GapperExitDecision(GapperExitReason Reason, double CurrentP
 /// </summary>
 public static class GapperExitEvaluator
 {
+    /// <summary>The velocity-exit knobs a definition carries, or null when it has no velocity exit.</summary>
+    public static VelocityExitParameters? VelocityParameters(StrategyDefinition def) =>
+        def.VelocityExhaustionPctPerMin is { } pctPerMin
+            ? new VelocityExitParameters(
+                pctPerMin,
+                def.VelocityExhaustionWindowMinutes ?? 3,
+                def.VelocityExhaustionArmTime,
+                def.VelocityExhaustionMinRunPercent ?? 0,
+                def.VelocityExhaustionRequireLowerHigh,
+                def.VelocityExhaustionRequireVwapLoss,
+                def.VelocityExhaustionExtensionSwitchPct)
+            : null;
+
+    private static GapperExitDecision? VelocityExit(
+        StrategyDefinition def, double entryPrice, DateTime entryUtc, IReadOnlyList<Candle> candles,
+        DateTime nowUtc, double current, double extreme, bool shortSide)
+    {
+        if (VelocityParameters(def) is not { } parameters) return null;
+        var sinceEntry = candles.Where(c => c.EndUtc > entryUtc).ToList();
+        var verdict = new VelocityExitRule(parameters).Evaluate(
+            sinceEntry, (decimal)entryPrice, nowUtc,
+            MinuteBarMath.SessionVwap(candles, nowUtc), MinuteBarMath.RthOpen(candles, nowUtc), shortSide);
+        return verdict.Exit
+            ? new GapperExitDecision(GapperExitReason.VelocityExhaustion, current, extreme,
+                $"{(shortSide ? "Short: " : "")}{verdict.Reason} — the run died.")
+            : null;
+    }
     /// <summary>
     /// Evaluates the exit rules for an open long position.
     /// </summary>
@@ -220,6 +254,10 @@ public static class GapperExitEvaluator
                     $"Price {current:F2} fell to the {rlDays}-day rolling low {rollingLow:F2} (within {buffer:F1}% — support failure, cutting loss).");
         }
 
+        // 4e. Velocity exhaustion — the run's speed died (shared VelocityExitRule).
+        if (VelocityExit(def, entryPrice, entryUtc, candles, nowUtc, current, peak, shortSide: false) is { } velocityExit)
+            return velocityExit;
+
         // 5. Momentum rollover — armed from the configured ET time (or always).
         if (def.PeakGivebackPercent is { } giveback)
         {
@@ -360,6 +398,10 @@ public static class GapperExitEvaluator
                 return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
                     $"Short: price {current:F2} reached the {rlDays}-day rolling low {rollingLow:F2} (within {buffer:F1}% — taking profit).");
         }
+
+        // 6a. Velocity exhaustion — the down-move's speed died (favorable direction negated).
+        if (VelocityExit(def, entryPrice, entryUtc, candles, nowUtc, current, trough, shortSide: true) is { } velocityExit)
+            return velocityExit;
 
         // 7. Momentum rollover — gave back N% of the entry→trough down-move.
         if (def.PeakGivebackPercent is { } giveback)

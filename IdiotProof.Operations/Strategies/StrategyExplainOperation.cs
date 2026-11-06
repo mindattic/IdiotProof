@@ -64,6 +64,17 @@ public static class StrategyNarrator
         if (d.TakeProfitPercent is { } tpp) exit.Add($"Takes profit {Pct(tpp)} from the fill.");
         if (d.PeakGivebackPercent is { } pg)
             exit.Add($"Sells if price gives back {Pct(pg)} of its run from entry to the peak" + (d.PeakGivebackArmTime is { } arm ? $", from {Time(arm)} ET on." : "."));
+        if (d.VelocityExhaustionPctPerMin is { } ve)
+        {
+            var guards = new List<string>();
+            if (d.VelocityExhaustionMinRunPercent is { } minRun) guards.Add($"only after a {Pct(minRun)} run");
+            if (d.VelocityExhaustionRequireLowerHigh) guards.Add(d.Direction == TradeDirection.Long ? "only after a lower high" : "only after a higher low");
+            if (d.VelocityExhaustionRequireVwapLoss) guards.Add(d.Direction == TradeDirection.Long ? "only once price is under VWAP" : "only once price is over VWAP");
+            if (d.VelocityExhaustionExtensionSwitchPct is { } ext) guards.Add($"stands down when price is more than {Pct(ext)} past the 09:30 open");
+            exit.Add($"{(d.Direction == TradeDirection.Long ? "Sells" : "Covers")} when the run's velocity over {d.VelocityExhaustionWindowMinutes ?? 3} minutes falls under {Num(ve)}% per minute"
+                + (d.VelocityExhaustionArmTime is { } velocityArm ? $", from {Time(velocityArm)} ET on" : "")
+                + (guards.Count > 0 ? "; " + string.Join(", ", guards) : "") + ".");
+        }
         if (d.ExitAtPriorHigh) exit.Add("Sells into the high of day that formed before the entry.");
         if (d.RollingHighDays is { } rh) exit.Add($"Sells as price reaches within {Pct(d.RollingHighBuffer ?? 2.5)} of its {rh}-day high.");
         if (d.ExitTime is { } et) exit.Add($"Sells whatever is still held at {Time(et)} ET.");
@@ -169,6 +180,10 @@ public static class StrategyNarrator
             IndicatorType.VolumeAbove => $"volume is at least {p1 ?? "?"}× its average",
             IndicatorType.AtSupport => "price is at support",
             IndicatorType.AtResistance => "price is at resistance",
+            IndicatorType.VelocityBelow => $"price velocity over {p2 ?? "3"} minutes is under {p1 ?? "?"}% per minute",
+            IndicatorType.VelocityAbove => $"price velocity over {p2 ?? "3"} minutes is over {p1 ?? "?"}% per minute",
+            IndicatorType.Decelerating => "the 3-minute velocity is lower than it was three minutes ago (decelerating)",
+            IndicatorType.VolumeRocBelow => $"the last three minutes printed under {p1 ?? "?"}× the volume of the three before",
             _ => Humanize(i.ToScript()),
         };
     }

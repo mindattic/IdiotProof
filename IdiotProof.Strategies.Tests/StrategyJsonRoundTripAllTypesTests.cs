@@ -34,6 +34,7 @@ public class StrategyJsonRoundTripAllTypesTests
     [TestCase(IndicatorType.LowerHigh)]
     [TestCase(IndicatorType.RsiBullishDivergence)]
     [TestCase(IndicatorType.RsiBearishDivergence)]
+    [TestCase(IndicatorType.Decelerating)]
     public void IndicatorCondition_NoParam_RoundTrips(IndicatorType type)
     {
         var def = Stock.Ticker("TEST").Long().Build();
@@ -54,6 +55,7 @@ public class StrategyJsonRoundTripAllTypesTests
     [TestCase(IndicatorType.VolumeAbove, 1.5)]
     [TestCase(IndicatorType.AtSupport,   0.5)]
     [TestCase(IndicatorType.AtResistance, 0.5)]
+    [TestCase(IndicatorType.VolumeRocBelow, 0.8)]
     public void IndicatorCondition_P1Param_RoundTrips(IndicatorType type, double p1)
     {
         var def = Stock.Ticker("TEST").Long().Build();
@@ -105,6 +107,53 @@ public class StrategyJsonRoundTripAllTypesTests
         var restored = RoundTrip(def);
 
         Assert.That(Script(restored.EntryConditions[0]), Is.EqualTo(Script(cond)));
+    }
+
+    [TestCase(IndicatorType.VelocityBelow, 0.5, 3)]
+    [TestCase(IndicatorType.VelocityAbove, 1.25, 1)]
+    [TestCase(IndicatorType.VelocityBelow, 0.2, 5)]
+    public void IndicatorCondition_Velocity_TwoParams_RoundTrips(IndicatorType type, double pctPerMin, double window)
+    {
+        var def = Stock.Ticker("TEST").Long().Build();
+        var cond = new IndicatorCondition(type, pctPerMin, window);
+        def.EntryConditions.Add(cond);
+
+        var restored = RoundTrip(def);
+
+        Assert.That(Script(restored.EntryConditions[0]), Is.EqualTo(Script(cond)));
+    }
+
+    [Test]
+    public void Strategy_VelocityExitFields_RoundTrip()
+    {
+        var def = Stock.Ticker("TEST").Long().Build();
+        def.VelocityExhaustionPctPerMin = 0.5;
+        def.VelocityExhaustionWindowMinutes = 5;
+        def.VelocityExhaustionArmTime = new TimeSpan(8, 30, 0);
+        def.VelocityExhaustionMinRunPercent = 4;
+        def.VelocityExhaustionRequireLowerHigh = true;
+        def.VelocityExhaustionRequireVwapLoss = true;
+        def.VelocityExhaustionExtensionSwitchPct = 10;
+
+        var restored = RoundTrip(def);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(restored.VelocityExhaustionPctPerMin,         Is.EqualTo(0.5), "VelocityExhaustionPctPerMin");
+            Assert.That(restored.VelocityExhaustionWindowMinutes,     Is.EqualTo(5),   "VelocityExhaustionWindowMinutes");
+            Assert.That(restored.VelocityExhaustionArmTime,           Is.EqualTo(new TimeSpan(8, 30, 0)), "VelocityExhaustionArmTime");
+            Assert.That(restored.VelocityExhaustionMinRunPercent,     Is.EqualTo(4),   "VelocityExhaustionMinRunPercent");
+            Assert.That(restored.VelocityExhaustionRequireLowerHigh,  Is.True,         "VelocityExhaustionRequireLowerHigh");
+            Assert.That(restored.VelocityExhaustionRequireVwapLoss,   Is.True,         "VelocityExhaustionRequireVwapLoss");
+            Assert.That(restored.VelocityExhaustionExtensionSwitchPct, Is.EqualTo(10), "VelocityExhaustionExtensionSwitchPct");
+        });
+    }
+
+    [Test]
+    public void Strategy_WithoutVelocityExit_WritesNoVelocityKeys()
+    {
+        var json = StrategyJson.Serialize(Stock.Ticker("TEST").Long().StopLossPercent(5).Build());
+        Assert.That(json, Does.Not.Contain("velocityExhaustion"));
     }
 
     // ── PatternCondition ──────────────────────────────────────────────────

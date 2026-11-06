@@ -465,6 +465,79 @@ public class ConditionEvaluationMatrixTests
         Assert.That(new IndicatorCondition(IndicatorType.VolumeAbove, 2.0).Evaluate(s), Is.False);
     }
 
+    // ── VelocityBelow / VelocityAbove / Decelerating / VolumeRocBelow ───
+
+    private static IndicatorSnapshot WithVelocity(double? v1 = null, double? v3 = null, double? v5 = null, double? accel = null, double? roc = null)
+    {
+        var s = Base();
+        s.Velocity1m = v1;
+        s.Velocity3m = v3;
+        s.Velocity5m = v5;
+        s.Acceleration = accel;
+        s.VolumeRoc = roc;
+        return s;
+    }
+
+    [TestCase(0.4, 0.5, true)]
+    [TestCase(0.5, 0.5, false)]   // exact boundary is not below
+    [TestCase(0.6, 0.5, false)]
+    [TestCase(-0.2, 0.0, true)]
+    public void VelocityBelow_DefaultWindow_ReadsVelocity3m(double v3, double threshold, bool expected)
+        => Assert.That(new IndicatorCondition(IndicatorType.VelocityBelow, threshold)
+            .Evaluate(WithVelocity(v3: v3)), Is.EqualTo(expected));
+
+    [TestCase(1, 0.9, true)]
+    [TestCase(3, 0.9, false)]
+    [TestCase(5, 0.9, false)]
+    public void VelocityBelow_PicksTheRequestedWindow(double window, double threshold, bool expected)
+        => Assert.That(new IndicatorCondition(IndicatorType.VelocityBelow, threshold, window)
+            .Evaluate(WithVelocity(v1: 0.5, v3: 1.0, v5: 1.5)), Is.EqualTo(expected));
+
+    [Test] public void VelocityBelow_NullVelocity_FailsClosed()
+        => Assert.That(new IndicatorCondition(IndicatorType.VelocityBelow, 0.5).Evaluate(Sparse()), Is.False);
+
+    [Test] public void VelocityBelow_UnsupportedWindow_FailsClosed()
+        => Assert.That(new IndicatorCondition(IndicatorType.VelocityBelow, 0.5, 2)
+            .Evaluate(WithVelocity(v1: 0, v3: 0, v5: 0)), Is.False);
+
+    [Test] public void VelocityBelow_NoThreshold_FailsClosed()
+        => Assert.That(new IndicatorCondition(IndicatorType.VelocityBelow).Evaluate(WithVelocity(v3: 0)), Is.False);
+
+    [TestCase(0.6, 0.5, true)]
+    [TestCase(0.5, 0.5, false)]
+    [TestCase(0.4, 0.5, false)]
+    public void VelocityAbove_Threshold(double v3, double threshold, bool expected)
+        => Assert.That(new IndicatorCondition(IndicatorType.VelocityAbove, threshold)
+            .Evaluate(WithVelocity(v3: v3)), Is.EqualTo(expected));
+
+    [Test] public void VelocityAbove_NullVelocity_FailsClosed()
+        => Assert.That(new IndicatorCondition(IndicatorType.VelocityAbove, 0.5).Evaluate(Sparse()), Is.False);
+
+    [Test] public void Decelerating_NegativeAcceleration_ReturnsTrue()
+        => Assert.That(new IndicatorCondition(IndicatorType.Decelerating).Evaluate(WithVelocity(accel: -0.1)), Is.True);
+
+    [Test] public void Decelerating_ZeroOrPositiveAcceleration_ReturnsFalse()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(new IndicatorCondition(IndicatorType.Decelerating).Evaluate(WithVelocity(accel: 0)), Is.False);
+            Assert.That(new IndicatorCondition(IndicatorType.Decelerating).Evaluate(WithVelocity(accel: 0.3)), Is.False);
+        });
+    }
+
+    [Test] public void Decelerating_NullAcceleration_FailsClosed()
+        => Assert.That(new IndicatorCondition(IndicatorType.Decelerating).Evaluate(Sparse()), Is.False);
+
+    [TestCase(0.5, 0.8, true)]
+    [TestCase(0.8, 0.8, false)]
+    [TestCase(1.2, 0.8, false)]
+    public void VolumeRocBelow_Threshold(double roc, double threshold, bool expected)
+        => Assert.That(new IndicatorCondition(IndicatorType.VolumeRocBelow, threshold)
+            .Evaluate(WithVelocity(roc: roc)), Is.EqualTo(expected));
+
+    [Test] public void VolumeRocBelow_NullRoc_FailsClosed()
+        => Assert.That(new IndicatorCondition(IndicatorType.VolumeRocBelow, 0.8).Evaluate(Sparse()), Is.False);
+
     // ── AtSupport / AtResistance ─────────────────────────────────────────
 
     [Test] public void AtSupport_PriceNearSwingLow_ReturnsTrue()

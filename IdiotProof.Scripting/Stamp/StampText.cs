@@ -109,6 +109,10 @@ internal static class StampText
             IndicatorType.VolumeAbove => $"volume at least {P(1.5)}x average",
             IndicatorType.AtSupport => $"within {Pct(p ?? 0.5)} of swing-low support",
             IndicatorType.AtResistance => $"within {Pct(p ?? 0.5)} of swing-high resistance",
+            IndicatorType.VelocityBelow => $"{Num(p2 ?? 3)}-min velocity under {P(0)}%/min",
+            IndicatorType.VelocityAbove => $"{Num(p2 ?? 3)}-min velocity over {P(0)}%/min",
+            IndicatorType.Decelerating => "decelerating (3-min velocity falling)",
+            IndicatorType.VolumeRocBelow => $"3-min volume under {P(1)}x the prior 3 min",
             _ => i.ToScript(),
         };
     }

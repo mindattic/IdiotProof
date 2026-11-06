@@ -230,6 +230,27 @@ public sealed class IndicatorSnapshot
         : (Volume > 0 ? 999.0 : 0);
 
     /// <summary>
+    /// Price velocity in percent per clock minute over the last 1, 3 and 5 minutes (close now over the
+    /// close as of that many minutes ago), measured in wall-clock time so missing bars don't stretch the
+    /// window. Null when the window start has no bar. Used by VelocityBelow / VelocityAbove.
+    /// </summary>
+    public double? Velocity1m { get; set; }
+    public double? Velocity3m { get; set; }
+    public double? Velocity5m { get; set; }
+
+    /// <summary>Velocity3m now minus Velocity3m three minutes ago; null when either is unknown. Used by Decelerating.</summary>
+    public double? Acceleration { get; set; }
+
+    /// <summary>Volume of the last three minutes over the three before them; null when the earlier window printed nothing. Used by VolumeRocBelow.</summary>
+    public double? VolumeRoc { get; set; }
+
+    /// <summary>
+    /// Session cumulative volume against what ADV and the time-of-day profile expect by this clock
+    /// time. Null unless the builder was given a profile; IsVolumeAbove keeps reading VolumeRatio.
+    /// </summary>
+    public double? VolumeRatioTod { get; set; }
+
+    /// <summary>
     /// Calculates an overall market score from -100 to +100.
     /// </summary>
     public int CalculateMarketScore()

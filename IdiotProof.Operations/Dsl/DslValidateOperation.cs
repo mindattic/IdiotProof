@@ -159,5 +159,9 @@ public sealed class DslValidateOperation : IOperation<DslTextArgs>
             yield return new("error", "Exit", "targets", "take-profit percent must be positive");
         if (def.PeakGivebackPercent is { } g && (g <= 0 || g >= 100))
             yield return new("error", "Exit", "giveback", $"peak giveback {g}% must be between 0 and 100");
+        if (def.VelocityExhaustionWindowMinutes is { } vw && vw is not (1 or 3 or 5))
+            yield return new("error", "Exit", "velocity", $"velocity exhaustion window {vw} must be 1, 3 or 5 minutes");
+        if (def.VelocityExhaustionMinRunPercent is < 0)
+            yield return new("error", "Exit", "velocity", "velocity exhaustion minimum run can't be negative");
     }
 }

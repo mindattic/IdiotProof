@@ -79,6 +79,8 @@ public static class StrategyHtml
         if (def.TrailingStopPercent is { } ts2) exit.Add(Kv("Trailing stop", $"{ts2:0.#}% off peak"));
         if (def.PeakGivebackPercent is { } pg)
             exit.Add(Kv("Peak giveback", $"{pg:0.#}%{(def.PeakGivebackArmTime is { } arm ? $" armed {arm:hh\\:mm} ET" : "")}"));
+        if (def.VelocityExhaustionPctPerMin is { } ve)
+            exit.Add(Kv("Velocity exhaustion", $"{def.VelocityExhaustionWindowMinutes ?? 3}-min under {ve:0.##}%/min{(def.VelocityExhaustionArmTime is { } velocityArm ? $" armed {velocityArm:hh\\:mm} ET" : "")}"));
         if (def.ExitTime is { } et) exit.Add(Kv("Sell-by", $"{et:hh\\:mm} ET"));
         if (exit.Count == 0) exit.Add(Li("(no target/time exit — stop only)"));
         Card(sb, "Exit", "whichever hits first", exit);

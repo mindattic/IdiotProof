@@ -39,6 +39,9 @@ public static class ScriptDiagnostics
     {
         ["session"] = "S", ["requireentrywindow"] = "SS", ["entrywindow"] = "SS",
         ["sellby"] = "S", ["exitstrategy"] = "S", ["peakgiveback"] = "Ns",
+        ["velocityexhaustion"] = "Nis", ["velocityexhaustionminrun"] = "N", ["velocityexhaustionextensionswitch"] = "N",
+        ["velocityexhaustionrequirelowerhigh"] = "", ["velocityexhaustionrequirevwaploss"] = "",
+        ["velocitybelow"] = "Ni", ["velocityabove"] = "Ni", ["decelerating"] = "", ["volumerocbelow"] = "N",
         ["isaboveema"] = "I", ["isbelowema"] = "I", ["isemaabove"] = "I", ["isemabelow"] = "I", ["onreclaim"] = "I",
         ["isbetweenema"] = "II", ["requireemastack"] = "II",
         ["requireadxabove"] = "n", ["trending"] = "n", ["isadxabove"] = "N",

@@ -103,6 +103,52 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>
+    /// Velocity-exhaustion exit: sell once the favorable price velocity over the last
+    /// <paramref name="windowMinutes"/> minutes (1, 3 or 5) falls under <paramref name="pctPerMin"/>
+    /// percent per minute — "the run died". Optionally armed only from <paramref name="armAtEt"/> (ET).
+    /// Example: <c>.VelocityExhaustion(0.5, 3, "08:30")</c>. Refine with
+    /// <see cref="VelocityExhaustionMinRun"/>, <see cref="VelocityExhaustionRequireLowerHigh"/>,
+    /// <see cref="VelocityExhaustionRequireVwapLoss"/> and <see cref="VelocityExhaustionExtensionSwitch"/>.
+    /// </summary>
+    public StrategyBuilder VelocityExhaustion(double pctPerMin, int windowMinutes = 3, string? armAtEt = null)
+    {
+        if (windowMinutes is not (1 or 3 or 5))
+            throw new ArgumentOutOfRangeException(nameof(windowMinutes), "VelocityExhaustion window must be 1, 3 or 5 minutes.");
+        strategy.VelocityExhaustionPctPerMin = pctPerMin;
+        strategy.VelocityExhaustionWindowMinutes = windowMinutes;
+        strategy.VelocityExhaustionArmTime = armAtEt is null ? null : ParseTimeOfDay(armAtEt);
+        return this;
+    }
+
+    /// <summary>The entry-to-peak run must reach this percent before the velocity exit may fire. Example: <c>.VelocityExhaustionMinRun(5)</c>.</summary>
+    public StrategyBuilder VelocityExhaustionMinRun(double percent)
+    {
+        strategy.VelocityExhaustionMinRunPercent = percent;
+        return this;
+    }
+
+    /// <summary>The velocity exit also needs a lower high (a higher low for a short) since entry.</summary>
+    public StrategyBuilder VelocityExhaustionRequireLowerHigh()
+    {
+        strategy.VelocityExhaustionRequireLowerHigh = true;
+        return this;
+    }
+
+    /// <summary>The velocity exit also needs price under the session VWAP (over it for a short).</summary>
+    public StrategyBuilder VelocityExhaustionRequireVwapLoss()
+    {
+        strategy.VelocityExhaustionRequireVwapLoss = true;
+        return this;
+    }
+
+    /// <summary>When price is extended more than this percent above the 09:30 open, the velocity exit stands down and the trailing rules manage the exit instead.</summary>
+    public StrategyBuilder VelocityExhaustionExtensionSwitch(double percentAboveOpen)
+    {
+        strategy.VelocityExhaustionExtensionSwitchPct = percentAboveOpen;
+        return this;
+    }
+
     internal static TimeSpan ParseTimeOfDay(string text)
     {
         if (!TimeSpan.TryParseExact(text.Trim().Trim('"'), [@"h\:mm", @"hh\:mm", @"h\:mm\:ss", @"hh\:mm\:ss"],
@@ -252,6 +298,34 @@ public sealed class StrategyBuilder
     public StrategyBuilder IsVolumeAbove(double multiplier)
     {
         strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VolumeAbove, multiplier));
+        return this;
+    }
+
+    /// <summary>Price velocity over the last <paramref name="windowMinutes"/> clock minutes (1, 3 or 5) is under <paramref name="pctPerMin"/> percent per minute. Fails closed without enough bars.</summary>
+    public StrategyBuilder VelocityBelow(double pctPerMin, int windowMinutes = 3)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VelocityBelow, pctPerMin, windowMinutes));
+        return this;
+    }
+
+    /// <summary>Price velocity over the last <paramref name="windowMinutes"/> clock minutes (1, 3 or 5) is over <paramref name="pctPerMin"/> percent per minute. Fails closed without enough bars.</summary>
+    public StrategyBuilder VelocityAbove(double pctPerMin, int windowMinutes = 3)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VelocityAbove, pctPerMin, windowMinutes));
+        return this;
+    }
+
+    /// <summary>The 3-minute velocity is lower than it was three minutes ago (acceleration under zero).</summary>
+    public StrategyBuilder Decelerating()
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.Decelerating));
+        return this;
+    }
+
+    /// <summary>Volume of the last three minutes over the three before them is under <paramref name="ratio"/>.</summary>
+    public StrategyBuilder VolumeRocBelow(double ratio)
+    {
+        strategy.EntryConditions.Add(new IndicatorCondition(IndicatorType.VolumeRocBelow, ratio));
         return this;
     }
 
@@ -1022,6 +1096,21 @@ public sealed class StrategyBuilder
             parts.Add(strategy.PeakGivebackArmTime is { } arm
                 ? $"PeakGiveback({Inv(giveback)}, \"{arm:hh\\:mm}\")"
                 : $"PeakGiveback({Inv(giveback)})");
+        if (strategy.VelocityExhaustionPctPerMin is { } velocity)
+        {
+            var window = strategy.VelocityExhaustionWindowMinutes ?? 3;
+            parts.Add(strategy.VelocityExhaustionArmTime is { } velocityArm
+                ? $"VelocityExhaustion({Inv(velocity)}, {window}, \"{velocityArm:hh\\:mm}\")"
+                : $"VelocityExhaustion({Inv(velocity)}, {window})");
+            if (strategy.VelocityExhaustionMinRunPercent is { } minRun)
+                parts.Add($"VelocityExhaustionMinRun({Inv(minRun)})");
+            if (strategy.VelocityExhaustionRequireLowerHigh)
+                parts.Add("VelocityExhaustionRequireLowerHigh()");
+            if (strategy.VelocityExhaustionRequireVwapLoss)
+                parts.Add("VelocityExhaustionRequireVwapLoss()");
+            if (strategy.VelocityExhaustionExtensionSwitchPct is { } extension)
+                parts.Add($"VelocityExhaustionExtensionSwitch({Inv(extension)})");
+        }
         if (strategy.ExitAtPriorHigh)
             parts.Add("ExitAtPriorHigh()");
         if (strategy.RollingHighDays.HasValue)
@@ -1104,6 +1193,32 @@ public sealed class StrategyDefinition
     /// immediately on entry.
     /// </summary>
     public TimeSpan? PeakGivebackArmTime { get; set; }
+
+    /// <summary>
+    /// Velocity-exhaustion exit: sell once the favorable velocity over
+    /// <see cref="VelocityExhaustionWindowMinutes"/> minutes falls under this many percent per
+    /// minute. Null = no velocity exit. Evaluated by GapperExitEvaluator through the shared
+    /// VelocityExitRule, so live, backtest and the study agree.
+    /// </summary>
+    public double? VelocityExhaustionPctPerMin { get; set; }
+
+    /// <summary>Velocity window in clock minutes (1, 3 or 5). Null = 3.</summary>
+    public int? VelocityExhaustionWindowMinutes { get; set; }
+
+    /// <summary>ET time-of-day from which the velocity exit is armed. Null = armed on entry.</summary>
+    public TimeSpan? VelocityExhaustionArmTime { get; set; }
+
+    /// <summary>Entry-to-peak run (percent) required before the velocity exit may fire. Null = 0.</summary>
+    public double? VelocityExhaustionMinRunPercent { get; set; }
+
+    /// <summary>The velocity exit also needs a lower high (higher low for a short) since entry.</summary>
+    public bool VelocityExhaustionRequireLowerHigh { get; set; }
+
+    /// <summary>The velocity exit also needs price under the session VWAP (over it for a short).</summary>
+    public bool VelocityExhaustionRequireVwapLoss { get; set; }
+
+    /// <summary>Above this percent extension from the 09:30 open the velocity exit stands down and trailing rules manage the exit.</summary>
+    public double? VelocityExhaustionExtensionSwitchPct { get; set; }
 
     public bool IsAutonomous { get; set; }
     public bool IsAdaptive { get; set; }
@@ -1283,7 +1398,8 @@ public enum IndicatorType
     AtSupport, AtResistance,
     HigherLows, DippedTo,
     NotFallingKnife, NotBullTrap, NotStopHunt, NotVwapLoss, NotIntoRaidedPool, NearRaidedPool,
-    LeaderConfirms, NotLeaderDiverging
+    LeaderConfirms, NotLeaderDiverging,
+    VelocityBelow, VelocityAbove, Decelerating, VolumeRocBelow
 }
 
 /// <summary>
@@ -1425,6 +1541,10 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
             IndicatorType.NearRaidedPool       => "NearRaidedPool",
             IndicatorType.LeaderConfirms       => "LeaderConfirms",
             IndicatorType.NotLeaderDiverging   => "NotLeaderDiverging",
+            IndicatorType.VelocityBelow        => "VelocityBelow",
+            IndicatorType.VelocityAbove        => "VelocityAbove",
+            IndicatorType.Decelerating         => "Decelerating",
+            IndicatorType.VolumeRocBelow       => "VolumeRocBelow",
             _                                  => $"Is{Type}"
         };
 
@@ -1514,10 +1634,23 @@ public sealed class IndicatorCondition(IndicatorType type, double? parameter = n
                                               && s.RaidedPoolReverseRate is { } reverse && reverse >= (Parameter ?? 0.6),
         IndicatorType.LeaderConfirms     => LeaderMove(s) is { } up && up > 0,
         IndicatorType.NotLeaderDiverging => LeaderMove(s) is { } notDown && notDown >= 0,
+        IndicatorType.VelocityBelow      => Parameter is { } vMax && VelocityFor(s) is { } vBelow && vBelow < vMax,
+        IndicatorType.VelocityAbove      => Parameter is { } vMin && VelocityFor(s) is { } vAbove && vAbove > vMin,
+        IndicatorType.Decelerating       => s.Acceleration is { } accel && accel < 0,
+        IndicatorType.VolumeRocBelow     => Parameter is { } rocMax && s.VolumeRoc is { } roc && roc < rocMax,
         // Fail closed on anything unrecognized: a condition this evaluator
         // doesn't understand must block the fire, never wave it through
         // (IP-LAW-1 — same doctrine as the gap conditions above).
         _                                => false
+    };
+
+    /// <summary>The snapshot velocity for the window in Parameter2 (default 3); windows the snapshot doesn't carry fail closed.</summary>
+    private double? VelocityFor(IndicatorSnapshot s) => (int)(Parameter2 ?? 3) switch
+    {
+        1 => s.Velocity1m,
+        3 => s.Velocity3m,
+        5 => s.Velocity5m,
+        _ => null,
     };
 
     /// <summary>Learned trap guard: passes when the setup is absent, or when its counted adverse
@@ -2143,6 +2276,10 @@ public sealed class ConditionFactory
     public ICondition IsGapDown(double minPercent = 3) => new IndicatorCondition(IndicatorType.GapDown, minPercent);
     public ICondition IsVolumeAbove(double multiplier) => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
     public ICondition WithVolumeConfirm(double multiplier = 1.2) => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
+    public ICondition VelocityBelow(double pctPerMin, int windowMinutes = 3) => new IndicatorCondition(IndicatorType.VelocityBelow, pctPerMin, windowMinutes);
+    public ICondition VelocityAbove(double pctPerMin, int windowMinutes = 3) => new IndicatorCondition(IndicatorType.VelocityAbove, pctPerMin, windowMinutes);
+    public ICondition Decelerating() => new IndicatorCondition(IndicatorType.Decelerating);
+    public ICondition VolumeRocBelow(double ratio) => new IndicatorCondition(IndicatorType.VolumeRocBelow, ratio);
     public ICondition IsAtSupport(double tolerancePercent = 0.5) => new IndicatorCondition(IndicatorType.AtSupport, tolerancePercent);
     public ICondition IsAtResistance(double tolerancePercent = 0.5) => new IndicatorCondition(IndicatorType.AtResistance, tolerancePercent);
     public ICondition IsBullishEngulfing() => new PatternCondition(PatternType.BullishEngulfing);
@@ -2228,6 +2365,12 @@ public static class Conditions
     public static ICondition IsVolumeAbove(double multiplier)              => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
     public static ICondition WithVolumeConfirm(double multiplier = 1.2)    => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
     public static ICondition VolumeSpike(double multiplier = 2.0)          => new IndicatorCondition(IndicatorType.VolumeAbove, multiplier);
+    public static ICondition VolumeRocBelow(double ratio)                  => new IndicatorCondition(IndicatorType.VolumeRocBelow, ratio);
+
+    // ── Velocity (percent per clock minute; window 1, 3 or 5 minutes) ──
+    public static ICondition VelocityBelow(double pctPerMin, int windowMinutes = 3) => new IndicatorCondition(IndicatorType.VelocityBelow, pctPerMin, windowMinutes);
+    public static ICondition VelocityAbove(double pctPerMin, int windowMinutes = 3) => new IndicatorCondition(IndicatorType.VelocityAbove, pctPerMin, windowMinutes);
+    public static ICondition Decelerating                                   => new IndicatorCondition(IndicatorType.Decelerating);
 
     // ── Gap ──
     public static ICondition IsGapUp(double minPercent = 3)                => new IndicatorCondition(IndicatorType.GapUp, minPercent);

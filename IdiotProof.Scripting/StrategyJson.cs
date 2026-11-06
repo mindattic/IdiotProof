@@ -74,6 +74,17 @@ public static class StrategyJson
         if (def.WhileConditions.Count > 0)
             root["whileConditions"] = new JsonArray(def.WhileConditions.Select(WriteCondition).ToArray());
         if (def.ExitWhenWhileFails) root["exitWhenWhileFails"] = true;
+        // Velocity-exit keys follow the same rule: absent unless the strategy uses them.
+        if (def.VelocityExhaustionPctPerMin is { } velocity)
+        {
+            root["velocityExhaustionPctPerMin"] = velocity;
+            if (def.VelocityExhaustionWindowMinutes is { } window) root["velocityExhaustionWindowMinutes"] = window;
+            if (def.VelocityExhaustionArmTime is { } velocityArm) root["velocityExhaustionArmTime"] = Time(velocityArm);
+            if (def.VelocityExhaustionMinRunPercent is { } minRun) root["velocityExhaustionMinRunPercent"] = minRun;
+            if (def.VelocityExhaustionRequireLowerHigh) root["velocityExhaustionRequireLowerHigh"] = true;
+            if (def.VelocityExhaustionRequireVwapLoss) root["velocityExhaustionRequireVwapLoss"] = true;
+            if (def.VelocityExhaustionExtensionSwitchPct is { } extension) root["velocityExhaustionExtensionSwitchPct"] = extension;
+        }
         return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
 
@@ -162,7 +173,10 @@ public static class StrategyJson
                 "entryRollingLowDays", "entryRollingLowBuffer",
                 "entryRollingHighDays", "entryRollingHighBuffer",
                 "isAutonomous", "isAdaptive", "shouldRepeat", "conditionalBlocks",
-                "maxCycles", "whileConditions", "exitWhenWhileFails");
+                "maxCycles", "whileConditions", "exitWhenWhileFails",
+                "velocityExhaustionPctPerMin", "velocityExhaustionWindowMinutes", "velocityExhaustionArmTime",
+                "velocityExhaustionMinRunPercent", "velocityExhaustionRequireLowerHigh",
+                "velocityExhaustionRequireVwapLoss", "velocityExhaustionExtensionSwitchPct");
 
             var symbol = GetString(root, "symbol");
             if (string.IsNullOrWhiteSpace(symbol))
@@ -198,6 +212,15 @@ public static class StrategyJson
             def.ShouldRepeat = GetBool(root, "shouldRepeat") ?? false;
             def.MaxCycles = GetInt(root, "maxCycles");
             def.ExitWhenWhileFails = GetBool(root, "exitWhenWhileFails") ?? false;
+            def.VelocityExhaustionPctPerMin = GetDouble(root, "velocityExhaustionPctPerMin");
+            def.VelocityExhaustionWindowMinutes = GetInt(root, "velocityExhaustionWindowMinutes");
+            if (def.VelocityExhaustionWindowMinutes is { } velocityWindow && velocityWindow is not (1 or 3 or 5))
+                throw new StrategyJsonException($"'velocityExhaustionWindowMinutes' must be 1, 3 or 5, not {velocityWindow}.");
+            def.VelocityExhaustionArmTime = GetTime(root, "velocityExhaustionArmTime");
+            def.VelocityExhaustionMinRunPercent = GetDouble(root, "velocityExhaustionMinRunPercent");
+            def.VelocityExhaustionRequireLowerHigh = GetBool(root, "velocityExhaustionRequireLowerHigh") ?? false;
+            def.VelocityExhaustionRequireVwapLoss = GetBool(root, "velocityExhaustionRequireVwapLoss") ?? false;
+            def.VelocityExhaustionExtensionSwitchPct = GetDouble(root, "velocityExhaustionExtensionSwitchPct");
             if (root.TryGetProperty("whileConditions", out var whiles))
             {
                 if (whiles.ValueKind != JsonValueKind.Array)

@@ -79,6 +79,20 @@ public static class ScriptParser
             case "peakgiveback":
                 if (nums.Count >= 1) b.PeakGiveback((double)nums[0], strs.Count >= 2 ? strs[1] : null);
                 break;
+            case "velocityexhaustion":
+                if (nums.Count >= 1)
+                    b.VelocityExhaustion((double)nums[0], nums.Count >= 2 ? (int)nums[1] : 3, strs.Count >= 3 ? strs[2] : null);
+                break;
+            case "velocityexhaustionminrun":          if (nums.Count >= 1) b.VelocityExhaustionMinRun((double)nums[0]); break;
+            case "velocityexhaustionrequirelowerhigh": b.VelocityExhaustionRequireLowerHigh(); break;
+            case "velocityexhaustionrequirevwaploss":  b.VelocityExhaustionRequireVwapLoss(); break;
+            case "velocityexhaustionextensionswitch":  if (nums.Count >= 1) b.VelocityExhaustionExtensionSwitch((double)nums[0]); break;
+
+            // Velocity
+            case "velocitybelow":  if (nums.Count >= 1) b.VelocityBelow((double)nums[0], nums.Count >= 2 ? (int)nums[1] : 3); break;
+            case "velocityabove":  if (nums.Count >= 1) b.VelocityAbove((double)nums[0], nums.Count >= 2 ? (int)nums[1] : 3); break;
+            case "decelerating":   b.Decelerating(); break;
+            case "volumerocbelow": if (nums.Count >= 1) b.VolumeRocBelow((double)nums[0]); break;
 
             // VWAP
             case "isabovevwap": case "abovevwap":     b.IsAboveVwap(); break;

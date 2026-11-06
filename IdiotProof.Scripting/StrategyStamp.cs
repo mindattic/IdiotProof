@@ -297,12 +297,25 @@ public static class StrategyStamp
         if (def.PeakGivebackPercent is { } pg)
             exits.Add($"peak giveback {StampText.Pct(pg)} of the run" +
                       (def.PeakGivebackArmTime is { } arm ? $", armed {StampText.Time(arm)} ET" : ", armed on entry"));
+        if (def.VelocityExhaustionPctPerMin is { } ve)
+            exits.Add(VelocityExitText(def, ve));
         if (def.ExitTime is { } et) exits.Add($"sell-by {StampText.Time(et)} ET (flatten)");
         exits.AddRange(def.EntryConditions.Where(c => c.Phase == StrategyPhase.Exit).Select(StampText.Describe));
         w.Top("6 EXIT", "first to hit wins");
         if (exits.Count == 0) w.Row("(no target or time exit - stop only)");
         foreach (var x in exits) w.Row(B(x));
         w.Bottom();
+    }
+
+    private static string VelocityExitText(StrategyDefinition def, double pctPerMin)
+    {
+        var text = $"velocity exhaustion: {def.VelocityExhaustionWindowMinutes ?? 3}-min velocity under {StampText.Num(pctPerMin)}%/min" +
+                   (def.VelocityExhaustionArmTime is { } arm ? $", armed {StampText.Time(arm)} ET" : ", armed on entry");
+        if (def.VelocityExhaustionMinRunPercent is { } minRun) text += $", after a {StampText.Pct(minRun)} run";
+        if (def.VelocityExhaustionRequireLowerHigh) text += ", needs a lower high";
+        if (def.VelocityExhaustionRequireVwapLoss) text += ", needs a VWAP loss";
+        if (def.VelocityExhaustionExtensionSwitchPct is { } ext) text += $", trails instead past {StampText.Pct(ext)} from the open";
+        return text;
     }
 
     private static void Fork(StampWriter w, ConditionalBlock block, string n)
@@ -389,6 +402,9 @@ public static class StrategyStamp
         if (def.PeakGivebackPercent is { } pg)
             timed.Add(new(null, "GIVEBACK", $"{StampText.Pct(pg)} of run",
                 def.PeakGivebackArmTime is { } arm ? $"armed {StampText.Time(arm)} ET" : "armed on entry"));
+        if (def.VelocityExhaustionPctPerMin is { } ve)
+            timed.Add(new(null, "VELOCITY", $"{def.VelocityExhaustionWindowMinutes ?? 3}-min under {StampText.Num(ve)}%/min",
+                def.VelocityExhaustionArmTime is { } velocityArm ? $"armed {StampText.Time(velocityArm)} ET" : "armed on entry"));
         if (def.ExitTime is { } et)
             timed.Add(new(null, "SELL-BY", $"{StampText.Time(et)} ET", "flatten"));
 

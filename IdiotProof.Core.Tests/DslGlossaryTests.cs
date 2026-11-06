@@ -49,6 +49,8 @@ public sealed class DslGlossaryTests
         "Name", "Session", "Entry", "Order", "Long", "Short", "Quantity", "WithVolumeConfirm",
         "TakeProfit", "AddTarget", "TakeProfitPercent", "StopLoss", "StopLossPercent",
         "TrailingStopLoss", "ExitStrategy", "PeakGiveback", "ExitAtPriorHigh",
+        "VelocityExhaustion", "VelocityExhaustionMinRun", "VelocityExhaustionRequireLowerHigh",
+        "VelocityExhaustionRequireVwapLoss", "VelocityExhaustionExtensionSwitch",
         "ExitAtRollingHigh", "ExitAtRollingLow", "EntryAtRollingLow", "EntryAtRollingHigh",
         "AutonomousTrading", "AdaptiveOrder", "Repeat", "If", "Then", "ElseIf", "Else", "EndIf",
         "While", "EndWhile", "ExitWhenFalse", "For", "ForEach", "TakeProfitEach",

@@ -99,7 +99,7 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         var order   = all.Where(v => HasPrefix(v, "Long(", "Short(", "Order(", "Quantity", "AutonomousTrading(", "AdaptiveOrder(")).ToList();
         var risk    = all.Where(v => HasPrefix(v, "StopLoss", "TrailingStop")).ToList();
         var exit    = all.Where(v => HasPrefix(v, "TakeProfit", "AddTarget(", "ExitStrategy(", "Repeat(", "SellBy(", "PeakGiveback(",
-            "ExitAtRollingHigh(", "ExitAtRollingLow(", "ExitAtPriorHigh(", "For(", "ForEach(")).ToList();
+            "VelocityExhaustion", "ExitAtRollingHigh(", "ExitAtRollingLow(", "ExitAtPriorHigh(", "For(", "ForEach(")).ToList();
 
         var usedSet = new HashSet<string>(StringComparer.Ordinal);
         foreach (var list in new[] { setup, filters, order, risk, exit })
