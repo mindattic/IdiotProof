@@ -1,0 +1,66 @@
++=[ IDIOTPROOF :: STRATEGY STAMP ]===================== IP-TQGX-DZTO ==+
+|  SYMBOL   SUNE                 SIDE     ^ LONG  (buy to open)        |
+|  SIZE     1 share              SESSION  RTH 09:30-16:00 ET           |
+|  NAME     SUNE Wedge Breakout                                        |
+|  FLAGS    repeats after exit                                         |
++======================================================================+
+
++-[ 1 SETUP ]------------------------------------------ where & when --+
+|  * ticker   SUNE                                                     |
+|  * session  Regular hours (09:30-16:00 ET)                           |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 2 FILTERS ]---------------------- always-on gates, all must hold --+
+|  (none - no regime gate)                                             |
++----------------------------------------------------------------------+
+                                   |   gates hold
+                                   v
++-[ 3 ENTRY ]------------------------- the trigger, all true to fire --+
+|  * breakout through $2.42                                            |
+|  * pullback off the window high                                      |
+|  * holds above $2.30                                                 |
++----------------------------------------------------------------------+
+                                   |   fires
+                                   v
++-[ 4 ORDER ]-------------------------------------- what gets placed --+
+|  * BUY to open . 1 share                                             |
+|  * after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)        |
+|  * re-arms after each exit (repeat)                                  |
++----------------------------------------------------------------------+
+                                   |   filled
+                                   v
++-[ 5 RISK ]----------------------------------- the Guardian's rails --+
+|  * hard stop at $2.25                                                |
++----------------------------------------------------------------------+
+                                   |   held
+                                   v
++-[ 6 EXIT ]-------------------------------------- first to hit wins --+
+|  * target T1 at $2.85, sell 33%                                      |
+|  * target T2 at $3.20, sell 33%                                      |
+|  * target T3 at $4.20, sell 34%                                      |
++----------------------------------------------------------------------+
+
++-[ EXIT LADDER ]-------------------- long: profit above, risk below --+
+|  price                                                               |
+|    ^  T3 ......... $4.20 ............... sell 34%                    |
+|    |  T2 ......... $3.20 ............... sell 33%                    |
+|    |  T1 ......... $2.85 ............... sell 33%                    |
+|  ==+== ENTRY  buy . 1 share =======================================  |
+|    v  STOP ....... $2.25 ............... sell all                    |
++----------------------------------------------------------------------+
+|  moving & timed exits                                                |
+|     (none)                                                           |
++----------------------------------------------------------------------+
+
++-[IP-TQGX-DZTO]--+    FINGERPRINT  IP-TQGX-DZTO
+|        . o    +O|
+|         =    .o*|    sha256  9c0d 71e6 6e77 b53c
+|        . .    =*|            453c 1785 bb97 c349
+|       . =    +=B|            333b 98d7 c454 7dea
+|        S + .o*@B|            a7bb 2ed1 47a6 79bb
+|         . ..+*OB|
+|             ..*+|    canon   StrategyJson v1 . 1,000 bytes
+|            . .. |    Same strategy, same picture: change any field
+|             o+E.|    and the art changes. Paste this whole stamp
++----[SHA256]-----+    back into IdiotProof to recreate the strategy.

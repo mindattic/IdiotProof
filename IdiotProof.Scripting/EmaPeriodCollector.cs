@@ -42,10 +42,19 @@ public static class EmaPeriodCollector
 
     private static IEnumerable<ICondition> WalkAllConditions(StrategyDefinition def)
     {
+        foreach (var step in def.AllSteps())
+            foreach (var c in WalkStep(step)) yield return c;
+    }
+
+    private static IEnumerable<ICondition> WalkStep(StrategyDefinition def)
+    {
         foreach (var c in def.EntryConditions)
             foreach (var sub in WalkOne(c)) yield return sub;
 
         foreach (var c in def.WhileConditions)
+            foreach (var sub in WalkOne(c)) yield return sub;
+
+        foreach (var c in def.ThenWhen)
             foreach (var sub in WalkOne(c)) yield return sub;
 
         foreach (var block in def.ConditionalBlocks)

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "symbol": "NCI",
+  "name": "NCI Breakout-Pullback",
+  "session": "RTH",
+  "quantity": 1,
+  "notionalAmount": null,
+  "direction": "Long",
+  "entryConditions": [
+    {
+      "type": "pattern",
+      "pattern": "Breakout",
+      "level": 3.68
+    },
+    {
+      "type": "pattern",
+      "pattern": "Pullback",
+      "level": null
+    },
+    {
+      "type": "indicator",
+      "indicator": "VwapAbove",
+      "p1": null,
+      "p2": null,
+      "phase": "Entry"
+    }
+  ],
+  "takeProfitPrice": 5,
+  "takeProfitPercent": null,
+  "takeProfitTargets": [
+    {
+      "label": "T1",
+      "price": 5,
+      "percentToSell": 50
+    },
+    {
+      "label": "T2",
+      "price": 6.5,
+      "percentToSell": 50
+    }
+  ],
+  "stopLossPrice": 3.5,
+  "stopLossPercent": null,
+  "trailingStopPercent": null,
+  "exitTime": null,
+  "peakGivebackPercent": null,
+  "peakGivebackArmTime": null,
+  "exitAtPriorHigh": false,
+  "rollingHighDays": null,
+  "rollingHighBuffer": null,
+  "rollingLowDays": null,
+  "rollingLowBuffer": null,
+  "entryRollingLowDays": null,
+  "entryRollingLowBuffer": null,
+  "entryRollingHighDays": null,
+  "entryRollingHighBuffer": null,
+  "isAutonomous": false,
+  "isAdaptive": false,
+  "shouldRepeat": true,
+  "conditionalBlocks": []
+}

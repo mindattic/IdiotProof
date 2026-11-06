@@ -151,9 +151,30 @@ public static class StrategyStamp
         var w = new StampWriter(g);
         Header(w, def, id);
         w.Blank();
-        Flow(w, def);
-        w.Blank();
-        Ladder(w, def);
+        if (!def.IsSequence)
+        {
+            Flow(w, def);
+            w.Blank();
+            Ladder(w, def);
+        }
+        else
+        {
+            var steps = def.AllSteps().ToList();
+            for (int k = 0; k < steps.Count; k++)
+            {
+                if (k > 0) w.Blank();
+                StepHeader(w, steps[k], k, steps.Count);
+                w.Blank();
+                Flow(w, steps[k]);
+                w.Blank();
+                Ladder(w, steps[k]);
+                if (k < steps.Count - 1)
+                {
+                    w.Blank();
+                    Transition(w, steps[k], k, steps.Count);
+                }
+            }
+        }
         w.Blank();
         FingerprintPanel(w, hash, id, canonical.Length);
 
@@ -194,7 +215,38 @@ public static class StrategyStamp
         if (def.IsAdaptive) flags.Add("adaptive order");
         if (def.ShouldRepeat) flags.Add(def.MaxCycles is { } max ? $"repeats, max {max}/day" : "repeats after exit");
         if (flags.Count > 0) w.Row(Kv("FLAGS", string.Join(", ", flags)), hang: 9, heavy: true);
+        if (def.IsSequence)
+        {
+            var names = def.AllSteps().Select((s, k) => g.Clean(s.StepName ?? $"step {k + 1}"));
+            w.Row(Kv("STEPS", $"{def.StepCount} in sequence: {string.Join(" > ", names)}"), hang: 9, heavy: true);
+        }
         w.Bottom(heavy: true);
+    }
+
+    // ── Steps (IP-T445) ─────────────────────────────────────────────────
+
+    private static void StepHeader(StampWriter w, StrategyDefinition step, int index, int count)
+    {
+        var g = w.G;
+        var side = step.Direction == TradeDirection.Short
+            ? $"{g.Dn} SHORT  (sell to open)"
+            : $"{g.Up} LONG  (buy to open)";
+        w.Top($"STEP {index + 1}/{count}", index == 0 ? "armed first" : "armed by the step before it", heavy: true);
+        w.Row(Pair(Kv("NAME", g.Clean(step.StepName ?? $"step {index + 1}")), Kv("SIDE", side)), hang: 9, heavy: true);
+        w.Bottom(heavy: true);
+    }
+
+    private static void Transition(StampWriter w, StrategyDefinition step, int index, int count)
+    {
+        var g = w.G;
+        w.Top("THEN WHEN", $"flat after step {index + 1}, waiting for step {index + 2}");
+        if (step.ThenWhen.Count == 0) w.Row("(no condition - the next step arms as soon as this one is flat)");
+        foreach (var c in step.ThenWhen) w.Row($"{g.Bullet} {StampText.Describe(c)}");
+        w.Row(step.ThenWithinDays is { } days
+            ? $"{g.Bullet} within {days} {(days == 1 ? "day" : "days")} of the exit, or the sequence ends"
+            : $"{g.Bullet} no deadline");
+        w.Bottom();
+        w.Connector($"step {index + 2}/{count}");
     }
 
     private static string Kv(string key, string value) => $"{key,-9}{value}";

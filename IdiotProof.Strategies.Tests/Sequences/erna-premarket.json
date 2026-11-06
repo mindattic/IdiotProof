@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "symbol": "ERNA",
+  "name": "ERNA AH Momentum",
+  "session": "Premarket",
+  "quantity": 1,
+  "notionalAmount": null,
+  "direction": "Long",
+  "entryConditions": [
+    {
+      "type": "pattern",
+      "pattern": "Breakout",
+      "level": 0.52
+    },
+    {
+      "type": "pattern",
+      "pattern": "Pullback",
+      "level": null
+    },
+    {
+      "type": "indicator",
+      "indicator": "VwapAbove",
+      "p1": null,
+      "p2": null,
+      "phase": "Entry"
+    },
+    {
+      "type": "priceLevel",
+      "kind": "HoldsAbove",
+      "level": 0.48,
+      "tolerancePercent": 1
+    }
+  ],
+  "takeProfitPrice": 0.66,
+  "takeProfitPercent": null,
+  "takeProfitTargets": [
+    {
+      "label": "T1",
+      "price": 0.66,
+      "percentToSell": 50
+    },
+    {
+      "label": "T2",
+      "price": 0.88,
+      "percentToSell": 50
+    }
+  ],
+  "stopLossPrice": 0.46,
+  "stopLossPercent": null,
+  "trailingStopPercent": null,
+  "exitTime": null,
+  "peakGivebackPercent": null,
+  "peakGivebackArmTime": null,
+  "exitAtPriorHigh": false,
+  "rollingHighDays": null,
+  "rollingHighBuffer": null,
+  "rollingLowDays": null,
+  "rollingLowBuffer": null,
+  "entryRollingLowDays": null,
+  "entryRollingLowBuffer": null,
+  "entryRollingHighDays": null,
+  "entryRollingHighBuffer": null,
+  "isAutonomous": false,
+  "isAdaptive": false,
+  "shouldRepeat": true,
+  "conditionalBlocks": []
+}

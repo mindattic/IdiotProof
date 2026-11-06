@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "symbol": "SPY",
+  "name": "SPY VWAP reclaim",
+  "session": "RTH",
+  "quantity": 1,
+  "notionalAmount": null,
+  "direction": "Long",
+  "entryConditions": [
+    {
+      "type": "indicator",
+      "indicator": "AdxAbove",
+      "p1": 20,
+      "p2": null,
+      "phase": "Filters"
+    },
+    {
+      "type": "indicator",
+      "indicator": "EmaStack",
+      "p1": 9,
+      "p2": 21,
+      "phase": "Filters"
+    },
+    {
+      "type": "indicator",
+      "indicator": "VwapReclaim",
+      "p1": null,
+      "p2": null,
+      "phase": "Entry"
+    },
+    {
+      "type": "indicator",
+      "indicator": "VolumeAbove",
+      "p1": 1.2,
+      "p2": null,
+      "phase": "Entry"
+    }
+  ],
+  "takeProfitPrice": null,
+  "takeProfitPercent": 3,
+  "takeProfitTargets": [],
+  "stopLossPrice": null,
+  "stopLossPercent": 1.5,
+  "trailingStopPercent": null,
+  "exitTime": null,
+  "peakGivebackPercent": null,
+  "peakGivebackArmTime": null,
+  "exitAtPriorHigh": false,
+  "rollingHighDays": null,
+  "rollingHighBuffer": null,
+  "rollingLowDays": null,
+  "rollingLowBuffer": null,
+  "entryRollingLowDays": null,
+  "entryRollingLowBuffer": null,
+  "entryRollingHighDays": null,
+  "entryRollingHighBuffer": null,
+  "isAutonomous": false,
+  "isAdaptive": false,
+  "shouldRepeat": false,
+  "conditionalBlocks": []
+}

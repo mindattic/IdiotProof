@@ -341,11 +341,50 @@ internal sealed class BlockReader(StrategyBuilder builder, ScriptChain chain)
         if (open is not null && !explicitBlock) Close();
     }
 
+    /// <summary>Closes any open block, explicit or not: a Step() boundary ends everything before it.</summary>
+    public void CloseAll() => Close();
+
     private void Close()
     {
         open = null;
         explicitBlock = false;
         awaitingThen = false;
         pendingIf = null;
+    }
+}
+
+/// <summary>
+/// Reads the step verbs of a sequenced strategy while the parser walks a script: <c>Step("name")</c>
+/// switches the builder to the next step (closing any open If/While first), <c>ThenWhen(cond)</c>
+/// reads its condition with the same reader <c>If(cond)</c> uses, and <c>Within(n)</c> reads a day count.
+/// </summary>
+internal sealed class StepReader(StrategyBuilder builder, ScriptChain chain, BlockReader blocks)
+{
+    public bool TryApply(ScriptCall call)
+    {
+        switch (call.Name.ToLowerInvariant())
+        {
+            case "step":
+                blocks.CloseAll();
+                builder.Step(call.RawArgs.Trim().Trim('"').Trim());
+                return true;
+
+            case "thenwhen":
+                blocks.EndLegacyBlock();
+                if (chain.ReadCondition(call.ArgsFrom, call.ArgsTo) is { } transition)
+                    builder.ThenWhen(transition);
+                return true;
+
+            case "within":
+            {
+                blocks.EndLegacyBlock();
+                var nums = ScriptParser.ParseNumericArgs(call.RawArgs);
+                if (nums.Count >= 1 && nums[0] >= 1) builder.Within((int)nums[0]);
+                return true;
+            }
+
+            default:
+                return false;
+        }
     }
 }

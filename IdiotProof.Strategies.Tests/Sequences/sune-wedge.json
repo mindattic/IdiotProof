@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "symbol": "SUNE",
+  "name": "SUNE Wedge Breakout",
+  "session": "RTH",
+  "quantity": 1,
+  "notionalAmount": null,
+  "direction": "Long",
+  "entryConditions": [
+    {
+      "type": "pattern",
+      "pattern": "Breakout",
+      "level": 2.42
+    },
+    {
+      "type": "pattern",
+      "pattern": "Pullback",
+      "level": null
+    },
+    {
+      "type": "priceLevel",
+      "kind": "HoldsAbove",
+      "level": 2.3,
+      "tolerancePercent": 1
+    }
+  ],
+  "takeProfitPrice": 2.85,
+  "takeProfitPercent": null,
+  "takeProfitTargets": [
+    {
+      "label": "T1",
+      "price": 2.85,
+      "percentToSell": 33
+    },
+    {
+      "label": "T2",
+      "price": 3.2,
+      "percentToSell": 33
+    },
+    {
+      "label": "T3",
+      "price": 4.2,
+      "percentToSell": 34
+    }
+  ],
+  "stopLossPrice": 2.25,
+  "stopLossPercent": null,
+  "trailingStopPercent": null,
+  "exitTime": null,
+  "peakGivebackPercent": null,
+  "peakGivebackArmTime": null,
+  "exitAtPriorHigh": false,
+  "rollingHighDays": null,
+  "rollingHighBuffer": null,
+  "rollingLowDays": null,
+  "rollingLowBuffer": null,
+  "entryRollingLowDays": null,
+  "entryRollingLowBuffer": null,
+  "entryRollingHighDays": null,
+  "entryRollingHighBuffer": null,
+  "isAutonomous": false,
+  "isAdaptive": false,
+  "shouldRepeat": true,
+  "conditionalBlocks": []
+}

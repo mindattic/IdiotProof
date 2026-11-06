@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "symbol": "NVDA",
+  "name": "VWAP fork",
+  "session": "RTH",
+  "quantity": 25,
+  "notionalAmount": null,
+  "direction": "Long",
+  "entryConditions": [
+    {
+      "type": "indicator",
+      "indicator": "EmaStack",
+      "p1": 9,
+      "p2": 21,
+      "phase": "Filters"
+    }
+  ],
+  "takeProfitPrice": null,
+  "takeProfitPercent": null,
+  "takeProfitTargets": [],
+  "stopLossPrice": null,
+  "stopLossPercent": 3,
+  "trailingStopPercent": null,
+  "exitTime": "15:45",
+  "peakGivebackPercent": null,
+  "peakGivebackArmTime": null,
+  "exitAtPriorHigh": false,
+  "rollingHighDays": null,
+  "rollingHighBuffer": null,
+  "rollingLowDays": null,
+  "rollingLowBuffer": null,
+  "entryRollingLowDays": null,
+  "entryRollingLowBuffer": null,
+  "entryRollingHighDays": null,
+  "entryRollingHighBuffer": null,
+  "isAutonomous": false,
+  "isAdaptive": false,
+  "shouldRepeat": false,
+  "conditionalBlocks": [
+    {
+      "branches": [
+        {
+          "condition": {
+            "type": "indicator",
+            "indicator": "VwapAbove",
+            "p1": null,
+            "p2": null,
+            "phase": "Entry"
+          },
+          "overrides": {
+            "direction": "Long",
+            "entryConditions": [],
+            "takeProfitPrice": 152,
+            "takeProfitTargets": [
+              {
+                "label": "T1",
+                "price": 152,
+                "percentToSell": 50
+              },
+              {
+                "label": "T2",
+                "price": 158,
+                "percentToSell": 50
+              }
+            ],
+            "stopLossPrice": null,
+            "stopLossPercent": 2,
+            "trailingStopPercent": null
+          }
+        },
+        {
+          "condition": {
+            "type": "indicator",
+            "indicator": "VwapBelow",
+            "p1": null,
+            "p2": null,
+            "phase": "Entry"
+          },
+          "overrides": {
+            "direction": "Short",
+            "entryConditions": [],
+            "takeProfitPrice": 141,
+            "takeProfitTargets": [],
+            "stopLossPrice": 149.5,
+            "stopLossPercent": null,
+            "trailingStopPercent": null
+          }
+        },
+        {
+          "condition": null,
+          "overrides": {
+            "direction": "Long",
+            "entryConditions": [],
+            "takeProfitPrice": 150,
+            "takeProfitTargets": [],
+            "stopLossPrice": null,
+            "stopLossPercent": null,
+            "trailingStopPercent": null
+          }
+        }
+      ]
+    }
+  ]
+}

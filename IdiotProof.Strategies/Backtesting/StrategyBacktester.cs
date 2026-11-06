@@ -56,11 +56,15 @@ public static class StrategyBacktester
             FirstBarUtc   = ordered.Count > 0 ? ordered[0].StartUtc : null,
             LastBarUtc    = ordered.Count > 0 ? ordered[^1].StartUtc : null,
             HasBranching  = definition.HasBranching,
+            StepCount     = definition.StepCount,
         };
 
-        // Every condition any branch could add, tracked every bar so a pattern latch
-        // (Breakout/Pullback) keeps its state when the active branch flips.
-        var allConditions = CollectAllEntryConditions(definition);
+        // Per step, every condition any branch could add, tracked every bar so a pattern latch
+        // (Breakout/Pullback) keeps its state when the active branch flips. Only the active step's
+        // triggers are updated, so a later step's latch cannot trip before that step is armed.
+        var steps = definition.AllSteps().ToList();
+        var stepConditions = steps.Select(CollectAllEntryConditions).ToList();
+        var allConditions = stepConditions.SelectMany(c => c).ToList();
 
         if (ordered.Count < 2 || allConditions.Count == 0)
         {
@@ -76,14 +80,19 @@ public static class StrategyBacktester
         }
 
         var emaPeriods = CollectEmaPeriods(definition);
-        var allTriggers = BuildTriggers(allConditions);
+        var stepTriggers = stepConditions.Select(BuildTriggers).ToList();
+        var transitionTriggers = steps.Select(s => BuildTriggers(s.ThenWhen)).ToList();
         var triggerFor = new Dictionary<ICondition, TrackedTrigger>(ReferenceEqualityComparer.Instance);
-        for (int k = 0; k < allConditions.Count; k++) triggerFor[allConditions[k]] = allTriggers[k];
+        for (int s = 0; s < steps.Count; s++)
+            for (int k = 0; k < stepConditions[s].Count; k++) triggerFor[stepConditions[s][k]] = stepTriggers[s][k];
 
         // Branches resolve per bar, like the Monitor; an open trade keeps the branch it entered on
         // (the Monitor's ResolvedEntryScriptJson), so its stop/targets don't flip mid-trade.
-        var entryDef = definition;
-        var isLong = definition.Direction != TradeDirection.Short;
+        int step = 0;
+        var stepDef = steps[0];
+        var allTriggers = stepTriggers[0];
+        var entryDef = stepDef;
+        var isLong = stepDef.Direction != TradeDirection.Short;
         var triggers = allTriggers;
 
         BacktestTrade? open = null;
@@ -93,6 +102,26 @@ public static class StrategyBacktester
         decimal stop = 0m;
         int cycle = 1;
         bool blockReentry = false;
+        bool awaitingTransition = false;
+        DateTime exitUtc = default;
+
+        // The sequence is over (last step exited, or a ThenWhen deadline passed): Repeat restarts at step 0.
+        void EndSequence()
+        {
+            awaitingTransition = false;
+            if (definition.ShouldRepeat && (definition.MaxCycles is not { } maxCycles || cycle < maxCycles))
+            {
+                cycle++;
+                step = 0;
+                stepDef = steps[0];
+                allTriggers = stepTriggers[0];
+                foreach (var t in allTriggers) t.Reset();
+            }
+            else
+            {
+                blockReentry = true;
+            }
+        }
 
         for (int i = 0; i < ordered.Count; i++)
         {
@@ -105,8 +134,32 @@ public static class StrategyBacktester
             if (options.Leaders is { } leaders)
                 snapshot.Leaders = leaders.ReadingsAsOf(bar.EndUtc > bar.StartUtc ? bar.EndUtc : bar.StartUtc.AddMinutes(1));
 
-            var active = StrategyBranchResolver.Resolve(definition, snapshot);
-            var branchState = ReadBranches(definition, snapshot);
+            // Flat between steps: only this step's ThenWhen (and its deadline) is watched.
+            if (awaitingTransition)
+            {
+                var transition = transitionTriggers[step];
+                foreach (var t in transition) t.Update(bar, snapshot, transition);
+                bool expired = stepDef.ThenWithinDays is { } days && bar.StartUtc - exitUtc > TimeSpan.FromDays(days);
+                bool holds = !expired && transition.All(t => t.Satisfied);
+                AppendConditionRow(report, bar, transition, holds, false, false, false, ReadBranches(stepDef, snapshot), step, awaiting: true);
+                if (expired)
+                {
+                    EndSequence();
+                }
+                else if (holds)
+                {
+                    report.StepTransitions.Add(new StepTransition(bar.StartUtc, step, step + 1));
+                    step++;
+                    stepDef = steps[step];
+                    allTriggers = stepTriggers[step];
+                    foreach (var t in allTriggers) t.Reset();
+                    awaitingTransition = false;
+                }
+                continue;
+            }
+
+            var active = StrategyBranchResolver.Resolve(stepDef, snapshot);
+            var branchState = ReadBranches(stepDef, snapshot);
             triggers = active.EntryConditions.Select(c => triggerFor[c]).ToList();
 
             // 1) Update every trigger's satisfied state for this bar.
@@ -138,7 +191,7 @@ public static class StrategyBacktester
             if (open is not null)
             {
                 ManageOpenBar(open, bar, isLong, ref remaining, ref nextTarget, targets, stop, entryDef);
-                if (remaining > 0 && definition.ExitWhenWhileFails && !definition.WhileHolds(snapshot))
+                if (remaining > 0 && stepDef.ExitWhenWhileFails && !stepDef.WhileHolds(snapshot))
                 {
                     open.Exits.Add(new BacktestFill
                     {
@@ -151,30 +204,31 @@ public static class StrategyBacktester
                     FinalizeTrade(open, isLong);
                     report.Trades.Add(open);
                     open = null;
+                    exitUtc = bar.StartUtc;
 
-                    if (definition.ShouldRepeat && (definition.MaxCycles is not { } maxCycles || cycle < maxCycles))
+                    if (step + 1 < steps.Count)
                     {
-                        cycle++;
-                        foreach (var t in allTriggers) t.Reset();
+                        awaitingTransition = true;
+                        foreach (var t in transitionTriggers[step]) t.Reset();
                     }
                     else
                     {
-                        blockReentry = true;
+                        EndSequence();
                     }
                 }
-                AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, openedTradeThisBar, wasInPosition, branchState);
+                AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, openedTradeThisBar, wasInPosition, branchState, step);
                 continue; // never enter and manage on the same bar
             }
 
             // 3) Flat: open a position if the full setup is satisfied on this bar.
             // A While() guard pauses entries while false; it never triggers an entry by itself.
-            if (!blockReentry && allSatisfied && definition.WhileHolds(snapshot))
+            if (!blockReentry && allSatisfied && stepDef.WhileHolds(snapshot))
             {
                 var entryPrice = bar.Close;
                 var qty = ResolveQuantity(active, entryPrice, options);
                 if (qty <= 0)
                 {
-                    AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, false, false, branchState);
+                    AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, false, false, branchState, step);
                     continue;
                 }
 
@@ -189,6 +243,8 @@ public static class StrategyBacktester
                 open = new BacktestTrade
                 {
                     Cycle     = cycle,
+                    Step      = step,
+                    StepName  = stepDef.StepName,
                     Direction = active.Direction,
                     EntryUtc  = bar.StartUtc,
                     EntryPrice = entryPrice,
@@ -209,7 +265,7 @@ public static class StrategyBacktester
                 }
             }
 
-            AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, openedTradeThisBar, wasInPosition, branchState);
+            AppendConditionRow(report, bar, triggers, allSatisfied, hadFireThisBar, openedTradeThisBar, wasInPosition, branchState, step);
         }
 
         // Close anything still open at the last bar.
@@ -231,7 +287,7 @@ public static class StrategyBacktester
     private static void AppendConditionRow(
         BacktestReport report, Candle bar,
         List<TrackedTrigger> triggers, bool allSatisfied, bool hadFire, bool openedTrade, bool inPosition,
-        BranchState branches)
+        BranchState branches, int step, bool awaiting = false)
     {
         report.ConditionTable.Add(new CandleConditionRow
         {
@@ -249,6 +305,8 @@ public static class StrategyBacktester
             BranchTaken    = branches.Taken,
             BranchConditionResults = branches.Results,
             Indicators     = branches.Indicators,
+            Step           = step,
+            AwaitingTransition = awaiting,
         });
     }
 

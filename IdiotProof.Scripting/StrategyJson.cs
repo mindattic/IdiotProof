@@ -34,41 +34,42 @@ public static class StrategyJson
 
     // ── Serialize ───────────────────────────────────────────────────────
 
-    public static string Serialize(StrategyDefinition def)
+    public static string Serialize(StrategyDefinition def) =>
+        WriteDefinition(def, isRoot: true).ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+
+    private static JsonObject WriteDefinition(StrategyDefinition def, bool isRoot)
     {
-        var root = new JsonObject
-        {
-            ["schemaVersion"] = CurrentSchemaVersion,
-            ["symbol"] = def.Symbol,
-            ["name"] = def.Name,
-            ["session"] = def.Session.ToString(),
-            ["quantity"] = def.Quantity,
-            ["notionalAmount"] = def.NotionalAmount,
-            ["direction"] = def.Direction.ToString(),
-            ["entryConditions"] = new JsonArray(def.EntryConditions.Select(WriteCondition).ToArray()),
-            ["takeProfitPrice"] = def.TakeProfitPrice,
-            ["takeProfitPercent"] = def.TakeProfitPercent,
-            ["takeProfitTargets"] = new JsonArray(def.TakeProfitTargets.Select(WriteTarget).ToArray()),
-            ["stopLossPrice"] = def.StopLossPrice,
-            ["stopLossPercent"] = def.StopLossPercent,
-            ["trailingStopPercent"] = def.TrailingStopPercent,
-            ["exitTime"] = def.ExitTime is { } et ? Time(et) : null,
-            ["peakGivebackPercent"] = def.PeakGivebackPercent,
-            ["peakGivebackArmTime"] = def.PeakGivebackArmTime is { } arm ? Time(arm) : null,
-            ["exitAtPriorHigh"]       = def.ExitAtPriorHigh,
-            ["rollingHighDays"]       = def.RollingHighDays,
-            ["rollingHighBuffer"]     = def.RollingHighBuffer,
-            ["rollingLowDays"]        = def.RollingLowDays,
-            ["rollingLowBuffer"]      = def.RollingLowBuffer,
-            ["entryRollingLowDays"]   = def.EntryRollingLowDays,
-            ["entryRollingLowBuffer"] = def.EntryRollingLowBuffer,
-            ["entryRollingHighDays"]  = def.EntryRollingHighDays,
-            ["entryRollingHighBuffer"]= def.EntryRollingHighBuffer,
-            ["isAutonomous"] = def.IsAutonomous,
-            ["isAdaptive"] = def.IsAdaptive,
-            ["shouldRepeat"] = def.ShouldRepeat,
-            ["conditionalBlocks"] = new JsonArray(def.ConditionalBlocks.Select(WriteBlock).ToArray()),
-        };
+        var root = new JsonObject();
+        if (isRoot) root["schemaVersion"] = CurrentSchemaVersion;
+        root["symbol"] = def.Symbol;
+        root["name"] = def.Name;
+        root["session"] = def.Session.ToString();
+        root["quantity"] = def.Quantity;
+        root["notionalAmount"] = def.NotionalAmount;
+        root["direction"] = def.Direction.ToString();
+        root["entryConditions"] = new JsonArray(def.EntryConditions.Select(WriteCondition).ToArray());
+        root["takeProfitPrice"] = def.TakeProfitPrice;
+        root["takeProfitPercent"] = def.TakeProfitPercent;
+        root["takeProfitTargets"] = new JsonArray(def.TakeProfitTargets.Select(WriteTarget).ToArray());
+        root["stopLossPrice"] = def.StopLossPrice;
+        root["stopLossPercent"] = def.StopLossPercent;
+        root["trailingStopPercent"] = def.TrailingStopPercent;
+        root["exitTime"] = def.ExitTime is { } et ? Time(et) : null;
+        root["peakGivebackPercent"] = def.PeakGivebackPercent;
+        root["peakGivebackArmTime"] = def.PeakGivebackArmTime is { } arm ? Time(arm) : null;
+        root["exitAtPriorHigh"]       = def.ExitAtPriorHigh;
+        root["rollingHighDays"]       = def.RollingHighDays;
+        root["rollingHighBuffer"]     = def.RollingHighBuffer;
+        root["rollingLowDays"]        = def.RollingLowDays;
+        root["rollingLowBuffer"]      = def.RollingLowBuffer;
+        root["entryRollingLowDays"]   = def.EntryRollingLowDays;
+        root["entryRollingLowBuffer"] = def.EntryRollingLowBuffer;
+        root["entryRollingHighDays"]  = def.EntryRollingHighDays;
+        root["entryRollingHighBuffer"]= def.EntryRollingHighBuffer;
+        root["isAutonomous"] = def.IsAutonomous;
+        root["isAdaptive"] = def.IsAdaptive;
+        root["shouldRepeat"] = def.ShouldRepeat;
+        root["conditionalBlocks"] = new JsonArray(def.ConditionalBlocks.Select(WriteBlock).ToArray());
         // Loop keys are written only when used, so strategies without loops keep their exact JSON.
         if (def.MaxCycles is { } maxCycles) root["maxCycles"] = maxCycles;
         if (def.WhileConditions.Count > 0)
@@ -85,7 +86,14 @@ public static class StrategyJson
             if (def.VelocityExhaustionRequireVwapLoss) root["velocityExhaustionRequireVwapLoss"] = true;
             if (def.VelocityExhaustionExtensionSwitchPct is { } extension) root["velocityExhaustionExtensionSwitchPct"] = extension;
         }
-        return root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        // Sequence keys likewise: a single-step strategy's canon and stamp never move.
+        if (def.StepName is { } stepName) root["stepName"] = stepName;
+        if (def.ThenWhen.Count > 0)
+            root["thenWhen"] = new JsonArray(def.ThenWhen.Select(WriteCondition).ToArray());
+        if (def.ThenWithinDays is { } withinDays) root["thenWithinDays"] = withinDays;
+        if (isRoot && def.NextSteps.Count > 0)
+            root["nextSteps"] = new JsonArray(def.NextSteps.Select(step => (JsonNode)WriteDefinition(step, isRoot: false)).ToArray());
+        return root;
     }
 
     private static string Time(TimeSpan t) => t.ToString(@"hh\:mm");
@@ -163,98 +171,138 @@ public static class StrategyJson
             if (version != CurrentSchemaVersion)
                 throw new StrategyJsonException($"Unsupported schemaVersion {version} (this build understands {CurrentSchemaVersion}).");
 
-            RequireOnly(root, "strategy",
-                "schemaVersion", "symbol", "name", "session", "quantity", "notionalAmount", "direction",
-                "entryConditions", "takeProfitPrice", "takeProfitPercent", "takeProfitTargets",
-                "stopLossPrice", "stopLossPercent", "trailingStopPercent", "exitTime",
-                "peakGivebackPercent", "peakGivebackArmTime", "exitAtPriorHigh",
-                "rollingHighDays", "rollingHighBuffer",
-                "rollingLowDays", "rollingLowBuffer",
-                "entryRollingLowDays", "entryRollingLowBuffer",
-                "entryRollingHighDays", "entryRollingHighBuffer",
-                "isAutonomous", "isAdaptive", "shouldRepeat", "conditionalBlocks",
-                "maxCycles", "whileConditions", "exitWhenWhileFails",
-                "velocityExhaustionPctPerMin", "velocityExhaustionWindowMinutes", "velocityExhaustionArmTime",
-                "velocityExhaustionMinRunPercent", "velocityExhaustionRequireLowerHigh",
-                "velocityExhaustionRequireVwapLoss", "velocityExhaustionExtensionSwitchPct");
-
-            var symbol = GetString(root, "symbol");
-            if (string.IsNullOrWhiteSpace(symbol))
-                throw new StrategyJsonException("Missing or empty symbol.");
-
-            var builderSeed = Stock.Ticker(symbol!).Build(); // just for the ctor path; fields set below
-            var def = builderSeed;
-
-            def.Name = GetString(root, "name");
-            def.Session = GetEnum<TradingSession>(root, "session") ?? TradingSession.RTH;
-            def.Quantity = GetInt(root, "quantity") ?? 0;
-            def.NotionalAmount = GetDecimal(root, "notionalAmount");
-            def.Direction = GetEnum<TradeDirection>(root, "direction") ?? TradeDirection.Long;
-            def.TakeProfitPrice = GetDouble(root, "takeProfitPrice");
-            def.TakeProfitPercent = GetDouble(root, "takeProfitPercent");
-            def.StopLossPrice = GetDouble(root, "stopLossPrice");
-            def.StopLossPercent = GetDouble(root, "stopLossPercent");
-            def.TrailingStopPercent = GetDouble(root, "trailingStopPercent");
-            def.ExitTime = GetTime(root, "exitTime");
-            def.PeakGivebackPercent = GetDouble(root, "peakGivebackPercent");
-            def.PeakGivebackArmTime = GetTime(root, "peakGivebackArmTime");
-            def.ExitAtPriorHigh        = GetBool(root,   "exitAtPriorHigh") ?? false;
-            def.RollingHighDays        = GetInt(root,    "rollingHighDays");
-            def.RollingHighBuffer      = GetDouble(root, "rollingHighBuffer");
-            def.RollingLowDays         = GetInt(root,    "rollingLowDays");
-            def.RollingLowBuffer       = GetDouble(root, "rollingLowBuffer");
-            def.EntryRollingLowDays    = GetInt(root,    "entryRollingLowDays");
-            def.EntryRollingLowBuffer  = GetDouble(root, "entryRollingLowBuffer");
-            def.EntryRollingHighDays   = GetInt(root,    "entryRollingHighDays");
-            def.EntryRollingHighBuffer = GetDouble(root, "entryRollingHighBuffer");
-            def.IsAutonomous = GetBool(root, "isAutonomous") ?? false;
-            def.IsAdaptive = GetBool(root, "isAdaptive") ?? false;
-            def.ShouldRepeat = GetBool(root, "shouldRepeat") ?? false;
-            def.MaxCycles = GetInt(root, "maxCycles");
-            def.ExitWhenWhileFails = GetBool(root, "exitWhenWhileFails") ?? false;
-            def.VelocityExhaustionPctPerMin = GetDouble(root, "velocityExhaustionPctPerMin");
-            def.VelocityExhaustionWindowMinutes = GetInt(root, "velocityExhaustionWindowMinutes");
-            if (def.VelocityExhaustionWindowMinutes is { } velocityWindow && velocityWindow is not (1 or 3 or 5))
-                throw new StrategyJsonException($"'velocityExhaustionWindowMinutes' must be 1, 3 or 5, not {velocityWindow}.");
-            def.VelocityExhaustionArmTime = GetTime(root, "velocityExhaustionArmTime");
-            def.VelocityExhaustionMinRunPercent = GetDouble(root, "velocityExhaustionMinRunPercent");
-            def.VelocityExhaustionRequireLowerHigh = GetBool(root, "velocityExhaustionRequireLowerHigh") ?? false;
-            def.VelocityExhaustionRequireVwapLoss = GetBool(root, "velocityExhaustionRequireVwapLoss") ?? false;
-            def.VelocityExhaustionExtensionSwitchPct = GetDouble(root, "velocityExhaustionExtensionSwitchPct");
-            if (root.TryGetProperty("whileConditions", out var whiles))
-            {
-                if (whiles.ValueKind != JsonValueKind.Array)
-                    throw new StrategyJsonException("'whileConditions' must be a JSON array.");
-                foreach (var el in whiles.EnumerateArray())
-                    def.WhileConditions.Add(ReadCondition(el));
-            }
-
-            if (root.TryGetProperty("entryConditions", out var conds))
-            {
-                if (conds.ValueKind != JsonValueKind.Array)
-                    throw new StrategyJsonException("'entryConditions' must be a JSON array.");
-                foreach (var el in conds.EnumerateArray())
-                    def.EntryConditions.Add(ReadCondition(el));
-            }
-
-            if (root.TryGetProperty("takeProfitTargets", out var targets))
-            {
-                if (targets.ValueKind != JsonValueKind.Array)
-                    throw new StrategyJsonException("'takeProfitTargets' must be a JSON array.");
-                foreach (var el in targets.EnumerateArray())
-                    def.TakeProfitTargets.Add(ReadTarget(el));
-            }
-
-            if (root.TryGetProperty("conditionalBlocks", out var blocks))
-            {
-                if (blocks.ValueKind != JsonValueKind.Array)
-                    throw new StrategyJsonException("'conditionalBlocks' must be a JSON array.");
-                foreach (var el in blocks.EnumerateArray())
-                    def.ConditionalBlocks.Add(ReadBlock(el));
-            }
-
-            return def;
+            return ReadDefinition(root, isRoot: true);
         }
+    }
+
+    private static readonly string[] DefinitionKeys =
+    [
+        "symbol", "name", "session", "quantity", "notionalAmount", "direction",
+        "entryConditions", "takeProfitPrice", "takeProfitPercent", "takeProfitTargets",
+        "stopLossPrice", "stopLossPercent", "trailingStopPercent", "exitTime",
+        "peakGivebackPercent", "peakGivebackArmTime", "exitAtPriorHigh",
+        "rollingHighDays", "rollingHighBuffer",
+        "rollingLowDays", "rollingLowBuffer",
+        "entryRollingLowDays", "entryRollingLowBuffer",
+        "entryRollingHighDays", "entryRollingHighBuffer",
+        "isAutonomous", "isAdaptive", "shouldRepeat", "conditionalBlocks",
+        "maxCycles", "whileConditions", "exitWhenWhileFails",
+        "velocityExhaustionPctPerMin", "velocityExhaustionWindowMinutes", "velocityExhaustionArmTime",
+        "velocityExhaustionMinRunPercent", "velocityExhaustionRequireLowerHigh",
+        "velocityExhaustionRequireVwapLoss", "velocityExhaustionExtensionSwitchPct",
+        "stepName", "thenWhen", "thenWithinDays",
+    ];
+
+    private static readonly string[] RootKeys = [.. DefinitionKeys, "schemaVersion", "nextSteps"];
+
+    /// <summary>One step (the root with <paramref name="isRoot"/>, which alone may carry <c>nextSteps</c>; a step never nests steps).</summary>
+    private static StrategyDefinition ReadDefinition(JsonElement root, bool isRoot)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+            throw new StrategyJsonException("A step must be a JSON object.");
+
+        RequireOnly(root, isRoot ? "strategy" : "step", isRoot ? RootKeys : DefinitionKeys);
+
+        var symbol = GetString(root, "symbol");
+        if (string.IsNullOrWhiteSpace(symbol))
+            throw new StrategyJsonException("Missing or empty symbol.");
+
+        var builderSeed = Stock.Ticker(symbol!).Build(); // just for the ctor path; fields set below
+        var def = builderSeed;
+
+        def.Name = GetString(root, "name");
+        def.Session = GetEnum<TradingSession>(root, "session") ?? TradingSession.RTH;
+        def.Quantity = GetInt(root, "quantity") ?? 0;
+        def.NotionalAmount = GetDecimal(root, "notionalAmount");
+        def.Direction = GetEnum<TradeDirection>(root, "direction") ?? TradeDirection.Long;
+        def.TakeProfitPrice = GetDouble(root, "takeProfitPrice");
+        def.TakeProfitPercent = GetDouble(root, "takeProfitPercent");
+        def.StopLossPrice = GetDouble(root, "stopLossPrice");
+        def.StopLossPercent = GetDouble(root, "stopLossPercent");
+        def.TrailingStopPercent = GetDouble(root, "trailingStopPercent");
+        def.ExitTime = GetTime(root, "exitTime");
+        def.PeakGivebackPercent = GetDouble(root, "peakGivebackPercent");
+        def.PeakGivebackArmTime = GetTime(root, "peakGivebackArmTime");
+        def.ExitAtPriorHigh        = GetBool(root,   "exitAtPriorHigh") ?? false;
+        def.RollingHighDays        = GetInt(root,    "rollingHighDays");
+        def.RollingHighBuffer      = GetDouble(root, "rollingHighBuffer");
+        def.RollingLowDays         = GetInt(root,    "rollingLowDays");
+        def.RollingLowBuffer       = GetDouble(root, "rollingLowBuffer");
+        def.EntryRollingLowDays    = GetInt(root,    "entryRollingLowDays");
+        def.EntryRollingLowBuffer  = GetDouble(root, "entryRollingLowBuffer");
+        def.EntryRollingHighDays   = GetInt(root,    "entryRollingHighDays");
+        def.EntryRollingHighBuffer = GetDouble(root, "entryRollingHighBuffer");
+        def.IsAutonomous = GetBool(root, "isAutonomous") ?? false;
+        def.IsAdaptive = GetBool(root, "isAdaptive") ?? false;
+        def.ShouldRepeat = GetBool(root, "shouldRepeat") ?? false;
+        def.MaxCycles = GetInt(root, "maxCycles");
+        def.ExitWhenWhileFails = GetBool(root, "exitWhenWhileFails") ?? false;
+        def.VelocityExhaustionPctPerMin = GetDouble(root, "velocityExhaustionPctPerMin");
+        def.VelocityExhaustionWindowMinutes = GetInt(root, "velocityExhaustionWindowMinutes");
+        if (def.VelocityExhaustionWindowMinutes is { } velocityWindow && velocityWindow is not (1 or 3 or 5))
+            throw new StrategyJsonException($"'velocityExhaustionWindowMinutes' must be 1, 3 or 5, not {velocityWindow}.");
+        def.VelocityExhaustionArmTime = GetTime(root, "velocityExhaustionArmTime");
+        def.VelocityExhaustionMinRunPercent = GetDouble(root, "velocityExhaustionMinRunPercent");
+        def.VelocityExhaustionRequireLowerHigh = GetBool(root, "velocityExhaustionRequireLowerHigh") ?? false;
+        def.VelocityExhaustionRequireVwapLoss = GetBool(root, "velocityExhaustionRequireVwapLoss") ?? false;
+        def.VelocityExhaustionExtensionSwitchPct = GetDouble(root, "velocityExhaustionExtensionSwitchPct");
+        if (root.TryGetProperty("whileConditions", out var whiles))
+        {
+            if (whiles.ValueKind != JsonValueKind.Array)
+                throw new StrategyJsonException("'whileConditions' must be a JSON array.");
+            foreach (var el in whiles.EnumerateArray())
+                def.WhileConditions.Add(ReadCondition(el));
+        }
+
+        if (root.TryGetProperty("entryConditions", out var conds))
+        {
+            if (conds.ValueKind != JsonValueKind.Array)
+                throw new StrategyJsonException("'entryConditions' must be a JSON array.");
+            foreach (var el in conds.EnumerateArray())
+                def.EntryConditions.Add(ReadCondition(el));
+        }
+
+        if (root.TryGetProperty("takeProfitTargets", out var targets))
+        {
+            if (targets.ValueKind != JsonValueKind.Array)
+                throw new StrategyJsonException("'takeProfitTargets' must be a JSON array.");
+            foreach (var el in targets.EnumerateArray())
+                def.TakeProfitTargets.Add(ReadTarget(el));
+        }
+
+        if (root.TryGetProperty("conditionalBlocks", out var blocks))
+        {
+            if (blocks.ValueKind != JsonValueKind.Array)
+                throw new StrategyJsonException("'conditionalBlocks' must be a JSON array.");
+            foreach (var el in blocks.EnumerateArray())
+                def.ConditionalBlocks.Add(ReadBlock(el));
+        }
+
+        def.StepName = GetString(root, "stepName");
+        def.ThenWithinDays = GetInt(root, "thenWithinDays");
+        if (def.ThenWithinDays is { } withinDays && withinDays < 1)
+            throw new StrategyJsonException($"'thenWithinDays' must be at least 1, not {withinDays}.");
+        if (root.TryGetProperty("thenWhen", out var transitions))
+        {
+            if (transitions.ValueKind != JsonValueKind.Array)
+                throw new StrategyJsonException("'thenWhen' must be a JSON array.");
+            foreach (var el in transitions.EnumerateArray())
+                def.ThenWhen.Add(ReadCondition(el));
+        }
+        if (root.TryGetProperty("nextSteps", out var steps))
+        {
+            if (steps.ValueKind != JsonValueKind.Array)
+                throw new StrategyJsonException("'nextSteps' must be a JSON array.");
+            foreach (var el in steps.EnumerateArray())
+            {
+                var step = ReadDefinition(el, isRoot: false);
+                if (!string.Equals(step.Symbol, def.Symbol, StringComparison.Ordinal))
+                    throw new StrategyJsonException($"Step '{step.StepName}' is for {step.Symbol}, but the strategy is for {def.Symbol}; every step trades the same symbol.");
+                def.NextSteps.Add(step);
+            }
+        }
+
+        return def;
     }
 
     private static ICondition ReadCondition(JsonElement el)

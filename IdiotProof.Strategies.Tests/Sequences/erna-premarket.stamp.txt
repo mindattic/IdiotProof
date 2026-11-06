@@ -1,0 +1,65 @@
++=[ IDIOTPROOF :: STRATEGY STAMP ]===================== IP-YEYG-3EZT ==+
+|  SYMBOL   ERNA                 SIDE     ^ LONG  (buy to open)        |
+|  SIZE     1 share              SESSION  Premarket 04:00-09:30 ET     |
+|  NAME     ERNA AH Momentum                                           |
+|  FLAGS    repeats after exit                                         |
++======================================================================+
+
++-[ 1 SETUP ]------------------------------------------ where & when --+
+|  * ticker   ERNA                                                     |
+|  * session  Premarket (04:00-09:30 ET)                               |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 2 FILTERS ]---------------------- always-on gates, all must hold --+
+|  (none - no regime gate)                                             |
++----------------------------------------------------------------------+
+                                   |   gates hold
+                                   v
++-[ 3 ENTRY ]------------------------- the trigger, all true to fire --+
+|  * breakout through $0.52                                            |
+|  * pullback off the window high                                      |
+|  * price above VWAP                                                  |
+|  * holds above $0.48                                                 |
++----------------------------------------------------------------------+
+                                   |   fires
+                                   v
++-[ 4 ORDER ]-------------------------------------- what gets placed --+
+|  * BUY to open . 1 share                                             |
+|  * after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)        |
+|  * re-arms after each exit (repeat)                                  |
++----------------------------------------------------------------------+
+                                   |   filled
+                                   v
++-[ 5 RISK ]----------------------------------- the Guardian's rails --+
+|  * hard stop at $0.46                                                |
++----------------------------------------------------------------------+
+                                   |   held
+                                   v
++-[ 6 EXIT ]-------------------------------------- first to hit wins --+
+|  * target T1 at $0.66, sell 50%                                      |
+|  * target T2 at $0.88, sell 50%                                      |
++----------------------------------------------------------------------+
+
++-[ EXIT LADDER ]-------------------- long: profit above, risk below --+
+|  price                                                               |
+|    ^  T2 ......... $0.88 ............... sell 50%                    |
+|    |  T1 ......... $0.66 ............... sell 50%                    |
+|  ==+== ENTRY  buy . 1 share =======================================  |
+|    v  STOP ....... $0.46 ............... sell all                    |
++----------------------------------------------------------------------+
+|  moving & timed exits                                                |
+|     (none)                                                           |
++----------------------------------------------------------------------+
+
++-[IP-YEYG-3EZT]--+    FINGERPRINT  IP-YEYG-3EZT
+|    .o=O.o..++   |
+|   .  o+@. o  +  |    sha256  c130 6d93 3348 85cd
+|    .  .++.    o.|            09e0 7bfe a827 65d7
+|     .   o    + +|            3fda ec7e 58ef c256
+|    . . S.     * |            706d 00a6 52d5 bcb3
+|     oo . .   E .|
+|     o..   . + o |    canon   StrategyJson v1 . 1,040 bytes
+|    . .o   o+ = .|    Same strategy, same picture: change any field
+|    .+. . .+=+ o.|    and the art changes. Paste this whole stamp
++----[SHA256]-----+    back into IdiotProof to recreate the strategy.

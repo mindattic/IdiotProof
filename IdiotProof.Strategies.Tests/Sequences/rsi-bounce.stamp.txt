@@ -1,0 +1,61 @@
++=[ IDIOTPROOF :: STRATEGY STAMP ]===================== IP-KLUZ-SCQ4 ==+
+|  SYMBOL   AMD                  SIDE     ^ LONG  (buy to open)        |
+|  SIZE     1 share              SESSION  RTH 09:30-16:00 ET           |
+|  NAME     AMD oversold bounce                                        |
++======================================================================+
+
++-[ 1 SETUP ]------------------------------------------ where & when --+
+|  * ticker   AMD                                                      |
+|  * session  Regular hours (09:30-16:00 ET)                           |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 2 FILTERS ]---------------------- always-on gates, all must hold --+
+|  (none - no regime gate)                                             |
++----------------------------------------------------------------------+
+                                   |   gates hold
+                                   v
++-[ 3 ENTRY ]------------------------- the trigger, all true to fire --+
+|  * RSI at or below 30 (oversold)                                     |
+|  * hammer candle                                                     |
+|  * within 0.5% of swing-low support                                  |
++----------------------------------------------------------------------+
+                                   |   fires
+                                   v
++-[ 4 ORDER ]-------------------------------------- what gets placed --+
+|  * BUY to open . 1 share                                             |
+|  * after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)        |
++----------------------------------------------------------------------+
+                                   |   filled
+                                   v
++-[ 5 RISK ]----------------------------------- the Guardian's rails --+
+|  * stop 2% below entry                                               |
++----------------------------------------------------------------------+
+                                   |   held
+                                   v
++-[ 6 EXIT ]-------------------------------------- first to hit wins --+
+|  * take profit 4% from entry                                         |
+|  * peak giveback 40% of the run, armed on entry                      |
++----------------------------------------------------------------------+
+
++-[ EXIT LADDER ]-------------------- long: profit above, risk below --+
+|  price                                                               |
+|    ^  TARGET ..... +4% from entry ...... sell all                    |
+|  ==+== ENTRY  buy . 1 share =======================================  |
+|    v  STOP ....... -2% from entry ...... sell all                    |
++----------------------------------------------------------------------+
+|  moving & timed exits                                                |
+|    ~  GIVEBACK ... 40% of run .......... armed on entry              |
++----------------------------------------------------------------------+
+
++-[IP-KLUZ-SCQ4]--+    FINGERPRINT  IP-KLUZ-SCQ4
+|..o*=            |
+| +o=.o   .       |    sha256  52e9 990a 1c9a 9145
+|ooO+. . o        |            f400 706b bc08 f907
+|++OO.o o o       |            f9e9 5a7f 000b a932
+|+*=o*o. S        |            ad85 35d1 b8cc 227a
+|* Eo...o         |
+|.=  o ..         |    canon   StrategyJson v1 . 885 bytes
+|.  o .  .        |    Same strategy, same picture: change any field
+|  .   ..         |    and the art changes. Paste this whole stamp
++----[SHA256]-----+    back into IdiotProof to recreate the strategy.

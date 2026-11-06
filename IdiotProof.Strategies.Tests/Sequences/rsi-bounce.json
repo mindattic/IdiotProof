@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "symbol": "AMD",
+  "name": "AMD oversold bounce",
+  "session": "RTH",
+  "quantity": 1,
+  "notionalAmount": null,
+  "direction": "Long",
+  "entryConditions": [
+    {
+      "type": "indicator",
+      "indicator": "RsiOversold",
+      "p1": 30,
+      "p2": null,
+      "phase": "Entry"
+    },
+    {
+      "type": "pattern",
+      "pattern": "Hammer",
+      "level": null
+    },
+    {
+      "type": "indicator",
+      "indicator": "AtSupport",
+      "p1": 0.5,
+      "p2": null,
+      "phase": "Entry"
+    }
+  ],
+  "takeProfitPrice": null,
+  "takeProfitPercent": 4,
+  "takeProfitTargets": [],
+  "stopLossPrice": null,
+  "stopLossPercent": 2,
+  "trailingStopPercent": null,
+  "exitTime": null,
+  "peakGivebackPercent": 40,
+  "peakGivebackArmTime": null,
+  "exitAtPriorHigh": false,
+  "rollingHighDays": null,
+  "rollingHighBuffer": null,
+  "rollingLowDays": null,
+  "rollingLowBuffer": null,
+  "entryRollingLowDays": null,
+  "entryRollingLowBuffer": null,
+  "entryRollingHighDays": null,
+  "entryRollingHighBuffer": null,
+  "isAutonomous": false,
+  "isAdaptive": false,
+  "shouldRepeat": false,
+  "conditionalBlocks": []
+}

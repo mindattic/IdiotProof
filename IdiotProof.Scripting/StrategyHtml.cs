@@ -23,7 +23,33 @@ public static class StrategyHtml
     {
         var sb = new StringBuilder();
         sb.Append("<div class=\"phases\">");
+        if (!def.IsSequence)
+            Phases(sb, def);
+        else
+        {
+            var steps = def.AllSteps().ToList();
+            for (int k = 0; k < steps.Count; k++)
+            {
+                var step = steps[k];
+                Card(sb, $"Step {k + 1}/{steps.Count}", k == 0 ? "armed first" : "armed by the step before it", new List<string>
+                {
+                    Kv("Name", step.StepName ?? $"step {k + 1}"),
+                    Kv("Direction", step.Direction.ToString()),
+                });
+                Phases(sb, step);
+                if (k == steps.Count - 1) continue;
+                var rows = step.ThenWhen.Select(c => Li(Esc(c.ToScript()))).ToList();
+                if (rows.Count == 0) rows.Add(Li("(no condition — arms as soon as this step is flat)"));
+                rows.Add(Kv("Within", step.ThenWithinDays is { } days ? $"{days} {(days == 1 ? "day" : "days")} of the exit" : "no deadline"));
+                Card(sb, "Then when", $"flat after step {k + 1}, waiting for step {k + 2}", rows);
+            }
+        }
+        sb.Append("</div>");
+        return sb.ToString();
+    }
 
+    private static void Phases(StringBuilder sb, StrategyDefinition def)
+    {
         // Setup
         var setup = new List<string>
         {
@@ -84,9 +110,6 @@ public static class StrategyHtml
         if (def.ExitTime is { } et) exit.Add(Kv("Sell-by", $"{et:hh\\:mm} ET"));
         if (exit.Count == 0) exit.Add(Li("(no target/time exit — stop only)"));
         Card(sb, "Exit", "whichever hits first", exit);
-
-        sb.Append("</div>");
-        return sb.ToString();
     }
 
     /// <summary>

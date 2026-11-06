@@ -1,0 +1,62 @@
++=[ IDIOTPROOF :: STRATEGY STAMP ]===================== IP-5K73-332I ==+
+|  SYMBOL   QQQ                  SIDE     ^ LONG  (buy to open)        |
+|  SIZE     1 share              SESSION  RTH 09:30-16:00 ET           |
+|  NAME     QQQ 9 EMA pullback                                         |
++======================================================================+
+
++-[ 1 SETUP ]------------------------------------------ where & when --+
+|  * ticker   QQQ                                                      |
+|  * session  Regular hours (09:30-16:00 ET)                           |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 2 FILTERS ]---------------------- always-on gates, all must hold --+
+|  (none - no regime gate)                                             |
++----------------------------------------------------------------------+
+                                   |   gates hold
+                                   v
++-[ 3 ENTRY ]------------------------- the trigger, all true to fire --+
+|  * price above VWAP                                                  |
+|  * price between EMA 9 and EMA 21                                    |
+|  * reclaims EMA 9 (crosses up)                                       |
++----------------------------------------------------------------------+
+                                   |   fires
+                                   v
++-[ 4 ORDER ]-------------------------------------- what gets placed --+
+|  * BUY to open . 1 share                                             |
+|  * after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)        |
++----------------------------------------------------------------------+
+                                   |   filled
+                                   v
++-[ 5 RISK ]----------------------------------- the Guardian's rails --+
+|  * stop 1% below entry                                               |
+|  * trailing stop 1.5% off the peak                                   |
++----------------------------------------------------------------------+
+                                   |   held
+                                   v
++-[ 6 EXIT ]-------------------------------------- first to hit wins --+
+|  * sell-by 15:45 ET (flatten)                                        |
++----------------------------------------------------------------------+
+
++-[ EXIT LADDER ]-------------------- long: profit above, risk below --+
+|  price                                                               |
+|    ^  (no target)                                                    |
+|  ==+== ENTRY  buy . 1 share =======================================  |
+|    v  STOP ....... -1% from entry ...... sell all                    |
++----------------------------------------------------------------------+
+|  moving & timed exits                                                |
+|    ~  TRAIL ...... 1.5% off peak ....... sell all                    |
+|    @  SELL-BY .... 15:45 ET ............ flatten                     |
++----------------------------------------------------------------------+
+
++-[IP-5K73-332I]--+    FINGERPRINT  IP-5K73-332I
+|              ..o|
+|               +*|    sha256  eabf bdef 4895 f26f
+|            . .+=|            3b7e 4c0e ca6a 47b5
+|             *o++|            edde c048 f1c6 159c
+|        S . +.*+o|            b776 577a 64a9 abe6
+|       .   =.=o o|
+|      .   .o+.o* |    canon   StrategyJson v1 . 916 bytes
+|     .   o.++.o.*|    Same strategy, same picture: change any field
+|      ..ooBEoo+=o|    and the art changes. Paste this whole stamp
++----[SHA256]-----+    back into IdiotProof to recreate the strategy.

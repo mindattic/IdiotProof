@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "symbol": "QQQ",
+  "name": "QQQ 9 EMA pullback",
+  "session": "RTH",
+  "quantity": 1,
+  "notionalAmount": null,
+  "direction": "Long",
+  "entryConditions": [
+    {
+      "type": "indicator",
+      "indicator": "VwapAbove",
+      "p1": null,
+      "p2": null,
+      "phase": "Entry"
+    },
+    {
+      "type": "indicator",
+      "indicator": "BetweenEma",
+      "p1": 9,
+      "p2": 21,
+      "phase": "Entry"
+    },
+    {
+      "type": "indicator",
+      "indicator": "ReclaimEma",
+      "p1": 9,
+      "p2": null,
+      "phase": "Entry"
+    }
+  ],
+  "takeProfitPrice": null,
+  "takeProfitPercent": null,
+  "takeProfitTargets": [],
+  "stopLossPrice": null,
+  "stopLossPercent": 1,
+  "trailingStopPercent": 1.5,
+  "exitTime": "15:45",
+  "peakGivebackPercent": null,
+  "peakGivebackArmTime": null,
+  "exitAtPriorHigh": false,
+  "rollingHighDays": null,
+  "rollingHighBuffer": null,
+  "rollingLowDays": null,
+  "rollingLowBuffer": null,
+  "entryRollingLowDays": null,
+  "entryRollingLowBuffer": null,
+  "entryRollingHighDays": null,
+  "entryRollingHighBuffer": null,
+  "isAutonomous": false,
+  "isAdaptive": false,
+  "shouldRepeat": false,
+  "conditionalBlocks": []
+}

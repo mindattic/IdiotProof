@@ -54,10 +54,21 @@ public static class StrategyBranchResolver
             ShouldRepeat           = baseDef.ShouldRepeat,
             MaxCycles              = baseDef.MaxCycles,
             ExitWhenWhileFails     = baseDef.ExitWhenWhileFails,
+            VelocityExhaustionPctPerMin        = baseDef.VelocityExhaustionPctPerMin,
+            VelocityExhaustionWindowMinutes    = baseDef.VelocityExhaustionWindowMinutes,
+            VelocityExhaustionArmTime          = baseDef.VelocityExhaustionArmTime,
+            VelocityExhaustionMinRunPercent    = baseDef.VelocityExhaustionMinRunPercent,
+            VelocityExhaustionRequireLowerHigh = baseDef.VelocityExhaustionRequireLowerHigh,
+            VelocityExhaustionRequireVwapLoss  = baseDef.VelocityExhaustionRequireVwapLoss,
+            VelocityExhaustionExtensionSwitchPct = baseDef.VelocityExhaustionExtensionSwitchPct,
+            StepName               = baseDef.StepName,
+            ThenWithinDays         = baseDef.ThenWithinDays,
         };
         foreach (var c in baseDef.EntryConditions)    clone.EntryConditions.Add(c);
         foreach (var c in baseDef.WhileConditions)    clone.WhileConditions.Add(c);
         foreach (var t in baseDef.TakeProfitTargets)  clone.TakeProfitTargets.Add(t);
+        foreach (var c in baseDef.ThenWhen)           clone.ThenWhen.Add(c);
+        foreach (var s in baseDef.NextSteps)          clone.NextSteps.Add(s);
 
         foreach (var block in baseDef.ConditionalBlocks)
         {

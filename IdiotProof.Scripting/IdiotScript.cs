@@ -32,17 +32,87 @@ public static class Stock
 /// </summary>
 public sealed class StrategyBuilder
 {
-    private readonly StrategyDefinition strategy = new();
-    
+    private readonly StrategyDefinition root;
+    private readonly List<StrategyDefinition> steps;
+
+    // The step every verb writes to: the root until Step() opens a later step.
+    private StrategyDefinition strategy;
+
     internal StrategyBuilder(string symbol)
     {
-        strategy.Symbol = symbol.ToUpperInvariant();
+        root = new StrategyDefinition { Symbol = symbol.ToUpperInvariant() };
+        steps = [root];
+        strategy = root;
     }
 
     /// <summary>Wraps an existing definition so it can be rendered as IdiotScript (see <see cref="StrategyDefinitionScript.ToScript"/>).</summary>
     internal StrategyBuilder(StrategyDefinition existing)
     {
+        root = existing;
+        steps = existing.AllSteps().ToList();
         strategy = existing;
+    }
+
+    // ========================================
+    // STEPS (sequenced strategies)
+    // ========================================
+
+    /// <summary>
+    /// Names the current step, or — once the current step has content — closes it and opens the next
+    /// one (seeded with the same ticker and session). Steps run in order: the next step is armed only
+    /// after this one has entered and exited and its <see cref="ThenWhen(ICondition)"/> conditions hold.
+    /// Example: <c>.Step("short").IsBelowVwap().Short().StopLossPercent(3).ThenWhen(IsHigherLow).Within(7).Step("buy-back").Long()...</c>
+    /// </summary>
+    public StrategyBuilder Step(string name)
+    {
+        EndWhile();
+        loopLevels = null;
+        if (ReferenceEquals(strategy, root) && root.StepName is null && IsUntouched(root))
+        {
+            root.StepName = name;
+            return this;
+        }
+        var next = Stock.Ticker(root.Symbol).Session(root.Session).strategy;
+        next.StepName = name;
+        steps.Add(next);
+        strategy = next;
+        return this;
+    }
+
+    /// <summary>
+    /// Transition out of the current step: evaluated only while flat after this step's exit; when every
+    /// ThenWhen condition holds the next step is armed. Lambda form: <c>.ThenWhen(c =&gt; c.IsHigherLow())</c>.
+    /// </summary>
+    public StrategyBuilder ThenWhen(Func<ConditionFactory, ICondition> condition) => ThenWhen(condition(new ConditionFactory()));
+
+    /// <summary>Transition out of the current step (see the lambda form). Example: <c>.ThenWhen(Conditions.IsLowerHigh.And(Conditions.IsBelowVwap))</c>.</summary>
+    public StrategyBuilder ThenWhen(ICondition condition)
+    {
+        strategy.ThenWhen.Add(condition);
+        return this;
+    }
+
+    /// <summary>The next step must be armed within this many days of the current step's exit, or the sequence ends. Example: <c>.Within(7)</c>.</summary>
+    public StrategyBuilder Within(int days)
+    {
+        if (days < 1) throw new ArgumentOutOfRangeException(nameof(days), "Within needs at least one day.");
+        strategy.ThenWithinDays = days;
+        return this;
+    }
+
+    private static bool IsUntouched(StrategyDefinition def)
+    {
+        var seed = Stock.Ticker(def.Symbol).Session(def.Session).strategy;
+        seed.Name = def.Name;
+        seed.Quantity = def.Quantity;
+        seed.NotionalAmount = def.NotionalAmount;
+        return StrategyJson.Serialize(seed) == StrategyJson.Serialize(def);
+    }
+
+    private void SyncSteps()
+    {
+        root.NextSteps.Clear();
+        root.NextSteps.AddRange(steps.Skip(1));
     }
     
     // ========================================
@@ -912,17 +982,17 @@ public sealed class StrategyBuilder
     
     public StrategyBuilder Repeat()
     {
-        strategy.ShouldRepeat = true;
-        strategy.MaxCycles = null;
+        root.ShouldRepeat = true;
+        root.MaxCycles = null;
         return this;
     }
 
-    /// <summary>Repeat, but at most <paramref name="maxCycles"/> entries per ET day. Example: Repeat(3).</summary>
+    /// <summary>Repeat, but at most <paramref name="maxCycles"/> entries per ET day. Example: Repeat(3). Applies to the whole sequence.</summary>
     public StrategyBuilder Repeat(int maxCycles)
     {
         if (maxCycles < 1) throw new ArgumentOutOfRangeException(nameof(maxCycles), "Repeat needs at least one cycle.");
-        strategy.ShouldRepeat = true;
-        strategy.MaxCycles = maxCycles;
+        root.ShouldRepeat = true;
+        root.MaxCycles = maxCycles;
         return this;
     }
 
@@ -1010,7 +1080,8 @@ public sealed class StrategyBuilder
     public StrategyDefinition Build()
     {
         EndWhile();
-        return strategy;
+        SyncSteps();
+        return root;
     }
 
     /// <summary>
@@ -1018,10 +1089,27 @@ public sealed class StrategyBuilder
     /// </summary>
     public string ToScript()
     {
+        SyncSteps();
         // Quote the ticker so the output parses back via ScriptParser (its regex expects
         // Ticker("SYM")). The previous unquoted Ticker(SYM) failed to parse on reload.
-        var parts = new List<string> { $"Ticker(\"{strategy.Symbol}\")" };
-        
+        var parts = new List<string> { $"Ticker(\"{root.Symbol}\")" };
+        foreach (var step in root.AllSteps())
+        {
+            if (step.StepName is { } stepName)
+                parts.Add($"Step(\"{stepName}\")");
+            parts.AddRange(BodyParts(step));
+            foreach (var cond in step.ThenWhen)
+                parts.Add($"ThenWhen({cond.ToScript()})");
+            if (step.ThenWithinDays is { } days)
+                parts.Add($"Within({days})");
+        }
+        return string.Join("\n    .", parts);
+    }
+
+    private static List<string> BodyParts(StrategyDefinition strategy)
+    {
+        var parts = new List<string>();
+
         if (!string.IsNullOrEmpty(strategy.Name))
             parts.Add($"Name(\"{strategy.Name}\")");
         
@@ -1126,7 +1214,7 @@ public sealed class StrategyBuilder
         if (strategy.ShouldRepeat)
             parts.Add(strategy.MaxCycles is { } max ? $"Repeat({max})" : "Repeat()");
 
-        return string.Join("\n    .", parts);
+        return parts;
     }
 
     private static bool IsShorthandTargetSplit(List<TakeProfitTarget> targets) => targets.Count switch
@@ -1290,6 +1378,40 @@ public sealed class StrategyDefinition
 
     public List<ConditionalBlock> ConditionalBlocks { get; } = [];
     public bool HasBranching => ConditionalBlocks.Count > 0;
+
+    // ── Sequencing (Steps) ──────────────────────────────────────────────
+    // The root definition is step 0; NextSteps holds steps 1..N-1 and is empty for every
+    // single-step strategy, so its canon and stamp never change (IP-LAW-8/11).
+
+    /// <summary>The step's name, when the author gave it one. Null for an unnamed (single-step) strategy.</summary>
+    public string? StepName { get; set; }
+
+    /// <summary>
+    /// Transition out of this step: evaluated only while flat after this step's exit; when every
+    /// condition holds the next step is armed. Ignored on the last step.
+    /// </summary>
+    public List<ICondition> ThenWhen { get; } = [];
+
+    /// <summary>The next step must be armed within this many days of this step's exit, or the sequence ends. Null = no deadline.</summary>
+    public int? ThenWithinDays { get; set; }
+
+    /// <summary>Steps 1..N-1, in order. A step never nests steps of its own.</summary>
+    public List<StrategyDefinition> NextSteps { get; } = [];
+
+    public int StepCount => 1 + NextSteps.Count;
+
+    public bool IsSequence => NextSteps.Count > 0;
+
+    /// <summary>The step at <paramref name="index"/> (0 = this root), clamped into range.</summary>
+    public StrategyDefinition StepAt(int index) =>
+        index <= 0 || NextSteps.Count == 0 ? this : NextSteps[Math.Min(index, NextSteps.Count) - 1];
+
+    /// <summary>This root followed by every later step, in order.</summary>
+    public IEnumerable<StrategyDefinition> AllSteps()
+    {
+        yield return this;
+        foreach (var step in NextSteps) yield return step;
+    }
 }
 
 /// <summary>
@@ -2449,6 +2571,10 @@ public sealed class ConditionalBuilder
     public StrategyBuilder Repeat() => parent.Repeat();
     public StrategyBuilder AutonomousTrading() => parent.AutonomousTrading();
     public StrategyBuilder AdaptiveOrder() => parent.AdaptiveOrder();
+    public StrategyBuilder Step(string name) => parent.Step(name);
+    public StrategyBuilder ThenWhen(Func<ConditionFactory, ICondition> condition) => parent.ThenWhen(condition);
+    public StrategyBuilder ThenWhen(ICondition condition) => parent.ThenWhen(condition);
+    public StrategyBuilder Within(int days) => parent.Within(days);
     public StrategyDefinition Build() => parent.Build();
     public string ToScript() => parent.ToScript();
 }

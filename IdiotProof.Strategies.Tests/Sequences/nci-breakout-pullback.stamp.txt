@@ -1,0 +1,64 @@
++=[ IDIOTPROOF :: STRATEGY STAMP ]===================== IP-HT7C-3TGX ==+
+|  SYMBOL   NCI                  SIDE     ^ LONG  (buy to open)        |
+|  SIZE     1 share              SESSION  RTH 09:30-16:00 ET           |
+|  NAME     NCI Breakout-Pullback                                      |
+|  FLAGS    repeats after exit                                         |
++======================================================================+
+
++-[ 1 SETUP ]------------------------------------------ where & when --+
+|  * ticker   NCI                                                      |
+|  * session  Regular hours (09:30-16:00 ET)                           |
++----------------------------------------------------------------------+
+                                   |
+                                   v
++-[ 2 FILTERS ]---------------------- always-on gates, all must hold --+
+|  (none - no regime gate)                                             |
++----------------------------------------------------------------------+
+                                   |   gates hold
+                                   v
++-[ 3 ENTRY ]------------------------- the trigger, all true to fire --+
+|  * breakout through $3.68                                            |
+|  * pullback off the window high                                      |
+|  * price above VWAP                                                  |
++----------------------------------------------------------------------+
+                                   |   fires
+                                   v
++-[ 4 ORDER ]-------------------------------------- what gets placed --+
+|  * BUY to open . 1 share                                             |
+|  * after Gate 2 (LLM voter quorum) and Gate 3 (Risk Guardian)        |
+|  * re-arms after each exit (repeat)                                  |
++----------------------------------------------------------------------+
+                                   |   filled
+                                   v
++-[ 5 RISK ]----------------------------------- the Guardian's rails --+
+|  * hard stop at $3.50                                                |
++----------------------------------------------------------------------+
+                                   |   held
+                                   v
++-[ 6 EXIT ]-------------------------------------- first to hit wins --+
+|  * target T1 at $5.00, sell 50%                                      |
+|  * target T2 at $6.50, sell 50%                                      |
++----------------------------------------------------------------------+
+
++-[ EXIT LADDER ]-------------------- long: profit above, risk below --+
+|  price                                                               |
+|    ^  T2 ......... $6.50 ............... sell 50%                    |
+|    |  T1 ......... $5.00 ............... sell 50%                    |
+|  ==+== ENTRY  buy . 1 share =======================================  |
+|    v  STOP ....... $3.50 ............... sell all                    |
++----------------------------------------------------------------------+
+|  moving & timed exits                                                |
+|     (none)                                                           |
++----------------------------------------------------------------------+
+
++-[IP-HT7C-3TGX]--+    FINGERPRINT  IP-HT7C-3TGX
+|                 |
+|                 |    sha256  3cfe 2dcc d781 d11e
+|             o   |            ec3c ba96 a166 0f35
+|       .+ . . +  |            fac2 4c72 2cb4 ba12
+|.. .   oS*  o* . |            e830 d87e 3d59 34e7
+|+ o .  .=.Eoo.*  |
+| =   o +.Xo. = o |    canon   StrategyJson v1 . 954 bytes
+|  o o =  .@+= .  |    Same strategy, same picture: change any field
+|   . ..o o.*=.   |    and the art changes. Paste this whole stamp
++----[SHA256]-----+    back into IdiotProof to recreate the strategy.

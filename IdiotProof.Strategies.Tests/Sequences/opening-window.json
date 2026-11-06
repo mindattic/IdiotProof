@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "symbol": "AAPL",
+  "name": "AAPL first-hour breakout",
+  "session": "RTH",
+  "quantity": 1,
+  "notionalAmount": null,
+  "direction": "Long",
+  "entryConditions": [
+    {
+      "type": "timeWindow",
+      "startEt": "09:45",
+      "endEt": "10:30"
+    },
+    {
+      "type": "pattern",
+      "pattern": "Breakout",
+      "level": 230
+    },
+    {
+      "type": "indicator",
+      "indicator": "VwapAbove",
+      "p1": null,
+      "p2": null,
+      "phase": "Entry"
+    },
+    {
+      "type": "indicator",
+      "indicator": "VolumeAbove",
+      "p1": 1.5,
+      "p2": null,
+      "phase": "Entry"
+    }
+  ],
+  "takeProfitPrice": 236,
+  "takeProfitPercent": null,
+  "takeProfitTargets": [],
+  "stopLossPrice": 227.5,
+  "stopLossPercent": null,
+  "trailingStopPercent": null,
+  "exitTime": null,
+  "peakGivebackPercent": null,
+  "peakGivebackArmTime": null,
+  "exitAtPriorHigh": false,
+  "rollingHighDays": null,
+  "rollingHighBuffer": null,
+  "rollingLowDays": null,
+  "rollingLowBuffer": null,
+  "entryRollingLowDays": null,
+  "entryRollingLowBuffer": null,
+  "entryRollingHighDays": null,
+  "entryRollingHighBuffer": null,
+  "isAutonomous": false,
+  "isAdaptive": false,
+  "shouldRepeat": false,
+  "conditionalBlocks": []
+}

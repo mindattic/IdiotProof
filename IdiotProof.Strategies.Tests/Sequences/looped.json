@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "symbol": "TST",
+  "name": null,
+  "session": "RTH",
+  "quantity": 0,
+  "notionalAmount": null,
+  "direction": "Long",
+  "entryConditions": [
+    {
+      "type": "priceBand",
+      "min": 1,
+      "max": 100
+    }
+  ],
+  "takeProfitPrice": 30,
+  "takeProfitPercent": null,
+  "takeProfitTargets": [
+    {
+      "label": "T1",
+      "price": 30,
+      "percentToSell": 25
+    },
+    {
+      "label": "T2",
+      "price": 31,
+      "percentToSell": 25
+    },
+    {
+      "label": "T3",
+      "price": 32,
+      "percentToSell": 25
+    },
+    {
+      "label": "T4",
+      "price": 33,
+      "percentToSell": 25
+    }
+  ],
+  "stopLossPrice": 5,
+  "stopLossPercent": null,
+  "trailingStopPercent": null,
+  "exitTime": null,
+  "peakGivebackPercent": null,
+  "peakGivebackArmTime": null,
+  "exitAtPriorHigh": false,
+  "rollingHighDays": null,
+  "rollingHighBuffer": null,
+  "rollingLowDays": null,
+  "rollingLowBuffer": null,
+  "entryRollingLowDays": null,
+  "entryRollingLowBuffer": null,
+  "entryRollingHighDays": null,
+  "entryRollingHighBuffer": null,
+  "isAutonomous": false,
+  "isAdaptive": false,
+  "shouldRepeat": true,
+  "conditionalBlocks": [],
+  "maxCycles": 2,
+  "whileConditions": [
+    {
+      "type": "priceBand",
+      "min": 20,
+      "max": 100
+    }
+  ],
+  "exitWhenWhileFails": true
+}

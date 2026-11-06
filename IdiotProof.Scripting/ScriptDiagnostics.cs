@@ -61,6 +61,7 @@ public static class ScriptDiagnostics
         ["entryatrollinglow"] = "In", ["isnearrollinglow"] = "In", ["entryatsupport"] = "In",
         ["entryatrollinghigh"] = "In", ["isnearrollinghigh"] = "In", ["entryatresistance"] = "In", ["isbreakingout"] = "In",
         ["repeat"] = "i", ["for"] = "NNI", ["foreach"] = "N*",
+        ["step"] = "S", ["within"] = "I",
         ["isabovevwap"] = "", ["abovevwap"] = "", ["isbelowvwap"] = "", ["belowvwap"] = "",
         ["onvwapreclaim"] = "", ["onvwaploss"] = "", ["isdipositive"] = "", ["isdinegative"] = "",
         ["ishigherlow"] = "", ["islowerhigh"] = "", ["isrsibullishdivergence"] = "", ["isrsibearishdivergence"] = "",
@@ -135,6 +136,7 @@ public static class ScriptDiagnostics
             diags.Add(Make(DiagnosticSeverity.Error, "IPS002", "This '(' is never closed.", t.Start, 1, null, src, lineStarts));
         }
         CheckBlocks(src, diags, lineStarts);
+        CheckSteps(src, diags, lineStarts);
         if (!sawTicker && src.Trim().Length > 0)
             diags.Add(Make(DiagnosticSeverity.Error, "IPS005", "A script must name its symbol with Ticker(\"SYM\"); without it nothing parses.",
                 FirstNonSpace(src), 1, null, src, lineStarts));
@@ -230,6 +232,102 @@ public static class ScriptDiagnostics
         }
         if (open && isExplicit)
             Report("IPS013", "This If(...) is never closed with .EndIf().", ifToken);
+    }
+
+    /// <summary>
+    /// Step structure, read the way <see cref="ScriptParser"/> reads it: a <c>Step("name")</c> right after the
+    /// setup verbs names the first step, any later one opens the next step; every ThenWhen/Within needs a
+    /// following Step; a Step cannot sit inside an If/While block; Repeat belongs to the first step;
+    /// names are unique; a later step must say Long() or Short().
+    /// </summary>
+    private static void CheckSteps(string src, List<ScriptDiagnostic> diags, int[] lineStarts)
+    {
+        var chain = new ScriptChain(src);
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int stepIndex = 0;
+        bool rootNamed = false, onlySetupSoFar = true, ifOpen = false, whileOpen = false, hasDirection = false;
+        Token stepToken = default;
+        Token? pendingTransition = null;
+        string stepName = "";
+
+        void Report(DiagnosticSeverity severity, string code, string message, Token at) =>
+            diags.Add(Make(severity, code, message, at.Start, at.Text.Length, null, src, lineStarts));
+
+        void EndStep()
+        {
+            if (stepIndex >= 1 && !hasDirection)
+                Report(DiagnosticSeverity.Error, "IPS024", $"Step \"{stepName}\" (step {stepIndex + 1}) has no Long() or Short(), so it would never place an order; give the step a direction.", stepToken);
+        }
+
+        foreach (var call in chain.TopLevelCalls())
+        {
+            var at = chain.Tokens[call.NameToken];
+            switch (call.Name.ToLowerInvariant())
+            {
+                case "step":
+                {
+                    if (ifOpen || whileOpen)
+                        Report(DiagnosticSeverity.Error, "IPS021", "Step(...) cannot sit inside an If(...)/While() block; close the block with EndIf()/EndWhile() first.", at);
+                    var name = call.RawArgs.Trim().Trim('"').Trim();
+                    if (stepIndex == 0 && !rootNamed && onlySetupSoFar)
+                        rootNamed = true;
+                    else
+                    {
+                        EndStep();
+                        stepIndex++;
+                        hasDirection = false;
+                        pendingTransition = null;
+                    }
+                    stepToken = at;
+                    stepName = name;
+                    ifOpen = whileOpen = false;
+                    if (name.Length > 0 && !names.Add(name))
+                        Report(DiagnosticSeverity.Error, "IPS023", $"Duplicate step name \"{name}\": every step in a sequence needs its own name.", at);
+                    break;
+                }
+                case "thenwhen":
+                    if (chain.IsEmpty(call.ArgsFrom, call.ArgsTo) || chain.ReadCondition(call.ArgsFrom, call.ArgsTo) is null)
+                        Report(DiagnosticSeverity.Error, "IPS020", "ThenWhen(...) needs a condition the parser can read, e.g. ThenWhen(IsLowerHigh().And(IsBelowVwap())); without one the transition is dropped.", at);
+                    pendingTransition = at;
+                    onlySetupSoFar = false;
+                    break;
+                case "within":
+                    pendingTransition ??= at;
+                    onlySetupSoFar = false;
+                    break;
+                case "repeat":
+                    if (stepIndex >= 1)
+                        Report(DiagnosticSeverity.Warning, "IPS022", "Repeat() applies to the whole sequence, not one step; the parser treats it as if it were in the first step.", at);
+                    onlySetupSoFar = false;
+                    break;
+                case "long": case "short":
+                    hasDirection = true;
+                    onlySetupSoFar = false;
+                    break;
+                case "if":
+                    ifOpen = true;
+                    onlySetupSoFar = false;
+                    break;
+                case "endif":
+                    ifOpen = false;
+                    break;
+                case "while":
+                    if (chain.IsEmpty(call.ArgsFrom, call.ArgsTo)) whileOpen = true;
+                    onlySetupSoFar = false;
+                    break;
+                case "endwhile":
+                    whileOpen = false;
+                    break;
+                case "ticker": case "name": case "session": case "quantity": case "quantityshares": case "quantitynotional":
+                    break;
+                default:
+                    onlySetupSoFar = false;
+                    break;
+            }
+        }
+        EndStep();
+        if (pendingTransition is { } dangling)
+            Report(DiagnosticSeverity.Error, "IPS025", "ThenWhen(...)/Within(...) has no following Step(...): the last step of a sequence has nothing to move on to, so the transition would be ignored.", dangling);
     }
 
     private static void CheckArguments(string verb, List<Token> tokens, int lparen, List<ScriptDiagnostic> diags, string src, int[] lineStarts)

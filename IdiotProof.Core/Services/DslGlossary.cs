@@ -240,6 +240,14 @@ public static class DslGlossary
             "Opens a keep-armed-while block: the conditions up to .EndWhile() must all hold for the strategy to enter at all. While false the strategy pauses; it never enters just because they are true."),
         ["EndWhile"] = new("EndWhile", "bi-arrow-clockwise", Blue, "End While",
             "Closes a .While() block."),
+
+        // ── Steps (sequenced strategies) ─────────────────────────────────────
+        ["Step"] = new("Step", "bi-list-ol", Blue, "Step",
+            "Step(name): starts the next step of a sequenced strategy. Each step has its own direction, entry conditions and exits; step 2 is only armed after step 1's position has closed and the ThenWhen conditions hold."),
+        ["ThenWhen"] = new("ThenWhen", "bi-signpost-split", Blue, "Then When",
+            "ThenWhen(conditions): the transition out of the current step — evaluated only while flat after its exit; once they all hold, the next step is armed."),
+        ["Within"] = new("Within", "bi-hourglass-split", Blue, "Within (days)",
+            "Within(days): if the ThenWhen transition has not happened this many days after the step's exit, the sequence ends instead of waiting forever."),
         ["ExitWhenFalse"] = new("ExitWhenFalse", "bi-box-arrow-right", Red, "Exit When While Fails",
             "With a .While() block: exit an open position as soon as a While condition stops holding."),
         ["For"] = new("For", "bi-list-ol", Brand, "For (level ladder)",

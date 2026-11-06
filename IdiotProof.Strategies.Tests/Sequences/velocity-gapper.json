@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "symbol": "VELO",
+  "name": "VELO Gapper \u2014 Classic",
+  "session": "Premarket",
+  "quantity": 0,
+  "notionalAmount": 1000,
+  "direction": "Long",
+  "entryConditions": [
+    {
+      "type": "timeWindow",
+      "startEt": "04:00",
+      "endEt": "09:00"
+    },
+    {
+      "type": "gapBand",
+      "minPercent": 5,
+      "maxPercent": 20
+    },
+    {
+      "type": "indicator",
+      "indicator": "VolumeAbove",
+      "p1": 2,
+      "p2": null,
+      "phase": "Entry"
+    },
+    {
+      "type": "priceBand",
+      "min": 1,
+      "max": 50
+    }
+  ],
+  "takeProfitPrice": null,
+  "takeProfitPercent": null,
+  "takeProfitTargets": [],
+  "stopLossPrice": null,
+  "stopLossPercent": 5,
+  "trailingStopPercent": 8,
+  "exitTime": "09:28",
+  "peakGivebackPercent": 25,
+  "peakGivebackArmTime": "09:15",
+  "exitAtPriorHigh": false,
+  "rollingHighDays": null,
+  "rollingHighBuffer": null,
+  "rollingLowDays": null,
+  "rollingLowBuffer": null,
+  "entryRollingLowDays": null,
+  "entryRollingLowBuffer": null,
+  "entryRollingHighDays": null,
+  "entryRollingHighBuffer": null,
+  "isAutonomous": false,
+  "isAdaptive": false,
+  "shouldRepeat": false,
+  "conditionalBlocks": [],
+  "velocityExhaustionPctPerMin": 0.5,
+  "velocityExhaustionWindowMinutes": 3,
+  "velocityExhaustionArmTime": "08:30",
+  "velocityExhaustionMinRunPercent": 5,
+  "velocityExhaustionRequireLowerHigh": true
+}

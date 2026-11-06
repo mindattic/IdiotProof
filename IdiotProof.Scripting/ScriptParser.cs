@@ -28,12 +28,14 @@ public static class ScriptParser
         var builder = Stock.Ticker(tickerMatch.Groups[1].Value);
         var chain = new ScriptChain(text);
         var blocks = new BlockReader(builder, chain);
+        var steps = new StepReader(builder, chain, blocks);
 
         // Every top-level .Verb(args) in order. Arguments are read whole (nested parens and all),
         // so If/Then/ElseIf/Else bodies and And/Or/Not operands stay with the verb that owns them
         // instead of leaking into the base strategy.
         foreach (var call in chain.TopLevelCalls())
         {
+            if (steps.TryApply(call)) continue;
             if (!blocks.TryApply(call))
             {
                 blocks.EndLegacyBlock();
@@ -231,6 +233,17 @@ public static class ScriptParser
             case "repeat":
                 if (nums.Count >= 1 && nums[0] >= 1) b.Repeat((int)nums[0]); else b.Repeat();
                 break;
+
+            // Steps (sequenced strategies)
+            case "step":     b.Step(args.Trim().Trim('"').Trim()); break;
+            case "thenwhen":
+                if (!string.IsNullOrWhiteSpace(args))
+                {
+                    var expr = new ScriptChain(args);
+                    if (expr.ReadCondition(0, expr.Tokens.Count) is { } transition) b.ThenWhen(transition);
+                }
+                break;
+            case "within":   if (nums.Count >= 1 && nums[0] >= 1) b.Within((int)nums[0]); break;
 
             // Loops
             case "while":          b.While(); break;

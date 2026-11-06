@@ -37,6 +37,12 @@ public sealed class BacktestReport
     /// <summary>Human-readable caveats about this run (e.g. unsupported features).</summary>
     public string? Note { get; set; }
 
+    /// <summary>How many steps the strategy has (1 for every single-step strategy).</summary>
+    public int StepCount { get; init; } = 1;
+
+    /// <summary>Each time a sequenced strategy moved from one step to the next (ThenWhen held while flat).</summary>
+    public List<StepTransition> StepTransitions { get; } = [];
+
     // ---- Summary (computed) ----
     public int TradeCount => Trades.Count;
     public int Wins => Trades.Count(t => t.PnL > 0m);
@@ -70,10 +76,18 @@ public sealed class TriggerFire
     public bool OpenedPosition { get; init; }
 }
 
+/// <summary>A sequenced strategy advancing to its next step, on the bar whose snapshot satisfied ThenWhen.</summary>
+public sealed record StepTransition(DateTime Utc, int FromStep, int ToStep);
+
 /// <summary>A simulated round-trip trade with its scale-out fills.</summary>
 public sealed class BacktestTrade
 {
     public int Cycle { get; init; }
+
+    /// <summary>Which step of the sequence opened this trade (0-based; 0 for a single-step strategy).</summary>
+    public int Step { get; init; }
+    public string? StepName { get; init; }
+
     public TradeDirection Direction { get; init; }
     public DateTime EntryUtc { get; init; }
     public decimal EntryPrice { get; init; }
@@ -132,6 +146,12 @@ public sealed class CandleConditionRow
 
     /// <summary>True if the strategy was already in a position at the start of this bar.</summary>
     public bool InPosition { get; init; }
+
+    /// <summary>The active step on this bar (0-based). While a sequence waits between steps the labels are its ThenWhen conditions.</summary>
+    public int Step { get; init; }
+
+    /// <summary>True while the sequence is flat after a step's exit and watching that step's ThenWhen.</summary>
+    public bool AwaitingTransition { get; init; }
 
     /// <summary>Per ConditionalBlock, the index of the branch that matched on this bar (-1 when none matched).</summary>
     public IReadOnlyList<int> BranchTaken { get; init; } = [];
