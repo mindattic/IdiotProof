@@ -1833,7 +1833,7 @@
       "summary": "Backtest a saved strategy or a script over a range of ET days with StrategyBacktester: triggers, trades and P\u0026L per day (saved for backtest conditions).",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof backtest run [\u003Cstrategy\u003E] [--script \u003Cstring\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--qty \u003Cint\u003E]",
+      "usage": "idiotproof backtest run [\u003Cstrategy\u003E] [--script \u003Cstring\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--qty \u003Cint\u003E] [--days \u003Cint\u003E]",
       "parameters": [
         {
           "name": "strategy",
@@ -1894,6 +1894,18 @@
           "description": "Share count when the strategy doesn\u0027t pin one (default 100).",
           "default": 100,
           "enum_values": null
+        },
+        {
+          "name": "days",
+          "json_name": "days",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Replay this many trading days from --from as ONE continuous run, so a sequenced strategy\u0027s hand-off between steps (and its Within deadline) crosses the day boundaries. Not with --to.",
+          "default": null,
+          "enum_values": null
         }
       ],
       "examples": [
@@ -1904,6 +1916,10 @@
         {
           "command_line": "idiotproof backtest run --script \u0022Ticker(\\\u0022INTC\\\u0022).IsAboveVwap().StopLoss(2).TakeProfit(4)\u0022 --from 2026-10-29",
           "description": null
+        },
+        {
+          "command_line": "idiotproof backtest run NVDA --from 2026-10-20 --days 7",
+          "description": "A two-step sequence replayed as one run across seven trading days."
         }
       ],
       "input_schema": {
@@ -1933,6 +1949,10 @@
             "type": "integer",
             "description": "Share count when the strategy doesn\u0027t pin one (default 100).",
             "default": 100
+          },
+          "days": {
+            "type": "integer",
+            "description": "Replay this many trading days from --from as ONE continuous run, so a sequenced strategy\u0027s hand-off between steps (and its Within deadline) crosses the day boundaries. Not with --to."
           }
         },
         "additionalProperties": false
@@ -10005,6 +10025,182 @@
         "required": [
           "gapper"
         ]
+      }
+    },
+    {
+      "name": "gapper formation",
+      "noun": "gapper",
+      "verb": "formation",
+      "tool_name": "gapper_formation",
+      "summary": "Recent live gapper-formation snapshot rows: time ET, gap, volume ratio, 1/3/5-minute velocity, acceleration, distance to the premarket high, catalyst score/age, halted and whether the trigger rule passed.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper formation [--symbol \u003Cstring\u003E] [--date \u003Cdate\u003E] [--last \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "symbol",
+          "json_name": "symbol",
+          "kind": "option",
+          "position": null,
+          "short": "s",
+          "type": "string",
+          "required": false,
+          "description": "Only this ticker.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "date",
+          "json_name": "date",
+          "kind": "option",
+          "position": null,
+          "short": "d",
+          "type": "date",
+          "required": false,
+          "description": "ET trading day (yyyy-MM-dd); default every day the sink holds.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "last",
+          "json_name": "last",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "How many rows, newest first (default 40, max 500).",
+          "default": 40,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof gapper formation --symbol ABCD --date 2026-11-06",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Recent live gapper-formation snapshot rows: time ET, gap, volume ratio, 1/3/5-minute velocity, acceleration, distance to the premarket high, catalyst score/age, halted and whether the trigger rule passed.",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Only this ticker."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "ET trading day (yyyy-MM-dd); default every day the sink holds."
+          },
+          "last": {
+            "type": "integer",
+            "description": "How many rows, newest first (default 40, max 500).",
+            "default": 40
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper formation disable",
+      "noun": "gapper",
+      "verb": "formation disable",
+      "tool_name": "gapper_formation_disable",
+      "summary": "Turn the formation recorder off (settings only; nothing to disarm \u2014 it never arms).",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof gapper formation disable",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation disable",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Turn the formation recorder off (settings only; nothing to disarm \u2014 it never arms).",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper formation enable",
+      "noun": "gapper",
+      "verb": "formation enable",
+      "tool_name": "gapper_formation_enable",
+      "summary": "Turn the formation recorder on for you (paper-only research rows, 03:55-09:45 ET weekdays, with the Monitor leader); never arms.",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof gapper formation enable",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation enable",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Turn the formation recorder on for you (paper-only research rows, 03:55-09:45 ET weekdays, with the Monitor leader); never arms.",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper formation status",
+      "noun": "gapper",
+      "verb": "formation status",
+      "tool_name": "gapper_formation_status",
+      "summary": "Whether the formation recorder is enabled, who owns it, whether this Hub leads, today\u0027s universe size, the stream, rows written, halted symbols, the trigger rule and the sink in use.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper formation status",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation status",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Whether the formation recorder is enabled, who owns it, whether this Hub leads, today\u0027s universe size, the stream, rows written, halted symbols, the trigger rule and the sink in use.",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper formation universe",
+      "noun": "gapper",
+      "verb": "formation universe",
+      "tool_name": "gapper_formation_universe",
+      "summary": "Today\u0027s formation universe: every symbol the recorder watches and why it is in (catalyst, mover, most-active, tracked), with catalyst score, gap and price.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper formation universe",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation universe",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Today\u0027s formation universe: every symbol the recorder watches and why it is in (catalyst, mover, most-active, tracked), with catalyst score, gap and price.",
+        "properties": {},
+        "additionalProperties": false
       }
     },
     {
@@ -19612,6 +19808,521 @@
       }
     },
     {
+      "name": "research gappers build-universe",
+      "noun": "research",
+      "verb": "gappers build-universe",
+      "tool_name": "research_gappers_build_universe",
+      "summary": "Gapper study T1/T6 \u002B universe: every Alpaca us_equity asset\u0027s daily bars and splits, then U(D), exclusions, candidates, ADV deciles and price tiers per the frozen protocol, and sample.json.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders. Every number comes from docs/research/gapper-study-2026-11/params.json. Resumable: covered symbols are not re-pulled; universe rows for the range are rebuilt.",
+      "risk": "read",
+      "usage": "idiotproof research gappers build-universe --from \u003Cdate\u003E --to \u003Cdate\u003E [--smoke] [--symbols \u003Cstring\u003E] [--max-calls \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": true,
+          "description": "First trading day D of the universe (ET, yyyy-MM-dd).",
+          "default": "0001-01-01",
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": true,
+          "description": "Last trading day D (ET, yyyy-MM-dd).",
+          "default": "0001-01-01",
+          "enum_values": null
+        },
+        {
+          "name": "smoke",
+          "json_name": "smoke",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Smoke run: only --symbols, daily bars from 60 days before --from, rows tagged split \u0027smoke\u0027, sample.smoke.json.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Comma-separated symbols for a --smoke run.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "max-calls",
+          "json_name": "max_calls",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Stop pulling after this many Alpaca requests (0 = no cap); the run stays resumable.",
+          "default": 0,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers build-universe --from 2021-11-01 --to 2026-10-30",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof research gappers build-universe --smoke --symbols GOGO,STAK,BE --from 2026-11-03 --to 2026-11-05",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Gapper study T1/T6 \u002B universe: every Alpaca us_equity asset\u0027s daily bars and splits, then U(D), exclusions, candidates, ADV deciles and price tiers per the frozen protocol, and sample.json.",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First trading day D of the universe (ET, yyyy-MM-dd).",
+            "default": "0001-01-01"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last trading day D (ET, yyyy-MM-dd).",
+            "default": "0001-01-01"
+          },
+          "smoke": {
+            "type": "boolean",
+            "description": "Smoke run: only --symbols, daily bars from 60 days before --from, rows tagged split \u0027smoke\u0027, sample.smoke.json.",
+            "default": false
+          },
+          "symbols": {
+            "type": "string",
+            "description": "Comma-separated symbols for a --smoke run."
+          },
+          "max_calls": {
+            "type": "integer",
+            "description": "Stop pulling after this many Alpaca requests (0 = no cap); the run stays resumable.",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to"
+        ]
+      }
+    },
+    {
+      "name": "research gappers catalysts",
+      "noun": "research",
+      "verb": "gappers catalysts",
+      "tool_name": "research_gappers_catalysts",
+      "summary": "Re-run the deterministic CatalystPreClassifier over every backfilled catalyst row (idempotent) and spend an optional Haiku budget on rows never classified; each article/filing is classified at most once.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders.",
+      "risk": "read",
+      "usage": "idiotproof research gappers catalysts [--llm-budget \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "llm-budget",
+          "json_name": "llm_budget",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "At most this many never-classified backfilled rows get a Haiku classification (default 0).",
+          "default": 0,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers catalysts",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof research gappers catalysts --llm-budget 200",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Re-run the deterministic CatalystPreClassifier over every backfilled catalyst row (idempotent) and spend an optional Haiku budget on rows never classified; each article/filing is classified at most once.",
+        "properties": {
+          "llm_budget": {
+            "type": "integer",
+            "description": "At most this many never-classified backfilled rows get a Haiku classification (default 0).",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "research gappers label",
+      "noun": "research",
+      "verb": "gappers label",
+      "tool_name": "research_gappers_label",
+      "summary": "Gapper study labels: next-bar-open entry and forward returns per horizon, reach-20 by 09:45, premarket/RTH/full-session high times and bucket, fade, extension from open, velocity death, death-to-HOD, halt proxy and VWAP-loss time, per the frozen definitions.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders. Same holdout lock as snapshot.",
+      "risk": "read",
+      "usage": "idiotproof research gappers label --split \u003Cstring\u003E [--smoke] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E]",
+      "parameters": [
+        {
+          "name": "split",
+          "json_name": "split",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "train, validation or holdout (holdout needs holdout-unlock.txt and runs once).",
+          "default": "train",
+          "enum_values": null
+        },
+        {
+          "name": "smoke",
+          "json_name": "smoke",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Label the smoke-tagged rows instead.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Restrict to days on or after this ET date.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Restrict to days on or before this ET date.",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers label --split train",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof research gappers label --split train --smoke",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Gapper study labels: next-bar-open entry and forward returns per horizon, reach-20 by 09:45, premarket/RTH/full-session high times and bucket, fade, extension from open, velocity death, death-to-HOD, halt proxy and VWAP-loss time, per the frozen definitions.",
+        "properties": {
+          "split": {
+            "type": "string",
+            "description": "train, validation or holdout (holdout needs holdout-unlock.txt and runs once).",
+            "default": "train"
+          },
+          "smoke": {
+            "type": "boolean",
+            "description": "Label the smoke-tagged rows instead.",
+            "default": false
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "Restrict to days on or after this ET date."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Restrict to days on or before this ET date."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "split"
+        ]
+      }
+    },
+    {
+      "name": "research gappers pull",
+      "noun": "research",
+      "verb": "gappers pull",
+      "tool_name": "research_gappers_pull",
+      "summary": "Gapper study data tiers: minute bars for candidate/prior/control days into the file store (then gapper tiers and controls), Alpaca news, ticker-CIK map, EDGAR form index with acceptance times, splits. Resumable, rate-limited, --max-calls capped.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders. Minute bars go to D:\\IdiotProofData\\gapper-study\\bars (setting gapperStudy.barRoot) as packed day blocks; a killed pull is rerun, not restarted.",
+      "risk": "read",
+      "usage": "idiotproof research gappers pull --tier \u003Cstring\u003E [--smoke] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--max-calls \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "tier",
+          "json_name": "tier",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "bars (T2 minute bars \u002B gapper classification \u002B controls), news (T3), cik (T5), edgar (T4 form index \u002B acceptance times), splits (T6), or all.",
+          "default": "all",
+          "enum_values": null
+        },
+        {
+          "name": "smoke",
+          "json_name": "smoke",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Operate on the smoke-tagged universe rows only.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Restrict to candidate days on or after this ET date.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Restrict to candidate days on or before this ET date.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "max-calls",
+          "json_name": "max_calls",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Stop after this many API requests per tier (0 = no cap); the pull resumes from its coverage marks next time.",
+          "default": 0,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers pull --tier bars",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof research gappers pull --tier all --smoke",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof research gappers pull --tier edgar --max-calls 5000",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Gapper study data tiers: minute bars for candidate/prior/control days into the file store (then gapper tiers and controls), Alpaca news, ticker-CIK map, EDGAR form index with acceptance times, splits. Resumable, rate-limited, --max-calls capped.",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "description": "bars (T2 minute bars \u002B gapper classification \u002B controls), news (T3), cik (T5), edgar (T4 form index \u002B acceptance times), splits (T6), or all.",
+            "default": "all"
+          },
+          "smoke": {
+            "type": "boolean",
+            "description": "Operate on the smoke-tagged universe rows only.",
+            "default": false
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "Restrict to candidate days on or after this ET date."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Restrict to candidate days on or before this ET date."
+          },
+          "max_calls": {
+            "type": "integer",
+            "description": "Stop after this many API requests per tier (0 = no cap); the pull resumes from its coverage marks next time.",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "tier"
+        ]
+      }
+    },
+    {
+      "name": "research gappers snapshot",
+      "noun": "research",
+      "verb": "gappers snapshot",
+      "tool_name": "research_gappers_snapshot",
+      "summary": "Gapper study feature snapshots: every candidate and control day at every frozen decision time through the shared GapperFormationFeatures.Compute, written as Source=backtest rows; fits and saves data/tod-profile.json on train control days first.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders. The holdout split refuses to run unless holdout-unlock.txt holds the frozen commit hash, and refuses a second run.",
+      "risk": "read",
+      "usage": "idiotproof research gappers snapshot --split \u003Cstring\u003E [--smoke] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E]",
+      "parameters": [
+        {
+          "name": "split",
+          "json_name": "split",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "train, validation or holdout (holdout needs holdout-unlock.txt and runs once).",
+          "default": "train",
+          "enum_values": null
+        },
+        {
+          "name": "smoke",
+          "json_name": "smoke",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Snapshot the smoke-tagged rows instead (profile goes to data/tod-profile.smoke.json).",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Restrict to days on or after this ET date.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Restrict to days on or before this ET date.",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers snapshot --split train",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof research gappers snapshot --split train --smoke",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Gapper study feature snapshots: every candidate and control day at every frozen decision time through the shared GapperFormationFeatures.Compute, written as Source=backtest rows; fits and saves data/tod-profile.json on train control days first.",
+        "properties": {
+          "split": {
+            "type": "string",
+            "description": "train, validation or holdout (holdout needs holdout-unlock.txt and runs once).",
+            "default": "train"
+          },
+          "smoke": {
+            "type": "boolean",
+            "description": "Snapshot the smoke-tagged rows instead (profile goes to data/tod-profile.smoke.json).",
+            "default": false
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "Restrict to days on or after this ET date."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Restrict to days on or before this ET date."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "split"
+        ]
+      }
+    },
+    {
+      "name": "research gappers status",
+      "noun": "research",
+      "verb": "gappers status",
+      "tool_name": "research_gappers_status",
+      "summary": "What the gapper study holds per split (universe days, candidates, gappers per tier, controls, minute-bar coverage, snapshots, labels), the data tiers\u0027 row counts, and the holdout lock state.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders.",
+      "risk": "read",
+      "usage": "idiotproof research gappers status",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers status",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "What the gapper study holds per split (universe days, candidates, gappers per tier, controls, minute-bar coverage, snapshots, labels), the data tiers\u0027 row counts, and the holdout lock state.",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "research index-events",
       "noun": "research",
       "verb": "index-events",
@@ -23124,6 +23835,73 @@
           "compact": {
             "type": "boolean",
             "description": "Leave out the armored payload block (picture only).",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "strategy"
+        ]
+      }
+    },
+    {
+      "name": "strategy step",
+      "noun": "strategy",
+      "verb": "step",
+      "tool_name": "strategy_step",
+      "summary": "Where a sequenced strategy stands (step k/N, armed or awaiting its transition); --reset starts it over at step 1.",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof strategy step \u003Cstrategy\u003E [--reset]",
+      "parameters": [
+        {
+          "name": "strategy",
+          "json_name": "strategy",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "Id, id prefix, stamp id (IP-XXXX-XXXX) or symbol.",
+          "default": "",
+          "enum_values": null
+        },
+        {
+          "name": "reset",
+          "json_name": "reset",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Put the sequence back at step 1 (refused while it holds a position).",
+          "default": false,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof strategy step NVDA",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof strategy step NVDA --reset",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Where a sequenced strategy stands (step k/N, armed or awaiting its transition); --reset starts it over at step 1.",
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "description": "Id, id prefix, stamp id (IP-XXXX-XXXX) or symbol.",
+            "default": ""
+          },
+          "reset": {
+            "type": "boolean",
+            "description": "Put the sequence back at step 1 (refused while it holds a position).",
             "default": false
           }
         },

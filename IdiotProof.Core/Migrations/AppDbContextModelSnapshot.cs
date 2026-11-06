@@ -417,8 +417,17 @@ namespace IdiotProof.Core.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<string>("SourceName")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<int>("SourceTier")
                         .HasColumnType("int");
+
+                    b.Property<string>("StampKind")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
 
                     b.Property<string>("SymbolsJson")
                         .IsRequired()
@@ -532,6 +541,12 @@ namespace IdiotProof.Core.Migrations
                     b.Property<int>("PassedCount")
                         .HasColumnType("int");
 
+                    b.Property<int?>("StepCount")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("int");
+
                     b.Property<int>("TotalCount")
                         .HasColumnType("int");
 
@@ -540,6 +555,68 @@ namespace IdiotProof.Core.Migrations
                     b.HasIndex("EvaluatedUtc");
 
                     b.ToTable("ConditionProgress");
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.EdgarFilingIndexRow", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("AcceptedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("AccessionNumber")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<string>("Cik")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateOnly>("FiledDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("FormType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime?>("HeaderFetchedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ItemsJson")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SourceQuarter")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("Symbol")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Cik", "AccessionNumber")
+                        .IsUnique();
+
+                    b.HasIndex("Cik", "FiledDate");
+
+                    b.HasIndex("Symbol", "FiledDate");
+
+                    b.ToTable("EdgarFilingIndex", (string)null);
                 });
 
             modelBuilder.Entity("IdiotProof.Core.Data.ExhaustionDecisionRow", b =>
@@ -659,6 +736,650 @@ namespace IdiotProof.Core.Migrations
                     b.HasIndex("Symbol", "EtDate");
 
                     b.ToTable("ExhaustionDecisions", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.GapperFormationSnapshotRow", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<double?>("AbnormalReturnD1")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("AbnormalReturnD2")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("AbnormalReturnD3")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("AbnormalReturnD4")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("AbnormalReturnD5")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Acceleration")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("CatalystAgeMinutes")
+                        .HasColumnType("float");
+
+                    b.Property<int?>("CatalystDirection")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CatalystPreClass")
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<double?>("CatalystScore")
+                        .HasColumnType("float");
+
+                    b.Property<bool?>("CatalystStampIsUpperBound")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("ComputedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("DateEt")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("DaysSince424B")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DaysSinceReverseSplit")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DaysSinceS1")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DecisionLabel")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<TimeOnly>("DecisionTimeEt")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime>("DecisionUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double?>("DistToPmHighPct")
+                        .HasColumnType("float");
+
+                    b.Property<string>("ExtraJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("FeatureVersion")
+                        .HasColumnType("int");
+
+                    b.Property<double?>("GapPct")
+                        .HasColumnType("float");
+
+                    b.Property<bool?>("Halted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsCandidate")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsControl")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("MinsSinceFirstAbnormal")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("OwnProfileRatio")
+                        .HasColumnType("float");
+
+                    b.Property<double>("PmCumVol")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("SessionVwap")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("Split")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<double?>("SpreadProxy")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int>("TradesProxy")
+                        .HasColumnType("int");
+
+                    b.Property<double?>("Velocity15m")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Velocity1m")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Velocity3m")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Velocity5m")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("VolRatioTod")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("VolumeRatioD1")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("VolumeRatioD2")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("VolumeRatioD3")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("VolumeRatioD4")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("VolumeRatioD5")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("VolumeRoc")
+                        .HasColumnType("float");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Split", "DecisionTimeEt");
+
+                    b.HasIndex("Symbol", "DateEt");
+
+                    b.HasIndex("Source", "Symbol", "DateEt", "DecisionLabel")
+                        .IsUnique();
+
+                    b.ToTable("GapperFormationSnapshots", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.GapperStudyCikMap", b =>
+                {
+                    b.Property<string>("Symbol")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Cik")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("CikSource")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<bool>("IsAdr")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("MappedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Symbol");
+
+                    b.HasIndex("Cik");
+
+                    b.ToTable("GapperStudyCikMap", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.GapperStudyCoverage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CompletedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Tier")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Tier", "Key")
+                        .IsUnique();
+
+                    b.ToTable("GapperStudyCoverage", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.GapperStudyDailyBar", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("Close")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateOnly>("DateEt")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Feed")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<decimal>("High")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("Low")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("Open")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<long>("TradeCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("Volume")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Vwap")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DateEt");
+
+                    b.HasIndex("Symbol", "DateEt")
+                        .IsUnique();
+
+                    b.ToTable("GapperStudyDailyBars", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.GapperStudyEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("AdjPrevClose")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateOnly>("DateEt")
+                        .HasColumnType("date");
+
+                    b.Property<double>("GapMax")
+                        .HasColumnType("float");
+
+                    b.Property<TimeOnly?>("HodTimeEt")
+                        .HasColumnType("time");
+
+                    b.Property<int>("MinuteBars")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PmDollarVolume")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal?>("PmDollarVolumeAtTier100")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal?>("PmDollarVolumeAtTier20")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal?>("PmDollarVolumeAtTier50")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("PmHigh")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<TimeOnly?>("PmHighTimeEt")
+                        .HasColumnType("time");
+
+                    b.Property<decimal?>("RthHigh")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<double>("SipShare")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Split")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("SubType")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<bool>("Tier100")
+                        .HasColumnType("bit");
+
+                    b.Property<TimeOnly?>("Tier100TouchTimeEt")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("Tier100Touched")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Tier20")
+                        .HasColumnType("bit");
+
+                    b.Property<TimeOnly?>("Tier20TouchTimeEt")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("Tier20Touched")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Tier50")
+                        .HasColumnType("bit");
+
+                    b.Property<TimeOnly?>("Tier50TouchTimeEt")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("Tier50Touched")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Split", "Tier20");
+
+                    b.HasIndex("Symbol", "DateEt")
+                        .IsUnique();
+
+                    b.ToTable("GapperStudyEvents", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.GapperStudyLabel", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<bool?>("CloseBelowOpen")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("ComputedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("DateEt")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("DeathToHodMin")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DecisionLabel")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<TimeOnly>("DecisionTimeEt")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime>("DecisionUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("EntryRef")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime?>("EntryUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double?>("ExtensionFromOpen0945")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Fade")
+                        .HasColumnType("float");
+
+                    b.Property<bool?>("FadeFlag30")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("FwdClose0930")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("FwdClose0945")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("FwdClose1030")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("FwdClose1600")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("FwdMax0930")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("FwdMax0945")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("FwdMax1030")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("FwdMax1600")
+                        .HasColumnType("float");
+
+                    b.Property<bool?>("HaltFlag")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("HodBucket")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<TimeOnly?>("HodTimeEt")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly?>("HodTimePmEt")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly?>("HodTimeRthEt")
+                        .HasColumnType("time");
+
+                    b.Property<decimal?>("PmHigh")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<bool?>("Reach20By0945")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Split")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<TimeOnly?>("VelocityDeathTimeEt")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly?>("VwapLossTimeEt")
+                        .HasColumnType("time");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Split", "DecisionTimeEt");
+
+                    b.HasIndex("Symbol", "DateEt", "DecisionLabel")
+                        .IsUnique();
+
+                    b.ToTable("GapperStudyLabels", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.GapperStudySplit", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateOnly>("ExDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("NewRate")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("OldRate")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Symbol", "ExDate")
+                        .IsUnique();
+
+                    b.ToTable("GapperStudySplits", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.GapperStudyUniverseDay", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("AdjPrevClose")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("Adv20Dollars")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("Adv20Shares")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int>("AdvDecile")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ControlForSymbol")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateOnly>("DateEt")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("DayHigh")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal?>("DayVolume")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("ExcludedReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<double?>("GapMax")
+                        .HasColumnType("float");
+
+                    b.Property<string>("GapTier")
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<string>("GapperSubType")
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<bool>("IsAdr")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsCandidate")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsGapper")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("PremarketDollarVolumeAtTier")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int>("PriceTier")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Sessions")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Split")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DateEt", "IsCandidate");
+
+                    b.HasIndex("Split", "IsGapper");
+
+                    b.HasIndex("Symbol", "DateEt")
+                        .IsUnique();
+
+                    b.ToTable("GapperStudyUniverseDays", (string)null);
                 });
 
             modelBuilder.Entity("IdiotProof.Core.Data.HistoricalBar", b =>
@@ -1432,6 +2153,9 @@ namespace IdiotProof.Core.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
 
+                    b.Property<bool>("AwaitingTransition")
+                        .HasColumnType("bit");
+
                     b.Property<string>("BrokerMode")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -1496,6 +2220,12 @@ namespace IdiotProof.Core.Migrations
                     b.Property<string>("ScriptText")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("StepArmedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("StepIndex")
+                        .HasColumnType("int");
 
                     b.Property<string>("Symbol")
                         .IsRequired()

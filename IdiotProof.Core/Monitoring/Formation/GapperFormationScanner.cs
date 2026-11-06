@@ -47,7 +47,7 @@ public sealed class GapperFormationScanner(
         var pending = PendingDecisions(nowEt.TimeOfDay, cfg);
         var catalystsBySymbol = await CatalystsAsync(universe.Select(m => m.Symbol), nowUtc, ct);
 
-        var rows = new List<GapperFormationSnapshotRow>();
+        var rows = new List<FormationSnapshotRow>();
         var errors = new List<string>();
         int computed = 0, triggered = 0;
 
@@ -87,7 +87,7 @@ public sealed class GapperFormationScanner(
                     };
                     var snap = GapperFormationFeatures.Compute(inputs);
                     computed++;
-                    if (p.Reason == GapperFormationSnapshotRow.GatedReason && !Qualifies(snap, adv20, cfg)) continue;
+                    if (p.Reason == FormationSnapshotRow.GatedReason && !Qualifies(snap, adv20, cfg)) continue;
 
                     var passed = trigger.Passes(snap);
                     if (passed)
@@ -95,7 +95,7 @@ public sealed class GapperFormationScanner(
                         triggered++;
                         await BlockedAsync(symbol, snap, p.Label, minuteBars, daily, adv20, cfg, owner, ct);
                     }
-                    rows.Add(GapperFormationSnapshotRow.FromSnapshot(snap, p.Label, p.Reason, passed, Now));
+                    rows.Add(FormationSnapshotRow.FromSnapshot(snap, p.Label, p.Reason, passed, Now));
                 }
             }
             catch (OperationCanceledException) { throw; }
@@ -117,7 +117,7 @@ public sealed class GapperFormationScanner(
         var byLabel = new Dictionary<string, Pending>(StringComparer.Ordinal);
         foreach (var t in schedule.DecisionTimesEt)
             if (t >= FirstDecisionEt && t <= nowEt)
-                byLabel[FormationSchedule.Label(t)] = new Pending(t, FormationSchedule.Label(t), GapperFormationSnapshotRow.ScheduleReason, false);
+                byLabel[FormationSchedule.Label(t)] = new Pending(t, FormationSchedule.Label(t), FormationSnapshotRow.ScheduleReason, false);
 
         var minute = new TimeSpan(nowEt.Hours, nowEt.Minutes, 0);
         if (minute >= FirstDecisionEt && minute <= LastDecisionEt)
@@ -126,9 +126,9 @@ public sealed class GapperFormationScanner(
             if (!byLabel.ContainsKey(label))
             {
                 if (nowEt.Minutes % cfg.ControlEveryMinutes == 0)
-                    byLabel[label] = new Pending(minute, label, GapperFormationSnapshotRow.ControlReason, true);
+                    byLabel[label] = new Pending(minute, label, FormationSnapshotRow.ControlReason, true);
                 else if (nowEt.Minutes % cfg.EveryMinutes == 0)
-                    byLabel[label] = new Pending(minute, label, GapperFormationSnapshotRow.GatedReason, false);
+                    byLabel[label] = new Pending(minute, label, FormationSnapshotRow.GatedReason, false);
             }
         }
         return byLabel.Values.OrderBy(p => p.TimeEt).ToList();
@@ -143,7 +143,7 @@ public sealed class GapperFormationScanner(
             if (p.ControlOnly && !FormationControlSample.IsControl(symbol, dateEt, cfg.ControlOneIn))
             {
                 if (p.TimeEt.Minutes % cfg.EveryMinutes == 0)
-                    owed.Add(p with { Reason = GapperFormationSnapshotRow.GatedReason, ControlOnly = false });
+                    owed.Add(p with { Reason = FormationSnapshotRow.GatedReason, ControlOnly = false });
                 continue;
             }
             owed.Add(p);
@@ -187,7 +187,8 @@ public sealed class GapperFormationScanner(
         foreach (var e in events)
         {
             if (e.PublishedUtc > nowUtc) continue;
-            var observation = new CatalystObservation(e.PublishedUtc, e.PreClass, e.Direction, e.SourceTier, e.CatalystScore);
+            var observation = new CatalystObservation(e.PublishedUtc, e.PreClass, e.Direction, e.SourceTier, e.CatalystScore,
+                string.Equals(e.StampKind, "batch", StringComparison.OrdinalIgnoreCase));
             foreach (var s in SymbolsOf(e))
             {
                 if (!wanted.Contains(s)) continue;

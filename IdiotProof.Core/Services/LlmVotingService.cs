@@ -163,7 +163,8 @@ public sealed class LlmVotingService
         IReadOnlyList<Candle> recentCandles,
         SignalVotingCredentials credentials,
         decimal consensusThreshold,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        TradeSignalFacts? facts = null)
     {
         var result = new LlmVotingResult();
         if (!credentials.VotingEnabled || string.IsNullOrWhiteSpace(credentials.ClaudeApiKey))
@@ -172,7 +173,7 @@ public sealed class LlmVotingService
         var request = new VoteRequest
         {
             Question            = $"Should this {signal.Direction} trade on {signal.Symbol} be executed now?",
-            Context             = BuildSignalContext(signal, recentCandles),
+            Context             = BuildSignalContext(signal, recentCandles, facts),
             Options             = [ApproveOption, RejectOption, AbstainOption],
             MaxTokens           = 512,
             Temperature         = 0.3,

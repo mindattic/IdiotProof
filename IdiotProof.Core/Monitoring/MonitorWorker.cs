@@ -60,8 +60,12 @@ public sealed class MonitorWorker(
     MonitorPauseFlag pauseFlag,
     ILogger<MonitorWorker> logger,
     TimeProvider? clock = null,
-    IdiotProof.Core.Evidence.IHistoricalBarStore? barStore = null) : BackgroundService
+    IdiotProof.Core.Evidence.IHistoricalBarStore? barStore = null,
+    IdiotProof.Core.Monitoring.Formation.IGapperSnapshotSink? snapshotSink = null) : BackgroundService
 {
+    /// <summary>Streamed bars waiting for a tick; the formation recorder subscribes symbols no strategy holds, so the queue is capped.</summary>
+    private const int MaxQueuedBars = 20_000;
+
     /// <summary>Wall clock for every session gate and cadence; a test pins it to a chosen ET instant.</summary>
     private DateTime UtcNow => (clock ?? TimeProvider.System).GetUtcNow().UtcDateTime;
 
@@ -348,7 +352,11 @@ public sealed class MonitorWorker(
         // Set IDIOTPROOF_ALPACA_FEED=iex to fall back to the free partial feed.
         var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "sip";
         streaming = new AlpacaStreamingClient(appSettings.AlpacaApiKeyId, appSettings.AlpacaApiSecretKey, tier);
-        streaming.BarReceived += bar => streamedBars.Enqueue(bar);
+        streaming.BarReceived += bar =>
+        {
+            streamedBars.Enqueue(bar);
+            while (streamedBars.Count > MaxQueuedBars && streamedBars.TryDequeue(out _)) { }
+        };
         streaming.Start();
         logger.LogInformation("Alpaca websocket streaming started ({Tier}).", tier);
     }
@@ -517,9 +525,8 @@ public sealed class MonitorWorker(
             }
         }
 
-        if (active.Count == 0) return;
-
         DrainStreamedBars();
+        if (active.Count == 0) return;
 
         var symbols = active.Select(s => s.Symbol.ToUpperInvariant()).Distinct().ToList();
         if (streaming is not null)
@@ -568,19 +575,10 @@ public sealed class MonitorWorker(
             {
                 try
                 {
-                    // ScriptJson-only strategies (canonical path) have an empty ScriptText, so
-                    // the text-only check was a false negative: two canonical-JSON gappers for
-                    // the same symbol could both fire the same tick and open duplicate positions.
-                    //
-                    // NOTE: StrategyJson.Serialize always emits "peakGivebackPercent": null for
-                    // non-gapper strategies, so Contains("peakGivebackPercent") alone would flag
-                    // every canonical strategy as a gapper.  We must exclude the null case.
-                    var sj = stored.ScriptJson;
-                    var isGapperViaJson = sj is not null
-                        && sj.Contains("peakGivebackPercent", StringComparison.OrdinalIgnoreCase)
-                        && !sj.Contains("\"peakGivebackPercent\": null", StringComparison.OrdinalIgnoreCase);
-                    var isGapper = (stored.ScriptText?.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase) == true)
-                        || isGapperViaJson;
+                    // The repository's test (text marker, or a non-null giveback on any step of the
+                    // canon), so a canonical-JSON gapper and a sequence whose later step is the
+                    // gapper are both held to one fire per symbol per tick.
+                    var isGapper = StrategyRepository.IsGapper(stored);
                     if (isGapper && stored.PositionQty == 0 && gapperAlreadyFiredThisTick)
                     {
                         logger.LogWarning("[{Title}] {Symbol} skipped — another gapper strategy for this symbol already fired this tick.",
@@ -603,6 +601,45 @@ public sealed class MonitorWorker(
     }
 
     // ── Market data ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// What the voter panel sees beyond the signal: the latest catalyst published by the signal's
+    /// instant and today's latest live formation snapshot for the symbol; null when neither exists.
+    /// </summary>
+    internal async Task<IdiotProof.Core.Services.TradeSignalFacts?> SignalFactsAsync(string symbol, DateTime asOfUtc, CancellationToken ct)
+    {
+        IdiotProof.Core.Data.CatalystEvent? catalyst = null;
+        IdiotProof.Core.Monitoring.Formation.FormationSnapshotRow? snapshot = null;
+        try { catalyst = await new IdiotProof.Core.Catalysts.CatalystLookup(dbFactory).LatestForSymbolAsync(symbol, asOfUtc, ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { logger.LogDebug(ex, "catalyst lookup for the voter panel failed"); }
+        if (snapshotSink is not null)
+        {
+            try
+            {
+                var dateEt = DateOnly.FromDateTime(IdiotProof.Evidence.Gappers.MinuteBarMath.ToEastern(asOfUtc));
+                snapshot = (await snapshotSink.ReadAsync(new IdiotProof.Core.Monitoring.Formation.GapperSnapshotQuery(symbol, dateEt, 1), ct)).FirstOrDefault();
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { logger.LogDebug(ex, "formation snapshot read for the voter panel failed"); }
+        }
+        if (catalyst is null && snapshot is null) return null;
+        return new IdiotProof.Core.Services.TradeSignalFacts
+        {
+            CatalystHeadline = catalyst?.Headline,
+            CatalystScore = catalyst?.CatalystScore ?? snapshot?.CatalystScore,
+            CatalystAgeMinutes = catalyst is not null ? Math.Max(0, (asOfUtc - catalyst.PublishedUtc).TotalMinutes) : snapshot?.CatalystAgeMinutes,
+            CatalystDirection = catalyst?.Direction ?? snapshot?.CatalystDirection,
+            CatalystPreClass = catalyst?.PreClass ?? snapshot?.CatalystPreClass,
+            Velocity1m = snapshot?.Velocity1m,
+            Velocity3m = snapshot?.Velocity3m,
+            Velocity5m = snapshot?.Velocity5m,
+            Acceleration = snapshot?.Acceleration,
+            VolRatioTod = snapshot?.VolRatioTod ?? snapshot?.OwnProfileRatio,
+            DistFromPmHighPct = snapshot?.DistToPmHighPct,
+            Halted = snapshot?.Halted,
+        };
+    }
 
     private void DrainStreamedBars()
     {
@@ -776,6 +813,22 @@ public sealed class MonitorWorker(
             return;
         }
 
+        // A sequenced strategy (IP-T445) evaluates one step at a time; the root is step 0, and
+        // everything below (exit brain, gates, FireAsync) runs on the current step unchanged.
+        var root = def;
+        if (stored.StepIndex >= root.StepCount)
+        {
+            logger.LogWarning("[{Title}] step index {Index} is past the strategy's {Count} step(s) (edited?) — restarting the sequence at step 1.",
+                stored.Title, stored.StepIndex, root.StepCount);
+            if (stored.PositionQty == 0 && await strategyRepo.ResetSequenceAsync(stored.Id, ct: ct) == StrategyMutation.Ok)
+            {
+                stored.StepIndex = 0;
+                stored.AwaitingTransition = false;
+                stored.StepArmedUtc = null;
+            }
+        }
+        def = root.StepAt(stored.StepIndex);
+
         // Open position → manage the exit instead of hunting a new entry.
         if (stored.PositionQty > 0)
         {
@@ -810,41 +863,54 @@ public sealed class MonitorWorker(
                 if (LeaderContextCache.Uses(def)) await Leaders.ApplyAsync(stored.Symbol, holdSnapshot, ArmedSymbols, UtcNow, ct);
                 whileFailure = def.WhileConditions.FirstOrDefault(c => !c.Evaluate(holdSnapshot))?.ToScript();
             }
-            await EvaluateExitAsync(stored, def, candles, dailyCandles, ct, whileFailure);
+            await EvaluateExitAsync(stored, def, root, candles, dailyCandles, ct, whileFailure);
             return;
         }
 
         // Coarse session gate (Premarket / RTH / AfterHours / Extended).
         if (!IsInsideSession(def.Session, UtcNow))
         {
-            await progressRepo.UpsertAsync(stored.Id, 0, Math.Max(1, def.EntryConditions.Count),
+            await UpsertProgressAsync(stored, root, 0, Math.Max(1, def.EntryConditions.Count),
                 $"(outside {def.Session} session)", ct);
             return;
         }
 
-        // One-shot-per-day guard: a strategy that already traded today re-arms
-        // tomorrow unless it opted into Repeat().
-        if (!def.ShouldRepeat && stored.EntryFilledUtc is { } filled && IsSameEasternDay(filled, UtcNow))
+        // Between steps: flat after a step's exit, watching that step's ThenWhen (IP-T445).
+        if (stored.AwaitingTransition)
         {
-            await progressRepo.UpsertAsync(stored.Id, 0, Math.Max(1, def.EntryConditions.Count),
+            await EvaluateTransitionAsync(stored, root, def, candles, previousClose, ct);
+            return;
+        }
+
+        // One-shot-per-day guard: a strategy that already traded today re-arms tomorrow unless it
+        // opted into Repeat(). A fill older than the current step's arming belongs to an earlier
+        // step of the sequence, so it doesn't count against this step.
+        if (!root.ShouldRepeat && stored.EntryFilledUtc is { } filled && IsSameEasternDay(filled, UtcNow)
+            && !(stored.StepArmedUtc is { } armed && filled < armed))
+        {
+            await UpsertProgressAsync(stored, root, 0, Math.Max(1, def.EntryConditions.Count),
                 "(done for today)", ct);
             return;
         }
 
-        // Repeat(n): at most n entries per ET day (Strategy.CyclesToday, bumped on each entry fill).
-        if (def.ShouldRepeat && def.MaxCycles is { } maxCycles && stored.CyclesOn(UtcNow) >= maxCycles)
+        // Repeat(n): at most n entries per ET day (Strategy.CyclesToday, bumped on each step-0 fill).
+        if (root.ShouldRepeat && root.MaxCycles is { } maxCycles && stored.CyclesOn(UtcNow) >= maxCycles)
         {
-            await progressRepo.UpsertAsync(stored.Id, 0, Math.Max(1, def.EntryConditions.Count),
+            await UpsertProgressAsync(stored, root, 0, Math.Max(1, def.EntryConditions.Count),
                 $"(done for today: Repeat({maxCycles}) used up)", ct);
             return;
         }
 
-        var emas = EmaPeriodCollector.Collect(def);
-        var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, emas, previousClose);
-        // DippedTo means "since 4:00 ET today", longer than the 240-bar window (IP-T363).
-        if (SessionLowCache.Uses(def)) await SessionLows.ApplyAsync(stored.Symbol, snapshot, UtcNow, ct);
-        if (LeaderContextCache.Uses(def)) await Leaders.ApplyAsync(stored.Symbol, snapshot, ArmedSymbols, UtcNow, ct);
-        crossMemory.Apply(stored.Id, snapshot, candles.Count >= 2 ? candles[^2].EndUtc : null, UtcNow);
+        // An armed later step that never entered inside the prior step's Within window ends the
+        // sequence, so a hand-off can't sit armed for weeks.
+        if (stored.StepIndex > 0 && root.StepAt(stored.StepIndex - 1).ThenWithinDays is { } withinDays
+            && stored.LastExitedUtc is { } priorExit && UtcNow - priorExit > TimeSpan.FromDays(withinDays))
+        {
+            await EndSequenceAsync(stored, root, $"step {stored.StepIndex + 1} did not enter within {withinDays} day(s) of the prior step's exit", ct);
+            return;
+        }
+
+        var snapshot = await BuildSnapshotAsync(stored, def, candles, previousClose, ct);
 
         // Apply ConditionalBlock branch overrides (If/Then/ElseIf/Else authored in the UI).
         // Bug 4 fix: the Monitor previously evaluated def.EntryConditions directly and silently
@@ -856,8 +922,8 @@ public sealed class MonitorWorker(
         if (resolved.WhileConditions.FirstOrDefault(c => !c.Evaluate(snapshot)) is { } failedWhile)
         {
             crossMemory.Record(stored.Id, snapshot, UtcNow);
-            await progressRepo.UpsertAsync(stored.Id, 0, Math.Max(1, conditions.Count),
-                $"(paused: While {failedWhile.ToScript()} is false)", ct, lastPrice: (decimal)snapshot.Price);
+            await UpsertProgressAsync(stored, root, 0, Math.Max(1, conditions.Count),
+                $"(paused: While {failedWhile.ToScript()} is false)", ct, (decimal)snapshot.Price);
             return;
         }
 
@@ -878,7 +944,7 @@ public sealed class MonitorWorker(
         int passed = firstFalseIdx >= 0 ? firstFalseIdx : condBits.Length;
         string? firstFailure = firstFalseIdx >= 0 ? conditions[firstFalseIdx].ToScript() : null;
 
-        await progressRepo.UpsertAsync(stored.Id, passed, conditions.Count, firstFailure, ct, lastPrice: (decimal)snapshot.Price);
+        await UpsertProgressAsync(stored, root, passed, conditions.Count, firstFailure, ct, (decimal)snapshot.Price);
 
         // Write a live bar (throttled to once every 10 seconds per strategy).
         var now = UtcNow;
@@ -939,7 +1005,7 @@ public sealed class MonitorWorker(
                             if ((double)entryDaily[i].Low < low) low = (double)entryDaily[i].Low;
                         if (low < double.MaxValue && price > low * (1 + buffer / 100.0))
                         {
-                            await progressRepo.UpsertAsync(stored.Id, passed, conditions.Count + 1,
+                            await UpsertProgressAsync(stored, root, passed, conditions.Count + 1,
                                 $"(waiting for price to reach {erld}-day rolling low {low:F2} ±{buffer:F1}%)", ct);
                             return;
                         }
@@ -954,7 +1020,7 @@ public sealed class MonitorWorker(
                             if ((double)entryDaily[i].High > high) high = (double)entryDaily[i].High;
                         if (high > 0 && price < high * (1 - buffer / 100.0))
                         {
-                            await progressRepo.UpsertAsync(stored.Id, passed, conditions.Count + 1,
+                            await UpsertProgressAsync(stored, root, passed, conditions.Count + 1,
                                 $"(waiting for breakout to {erhd}-day rolling high {high:F2} ±{buffer:F1}%)", ct);
                             return;
                         }
@@ -1056,7 +1122,8 @@ public sealed class MonitorWorker(
         if (votingCredentials.VotingEnabled && !string.IsNullOrWhiteSpace(votingCredentials.ClaudeApiKey))
         {
             var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, votingCredentials,
-                await LlmPanelSettings.ThresholdAsync(dbFactory, appSettings.LlmConsensusThreshold, ct), ct);
+                await LlmPanelSettings.ThresholdAsync(dbFactory, appSettings.LlmConsensusThreshold, ct), ct,
+                await SignalFactsAsync(stored.Symbol, signal.GeneratedUtc, ct));
             if (voteResult.Votes.Count == 0 || voteResult.Consensus != VoteDecision.Approve)
             {
                 var why = voteResult.Votes.Count == 0
@@ -1151,7 +1218,7 @@ public sealed class MonitorWorker(
                     var filledQty = DirectionalOrders.HeldShares(match, def.Direction);
                     await strategyRepo.RecordFiredAsync(stored.Id, ct);
                     await strategyRepo.RecordEntryFillAsync(stored.Id, filledQty, match.AveragePrice, fillUtc, ct,
-                        resolvedScriptJson: StrategyJson.Serialize(def));
+                        resolvedScriptJson: StrategyJson.Serialize(def), countsAsCycle: stored.StepIndex == 0);
                     stored.PositionQty    = filledQty;
                     stored.LastEntryPrice = match.AveragePrice;
                     stored.EntryFilledUtc = fillUtc;
@@ -1203,7 +1270,7 @@ public sealed class MonitorWorker(
         // branch actually fired the entry, instead of silently losing a
         // branch-only stop the moment the raw definition is re-read on exit ticks.
         await strategyRepo.RecordEntryFillAsync(stored.Id, quantity, limitPrice, entryUtc, ct,
-            resolvedScriptJson: StrategyJson.Serialize(def));
+            resolvedScriptJson: StrategyJson.Serialize(def), countsAsCycle: stored.StepIndex == 0);
         // Mirror the SQL write onto the in-memory row: RecordEntryFillAsync
         // loads its own DbContext instance, so without this the CALLER's
         // `stored` (shared by reference with the tick's per-symbol group
@@ -1260,6 +1327,7 @@ public sealed class MonitorWorker(
     private async Task EvaluateExitAsync(
         IdiotProof.Core.Data.Strategy stored,
         StrategyDefinition def,
+        StrategyDefinition root,
         IReadOnlyList<Candle> candles,
         IReadOnlyList<Candle>? dailyCandles,
         CancellationToken ct,
@@ -1368,9 +1436,9 @@ public sealed class MonitorWorker(
 
         // Surface "holding" in the progress badge so the UI shows live state.
         var current = (double)candles[^1].Close;
-        await progressRepo.UpsertAsync(stored.Id, 1, 1,
+        await UpsertProgressAsync(stored, root, 1, 1,
             decision is null ? $"(holding {stored.PositionQty} @ {entry:F2}, now {current:F2})" : null, ct,
-            lastPrice: (decimal)current);
+            (decimal)current);
 
         // Write live bar during hold phase so the chart keeps updating.
         var holdNow = UtcNow;
@@ -1413,7 +1481,7 @@ public sealed class MonitorWorker(
         if (decision is null)
         {
             if (await ProtectiveStopsKeeper.EnsureAsync(holding, ct) is { } stoppedOut)
-                await RecordBrokerStopOutAsync(stored, def.Direction, entry, stoppedOut, ct);
+                await RecordBrokerStopOutAsync(stored, root, def.Direction, entry, stoppedOut, ct);
             return;
         }
 
@@ -1428,7 +1496,7 @@ public sealed class MonitorWorker(
             && deferNowEt >= new TimeSpan(4, 0, 0) && deferNowEt < new TimeSpan(20, 0, 0);
         if (!marketTakingOrders)
         {
-            await progressRepo.UpsertAsync(stored.Id, 1, 1,
+            await UpsertProgressAsync(stored, root, 1, 1,
                 $"(holding {stored.PositionQty} @ {entry:F2} — market closed, exit {decision.Reason} deferred)", ct);
             return;
         }
@@ -1451,12 +1519,12 @@ public sealed class MonitorWorker(
         var withdrawal = await ProtectiveStopsKeeper.WithdrawAsync(holding, ct);
         if (withdrawal.FilledStop is { } alreadyStopped)
         {
-            await RecordBrokerStopOutAsync(stored, direction, entry, alreadyStopped, ct);
+            await RecordBrokerStopOutAsync(stored, root, direction, entry, alreadyStopped, ct);
             return;
         }
         if (!withdrawal.Clear)
         {
-            await progressRepo.UpsertAsync(stored.Id, 1, 1,
+            await UpsertProgressAsync(stored, root, 1, 1,
                 $"(holding {stored.PositionQty} @ {entry:F2} — exit {decision.Reason} waits for the broker stop to cancel)", ct);
             return;
         }
@@ -1505,7 +1573,7 @@ public sealed class MonitorWorker(
                 var heldFor = UtcNow - filledUtc;
                 if (heldFor < UnfilledEntryGrace)
                 {
-                    await progressRepo.UpsertAsync(stored.Id, 1, 1,
+                    await UpsertProgressAsync(stored, root, 1, 1,
                         $"(entry order working — no fill yet after {heldFor.TotalSeconds:F0}s)", ct);
                     return;
                 }
@@ -1582,7 +1650,11 @@ public sealed class MonitorWorker(
         }
         else
         {
-            await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), exitUtc, ct);
+            var moreSteps = stored.StepIndex + 1 < root.StepCount;
+            await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), exitUtc, ct, moreSteps: moreSteps);
+            stored.PositionQty = 0;
+            stored.LastExitedUtc = exitUtc;
+            stored.AwaitingTransition = moreSteps;
             ProtectiveStopsKeeper.Forget(stored.Id);
             var exitCategory = decision.Reason switch
             {
@@ -1606,6 +1678,9 @@ public sealed class MonitorWorker(
             {
                 logger.LogError(ex, "[{Title}] trade-diary CLOSE failed (trade unaffected).", stored.Title);
             }
+
+            if (root.IsSequence && !moreSteps)
+                await EndSequenceAsync(stored, root, $"step {stored.StepIndex + 1}/{root.StepCount} exited ({decision.Reason})", ct);
         }
 
         logger.LogInformation("[{Title}] ✓ {Side} {Qty} {Symbol} @ {Price:F2} — {Reason} ({Mode}, P&L {Pnl:+0.00;-0.00})",
@@ -1624,7 +1699,7 @@ public sealed class MonitorWorker(
     /// re-arms and the P&amp;L reaches the daily circuit breaker. A filled stop was sized to the whole
     /// booked position, so it closes it.
     /// </summary>
-    private async Task RecordBrokerStopOutAsync(IdiotProof.Core.Data.Strategy stored, TradeDirection direction, double entry,
+    private async Task RecordBrokerStopOutAsync(IdiotProof.Core.Data.Strategy stored, StrategyDefinition root, TradeDirection direction, double entry,
         BrokerOrder stop, CancellationToken ct)
     {
         var qty = (int)Math.Min(stored.PositionQty, Math.Floor(stop.FilledQuantity));
@@ -1637,9 +1712,12 @@ public sealed class MonitorWorker(
         if (qty < stored.PositionQty)
             logger.LogWarning("[{Title}] {Symbol} protective stop filled {Qty} of {Booked} booked shares; closing the bookkeeping — check the broker position.",
                 stored.Title, stored.Symbol, qty, stored.PositionQty);
-        await strategyRepo.RecordExitFillAsync(stored.Id, price, GapperExitReason.StopLoss.ToString(), exitUtc, ct);
+        var moreSteps = stored.StepIndex + 1 < root.StepCount;
+        await strategyRepo.RecordExitFillAsync(stored.Id, price, GapperExitReason.StopLoss.ToString(), exitUtc, ct, moreSteps: moreSteps);
         ProtectiveStopsKeeper.Forget(stored.Id);
         stored.PositionQty = 0;
+        stored.LastExitedUtc = exitUtc;
+        stored.AwaitingTransition = moreSteps;
         var exitSide = DirectionalOrders.SideLabel(DirectionalOrders.ExitSide(direction));
         await LogAuditAsync("exit-sl",
             $"[{stored.Title}] {exitSide} {qty} {stored.Symbol} @ {price:F2} — StopLoss: broker-side protective stop filled " +
@@ -1655,6 +1733,155 @@ public sealed class MonitorWorker(
         }
         logger.LogInformation("[{Title}] ✓ broker stop {Side} {Qty} {Symbol} @ {Price:F2} — StopLoss (P&L {Pnl:+0.00;-0.00})",
             stored.Title, exitSide, qty, stored.Symbol, price, realized);
+        if (root.IsSequence && !moreSteps)
+            await EndSequenceAsync(stored, root, $"step {stored.StepIndex + 1}/{root.StepCount} stopped out", ct);
+    }
+
+    // ── Sequences (Steps, IP-T445) ──────────────────────────────────────
+
+    /// <summary>A step's exit must be this old before its ThenWhen is watched, so the exit fill has settled at the broker.</summary>
+    private static readonly TimeSpan TransitionSettle = TimeSpan.FromSeconds(60);
+
+    /// <summary>The indicator snapshot every entry-side evaluation (and a step transition) reads, with the cross-trigger memory applied.</summary>
+    private async Task<Shared.IndicatorSnapshot> BuildSnapshotAsync(IdiotProof.Core.Data.Strategy stored, StrategyDefinition def,
+        IReadOnlyList<Candle> candles, decimal? previousClose, CancellationToken ct)
+    {
+        var snapshot = IndicatorSnapshotBuilder.BuildWithEmas(stored.Symbol, candles, EmaPeriodCollector.Collect(def), previousClose);
+        // DippedTo means "since 4:00 ET today", longer than the 240-bar window (IP-T363).
+        if (SessionLowCache.Uses(def)) await SessionLows.ApplyAsync(stored.Symbol, snapshot, UtcNow, ct);
+        if (LeaderContextCache.Uses(def)) await Leaders.ApplyAsync(stored.Symbol, snapshot, ArmedSymbols, UtcNow, ct);
+        crossMemory.Apply(stored.Id, snapshot, candles.Count >= 2 ? candles[^2].EndUtc : null, UtcNow);
+        return snapshot;
+    }
+
+    /// <summary>Progress upsert that carries the step position of a sequenced strategy (null for a single-step one).</summary>
+    private Task UpsertProgressAsync(IdiotProof.Core.Data.Strategy stored, StrategyDefinition root, int passed, int total, string? firstFailing,
+        CancellationToken ct, decimal? lastPrice = null) =>
+        progressRepo.UpsertAsync(stored.Id, passed, total, firstFailing, ct, lastPrice,
+            root.IsSequence ? stored.StepIndex : null, root.IsSequence ? root.StepCount : null);
+
+    /// <summary>
+    /// Flat after a step's exit: once the exit has settled and the broker shows the symbol flat,
+    /// the step's ThenWhen is evaluated on the live snapshot; when every condition holds the next
+    /// step is armed (it enters on a later tick through the same gates as any entry). A Within
+    /// deadline that passes first ends the sequence.
+    /// </summary>
+    private async Task EvaluateTransitionAsync(IdiotProof.Core.Data.Strategy stored, StrategyDefinition root, StrategyDefinition step,
+        IReadOnlyList<Candle> candles, decimal? previousClose, CancellationToken ct)
+    {
+        var next = stored.StepIndex + 1;
+        if (next >= root.StepCount)
+        {
+            await EndSequenceAsync(stored, root, $"no step follows step {stored.StepIndex + 1}", ct);
+            return;
+        }
+        var label = $"step {next + 1}/{root.StepCount} pending";
+        var total = Math.Max(1, step.ThenWhen.Count);
+
+        if (step.ThenWithinDays is { } days && stored.LastExitedUtc is { } exitedUtc && UtcNow - exitedUtc > TimeSpan.FromDays(days))
+        {
+            await EndSequenceAsync(stored, root, $"step {next + 1} was not armed within {days} day(s) of step {stored.StepIndex + 1}'s exit", ct);
+            return;
+        }
+        if (stored.LastExitedUtc is { } exited && UtcNow - exited < TransitionSettle)
+        {
+            await UpsertProgressAsync(stored, root, 0, total,
+                $"({label}: exit settling, {(TransitionSettle - (UtcNow - exited)).TotalSeconds:F0}s to go)", ct);
+            return;
+        }
+        bool flat;
+        try
+        {
+            flat = await IsBrokerFlatAsync(stored, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "[{Title}] could not read broker positions for the step transition; retrying next tick.", stored.Title);
+            return;
+        }
+        if (!flat)
+        {
+            await UpsertProgressAsync(stored, root, 0, total, $"({label}: waiting for the broker to show {stored.Symbol} flat)", ct);
+            return;
+        }
+
+        var snapshot = await BuildSnapshotAsync(stored, step, candles, previousClose, ct);
+        var bits = step.ThenWhen.Select(c => c.Evaluate(snapshot)).ToArray();
+        crossMemory.Record(stored.Id, snapshot, UtcNow);
+        var firstFalse = System.Array.IndexOf(bits, false);
+        if (firstFalse >= 0)
+        {
+            await UpsertProgressAsync(stored, root, firstFalse, bits.Length,
+                $"{label}: waiting for {step.ThenWhen[firstFalse].ToScript()}", ct, (decimal)snapshot.Price);
+            return;
+        }
+
+        var armedUtc = UtcNow;
+        await strategyRepo.AdvanceStepAsync(stored.Id, next, armedUtc, ct);
+        stored.StepIndex = next;
+        stored.AwaitingTransition = false;
+        stored.StepArmedUtc = armedUtc;
+        crossMemory.Forget(stored.Id);
+        var nextStep = root.StepAt(next);
+        await UpsertProgressAsync(stored, root, 0, Math.Max(1, nextStep.EntryConditions.Count),
+            $"(step {next + 1}/{root.StepCount}{StepLabel(nextStep)} armed)", ct, (decimal)snapshot.Price);
+        var held = step.ThenWhen.Count == 0 ? "no ThenWhen condition" : string.Join(" and ", step.ThenWhen.Select(c => c.ToScript()));
+        await LogAuditAsync("step-advance",
+            $"[{stored.Title}] {stored.Symbol} step {next + 1}/{root.StepCount}{StepLabel(nextStep)} armed — {held} held after step {next}'s exit @ {snapshot.Price:F2}",
+            userId: stored.OwnerUserId, ct: ct);
+        logger.LogInformation("[{Title}] {Symbol} step {Next}/{Count} armed ({Held}).", stored.Title, stored.Symbol, next + 1, root.StepCount, held);
+    }
+
+    private static string StepLabel(StrategyDefinition step) => step.StepName is { Length: > 0 } name ? $" \"{name}\"" : "";
+
+    /// <summary>
+    /// True when the broker this strategy routes to shows no position in its symbol. Another of the
+    /// user's strategies holding the symbol makes the aggregate unattributable, so (as the exit path
+    /// does) the check is skipped and this strategy's own bookkeeping is trusted.
+    /// </summary>
+    private async Task<bool> IsBrokerFlatAsync(IdiotProof.Core.Data.Strategy stored, CancellationToken ct)
+    {
+        if (await strategyRepo.CountHoldingForSymbolAsync(stored.OwnerUserId, stored.Symbol, ct) > 0) return true;
+        var broker = await orderRouting.ResolveAsync(stored.OwnerUserId, IdiotProof.Core.Trading.OrderIntent.ParseMode(stored.BrokerMode), ct);
+        var positions = await broker.GetPositionsAsync(ct);
+        return !positions.Any(p => string.Equals(p.Symbol, stored.Symbol, StringComparison.OrdinalIgnoreCase) && p.Quantity != 0m);
+    }
+
+    /// <summary>
+    /// The sequence is over (its last step exited, or a hand-off deadline passed): with Repeat it
+    /// starts again at step 0; otherwise the row is reset and deactivated, so `strategy activate`
+    /// runs it again from the top.
+    /// </summary>
+    private async Task EndSequenceAsync(IdiotProof.Core.Data.Strategy stored, StrategyDefinition root, string why, CancellationToken ct)
+    {
+        var reset = await strategyRepo.ResetSequenceAsync(stored.Id, ct: ct);
+        if (reset != StrategyMutation.Ok)
+        {
+            logger.LogWarning("[{Title}] sequence could not be reset ({Result}); will retry next tick.", stored.Title, reset);
+            return;
+        }
+        stored.StepIndex = 0;
+        stored.AwaitingTransition = false;
+        stored.StepArmedUtc = null;
+        crossMemory.Forget(stored.Id);
+
+        if (root.ShouldRepeat)
+        {
+            await UpsertProgressAsync(stored, root, 0, Math.Max(1, root.EntryConditions.Count), "(sequence restarting at step 1)", ct);
+            await LogAuditAsync("sequence-ended",
+                $"[{stored.Title}] {stored.Symbol} sequence ended — {why}; Repeat starts it again at step 1/{root.StepCount}",
+                userId: stored.OwnerUserId, ct: ct);
+            return;
+        }
+
+        var off = await strategyRepo.SetActiveAsync(stored.Id, false, stored.OwnerUserId, ct);
+        if (off == StrategyMutation.Ok) stored.IsActive = false;
+        await UpsertProgressAsync(stored, root, 0, Math.Max(1, root.EntryConditions.Count), "(sequence complete — deactivated)", ct);
+        await LogAuditAsync("sequence-ended",
+            $"[{stored.Title}] {stored.Symbol} sequence ended — {why}; strategy deactivated" +
+            (off == StrategyMutation.Ok ? "" : $" (deactivation refused: {off})") + ". `strategy activate` runs it again from step 1.",
+            userId: stored.OwnerUserId, ct: ct);
+        logger.LogInformation("[{Title}] {Symbol} sequence ended — {Why}; deactivated.", stored.Title, stored.Symbol, why);
     }
 
     // ── Active-strategy roster echo ─────────────────────────────────────

@@ -279,4 +279,196 @@ public sealed class MonitorWorkerHarnessTests
             Assert.That(positions.Any(p => p.Symbol == "HRND" && p.Quantity != 0), Is.False, "the Sandbox book is flat");
         });
     }
+
+    // ── Sequenced strategies (IP-T445) ───────────────────────────────────
+
+    /// <summary>
+    /// Step "ride": long while the tape holds above VWAP, out when it loses it. Then, when the tape is
+    /// under VWAP, step "fade": short while it stays under VWAP, out when it reclaims it.
+    /// </summary>
+    private static StrategyBuilder RideThenFade(string symbol) =>
+        Stock.Ticker(symbol).Session(TradingSession.RTH).Step("ride")
+            .While(c => c.IsAboveVwap()).ExitWhenFalse()
+            .IsAboveVwap().StopLossPercent(10).TakeProfitPercent(20)
+            .ThenWhen(c => c.IsBelowVwap())
+            .Step("fade")
+            .While(c => c.IsBelowVwap()).ExitWhenFalse()
+            .IsBelowVwap().Short().StopLossPercent(10).TakeProfitPercent(20);
+
+    /// <summary>Rolls the tape under VWAP once the long holds, so the ride step exits and the sequence waits.</summary>
+    private static async Task<bool> RideExitedAsync(IServiceProvider sp, Guid id, RisingFeed feed, FakeTimeProvider clock)
+    {
+        var row = (await ReadAsync(sp, id)).Row;
+        if (row.PositionQty > 0 && row.StepIndex == 0 && !feed.Falling)
+        {
+            feed.Falling = true;
+            clock.Advance(TimeSpan.FromMinutes(6)); // past the Monitor's 5-minute REST bar refresh
+        }
+        return row.AwaitingTransition;
+    }
+
+    [Test]
+    public async Task TwoStepSequence_LongExits_TransitionHoldsAfterTheSettle_ShortStepFires_ThenTheSequenceEnds()
+    {
+        var clock = new FakeTimeProvider(RthInstant);
+        var feed = new RisingFeed();
+        await using var sp = Build(clock, feed);
+        var armed = await ArmAsync(sp, "HRNE", RideThenFade("HRNE").Build());
+        var sandbox = sp.GetRequiredService<BrokerRouter>().GetAll().Single(b => b.BrokerType == BrokerType.Sandbox);
+
+        await RunWorkerUntilAsync(sp, () => RideExitedAsync(sp, armed.Id, feed, clock), TimeSpan.FromSeconds(60));
+        var (waiting, _) = await ReadAsync(sp, armed.Id);
+
+        // The 60 s settle: the exit is fresh, so the transition is not evaluated yet.
+        await RunWorkerUntilAsync(sp, async () => (await ReadAsync(sp, armed.Id)).Progress?.FirstFailingVerb?.Contains("pending") == true, TimeSpan.FromSeconds(20));
+        var (settling, settlingProgress) = await ReadAsync(sp, armed.Id);
+
+        clock.Advance(TimeSpan.FromSeconds(61));
+        await RunWorkerUntilAsync(sp, async () => (await ReadAsync(sp, armed.Id)).Row.StepIndex == 1, TimeSpan.FromSeconds(30));
+        var (advanced, _) = await ReadAsync(sp, armed.Id);
+
+        await RunWorkerUntilAsync(sp, async () => (await ReadAsync(sp, armed.Id)).Row.PositionQty > 0, TimeSpan.FromSeconds(30));
+        var (shortHeld, _) = await ReadAsync(sp, armed.Id);
+        var shortBook = (await sandbox.GetPositionsAsync()).Where(p => p.Symbol == "HRNE").Select(p => p.Quantity).ToList();
+
+        // The tape reclaims VWAP: the fade step's While fails, the last step exits and the sequence is over.
+        feed.Falling = false;
+        clock.Advance(TimeSpan.FromMinutes(6));
+        await RunWorkerUntilAsync(sp, async () => !(await ReadAsync(sp, armed.Id)).Row.IsActive, TimeSpan.FromSeconds(60));
+        var (ended, endedProgress) = await ReadAsync(sp, armed.Id);
+        var endBook = (await sandbox.GetPositionsAsync()).Where(p => p.Symbol == "HRNE" && p.Quantity != 0).ToList();
+        var trail = await AuditTrailAsync(sp);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(waiting.AwaitingTransition, Is.True, $"the ride step never exited into the wait. Audit:\n{trail}");
+            Assert.That(waiting.StepIndex, Is.EqualTo(0));
+            Assert.That(waiting.LastExitReason, Is.EqualTo(nameof(GapperExitReason.WhileFailed)));
+
+            Assert.That(settling.StepIndex, Is.EqualTo(0), "no transition inside the 60 s settle");
+            Assert.That(settlingProgress?.FirstFailingVerb, Does.Contain("step 2/2 pending").And.Contain("settling"), $"Audit:\n{trail}");
+            Assert.That(settlingProgress?.StepIndex, Is.EqualTo(0));
+            Assert.That(settlingProgress?.StepCount, Is.EqualTo(2));
+
+            Assert.That(advanced.StepIndex, Is.EqualTo(1), $"IsBelowVwap held on the fallen tape. Audit:\n{trail}");
+            Assert.That(advanced.AwaitingTransition, Is.False);
+            Assert.That(advanced.StepArmedUtc, Is.EqualTo(RthInstant.UtcDateTime.AddMinutes(6).AddSeconds(61)), "armed on the Monitor's clock");
+            Assert.That(trail, Does.Contain("step-advance: [harness HRNE] HRNE step 2/2 \"fade\" armed — IsBelowVwap() held"));
+
+            Assert.That(shortHeld.PositionQty, Is.EqualTo(1), $"the fade step fired through the gateway. Audit:\n{trail}");
+            Assert.That(shortHeld.StepIndex, Is.EqualTo(1));
+            Assert.That(shortHeld.FireCount, Is.EqualTo(2));
+            Assert.That(shortBook, Is.EqualTo(new[] { -1m }), "the Sandbox book shows the short");
+            Assert.That(shortHeld.CyclesToday, Is.EqualTo(1), "a later step's fill is not a new Repeat cycle");
+
+            Assert.That(ended.IsActive, Is.False, $"the last step's exit ends a non-Repeat sequence. Audit:\n{trail}");
+            Assert.That(ended.PositionQty, Is.EqualTo(0));
+            Assert.That(ended.StepIndex, Is.EqualTo(0), "the row is reset so `strategy activate` starts from the top");
+            Assert.That(ended.AwaitingTransition, Is.False);
+            Assert.That(endBook, Is.Empty, "the Sandbox book is flat");
+            Assert.That(trail, Does.Contain("sequence-ended").And.Contain("step 2/2 exited (WhileFailed); strategy deactivated"));
+            Assert.That(endedProgress?.FirstFailingVerb, Does.Contain("sequence complete"));
+        });
+    }
+
+    [Test]
+    public async Task Within_Deadline_PassingWhileFlat_EndsTheSequence()
+    {
+        var clock = new FakeTimeProvider(RthInstant);
+        var feed = new RisingFeed();
+        await using var sp = Build(clock, feed);
+        var def = Stock.Ticker("HRNF").Session(TradingSession.RTH).Step("ride")
+            .While(c => c.IsAboveVwap()).ExitWhenFalse()
+            .IsAboveVwap().StopLossPercent(10).TakeProfitPercent(20)
+            .ThenWhen(c => c.IsAboveVwap()).Within(1) // never holds on the fallen tape
+            .Step("re-ride").IsAboveVwap().StopLossPercent(10).TakeProfitPercent(20).Build();
+        var armed = await ArmAsync(sp, "HRNF", def);
+
+        await RunWorkerUntilAsync(sp, () => RideExitedAsync(sp, armed.Id, feed, clock), TimeSpan.FromSeconds(60));
+        var (waiting, _) = await ReadAsync(sp, armed.Id);
+
+        clock.Advance(TimeSpan.FromSeconds(61));
+        await RunWorkerUntilAsync(sp, async () => (await ReadAsync(sp, armed.Id)).Progress?.FirstFailingVerb?.Contains("waiting for IsAboveVwap()") == true, TimeSpan.FromSeconds(30));
+        var (stillWaiting, waitingProgress) = await ReadAsync(sp, armed.Id);
+
+        clock.Advance(TimeSpan.FromDays(2)); // Thursday 10:37 ET, well past Within(1)
+        await RunWorkerUntilAsync(sp, async () => !(await ReadAsync(sp, armed.Id)).Row.IsActive, TimeSpan.FromSeconds(60));
+        var (ended, _) = await ReadAsync(sp, armed.Id);
+        var trail = await AuditTrailAsync(sp);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(waiting.AwaitingTransition, Is.True, $"Audit:\n{trail}");
+            Assert.That(stillWaiting.StepIndex, Is.EqualTo(0));
+            Assert.That(waitingProgress?.FirstFailingVerb, Is.EqualTo("step 2/2 pending: waiting for IsAboveVwap()"), $"Audit:\n{trail}");
+            Assert.That(ended.IsActive, Is.False, $"Within(1) passed while flat. Audit:\n{trail}");
+            Assert.That(ended.StepIndex, Is.EqualTo(0));
+            Assert.That(ended.AwaitingTransition, Is.False);
+            Assert.That(trail, Does.Contain("sequence-ended").And.Contain("was not armed within 1 day(s)"));
+        });
+    }
+
+    [Test]
+    public async Task Repeat_RestartsTheSequenceAtStepZero_AfterTheLastStepExits()
+    {
+        var clock = new FakeTimeProvider(RthInstant);
+        var feed = new RisingFeed();
+        await using var sp = Build(clock, feed);
+        var armed = await ArmAsync(sp, "HRNG", RideThenFade("HRNG").Repeat().Build());
+
+        await RunWorkerUntilAsync(sp, () => RideExitedAsync(sp, armed.Id, feed, clock), TimeSpan.FromSeconds(60));
+        clock.Advance(TimeSpan.FromSeconds(61));
+        await RunWorkerUntilAsync(sp, async () => (await ReadAsync(sp, armed.Id)).Row is { StepIndex: 1, PositionQty: > 0 }, TimeSpan.FromSeconds(45));
+        var (shortHeld, _) = await ReadAsync(sp, armed.Id);
+
+        feed.Falling = false;
+        clock.Advance(TimeSpan.FromMinutes(6));
+        // The fade step exits on the reclaimed tape; Repeat restarts at step 0, whose IsAboveVwap now holds again.
+        await RunWorkerUntilAsync(sp, async () => (await ReadAsync(sp, armed.Id)).Row is { StepIndex: 0, PositionQty: > 0, FireCount: >= 3 }, TimeSpan.FromSeconds(60));
+        var (restarted, _) = await ReadAsync(sp, armed.Id);
+        var trail = await AuditTrailAsync(sp);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shortHeld.StepIndex, Is.EqualTo(1), $"Audit:\n{trail}");
+            Assert.That(restarted.IsActive, Is.True, "Repeat keeps the strategy active");
+            Assert.That(restarted.StepIndex, Is.EqualTo(0), $"Audit:\n{trail}");
+            Assert.That(restarted.FireCount, Is.EqualTo(3), "ride, fade, ride again");
+            Assert.That(restarted.CyclesToday, Is.EqualTo(2), "two step-0 fills, the fade fill not counted");
+            Assert.That(trail, Does.Contain("sequence-ended").And.Contain("Repeat starts it again at step 1/2"));
+        });
+    }
+
+    [Test]
+    public async Task RestartMidWait_ResumesTheTransitionFromSql_AndArmsTheNextStep()
+    {
+        var clock = new FakeTimeProvider(RthInstant);
+        var feed = new RisingFeed();
+        Guid id;
+        await using (var first = Build(clock, feed))
+        {
+            var armed = await ArmAsync(first, "HRNH", RideThenFade("HRNH").Build());
+            id = armed.Id;
+            await RunWorkerUntilAsync(first, () => RideExitedAsync(first, id, feed, clock), TimeSpan.FromSeconds(60));
+            Assert.That((await ReadAsync(first, id)).Row.AwaitingTransition, Is.True, "the wait is on the row before the restart");
+        }
+
+        // A new process: nothing in memory, the same database, the same tape and clock.
+        await using var second = Build(clock, feed);
+        clock.Advance(TimeSpan.FromSeconds(61));
+        await RunWorkerUntilAsync(second, async () => (await ReadAsync(second, id)).Row is { StepIndex: 1, PositionQty: > 0 }, TimeSpan.FromSeconds(60));
+        var (resumed, _) = await ReadAsync(second, id);
+        var sandbox = second.GetRequiredService<BrokerRouter>().GetAll().Single(b => b.BrokerType == BrokerType.Sandbox);
+        var book = (await sandbox.GetPositionsAsync()).Where(p => p.Symbol == "HRNH").Select(p => p.Quantity).ToList();
+        var trail = await AuditTrailAsync(second);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(resumed.StepIndex, Is.EqualTo(1), $"the rebuilt Monitor picked the wait up from SQL. Audit:\n{trail}");
+            Assert.That(resumed.AwaitingTransition, Is.False);
+            Assert.That(resumed.PositionQty, Is.EqualTo(1));
+            Assert.That(book, Is.EqualTo(new[] { -1m }), "the fade step's short reached the new process's Sandbox book");
+            Assert.That(trail, Does.Contain("step-advance"));
+        });
+    }
 }

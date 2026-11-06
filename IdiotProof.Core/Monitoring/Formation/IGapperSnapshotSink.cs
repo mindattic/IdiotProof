@@ -10,9 +10,9 @@ public sealed record GapperSnapshotQuery(string? Symbol = null, DateOnly? DateEt
 /// </summary>
 public interface IGapperSnapshotSink
 {
-    Task WriteAsync(IReadOnlyList<GapperFormationSnapshotRow> rows, CancellationToken ct = default);
+    Task WriteAsync(IReadOnlyList<FormationSnapshotRow> rows, CancellationToken ct = default);
 
-    Task<IReadOnlyList<GapperFormationSnapshotRow>> ReadAsync(GapperSnapshotQuery query, CancellationToken ct = default);
+    Task<IReadOnlyList<FormationSnapshotRow>> ReadAsync(GapperSnapshotQuery query, CancellationToken ct = default);
 
     /// <summary>Deletes rows whose decision instant is before <paramref name="olderThanUtc"/>; returns how many went.</summary>
     Task<int> PruneAsync(DateTime olderThanUtc, CancellationToken ct = default);
@@ -24,7 +24,7 @@ public sealed class InMemoryGapperSnapshotSink(int capacity = InMemoryGapperSnap
     public const int DefaultCapacity = 20_000;
 
     private readonly Lock gate = new();
-    private readonly Queue<GapperFormationSnapshotRow> rows = new();
+    private readonly Queue<FormationSnapshotRow> rows = new();
     private readonly int capacity = Math.Max(1, capacity);
 
     public int Count
@@ -34,7 +34,7 @@ public sealed class InMemoryGapperSnapshotSink(int capacity = InMemoryGapperSnap
 
     public long TotalWritten { get; private set; }
 
-    public Task WriteAsync(IReadOnlyList<GapperFormationSnapshotRow> batch, CancellationToken ct = default)
+    public Task WriteAsync(IReadOnlyList<FormationSnapshotRow> batch, CancellationToken ct = default)
     {
         lock (gate)
         {
@@ -48,15 +48,15 @@ public sealed class InMemoryGapperSnapshotSink(int capacity = InMemoryGapperSnap
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<GapperFormationSnapshotRow>> ReadAsync(GapperSnapshotQuery query, CancellationToken ct = default)
+    public Task<IReadOnlyList<FormationSnapshotRow>> ReadAsync(GapperSnapshotQuery query, CancellationToken ct = default)
     {
-        List<GapperFormationSnapshotRow> all;
+        List<FormationSnapshotRow> all;
         lock (gate) all = [.. rows];
-        IEnumerable<GapperFormationSnapshotRow> q = all;
+        IEnumerable<FormationSnapshotRow> q = all;
         if (!string.IsNullOrWhiteSpace(query.Symbol))
             q = q.Where(r => r.Symbol.Equals(query.Symbol.Trim(), StringComparison.OrdinalIgnoreCase));
         if (query.DateEt is { } d) q = q.Where(r => r.DateEt == d);
-        IReadOnlyList<GapperFormationSnapshotRow> result = q
+        IReadOnlyList<FormationSnapshotRow> result = q
             .OrderByDescending(r => r.DecisionUtc).ThenBy(r => r.Symbol, StringComparer.Ordinal)
             .Take(Math.Max(1, query.Limit)).ToList();
         return Task.FromResult(result);

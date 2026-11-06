@@ -68,6 +68,9 @@ public sealed record GapperFormationSnapshot
     public int? CatalystDirection { get; init; }
     public string? CatalystPreClass { get; init; }
 
+    /// <summary>True when the catalyst's timestamp is a batch ingestion stamp, so CatalystAgeMinutes is a lower bound on the real age.</summary>
+    public bool? CatalystStampIsUpperBound { get; init; }
+
     public bool? Halted { get; init; }
 
     public IReadOnlyDictionary<string, double> Extra { get; init; } = new Dictionary<string, double>();

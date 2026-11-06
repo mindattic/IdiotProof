@@ -63,7 +63,7 @@ public sealed class GapperFormationScannerTests
 
     private static FormationSchedule LateOnly() => new([new TimeSpan(9, 45, 0)]);
 
-    private async Task<List<GapperFormationSnapshotRow>> RowsAsync(string? symbol = null) =>
+    private async Task<List<FormationSnapshotRow>> RowsAsync(string? symbol = null) =>
         (await sink.ReadAsync(new GapperSnapshotQuery(symbol, null, 1000))).OrderBy(r => r.DecisionUtc).ThenBy(r => r.Symbol).ToList();
 
     private async Task<List<AuditLog>> AuditAsync(string category)
@@ -97,13 +97,13 @@ public sealed class GapperFormationScannerTests
         {
             Assert.That(first.RowsWritten, Is.EqualTo(10), "five schedule times up to 08:30, two symbols");
             Assert.That(rows.Where(r => r.Symbol == "GAPR").Select(r => r.DecisionTimeEt), Is.EqualTo(new[] { "04:00", "06:00", "07:00", "08:00", "08:30" }));
-            Assert.That(rows, Has.All.Matches<GapperFormationSnapshotRow>(r => r.Reason == "schedule" && r.Source == "live"));
+            Assert.That(rows, Has.All.Matches<FormationSnapshotRow>(r => r.Reason == "schedule" && r.Source == "live"));
             Assert.That(rows.Single(r => r.Symbol == "GAPR" && r.DecisionTimeEt == "08:30").DecisionUtc, Is.EqualTo(Et(8, 30)), "exactly the schedule instant, not the tick");
             Assert.That(rows.Single(r => r.Symbol == "GAPR" && r.DecisionTimeEt == "08:30").GapPct, Is.EqualTo(30).Within(0.01));
             Assert.That(rows.Single(r => r.Symbol == "QUIET" && r.DecisionTimeEt == "08:30").GapPct, Is.EqualTo(0.5).Within(0.01));
             Assert.That(rows.Single(r => r.Symbol == "GAPR" && r.DecisionTimeEt == "08:30").CatalystAgeMinutes, Is.EqualTo(90).Within(0.01), "the 07:00 catalyst is 90 minutes old at 08:30");
             Assert.That(rows.Single(r => r.Symbol == "GAPR" && r.DecisionTimeEt == "06:00").CatalystScore, Is.Null, "the 07:00 catalyst is not knowable at 06:00");
-            Assert.That(rows, Has.All.Matches<GapperFormationSnapshotRow>(r => !r.TriggerPassed));
+            Assert.That(rows, Has.All.Matches<FormationSnapshotRow>(r => !r.TriggerPassed));
         });
 
         var second = await scanner.TickAsync(Et(8, 30, 20), Universe("GAPR", "QUIET"), Config(), null, owner, CancellationToken.None);
@@ -150,7 +150,7 @@ public sealed class GapperFormationScannerTests
         {
             Assert.That(rows.Select(r => (r.Symbol, r.Reason)), Is.EquivalentTo(new[] { (inControl, "control"), (gapperNotControl, "gated") }),
                 "a quiet control symbol is written regardless of the gate; a quiet non-control one is not; a gapping non-control one is written as gated");
-            Assert.That(rows, Has.All.Matches<GapperFormationSnapshotRow>(r => r.DecisionTimeEt == "08:45"));
+            Assert.That(rows, Has.All.Matches<FormationSnapshotRow>(r => r.DecisionTimeEt == "08:45"));
         });
     }
 
@@ -167,7 +167,7 @@ public sealed class GapperFormationScannerTests
         Assert.Multiple(() =>
         {
             Assert.That(rows, Has.Count.EqualTo(2));
-            Assert.That(rows, Has.All.Matches<GapperFormationSnapshotRow>(r => r.TriggerPassed && r.ArmedStrategyId is null));
+            Assert.That(rows, Has.All.Matches<FormationSnapshotRow>(r => r.TriggerPassed && r.ArmedStrategyId is null));
             Assert.That(blocked, Has.Count.EqualTo(1), "one audit row per symbol per day");
             Assert.That(blocked[0].UserId, Is.EqualTo(owner));
             Assert.That(blocked[0].Message, Does.Contain("GAPR passed the formation trigger at 08:35 ET").And.Contain("NOT armed").And.Contain(FormationSettings.ArmingEnabledKey).And.Contain("Plan penny:"));
@@ -272,10 +272,10 @@ public sealed class GapperFormationScannerTests
     {
         public List<DateTime> PruneCalls { get; } = [];
 
-        public Task WriteAsync(IReadOnlyList<GapperFormationSnapshotRow> rows, CancellationToken ct = default) => Task.CompletedTask;
+        public Task WriteAsync(IReadOnlyList<FormationSnapshotRow> rows, CancellationToken ct = default) => Task.CompletedTask;
 
-        public Task<IReadOnlyList<GapperFormationSnapshotRow>> ReadAsync(GapperSnapshotQuery query, CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<GapperFormationSnapshotRow>>([]);
+        public Task<IReadOnlyList<FormationSnapshotRow>> ReadAsync(GapperSnapshotQuery query, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<FormationSnapshotRow>>([]);
 
         public Task<int> PruneAsync(DateTime olderThanUtc, CancellationToken ct = default)
         {

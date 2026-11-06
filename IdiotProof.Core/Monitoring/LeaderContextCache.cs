@@ -102,7 +102,7 @@ public sealed class LeaderContextCache(IMarketDataFeed feed, IHistoricalBarStore
     /// <summary>Whether any entry condition, While guard or branch of <paramref name="def"/> reads the leaders.</summary>
     public static bool Uses(StrategyDefinition def) =>
         (bool)usesLeaders.GetValue(def, d =>
-            d.EntryConditions.Concat(d.WhileConditions).Any(c => Mentions(c.ToScript()))
+            d.EntryConditions.Concat(d.WhileConditions).Concat(d.ThenWhen).Any(c => Mentions(c.ToScript()))
             || d.ConditionalBlocks.Any(b => Mentions(b.ToScript())));
 
     private static bool Mentions(string script) =>

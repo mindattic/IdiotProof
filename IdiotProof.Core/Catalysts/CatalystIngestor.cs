@@ -62,6 +62,8 @@ public sealed class CatalystIngestor(
             FormType = item.FormType is null ? null : Clip(item.FormType, 16),
             ItemsJson = item.Items is null ? null : Clip(JsonSerializer.Serialize(item.Items), 200),
             SourceTier = tier,
+            SourceName = item.SourceName is { Length: > 0 } sn ? Clip(sn, 64) : null,
+            StampKind = CatalystStampKind.Classify(item.Source, item.SourceName, item.Url),
             PreClass = pre.Class.ToString(),
             PreDirection = pre.Direction,
             PreConfidence = pre.Confidence,

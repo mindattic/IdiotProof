@@ -8,7 +8,7 @@ namespace IdiotProof.Core.Monitoring.Formation;
 /// by the same name, plus where it came from, which decision time it answers and what the trigger
 /// rule said. The SQL table (another ticket) mirrors these columns one to one.
 /// </summary>
-public sealed record GapperFormationSnapshotRow
+public sealed record FormationSnapshotRow
 {
     public const string LiveSource = "live";
     public const int CurrentFeatureVersion = 1;
@@ -60,6 +60,7 @@ public sealed record GapperFormationSnapshotRow
     public double? CatalystAgeMinutes { get; init; }
     public int? CatalystDirection { get; init; }
     public string? CatalystPreClass { get; init; }
+    public bool? CatalystStampIsUpperBound { get; init; }
     public bool? Halted { get; init; }
 
     /// <summary>The snapshot's <c>Extra</c> dictionary as a JSON object.</summary>
@@ -69,7 +70,7 @@ public sealed record GapperFormationSnapshotRow
     public Guid? ArmedStrategyId { get; init; }
     public DateTime WrittenUtc { get; init; }
 
-    public static GapperFormationSnapshotRow FromSnapshot(GapperFormationSnapshot s, string decisionTimeEt, string reason, bool triggerPassed, DateTime writtenUtc, Guid? armedStrategyId = null) => new()
+    public static FormationSnapshotRow FromSnapshot(GapperFormationSnapshot s, string decisionTimeEt, string reason, bool triggerPassed, DateTime writtenUtc, Guid? armedStrategyId = null) => new()
     {
         Symbol = s.Symbol,
         DateEt = s.DateEt,
@@ -108,6 +109,7 @@ public sealed record GapperFormationSnapshotRow
         CatalystAgeMinutes = s.CatalystAgeMinutes,
         CatalystDirection = s.CatalystDirection,
         CatalystPreClass = s.CatalystPreClass,
+        CatalystStampIsUpperBound = s.CatalystStampIsUpperBound,
         Halted = s.Halted,
         ExtraJson = JsonSerializer.Serialize(s.Extra),
         TriggerPassed = triggerPassed,

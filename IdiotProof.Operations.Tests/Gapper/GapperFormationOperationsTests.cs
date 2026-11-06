@@ -40,8 +40,8 @@ public class GapperFormationOperationsTests
         public SettingsRepository Settings => Services.GetRequiredService<SettingsRepository>();
     }
 
-    private static GapperFormationSnapshotRow Row(string symbol, DateTime decisionUtc, double gap, bool passed = false, string reason = "schedule") =>
-        GapperFormationSnapshotRow.FromSnapshot(new GapperFormationSnapshot
+    private static FormationSnapshotRow Row(string symbol, DateTime decisionUtc, double gap, bool passed = false, string reason = "schedule") =>
+        FormationSnapshotRow.FromSnapshot(new GapperFormationSnapshot
         {
             Symbol = symbol, DateEt = new DateOnly(2026, 11, 6), DecisionUtc = decisionUtc, GapPct = gap, PmCumVol = 1000, VolRatioTod = 4.2,
             Velocity1m = 0.5, Velocity3m = 0.25, Velocity5m = -0.1, Acceleration = 0.05, DistToPmHighPct = 2.5, CatalystScore = 71, CatalystAgeMinutes = 90, Halted = false,

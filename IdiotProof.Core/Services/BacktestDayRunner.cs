@@ -54,6 +54,45 @@ public static class BacktestDayRunner
     }
 
     /// <summary>
+    /// The ET trading days (weekends skipped) a <paramref name="days"/>-day replay covers, starting at
+    /// <paramref name="firstDayEt"/>: the window a sequenced strategy needs to hand off between steps.
+    /// </summary>
+    public static IReadOnlyList<DateOnly> TradingDays(DateOnly firstDayEt, int days)
+    {
+        if (days < 1) throw new ArgumentOutOfRangeException(nameof(days), "At least one day.");
+        var result = new List<DateOnly>();
+        for (var day = firstDayEt; result.Count < days; day = day.AddDays(1))
+            if (day.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) result.Add(day);
+        return result;
+    }
+
+    /// <summary>
+    /// One continuous replay over <paramref name="days"/> trading days from <paramref name="firstDayEt"/>:
+    /// each day's session candles are fetched and concatenated so a sequence's wait between steps,
+    /// and a Within deadline, run across the day boundaries. The previous close is the first day's.
+    /// </summary>
+    public static async Task<(BacktestReport Report, IReadOnlyList<Candle> Candles)> RunDaysAsync(
+        StrategyDefinition def, DateOnly firstDayEt, int days, IMarketDataFeed feed, CancellationToken ct = default,
+        LeaderContextCache? leaders = null, IEnumerable<string>? peers = null, int? defaultQuantity = null)
+    {
+        var tradingDays = TradingDays(firstDayEt, days);
+        var candles = new List<Candle>();
+        foreach (var day in tradingDays)
+        {
+            var (start, end) = SessionWindowUtc(day, def.Session);
+            await foreach (var c in feed.GetHistoricalCandlesAsync(def.Symbol, start, end, TimeSpan.FromMinutes(1), ct))
+                candles.Add(c);
+        }
+        var (firstStart, _) = SessionWindowUtc(tradingDays[0], def.Session);
+        var previousClose = await feed.GetPreviousCloseAsync(def.Symbol, firstStart.AddHours(2), ct);
+        var (leaderContext, leaderNote) = await LeadersForDayAsync(def, tradingDays[0], feed, leaders, peers, ct);
+        var options = new BacktestOptions { PreviousClose = previousClose, Leaders = leaderContext, DefaultQuantity = defaultQuantity ?? 100 };
+        var report = StrategyBacktester.Run(def, candles, options);
+        if (leaderNote is not null) report.Note = report.Note is null ? leaderNote : $"{report.Note} {leaderNote}";
+        return (report, candles);
+    }
+
+    /// <summary>
     /// Leader context for a leader-gated strategy (null and no fetch otherwise). A failure leaves the
     /// guards fail-closed, like the live Monitor, and returns a note saying why.
     /// </summary>

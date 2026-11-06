@@ -46,11 +46,24 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     private static readonly System.Text.RegularExpressions.Regex NullGiveback =
         new("\"peakGivebackPercent\"\\s*:\\s*null", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
-    private static bool IsGapperScript(string? scriptText, string? scriptJson) =>
-        scriptText?.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase) == true
-        || (scriptJson is not null
-            && scriptJson.Contains("\"peakGivebackPercent\"", StringComparison.OrdinalIgnoreCase)
-            && !NullGiveback.IsMatch(scriptJson));
+    private static bool IsGapperScript(string? scriptText, string? scriptJson)
+    {
+        if (scriptText?.Contains("PeakGiveback(", StringComparison.OrdinalIgnoreCase) == true) return true;
+        if (scriptJson is null || !scriptJson.Contains("\"peakGivebackPercent\"", StringComparison.OrdinalIgnoreCase)) return false;
+        // A sequence's root is written with a null giveback even when a later step is the gapper.
+        if (scriptJson.Contains("\"nextSteps\"", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                return StrategyLoader.Load(scriptJson, null).Definition?.AllSteps().Any(s => s.PeakGivebackPercent.HasValue) == true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        return !NullGiveback.IsMatch(scriptJson);
+    }
 
     /// <summary>
     /// The gapper activation rules (IP-LAW-11), checked against SQL for a row that is about to be
@@ -446,7 +459,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     /// </summary>
     public async Task RecordEntryFillAsync(
         Guid id, int quantity, decimal fillPrice, DateTime filledUtc, CancellationToken ct = default,
-        string? resolvedScriptJson = null)
+        string? resolvedScriptJson = null, bool countsAsCycle = true)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
@@ -454,9 +467,14 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         strategy.PositionQty    = quantity;
         strategy.LastEntryPrice = fillPrice;
         strategy.EntryFilledUtc = filledUtc;
-        var cycleDay = Strategy.EtDay(filledUtc);
-        strategy.CyclesToday = strategy.CycleDateEt == cycleDay ? strategy.CyclesToday + 1 : 1;
-        strategy.CycleDateEt = cycleDay;
+        // Repeat(n) counts sequences, not steps: only a step-0 fill is a new cycle.
+        if (countsAsCycle)
+        {
+            var cycleDay = Strategy.EtDay(filledUtc);
+            strategy.CyclesToday = strategy.CycleDateEt == cycleDay ? strategy.CyclesToday + 1 : 1;
+            strategy.CycleDateEt = cycleDay;
+        }
+        strategy.AwaitingTransition = false;
         strategy.LastExitedUtc  = null;
         strategy.LastExitPrice  = null;
         strategy.LastExitReason = null;
@@ -481,7 +499,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
         if (strategy is null) return;
         // The phantom fill counted as a cycle; give it back so Repeat(n) isn't shortchanged.
-        if (strategy.EntryFilledUtc is { } phantom && strategy.CycleDateEt == Strategy.EtDay(phantom) && strategy.CyclesToday > 0)
+        if (strategy.StepIndex == 0 && strategy.EntryFilledUtc is { } phantom && strategy.CycleDateEt == Strategy.EtDay(phantom) && strategy.CyclesToday > 0)
             strategy.CyclesToday--;
         strategy.PositionQty    = 0;
         strategy.LastEntryPrice = null;
@@ -495,8 +513,10 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     /// <summary>
     /// Records an exit fill: flattens the tracked position and stamps the
     /// exit bookkeeping the UI renders ("sold 09:22 — PeakGiveback @ 11.48").
+    /// With <paramref name="moreSteps"/> the sequence now waits, flat, for this step's ThenWhen.
     /// </summary>
-    public async Task RecordExitFillAsync(Guid id, decimal exitPrice, string reason, DateTime exitedUtc, CancellationToken ct = default)
+    public async Task RecordExitFillAsync(Guid id, decimal exitPrice, string reason, DateTime exitedUtc, CancellationToken ct = default,
+        bool moreSteps = false)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
@@ -505,10 +525,45 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         strategy.LastExitPrice  = exitPrice;
         strategy.LastExitReason = reason;
         strategy.LastExitedUtc  = exitedUtc;
+        strategy.AwaitingTransition = moreSteps;
         strategy.ResolvedEntryScriptJson = null;
         strategy.InitialPositionQty      = null;
         strategy.UpdatedUtc     = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Arms step <paramref name="nextIndex"/> of a sequence: its ThenWhen held while flat.</summary>
+    public async Task AdvanceStepAsync(Guid id, int nextIndex, DateTime utcNow, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (strategy is null) return;
+        strategy.StepIndex          = nextIndex;
+        strategy.AwaitingTransition = false;
+        strategy.StepArmedUtc       = utcNow;
+        strategy.UpdatedUtc         = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Puts a sequence back at step 0 (the Monitor after the last step with Repeat, or a person via
+    /// <c>strategy step --reset</c>). Refused with PositionOpen while the row holds shares: the step
+    /// that opened them must keep managing the exit. With <paramref name="ownerUserId"/> the row
+    /// must belong to that user.
+    /// </summary>
+    public async Task<StrategyMutation> ResetSequenceAsync(Guid id, Guid? ownerUserId = null, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (strategy is null) return StrategyMutation.NotFound;
+        if (ownerUserId is { } owner && strategy.OwnerUserId != owner) return StrategyMutation.NotOwner;
+        if (strategy.PositionQty > 0) return StrategyMutation.PositionOpen;
+        strategy.StepIndex          = 0;
+        strategy.AwaitingTransition = false;
+        strategy.StepArmedUtc       = null;
+        strategy.UpdatedUtc         = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return StrategyMutation.Ok;
     }
 
     /// <summary>

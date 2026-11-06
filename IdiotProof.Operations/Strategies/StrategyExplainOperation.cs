@@ -15,6 +15,35 @@ public static class StrategyNarrator
 {
     public static List<(string Phase, List<string> Lines)> Explain(StrategyDefinition d, string? mode = null)
     {
+        if (!d.IsSequence) return ExplainStep(d, d, mode);
+
+        var sections = new List<(string, List<string>)>();
+        var steps = d.AllSteps().ToList();
+        for (var i = 0; i < steps.Count; i++)
+        {
+            var step = steps[i];
+            var name = step.StepName is { Length: > 0 } n ? $" \"{n}\"" : "";
+            sections.Add(("Step", [$"{i + 1} of {steps.Count}{name}" + (i == 0 ? ": the sequence starts here." : ": armed only after the step before it exits and its transition holds.")]));
+            sections.AddRange(ExplainStep(step, d, i == 0 ? mode : null));
+            if (i + 1 < steps.Count)
+            {
+                var when = step.ThenWhen.Count == 0
+                    ? "Once this step has exited, the next step is armed right away"
+                    : $"Once this step has exited, the next step is armed when {Join(step.ThenWhen.Select(Describe).ToList())}";
+                var within = step.ThenWithinDays is { } days
+                    ? $"; if that does not happen within {days} day{(days == 1 ? "" : "s")} of the exit, the sequence ends."
+                    : ".";
+                sections.Add(("Then when", [when + within]));
+            }
+        }
+        sections.Add(("Sequence", [d.ShouldRepeat
+            ? "After the last step exits the sequence starts again at step 1" + (d.MaxCycles is { } max ? $", at most {max} times a day." : ".")
+            : "After the last step exits the sequence is complete and the strategy deactivates itself."]));
+        return sections;
+    }
+
+    private static List<(string Phase, List<string> Lines)> ExplainStep(StrategyDefinition d, StrategyDefinition root, string? mode)
+    {
         var sections = new List<(string, List<string>)>();
 
         var setup = new List<string>
@@ -37,8 +66,8 @@ public static class StrategyNarrator
         var size = d.Quantity > 0 ? $"{d.Quantity} share{(d.Quantity == 1 ? "" : "s")}"
             : d.NotionalAmount is { } amt ? $"{Rendering.Fmt.Money(amt)} worth" : "1 share (no size given)";
         var order = new List<string> { $"{(d.Direction == TradeDirection.Long ? "Buys" : "Sells short")} {size} with a marketable limit order." };
-        if (d.ShouldRepeat)
-            order.Add(d.MaxCycles is { } max
+        if (root.ShouldRepeat && !root.IsSequence)
+            order.Add(root.MaxCycles is { } max
                 ? $"After it exits it re-arms and can enter again the same day, at most {max} entries a day."
                 : "After it exits it re-arms and can enter again the same day.");
         if (d.WhileConditions.Count > 0)
@@ -241,6 +270,7 @@ public sealed class StrategyExplainOperation : IOperation<StrategyRefArgs>
         var sections = StrategyNarrator.Explain(def, mode);
         var state = s.IsActive ? "It is ACTIVE — the Monitor evaluates it every tick." : "It is inactive.";
         if (s.PositionQty > 0) state += $" It holds {s.PositionQty} shares now.";
+        if (def.IsSequence) state += $" Sequence: {StrategySequence.Describe(s, def)}.";
         return OperationResult.Ok(new
         {
             s.Id, Stamp = def.ShortId(), s.Symbol, s.Title, Mode = mode, s.IsActive,

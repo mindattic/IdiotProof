@@ -9,8 +9,8 @@ public sealed class GapperSnapshotSinkTests
 {
     private static readonly DateTime T = new(2026, 11, 6, 13, 30, 0, DateTimeKind.Utc);
 
-    private static GapperFormationSnapshotRow Row(string symbol, DateTime decisionUtc, string reason = "schedule", bool passed = false) =>
-        GapperFormationSnapshotRow.FromSnapshot(new GapperFormationSnapshot
+    private static FormationSnapshotRow Row(string symbol, DateTime decisionUtc, string reason = "schedule", bool passed = false) =>
+        FormationSnapshotRow.FromSnapshot(new GapperFormationSnapshot
         {
             Symbol = symbol, DateEt = DateOnly.FromDateTime(MinuteBarMath.ToEastern(decisionUtc)), DecisionUtc = decisionUtc,
             GapPct = 12.5, PmCumVol = 1234, Velocity3m = 0.7, Halted = false, Extra = new Dictionary<string, double> { ["overnightReturnD1"] = 1.5 },
@@ -20,7 +20,7 @@ public sealed class GapperSnapshotSinkTests
     public void Row_MirrorsEveryCoreColumnOfTheSnapshot_ByNameAndType()
     {
         var snapshotProps = typeof(GapperFormationSnapshot).GetProperties().Where(p => p.Name != nameof(GapperFormationSnapshot.Extra)).ToList();
-        var rowProps = typeof(GapperFormationSnapshotRow).GetProperties().ToDictionary(p => p.Name);
+        var rowProps = typeof(FormationSnapshotRow).GetProperties().ToDictionary(p => p.Name);
         foreach (var p in snapshotProps)
         {
             Assert.That(rowProps.ContainsKey(p.Name), Is.True, $"row lacks {p.Name}");
@@ -34,7 +34,7 @@ public sealed class GapperSnapshotSinkTests
             Assert.That(row.DateEt, Is.EqualTo(new DateOnly(2026, 11, 6)));
             Assert.That(row.GapPct, Is.EqualTo(12.5));
             Assert.That(row.ExtraJson, Does.Contain("\"overnightReturnD1\":1.5"));
-            Assert.That(row.FeatureVersion, Is.EqualTo(GapperFormationSnapshotRow.CurrentFeatureVersion));
+            Assert.That(row.FeatureVersion, Is.EqualTo(FormationSnapshotRow.CurrentFeatureVersion));
             Assert.That(row.TriggerPassed, Is.True);
             Assert.That(row.ArmedStrategyId, Is.Null);
         });

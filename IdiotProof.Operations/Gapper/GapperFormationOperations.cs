@@ -18,10 +18,10 @@ internal static class FormationViews
 
     public static string Time(DateTime utc) => EasternClock.ToEastern(utc).ToString("MM-dd HH:mm", CultureInfo.InvariantCulture);
 
-    public static string Catalyst(GapperFormationSnapshotRow r) =>
+    public static string Catalyst(FormationSnapshotRow r) =>
         r.CatalystScore is { } s ? $"{s:0}{(r.CatalystAgeMinutes is { } a ? $"/{a:0}m" : "")}" : "—";
 
-    public static string Table(OperationContext ctx, IReadOnlyList<GapperFormationSnapshotRow> rows)
+    public static string Table(OperationContext ctx, IReadOnlyList<FormationSnapshotRow> rows)
     {
         var table = new TextTable { MaxWidth = ctx.Width }
             .Column("time ET").Column("sym").Column("why").Column("gap%", Align.Right).Column("vol×", Align.Right)
@@ -34,7 +34,7 @@ internal static class FormationViews
         return table.Render();
     }
 
-    public static object Data(GapperFormationSnapshotRow r) => new
+    public static object Data(FormationSnapshotRow r) => new
     {
         r.Source, r.Symbol, r.DateEt, r.DecisionTimeEt, DecisionEt = EasternClock.ToEasternOffset(r.DecisionUtc), r.DecisionUtc, r.Reason,
         r.GapPct, r.PmCumVol, r.VolRatioTod, r.OwnProfileRatio, r.Velocity1m, r.Velocity3m, r.Velocity5m, r.Velocity15m, r.Acceleration, r.VolumeRoc,
