@@ -25,7 +25,11 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
     private readonly string feed;
     private readonly ConcurrentDictionary<string, LatestPrice> lastTrades = new(StringComparer.OrdinalIgnoreCase);
     private readonly object subscriptionLock = new();
+    private readonly Dictionary<string, HashSet<string>> symbolsByOwner = new(StringComparer.Ordinal);
     private HashSet<string> subscribedSymbols = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The subscription owner <see cref="SetSymbolsAsync(IEnumerable{string}, CancellationToken)"/> writes: the Monitor's armed symbols.</summary>
+    public const string DefaultOwner = "monitor";
     private ClientWebSocket? socket;
     private Task? receiveLoop;
     private CancellationTokenSource? cts;
@@ -64,6 +68,12 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
     /// <summary>Fired on every trade print for a subscribed symbol.</summary>
     public event Action<LatestPrice>? TradeReceived;
 
+    /// <summary>Fired on every trading-status message (<c>statuses</c> channel: halts, resumptions, pauses) for a subscribed symbol.</summary>
+    public event Action<TradingStatus>? StatusReceived;
+
+    /// <summary>Fired on every limit-up/limit-down band message (<c>lulds</c> channel) for a subscribed symbol.</summary>
+    public event Action<LuldBand>? LuldReceived;
+
     /// <summary>Human-readable connection status for logs/UI.</summary>
     public string Status { get; private set; } = "stopped";
 
@@ -90,15 +100,26 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
     }
 
     /// <summary>
-    /// Replaces the subscribed symbol set. Applied immediately when connected;
-    /// re-applied automatically after every reconnect.
+    /// Replaces the Monitor's (<see cref="DefaultOwner"/>) symbol set. Applied immediately when
+    /// connected; re-applied automatically after every reconnect.
     /// </summary>
-    public async Task SetSymbolsAsync(IEnumerable<string> symbols, CancellationToken ct = default)
+    public Task SetSymbolsAsync(IEnumerable<string> symbols, CancellationToken ct = default) =>
+        SetSymbolsAsync(DefaultOwner, symbols, ct);
+
+    /// <summary>
+    /// Replaces one owner's symbol set; the socket subscribes to the union over every owner, so
+    /// the Monitor's armed symbols and the formation recorder's universe share the one SIP
+    /// connection the account allows. An empty set drops the owner.
+    /// </summary>
+    public async Task SetSymbolsAsync(string owner, IEnumerable<string> symbols, CancellationToken ct = default)
     {
-        HashSet<string> next = new(symbols.Select(s => s.ToUpperInvariant()), StringComparer.OrdinalIgnoreCase);
         HashSet<string> added, removed;
         lock (subscriptionLock)
         {
+            var mine = new HashSet<string>(symbols.Select(s => s.ToUpperInvariant()), StringComparer.OrdinalIgnoreCase);
+            if (mine.Count == 0) symbolsByOwner.Remove(owner);
+            else symbolsByOwner[owner] = mine;
+            var next = new HashSet<string>(symbolsByOwner.Values.SelectMany(v => v), StringComparer.OrdinalIgnoreCase);
             added = new HashSet<string>(next.Except(subscribedSymbols), StringComparer.OrdinalIgnoreCase);
             removed = new HashSet<string>(subscribedSymbols.Except(next), StringComparer.OrdinalIgnoreCase);
             subscribedSymbols = next;
@@ -106,9 +127,21 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
         if (!IsConnected) return; // reconnect path re-subscribes the full set
 
         if (added.Count > 0)
-            await SendAsync(new { action = "subscribe", trades = added.ToArray(), bars = added.ToArray() }, ct).ConfigureAwait(false);
+            await SendAsync(Subscription("subscribe", added), ct).ConfigureAwait(false);
         if (removed.Count > 0)
-            await SendAsync(new { action = "unsubscribe", trades = removed.ToArray(), bars = removed.ToArray() }, ct).ConfigureAwait(false);
+            await SendAsync(Subscription("unsubscribe", removed), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>The symbols one owner asked for (empty for an unknown owner).</summary>
+    public IReadOnlyCollection<string> SymbolsOf(string owner)
+    {
+        lock (subscriptionLock) return symbolsByOwner.TryGetValue(owner, out var s) ? [.. s] : [];
+    }
+
+    private static object Subscription(string action, IEnumerable<string> symbols)
+    {
+        var list = symbols.ToArray();
+        return new { action, trades = list, bars = list, statuses = list, lulds = list };
     }
 
     private async Task RunAsync(CancellationToken ct)
@@ -129,7 +162,7 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
                 HashSet<string> current;
                 lock (subscriptionLock) current = new(subscribedSymbols, StringComparer.OrdinalIgnoreCase);
                 if (current.Count > 0)
-                    await SendAsync(new { action = "subscribe", trades = current.ToArray(), bars = current.ToArray() }, ct).ConfigureAwait(false);
+                    await SendAsync(Subscription("subscribe", current), ct).ConfigureAwait(false);
 
                 Status = "connected";
                 var connectedAt = DateTime.UtcNow;
@@ -240,6 +273,16 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
                     });
                     break;
                 }
+                case "s": // trading status
+                {
+                    if (ParseStatus(el) is { } status) StatusReceived?.Invoke(status);
+                    break;
+                }
+                case "l": // LULD band
+                {
+                    if (ParseLuld(el) is { } band) LuldReceived?.Invoke(band);
+                    break;
+                }
                 case "error":
                 {
                     var msg = el.TryGetProperty("msg", out var m) ? m.GetString() : "unknown";
@@ -249,6 +292,29 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
             }
         }
     }
+
+    /// <summary>A <c>{"T":"s", ...}</c> frame as a <see cref="TradingStatus"/>; null when it names no symbol.</summary>
+    public static TradingStatus? ParseStatus(JsonElement el)
+    {
+        var symbol = Str(el, "S");
+        if (string.IsNullOrWhiteSpace(symbol)) return null;
+        var ts = el.TryGetProperty("t", out var tsEl) && tsEl.ValueKind == JsonValueKind.String && tsEl.TryGetDateTime(out var t) ? t.ToUniversalTime() : DateTime.UtcNow;
+        return new TradingStatus(symbol.ToUpperInvariant(), Str(el, "sc") ?? "", Str(el, "sm") ?? "", Str(el, "rc") ?? "", Str(el, "rm") ?? "", ts, Str(el, "z") ?? "");
+    }
+
+    /// <summary>A <c>{"T":"l", ...}</c> frame as a <see cref="LuldBand"/>; null when it names no symbol.</summary>
+    public static LuldBand? ParseLuld(JsonElement el)
+    {
+        var symbol = Str(el, "S");
+        if (string.IsNullOrWhiteSpace(symbol)) return null;
+        var ts = el.TryGetProperty("t", out var tsEl) && tsEl.ValueKind == JsonValueKind.String && tsEl.TryGetDateTime(out var t) ? t.ToUniversalTime() : DateTime.UtcNow;
+        decimal? up = el.TryGetProperty("u", out var u) && u.ValueKind == JsonValueKind.Number ? u.GetDecimal() : null;
+        decimal? down = el.TryGetProperty("d", out var d) && d.ValueKind == JsonValueKind.Number ? d.GetDecimal() : null;
+        return new LuldBand(symbol.ToUpperInvariant(), up, down, Str(el, "i") ?? "", ts, Str(el, "z") ?? "");
+    }
+
+    private static string? Str(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
     private Task SendAsync(object payload, CancellationToken ct)
     {

@@ -185,6 +185,13 @@ public static class CoreServiceRegistration
         services.AddScoped<IdiotProof.Core.Catalysts.CatalystBackfillService>();
         services.AddScoped<IdiotProof.Core.Catalysts.CatalystLookup>();
 
+        // ── Formation recorder (IP-T443): settings, status and the snapshot sink every host can read; the worker is hosted with the Monitor ──
+        services.AddSingleton<IdiotProof.Core.Monitoring.Formation.FormationSettings>();
+        services.AddSingleton<IdiotProof.Core.Monitoring.Formation.FormationState>();
+        services.TryAddSingleton<IdiotProof.Core.Monitoring.Formation.IGapperSnapshotSink, IdiotProof.Core.Monitoring.Formation.InMemoryGapperSnapshotSink>();
+        services.AddSingleton(sp => IdiotProof.Core.Monitoring.Formation.FormationCatalogs.Schedule(sp));
+        services.AddSingleton(sp => IdiotProof.Core.Monitoring.Formation.FormationCatalogs.TriggerRule(sp));
+
         return services;
     }
 

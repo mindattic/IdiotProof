@@ -1,0 +1,12 @@
+{
+  "_comment": "FormationTriggerRule (IP-T443, IP-LAW-7): the thresholds a live GapperFormationSnapshot must clear for the formation recorder to count the symbol as a gapper worth arming. EVERY threshold is null until the gapper study (docs/research/gapper-study-2026-11) sets them from its validation results; an all-null rule never passes, so nothing is ever armed from formation data before the study says what works. Even a passing rule only arms when SettingsKv formation.arming.enabled is true and the owner's route is paper; this build records TriggerPassed and writes a formation-blocked audit row instead of arming.",
+  "version": 1,
+  "minGapPct": null,
+  "maxGapPct": null,
+  "minVolRatioTod": null,
+  "minVelocity3m": null,
+  "minAccel": null,
+  "maxDistFromPmHighPct": null,
+  "minCatalystScore": null,
+  "requireCatalyst": null
+}

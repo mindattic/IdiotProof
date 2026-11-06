@@ -223,11 +223,7 @@ public sealed class AutoGapperScanner(
 
     // ── Signals ─────────────────────────────────────────────────────────
 
-    private sealed record Signals(
-        double Price, double GapPercent, double? PreviousClose,
-        long? PremarketVolume, double? AvgDailyVolume, double? VolumeRatio, double? AtrPercent);
-
-    private async Task<Signals> GatherSignalsAsync(string symbol, double screenerPct, double screenerPx, CancellationToken ct)
+    private async Task<GapperPlanSignals> GatherSignalsAsync(string symbol, double screenerPct, double screenerPx, CancellationToken ct)
     {
         var nowUtc = DateTime.UtcNow;
         double? prevClose = null;
@@ -276,7 +272,7 @@ public sealed class AutoGapperScanner(
             : screenerPct;
         // One formula with the study (GapperVolumeRatio); no time-of-day profile ships yet, so this is still cumVol / ADV.
         double? volRatio = GapperVolumeRatio.Compute(pmVol, avgVol, TimeOfDayProfile, null, MarketTime.ToEasternTimeOfDay(nowUtc));
-        return new Signals(px, gap, prevClose, pmVol, avgVol, volRatio, atrPct);
+        return new GapperPlanSignals(px, gap, prevClose, pmVol, avgVol, volRatio, atrPct);
     }
 
     // ── Adaptive synthesis ──────────────────────────────────────────────
@@ -286,59 +282,25 @@ public sealed class AutoGapperScanner(
         public required string Symbol { get; init; }
         public required string Title { get; init; }
         public required string Class { get; init; }
-        public required Signals Signals { get; init; }
+        public required GapperPlanSignals Signals { get; init; }
         public required GapperProfile Profile { get; init; }
         public required StrategyBuilder Builder { get; init; }
         public required double Score { get; init; }
         public int Rank { get; set; }
     }
 
-    private static double Clamp(double v, double lo, double hi) => Math.Max(lo, Math.Min(hi, v));
-
-    private CandidatePlan Synthesize(string symbol, Signals s)
+    private static CandidatePlan Synthesize(string symbol, GapperPlanSignals s)
     {
-        // Behavior class by price tier — the coarse shape of how the name trades.
-        var (cls, stopMin, stopMax, trailMult, gvCap, arm, sellBy, minVol, baseNotional, typAtr) =
-            s.Price < 5   ? ("penny",  6.0, 12.0, 1.25, 22.0, "09:10", "09:27", 3.0,  400.0, 12.0)
-          : s.Price < 20  ? ("mid",    4.0,  8.0, 1.50, 28.0, "09:12", "09:28", 2.0,  800.0,  7.0)
-          :                 ("large",  2.5,  5.0, 0.00, 35.0, "09:15", "09:29", 1.5, 1500.0,  4.0);
-
-        var atr = s.AtrPercent is > 0 ? s.AtrPercent.Value : typAtr;
-        var stop = Clamp(atr, stopMin, stopMax);                    // stop sized to the ticker's own volatility
-        double? trailing = cls == "large" ? null : Math.Round(stop * trailMult, 1);
-        var gapGiveback = Clamp(30.0 - (s.GapPercent - 15.0) * 0.4, 15.0, 30.0); // bigger gap → tighter giveback
-        var giveback = Math.Min(gvCap, gapGiveback);
-
-        var priceLow = Math.Round(Math.Max(0.1, s.Price * 0.6), 2);
-        var priceHigh = Math.Round(s.Price * 1.8, 2);
-
-        // Adaptive notional: more premarket liquidity → larger; more volatile → smaller.
-        var convFactor = Clamp(1.0 + (s.VolumeRatio ?? 0.0), 0.75, 1.6);
-        var volFactor = Clamp(atr / typAtr, 0.75, 1.6);
-        var notional = Clamp(Math.Round(baseNotional * convFactor / volFactor / 50.0) * 50.0, 200.0, 3000.0);
-
-        var profile = new GapperProfile
-        {
-            Id = "auto", Name = $"Auto {cls}",
-            MinGapPercent = 15, MaxGapPercent = null,
-            MinVolumeRatio = minVol, MinPrice = priceLow, MaxPrice = priceHigh,
-            EntryWindowStartEt = "04:00", EntryWindowEndEt = "09:00",
-            StopLossPercent = stop, TrailingStopPercent = trailing,
-            PeakGivebackPercent = giveback, ArmExitAtEt = arm, SellByEt = sellBy,
-            DefaultNotional = (decimal)notional,
-        };
-        var builder = GapperScriptFactory.Compose(symbol, profile);
-        var score = s.GapPercent * (1.0 + (s.VolumeRatio ?? 0.0));
-
+        var plan = GapperPlanSynthesizer.Synthesize(symbol, s);
         return new CandidatePlan
         {
             Symbol = symbol,
-            Title = $"{symbol} Auto-Gapper +{s.GapPercent:0}% ({cls})",
-            Class = cls,
+            Title = $"{symbol} Auto-Gapper +{s.GapPercent:0}% ({plan.Class})",
+            Class = plan.Class,
             Signals = s,
-            Profile = profile,
-            Builder = builder,
-            Score = score,
+            Profile = plan.Profile,
+            Builder = plan.Builder,
+            Score = plan.Score,
         };
     }
 

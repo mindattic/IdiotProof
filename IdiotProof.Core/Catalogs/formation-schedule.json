@@ -1,0 +1,5 @@
+{
+  "_comment": "Mirror of docs/research/gapper-study-2026-11/params.json decisionTimesEt (IP-T443, IP-LAW-7). The live GapperFormationWorker writes one GapperFormationSnapshot row per symbol at exactly these ET clock times so live rows and study rows compare row for row. 'D-1 16:00' is the study's prior-close reference, not a live decision time, and is skipped by the loader. Core must not depend on docs, hence the copy; keep the two lists identical.",
+  "version": 1,
+  "decisionTimesEt": ["D-1 16:00", "04:00", "06:00", "07:00", "08:00", "08:30", "09:00", "09:15", "09:25", "09:30", "09:31", "09:35", "09:45"]
+}
