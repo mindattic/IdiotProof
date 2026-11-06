@@ -4,7 +4,7 @@ project: IdiotProof
 code: IP
 layer: bible
 status: living
-updated: 2026-10-31
+updated: 2026-11-06
 ---
 
 # IdiotProof — Project Bible
@@ -73,7 +73,12 @@ rolls over.
   and the `IdiotProof.Blazor` web app, all over the one Hub ([§4](#IP-§4)); the Hub runs headless
   as a console window or a Windows Service.
 - **Not a research daemon.** `IdiotProof.ResearchScanner` (and `research scan`) runs one pass and
-  exits; it is fired by a scheduler job and never shares the Monitor's trading loop.
+  exits; it is fired by a scheduler job and never shares the Monitor's trading loop. The one
+  long-running research worker, the catalyst intake ([§4.4](#IP-§4)), writes research rows only,
+  is off by default, and holds no broker client.
+- **Not a trained predictor.** Nothing in the trading path reads a catalyst row or a formation
+  snapshot yet; the gapper study ([§4.4](#IP-§4)) decides whether anything ever will, and its
+  pre-registered prior is that the honest answer may be "catalyst latency is the edge".
 
 ## 4. Architecture canon {#IP-§4}
 
@@ -119,7 +124,8 @@ order except through the Hub's `TransactionGateway` ([IP-LAW-12](#IP-LAW-12)).
 | `IdiotProof.Monitor` | `idiotproof-monitor`: a backward-compatible shim that starts the Hub (the Monitor lives there now); its operator subcommands forward to the matching Hub operations (`--local` keeps the old in-process path for replay/scan). |
 | `IdiotProof.Engine` | `AppSettings` overlay chain, `SupervisedLoop`, `AuditLogger`, `WorkspaceManager` (UI layout state only). |
 | `IdiotProof.Scripting` | The IdiotScript DSL: `Stock.Ticker(...)`, `StrategyBuilder`, the `Conditions` catalog, `ScriptParser`, `StrategyJson` + `StrategyLoader` (canonical JSON), `StrategyStamp` (the ASCII stamp), `StrategyHtml`, branching algebra, `EmaPeriodCollector`, `GapperProfile` + `GapperScriptFactory`, `MarketTime` / `TradingSchedule` (ET clock, trading-day gate). |
-| `IdiotProof.Strategies` | `IStrategy` + `DslStrategy` adapter + `IndicatorSnapshotBuilder` + `GapperExitEvaluator` (sell-off brain, long and short) + `StrategyBacktester`/`BacktestReport` + `GapperDayBacktester`. |
+| `IdiotProof.Strategies` | `IStrategy` + `DslStrategy` adapter + `IndicatorSnapshotBuilder` + `GapperExitEvaluator` (sell-off brain, long and short, calling the shared `VelocityExitRule`) + `StrategyBacktester`/`BacktestReport` (replays sequences) + `GapperDayBacktester`. |
+| `IdiotProof.Evidence` | Pure statistics and shared market math; references `IdiotProof.Models` only, so Strategies, Core and Operations can all call it. `Gappers/` is the one gapper feature and exit brain (`GapperFormationFeatures`, `TimeOfDayProfile`, `VelocityExitRule`, `MinuteBarMath`, `GapperVolumeRatio`) used by the live Monitor, `gapper backtest-day` and the study ([IP-LAW-10](#IP-LAW-10)); `Evaluation/`, `Search/` (BH, DSR, SPA), `EventStudy/`, `Economics/TradingCosts` and the rest back the `evidence *` operations and the research harnesses (`tools/EvidenceSweep`, `tools/EvidenceRun`, `tools/GapperStudy`). No I/O, no clocks. |
 | `IdiotProof.Indicators` | Pure indicator math: ADX, ATR, Bollinger, CCI, EMA, MACD, OBV, RSI, SMA, Stochastic, VWAP, WilliamsR, `CandlestickPatterns`. |
 | `IdiotProof.DataFeeds` | `IMarketDataFeed` (+ `GetPreviousCloseAsync`): `AlpacaDataFeed` (REST, sip default with iex fallback), `AlpacaStreamingClient` (websocket trades + minute bars), `MockDataFeed`, `SwitchableMarketDataFeed`. |
 | `IdiotProof.Brokers` | `AlpacaApi` (raw Trading + Market Data REST: paging, 429 retry, `AlpacaApiException`), `IBrokerClient` + `AlpacaBrokerClient` + `SandboxBrokerClient` + `BrokerRouter` + `AlpacaOAuthClient`. Options-aware (contracts, snapshots, single-leg and multi-leg orders, exercise). |
@@ -130,7 +136,7 @@ order except through the Hub's `TransactionGateway` ([IP-LAW-12](#IP-LAW-12)).
 | `IdiotProof.ResearchScanner` | One-shot research pass (EDGAR, Alpaca, Federal Register) that writes claims and exits; also reachable as `idiotproof research scan`. |
 
 Test projects: `IdiotProof.Engine.Tests`, `IdiotProof.Indicators.Tests`, `IdiotProof.Strategies.Tests`,
-`IdiotProof.Brokers.Tests`, `IdiotProof.Core.Tests`, `IdiotProof.Operations.Tests`, `IdiotProof.Cli.Tests`,
+`IdiotProof.Evidence.Tests`, `IdiotProof.Brokers.Tests`, `IdiotProof.Core.Tests`, `IdiotProof.Operations.Tests`, `IdiotProof.Cli.Tests`,
 `IdiotProof.Mcp.Tests`, `IdiotProof.Blazor.Tests`, `IdiotProof.UI.Tests`, `IdiotProof.Monitor.Tests`
 (see [§6](#IP-§6)); Cypress E2E lives in `tests/IdiotProof.Cypress/`.
 
@@ -144,12 +150,21 @@ Test projects: `IdiotProof.Engine.Tests`, `IdiotProof.Indicators.Tests`, `IdiotP
 - `OptionContract` (OCC symbol, underlying, expiration, strike, right, multiplier 100),
   `OptionQuote`/`OptionGreeks` (IV/Greeks null when the broker omits them).
 - `StrategyDefinition` (in `IdiotProof.Scripting`) — the semantic model: phases + conditions +
-  branches; persisted as canonical JSON ([IP-LAW-8](#IP-LAW-8)).
+  branches; persisted as canonical JSON ([IP-LAW-8](#IP-LAW-8)). The root definition is step 0 of
+  a sequence; `NextSteps` holds steps 1..N-1 and is empty for every single-step strategy
+  ([IP-LAW-14](#IP-LAW-14)).
+- `GapperFormationSnapshot` (in `IdiotProof.Evidence/Gappers`) — one forming-gapper feature row
+  at one decision instant (gap, premarket volume, time-of-day volume ratio, 1/3/5/15-minute
+  velocity, acceleration, volume rate-of-change, session VWAP, distance to the premarket high,
+  run-up, days since reverse split / 424B / S-1, latest catalyst), plus an `Extra` dictionary for
+  registered literature features.
 - SQL entities (`IdiotProof.Core/Data`, namespace `IdiotProof.Core.Data`): `CommandLedgerEntry` (one row per CLI/MCP call), `PendingConfirmation` (Live codes), `Strategy` (owner, author, `BrokerMode`,
   `ScriptJson` canon + `ScriptText` view, `OriginTranscript`, open-position bookkeeping),
   `ConditionProgress`, `TradeDiaryEntry`, `AuditLog`, `UserApiKeys` (encrypted at rest),
   `UserPreferences`, `ReplayRun`/`ReplayTrade`/`ReplayBar`, `ResearchClaim`,
-  `InsiderTransaction`, `TrackedTicker`, `BlockedEmailDomain`, `SettingsKv`, `Workspaces`.
+  `InsiderTransaction`, `TrackedTicker`, `BlockedEmailDomain`, `SettingsKv`, `Workspaces`,
+  `CatalystEvent`/`CatalystEventSymbol` (research rows: one news item or filing with
+  `PublishedUtc` and `ReceivedUtc`, pre-class, LLM fields, score; `IdiotProof.Core/Data/CatalystRows.cs`).
 - Enums: `TradeDirection`, `TradingSession`, `OrderType`, `OrderSide`, `PriceType`,
   `ConfidenceGrade`, `BrokerType {Alpaca, Sandbox}`,
   `StrategyType {Iti, BreakoutPullback, LowHigh, FluentDsl, Custom}`, `AssetClass {Equity, Option}`,
@@ -187,7 +202,17 @@ Test projects: `IdiotProof.Engine.Tests`, `IdiotProof.Indicators.Tests`, `IdiotP
 - `KnowledgeIndexBuilder.Build()` → `KnowledgeIndex` — the `docs *` operations' index.
 - `GapperScriptFactory.ToScript(symbol, profile)` — tuned profile → round-trip-safe IdiotScript.
 - `GapperExitEvaluator.Evaluate` / `.EvaluateShort` — sell-by / stops / take-profit /
-  peak-giveback verdict for a held position (pure, clock-free, unit-tested).
+  velocity-exhaustion / peak-giveback verdict for a held position (pure, clock-free, unit-tested).
+- `VelocityExitRule.Evaluate(barsSinceEntry, entry, now, ...)` → `VelocityExitVerdict`
+  (`IdiotProof.Evidence/Gappers`) — "sell when the run's velocity dies"; fails closed (missing
+  input = hold); mirrored for shorts. The one velocity exit for live, `gapper backtest-day` and the study.
+- `GapperFormationFeatures.Compute(GapperFeatureInputs)` → `GapperFormationSnapshot`
+  (`IdiotProof.Evidence/Gappers`) — the one no-lookahead feature computation for a forming gapper:
+  trims every input to `EndUtc <= t` itself, forward-fills missing minutes as zero-volume bars so
+  windows are wall-clock (`GapperFormationTests` appends post-t bars and asserts nothing changes).
+- `CatalystIngestor.IngestAsync(CatalystIntake)` (`IdiotProof.Core/Catalysts`) — one news item or
+  filing → dedupe on (Source, ExternalId) → `CatalystPreClassifier.Classify` → novelty count →
+  `CatalystScorer.Score` → `CatalystEvent` row; live intake and backfill both come through it.
 - `IMarketDataFeed.*` — Alpaca (REST + websocket stream), Mock, Switchable;
   `GetPreviousCloseAsync` supplies gap math's reference close.
 - `StrategyRepository` — the only writer of strategy rows; owns the mutation guards
@@ -237,7 +262,57 @@ the canon's SHA-256), the six-phase flow with branches, the exit ladder, a drunk
 fingerprint, and a `BEGIN IDIOTPROOF STRATEGY` armored payload (deflate + base64url + CRC-32).
 `strategy stamp <id>` prints it; `strategy import` reads the armor back out of pasted text,
 fails closed on any damage, and creates the strategy inactive in Sandbox through the repository
-([IP-LAW-11](#IP-LAW-11)). Same canon → byte-identical stamp.
+([IP-LAW-11](#IP-LAW-11)). Same canon → byte-identical stamp. A sequenced strategy renders one
+`STEP k/N` header per step with a `THEN WHEN` connector card between steps; a single-step
+strategy's stamp is unchanged (`StrategyStamp.cs`, `StrategyHtml.cs`).
+
+**IdiotScript Steps (sequenced strategies, IP-T445).** One strategy can be written as ordered
+Steps, each with its own direction, entry conditions, risk and exits, so "short NVDA into
+earnings; once covered and price reclaims, go long" is ONE strategy, not two rows and an external
+arm/disarm. The root `StrategyDefinition` is step 0; `Step("name")` right after the setup verbs
+(`Ticker`, `Name`, `Session`, `Quantity*`) names it, and any later `Step("name")` closes the
+current step and opens the next, seeded with the root's ticker and session
+(`IdiotScript.cs`, `StrategyBuilder.Step`). `ThenWhen(condition)` is the transition out of a step:
+evaluated only while flat after that step's exit; when every `ThenWhen` condition holds the next
+step is armed; a step with no `ThenWhen` arms the next step as soon as it is flat. `Within(days)`
+is the deadline: if the transition has not fired within that many days of the step's exit the
+sequence ends. `Repeat` / `Repeat(n)` is root-only (the parser treats one inside a later step as
+the root's, diagnostic IPS022): a cycle is one full run of the sequence, and the sequence restarts
+at step 0 when its last step exits or a `Within` expires. A step never nests steps. In the canon
+the keys `stepName`, `thenWhen`, `thenWithinDays` and `nextSteps` are written only when used
+(`nextSteps` only on the root; `StrategyJson.RequireOnly` rejects it inside a step), so every
+pre-existing strategy's JSON, stamp and script stay byte-identical — goldens for the seven samples
+plus the gapper, velocity, branching and looped canons are asserted in `DslSequenceTests`
+([IP-LAW-8](#IP-LAW-8), [IP-LAW-14](#IP-LAW-14)). `ScriptDiagnostics` adds IPS020 (`ThenWhen`
+without a readable condition), IPS021 (`Step` inside `If`/`While`), IPS022 (`Repeat` in a later
+step, warning), IPS023 (duplicate step name), IPS024 (a later step without `Long()`/`Short()`),
+IPS025 (`ThenWhen`/`Within` with no following `Step`). Two worked examples
+(`DslSequenceTests.cs`):
+
+```
+Ticker("NVDA").Step("short-into-earnings").Session(IS.RTH).Quantity(50)
+  .IsBelowVwap().IsRsiBearishDivergence().Short().StopLossPercent(3).TakeProfitPercent(6).SellBy("15:55")
+  .ThenWhen(HigherLows(3).And(RequireEmaStack(9, 21)).And(OnVwapReclaim())).Within(7)
+  .Step("buy-back").Quantity(50).IsAboveVwap().IsEmaAbove(9).Long().StopLossPercent(2).TakeProfitPercent(5)
+
+Ticker("GAPT").Session(IS.PREMARKET).Step("ride")
+  .RequireEntryWindow("04:00", "09:00").IsGapBetween(5, 20).IsVolumeAbove(2).IsPriceBetween(1, 50)
+  .Long().QuantityNotional(1000).StopLossPercent(5).PeakGiveback(25, "09:35").SellBy("11:00")
+  .ThenWhen(IsLowerHigh().And(IsBelowVwap())).Within(1)
+  .Step("fade").RequireEntryWindow("09:35", "11:30").IsBelowVwap().VelocityBelow(0.2, 3)
+  .Short().QuantityNotional(1000).StopLossPercent(4).TakeProfitPercent(8).SellBy("15:55").Repeat(2)
+```
+
+Shipped: the scripting model, builder verbs and parser (`StepReader` beside `BlockReader` in
+`ScriptChain.cs`), the canonical JSON, diagnostics, stamp/HTML/`strategy explain`, `EmaPeriodCollector`
+recursion, `StrategyBranchResolver`, and the backtester (`StrategyBacktester.cs`: per-step condition
+latches, the flat transition wait, `Within` expiry, `Repeat` restarting at step 0, `BacktestTrade.Step`
+and `report.StepTransitions`, across multi-day candle lists; `StrategyBacktesterSequenceTests`).
+In progress (IP-T445): the Monitor half — `Strategy` row step state (`StepIndex`,
+`AwaitingTransition`, `StepArmedUtc`), `StrategyRepository` advance/reset, the per-tick transition
+block in `MonitorWorker`, `strategy show`'s `sequence: step k/N` row, `strategy step <id> --reset`,
+and one builder card group per step. Until it lands the Monitor evaluates a sequence's step 0 as a
+plain strategy and never arms a later step; only the backtester runs a sequence end to end.
 
 **Knowledge.** The Hub indexes the BIBLE (by section and law), AMENDMENTS, README, the agent
 docs, every user story and ticket (the USER_STORIES table plus `tickets ticket list --json`,
@@ -309,9 +384,28 @@ the keys the UI writes. Market data is one global feed (sip by default,
 screen (gap %, volume ratio, price band), ET entry window (default 04:00–09:00), stop and
 trailing stop, peak giveback + arm time (default 09:15), hard sell-by (default 09:28), notional.
 DSL verbs: `RequireEntryWindow`/`EntryWindow`, `IsGapUp`/`IsGapBetween` (fail closed without a
-previous close), `PeakGiveback(pct, arm)`, `SellBy(time)`. Momentum-rollover exit: track the
-post-entry peak; once armed, sell when price gives back N% of the entry→peak run; `SellBy`
-always flattens before the bell. At most 3 active gappers per user and one active gapper per
+previous close), `PeakGiveback(pct, arm)`, `SellBy(time)`,
+`VelocityExhaustion(pctPerMin, windowMin = 3, armAtEt?)` with the refinements
+`VelocityExhaustionMinRun(pct)`, `VelocityExhaustionRequireLowerHigh()`,
+`VelocityExhaustionRequireVwapLoss()` and `VelocityExhaustionExtensionSwitch(pctAboveOpen)`;
+entry conditions `VelocityBelow(pctPerMin, windowMin)`, `VelocityAbove(...)`, `Decelerating()`,
+`VolumeRocBelow(ratio)` read the `Velocity1m/3m/5m`, `Acceleration` and `VolumeRoc` fields
+`IndicatorSnapshotBuilder` fills from `MinuteBarMath` (window 1, 3 or 5 clock minutes; null =
+fail closed). Momentum-rollover exit: track the post-entry peak; once armed, sell when price
+gives back N% of the entry→peak run; `SellBy` always flattens before the bell. The exit ladder
+(`GapperExitEvaluator.Evaluate`, first match wins): SellBy → hard stop → trailing stop →
+take-profit targets, prior HOD, rolling highs/lows → **VelocityExhaustion** (the shared
+`VelocityExitRule`: the favorable velocity over the window fell under the configured %/min, after
+the optional arm time, minimum run, lower-high and VWAP-loss gates; above the extension-from-open
+switch it stands down and the trail takes over) → PeakGiveback; `EvaluateShort` is the mirror
+(a higher low instead of a lower high, a VWAP reclaim instead of a loss), in the same order. The
+time-of-day volume ratio (`IndicatorSnapshot.VolumeRatioTod`, `GapperVolumeRatio.Compute` over a
+`TimeOfDayProfile`) is opt-in: without a profile it is null and `IsVolumeAbove` keeps its 20-bar
+baseline; `AutoGapperScanner` still screens on cumulative volume / ADV until the study ships
+`data/tod-profile.json` (`VelocityExhaustionTests`, `GapperFormationTests`). `IdiotProof.Evidence/Gappers`
+is the one code path: the live Monitor, `gapper backtest-day` and the study compute velocity,
+features and the velocity exit from the same classes ([IP-LAW-10](#IP-LAW-10)). At most 3
+active gappers per user and one active gapper per
 symbol, enforced in SQL. The "From a transcript" panel (`GapperInterpreter`, via Legion) turns
 natural language into candidate cards that are re-validated fail-closed and queued only by a
 human click. "Backtest a day" (`GapperDayBacktester`) walks the same condition list and the same
@@ -341,6 +435,70 @@ URL); display sentences are composed deterministically from structured fields
 `OutcomeBackfillService` marks old-enough claims Realized/Disproven from real price history
 before `SignificanceScorer` ranks. The recurring pass runs as a MindAttic.Scheduler (WatchDog)
 job (M.SCHD-T8); IdiotProof itself registers no scheduled task.
+
+**Catalyst intake (IP-T443, in progress: formation recorder, voter context).** The Hub hosts a
+leader-only `CatalystIntakeWorker` (`IdiotProof.Core/Catalysts`, registered beside the Monitor's
+workers in `MonitorServiceRegistration.cs`, in the shape of `ExhaustionScanWorker`) that turns a
+published catalyst into a timestamped, scored SQL row the Monitor can read per tick — SQL is the
+bus ([IP-LAW-10](#IP-LAW-10)); it is not the batch scanner above and never runs inside
+`MonitorWorker.TickAsync`. When on, it keeps one Alpaca news websocket open (`v1beta1/news`,
+`["*"]`, the owner's data keys, `AlpacaStreamSession` now in `IdiotProof.DataFeeds/Streaming`) and,
+with `catalyst.intake.edgarPolling`, polls EDGAR's latest-filings feed every 60 s for 8-K/4/S-1/424B
+with the acceptance time from each filing's index headers, through a 120 ms `EdgarRateGate` and a
+daily-cached CIK→ticker map. Every `CatalystEvent` carries `PublishedUtc` (the source's time) and
+`ReceivedUtc` (this process's time), so catalyst latency is measurable; a backfilled row has
+`ReceivedUtc == PublishedUtc` and `Backfilled = true`. `CatalystPreClassifier` is deterministic
+and LLM-free, driven by `IdiotProof.Core/Catalogs/catalyst-preclass.json` ([IP-LAW-7](#IP-LAW-7)):
+offering form prefixes → 8-K item codes and combos → ordered keyword rules → a promotional-wire
+test, into {Fda, ContractAward, ReverseSplit, OfferingDilution, Uplisting, Earnings, MA, PromoPr,
+Other} with a direction (-1/0/+1), a confidence and the rule that fired; `SourceTier` is 1
+EDGAR, 2 editorial, 3 wire/promotional. `CatalystScorer` is pure:
+`clamp((TypePrior × Magnitude × SourceWeight + NoveltyBonus) × Freshness(ageMinutes), 0, 100)`,
+direction carried beside the score (a dilution scores high and bearish), weights in
+`catalyst-scoring.json` as placeholders until the study sets them, `Explain` for the breakdown.
+`CatalystClassifier` is the optional LLM half: a bounded channel of event ids that Haiku via
+MindAttic.Legion (`CatalystExtractor`) classifies in the background, writing the `Llm*` columns
+and re-scoring; headline and body travel in the user message only, never the system prompt;
+gated by `catalyst.intake.llmClassify`. `CatalystBackfillService` replays Alpaca news (paged, by
+date range) and EDGAR filings by date range through the same ingestor, pre-classifier and scorer,
+so history and live rows agree. Operations: `catalyst list|show|score|intake-status|backfill`.
+Everything is off by default behind `catalyst.intake.enabled|ownerUserId|edgarPolling|llmClassify`
+(`SettingsKv`, `CatalystIntakeSettings`), needs an owner GUID with Alpaca data keys, audits
+`catalyst-intake-start|stop|error`, and backs off 5 minutes after a refusal. The worker holds no
+broker client and places nothing. Nothing in the trading path reads these rows yet: the voter
+panel still sees only candles. Not built: the live `GapperFormationWorker` (04:00–09:45 ET
+snapshot recorder), the `formation-trigger.json` arming rule, and the CATALYST/MOMENTUM facts in
+`LlmVotingService.BuildSignalContext`.
+
+**Gapper study (IP-T442, in progress).** Pre-registered 2026-11-06, before any bar, article or
+filing was pulled: `docs/research/gapper-study-2026-11/protocol.md` (frozen), `hypotheses.json`
+(H1–H17, 12 primary, `frozenUtc` set), `params.json` (every frozen number) and `literature.md`
+(the ~70-source review). It asks three questions on one sample of sub-$20 names with ADV20 ≥ $300k
+(candidate vs Tier20/50/100 gapper days, seeded-hash controls): what separates the gappers from the
+near-misses, whether a gapper can be recognized while it is forming (premarket volume against a
+time-of-day baseline, velocity, a catalyst flag, at the 13 decision times from D−1 16:00 to 09:45
+ET), and when velocity dies relative to the high of the day (H4/H5/H13/H14 on exit timing,
+descriptive only, never "significant"). H11 is the catalyst-latency benchmark: the feature
+detector must beat "a news item was published within 60 minutes" by ≥ 0.05 AUC on validation or
+strategy work stops and the write-up says "catalyst latency is the edge" — the honest prior,
+stated in the protocol so it cannot be softened later. Families F1–F5 with BH/Holm/SPA/DSR
+corrections and a frozen cost model (Corwin-Schultz spread × a once-calibrated premarket
+multiplier, square-root impact, 0.5% floor). Splits: train 2021-11-01..2024-10-31, validation
+2024-11-03..2025-10-31, holdout 2025-11-03..2026-10-30, opened once: `HoldoutLock`
+(`IdiotProof.Core/Research/Gappers`) refuses holdout labels unless `holdout-unlock.txt` holds the
+hash of the commit that froze `hypotheses.json`/`params.json`, writes `holdout-run.json` before the
+first holdout row, and refuses a second run; no force flag. Live gate: a rule trades real money
+only after it nets ≥ +0.5%/trade on the holdout with the day-clustered lower bound > 0 **and** 20
+paper-shadow trading days whose live snapshots agree with the backtest's (same code, so drift is
+data, not logic); the short leg is studied but not built until the long exit holds up. Features
+and labels come from the shared `IdiotProof.Evidence/Gappers` code; the stages
+(`research gappers build-universe|pull|catalysts|snapshot|label|status`, harness
+`tools/GapperStudy`, minute bars in a `FileBackedBarStore` under `D:\IdiotProofData\gapper-study`,
+panel tables in a `_Research_` database the harness refuses to run without) are landing under
+IP-T442. The prior evidence sweep (IP-T432/T437, `docs/research/evidence-sweep-2026-11.md`)
+falsified intraday timing signals on 20 already-volatile names and never studied gap events; this
+study reuses its discipline (pre-declared sample, one stage per process, research-DB guard,
+verdict rule fixed in advance).
 
 **Options (manual).** `/options` (`Options.razor` + `OptionsTradingService`) offers single-leg
 calls and puts on Sandbox, Paper or Live, defaulting to Sandbox unless Alpaca routing is opted
@@ -487,6 +645,16 @@ Live mutations that move money (funding, transfers) use the same `ConfirmationSt
 (`IdiotProof.Core/Trading/ConfirmationStore.cs`; `MoneyPathLawTests`,
 `TransactionGatewayTests`.)
 
+### {#IP-LAW-14} A sequence is one strategy
+A sequenced strategy is one `Strategy` row and one canon: the root definition is step 0, later
+steps live in the root's `nextSteps` inside the same canonical JSON, a step never nests steps,
+and the sequence keys are written only when used, so a strategy with no later steps serializes,
+stamps and scripts byte-identically to a strategy written before steps existed. Runtime sequence
+state (which step is armed, since when) belongs on that same row, never on a second row or a
+settings key, so the repository's guards ([IP-LAW-11](#IP-LAW-11)) and the gapper cap see one
+strategy. (`IdiotProof.Scripting/StrategyJson.cs` — `nextSteps` allowed on the root only;
+`DslSequenceTests` goldens.)
+
 ## 6. Verified state {#IP-§6}
 Build/test evidence (recorded 2026-10-03, .NET 10 SDK): `dotnet test IdiotProof.slnx -c Debug`
 → build succeeded, **all green, 0 failed**: Engine 85 · Indicators 18 · Strategies 34,681
@@ -514,7 +682,13 @@ Test projects and what they pin:
   (`GapperLifecycleTests`), canonical JSON (`StrategyJsonTests`), day replay
   (`GapperDayBacktesterTests`), EMA collector, scale-out ladder (`DslStrategySignalTests`),
   trading-day gate (`MarketTimeTests`), fail-closed conditions (`ConditionFailClosedTests`),
-  window-scoped latches (`WindowScopedConditionTests`), culture-safe text (`ScriptTextRoundTripTests`).
+  window-scoped latches (`WindowScopedConditionTests`), culture-safe text (`ScriptTextRoundTripTests`),
+  the velocity exit's ladder position and the new conditions (`VelocityExhaustionTests`),
+  sequences and the non-sequence byte-identity goldens (`DslSequenceTests`,
+  `StrategyBacktesterSequenceTests`).
+- `IdiotProof.Evidence.Tests` — `GapperFormationTests`: no-lookahead (post-t bars change nothing),
+  velocity math over gaps and zero-volume minutes, `TimeOfDayProfile` round trip and version
+  guard, `GapperVolumeRatio` with and without a profile.
 - `IdiotProof.Brokers.Tests` — BrokerRouter Sandbox default, sandbox fills, Alpaca extended-hours
   contract, options wire format + Sandbox chain/basis (`OptionsBrokerTests`), equity short wire
   format, the can't-short 403 and negative short positions (`AlpacaEquityShortWireTests`); the opt-in
@@ -544,7 +718,10 @@ has not been re-run since the 2026-10-03 record above.
   owner- and intent-bound), `MonitorGatewayParityTests`, `OptionsGatewayTests`,
   `GatewayDiaryTests`, `MonitorHostingTests`, `MonitorPauseFlagTests`, `OwnerResolverTests`,
   `SecretRedactorTests`, `CoreServiceRegistrationTests`, plus the services moved from Blazor
-  (research, LLM voting, Claude keys, repositories, `UserBrokerResolver*Tests`).
+  (research, LLM voting, Claude keys, repositories, `UserBrokerResolver*Tests`); the catalyst
+  intake (`CatalystPreClassifierTests` fixtures for FDA, 424B, 5.03 reverse split and promo wire,
+  `CatalystScorerTests` monotonic freshness decay, `CatalystIngestorTests`,
+  `CatalystIntakeParsingTests`, `AlpacaNewsServiceRangeTests`).
 - `IdiotProof.Operations.Tests` — the operation framework (`OperationCatalogTests`,
   `ArgsBinderTests`, `OperationDispatcherTests`, `OperationContractTests`,
   `CatalogCompletenessTests`: every operation documented, examples bind, JSON and argv round-trip),
@@ -581,6 +758,13 @@ been run green. MonitorWorker itself has no host-level harness test.
 - **Gapper hardening (Epic K tail)** — host-level MonitorWorker test (queue → 4AM fire → hold →
   rollover sell), `/gapper` Cypress spec, fill-price reconciliation against the broker's actual fill (entry is recorded at the limit
   price), full order-state tracking (pending orders as first-class rows).
+- **Gapper program (IP-T442–T445)** — the study pipeline (universe, tiered pull, snapshots,
+  labels, `test H1..H17`, report) and its verdict; the Monitor half of Steps (row step state,
+  transition block, `strategy step --reset`, builder cards); the live formation recorder and the
+  `formation-trigger.json` arming rule (all thresholds null = never arms); catalyst and momentum
+  facts for the voter panel; the time-of-day profile replacing the 20-bar `IsVolumeAbove`
+  baseline once `data/tod-profile.json` exists; the short leg only after the long exit survives
+  the 20-day paper shadow ([§4.4](#IP-§4)).
 - **Known debts** — DSL generation is single-shot and the Describe tab still emits text, not
   model JSON; the unused `UserPreferences.OpenStrategyTabs`
   column awaits removal in a migration; the Azure infra (`tools/azure-provision.md`) is not
@@ -632,6 +816,18 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
   and tuned per ticker on the `/gapper` tab.
 - **Peak giveback** — the momentum-rollover exit: sell once price gives back N% of the run
   from entry to the post-entry peak; armed from a configured ET time ("the last 15 minutes").
+- **Velocity exhaustion** — the exit that fires when the favorable price velocity over a 1/3/5
+  minute window falls under N %/min after a run (`VelocityExitRule`); sits after the take-profit
+  targets and before peak giveback in the exit ladder, mirrored for shorts.
+- **Step / sequence** — one ordered stage of a sequenced strategy, with its own direction,
+  conditions and exits; the root definition is step 0, `ThenWhen` is the flat-only transition to
+  the next step and `Within(days)` its deadline. One row, one canon ([IP-LAW-14](#IP-LAW-14)).
+- **Catalyst event** — one `CatalystEvent` row: a news item or SEC filing as the intake saw it,
+  with `PublishedUtc` and `ReceivedUtc`, a deterministic pre-class and direction, optional LLM
+  fields and a 0-100 catalyst score. Research data; nothing in trading reads it yet.
+- **Time-of-day profile** — `TimeOfDayProfile`: the median fraction of a day's 04:00–20:00 volume
+  printed by each clock minute, per ADV decile, fit on the study's training controls; the
+  baseline for `VolumeRatioTod`. Not shipped yet; without it volume ratios are plain cumVol / ADV.
 - **Previous close** — the prior trading day's official close; the reference for gap %.
   Gap conditions fail closed without it.
 - **Replay** — re-running a strategy over a past session's bars with the live evaluator; stored
