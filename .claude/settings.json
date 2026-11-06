@@ -26,6 +26,15 @@
                         "timeout": 120
                     }
                 ]
+            },
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/list-commands.ps1\"",
+                        "timeout": 20
+                    }
+                ]
             }
         ],
         "UserPromptSubmit": [
