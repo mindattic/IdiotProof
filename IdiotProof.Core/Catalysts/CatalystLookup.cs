@@ -31,6 +31,18 @@ public sealed class CatalystLookup(IDbContextFactory<AppDbContext> dbFactory)
             .ToListAsync(ct);
     }
 
+    /// <summary>Every (symbol, event) pair published at or after <paramref name="sinceUtc"/>, newest first — the formation universe's catalyst leg.</summary>
+    public async Task<List<Monitoring.Formation.CatalystSymbolHit>> RecentSymbolsAsync(DateTime sinceUtc, int max = 5000, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.CatalystEventSymbols.AsNoTracking()
+            .Join(db.CatalystEvents.AsNoTracking().Where(e => e.PublishedUtc >= sinceUtc), s => s.EventId, e => e.Id,
+                (s, e) => new Monitoring.Formation.CatalystSymbolHit(s.Symbol, e.CatalystScore, e.Direction, e.PublishedUtc, e.Headline, e.PreClass, e.SourceTier))
+            .OrderByDescending(h => h.PublishedUtc)
+            .Take(Math.Clamp(max, 1, 50_000))
+            .ToListAsync(ct);
+    }
+
     private static IQueryable<CatalystEvent> Events(AppDbContext db, List<string> syms) =>
         db.CatalystEvents.AsNoTracking()
             .Where(e => db.CatalystEventSymbols.Any(s => s.EventId == e.Id && syms.Contains(s.Symbol)));

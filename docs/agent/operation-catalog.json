@@ -10028,6 +10028,182 @@
       }
     },
     {
+      "name": "gapper formation",
+      "noun": "gapper",
+      "verb": "formation",
+      "tool_name": "gapper_formation",
+      "summary": "Recent live gapper-formation snapshot rows: time ET, gap, volume ratio, 1/3/5-minute velocity, acceleration, distance to the premarket high, catalyst score/age, halted and whether the trigger rule passed.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper formation [--symbol \u003Cstring\u003E] [--date \u003Cdate\u003E] [--last \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "symbol",
+          "json_name": "symbol",
+          "kind": "option",
+          "position": null,
+          "short": "s",
+          "type": "string",
+          "required": false,
+          "description": "Only this ticker.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "date",
+          "json_name": "date",
+          "kind": "option",
+          "position": null,
+          "short": "d",
+          "type": "date",
+          "required": false,
+          "description": "ET trading day (yyyy-MM-dd); default every day the sink holds.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "last",
+          "json_name": "last",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "How many rows, newest first (default 40, max 500).",
+          "default": 40,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof gapper formation --symbol ABCD --date 2026-11-06",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Recent live gapper-formation snapshot rows: time ET, gap, volume ratio, 1/3/5-minute velocity, acceleration, distance to the premarket high, catalyst score/age, halted and whether the trigger rule passed.",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Only this ticker."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "ET trading day (yyyy-MM-dd); default every day the sink holds."
+          },
+          "last": {
+            "type": "integer",
+            "description": "How many rows, newest first (default 40, max 500).",
+            "default": 40
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper formation disable",
+      "noun": "gapper",
+      "verb": "formation disable",
+      "tool_name": "gapper_formation_disable",
+      "summary": "Turn the formation recorder off (settings only; nothing to disarm \u2014 it never arms).",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof gapper formation disable",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation disable",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Turn the formation recorder off (settings only; nothing to disarm \u2014 it never arms).",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper formation enable",
+      "noun": "gapper",
+      "verb": "formation enable",
+      "tool_name": "gapper_formation_enable",
+      "summary": "Turn the formation recorder on for you (paper-only research rows, 03:55-09:45 ET weekdays, with the Monitor leader); never arms.",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof gapper formation enable",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation enable",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Turn the formation recorder on for you (paper-only research rows, 03:55-09:45 ET weekdays, with the Monitor leader); never arms.",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper formation status",
+      "noun": "gapper",
+      "verb": "formation status",
+      "tool_name": "gapper_formation_status",
+      "summary": "Whether the formation recorder is enabled, who owns it, whether this Hub leads, today\u0027s universe size, the stream, rows written, halted symbols, the trigger rule and the sink in use.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper formation status",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation status",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Whether the formation recorder is enabled, who owns it, whether this Hub leads, today\u0027s universe size, the stream, rows written, halted symbols, the trigger rule and the sink in use.",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper formation universe",
+      "noun": "gapper",
+      "verb": "formation universe",
+      "tool_name": "gapper_formation_universe",
+      "summary": "Today\u0027s formation universe: every symbol the recorder watches and why it is in (catalyst, mover, most-active, tracked), with catalyst score, gap and price.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper formation universe",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation universe",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Today\u0027s formation universe: every symbol the recorder watches and why it is in (catalyst, mover, most-active, tracked), with catalyst score, gap and price.",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "gapper from-transcript",
       "noun": "gapper",
       "verb": "from-transcript",

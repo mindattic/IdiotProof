@@ -110,6 +110,34 @@ public static class StrategyScanner
         return ParseGainers(doc.RootElement);
     }
 
+    /// <summary>Today's most active symbols by share volume (<c>/v1beta1/screener/stocks/most-actives</c>), the formation universe's activity leg.</summary>
+    internal static async Task<List<string>> FetchMostActivesAsync(string key, string secret, int top)
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(DataBaseUrl), Timeout = TimeSpan.FromSeconds(30) };
+        http.DefaultRequestHeaders.Add("APCA-API-KEY-ID", key);
+        http.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", secret);
+        using var resp = await http.GetAsync($"v1beta1/screener/stocks/most-actives?by=volume&top={Math.Clamp(top, 1, 100)}");
+        var body = await resp.Content.ReadAsStringAsync();
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException($"HTTP {(int)resp.StatusCode}: {Truncate(body)}");
+
+        using var doc = JsonDocument.Parse(body);
+        return ParseMostActives(doc.RootElement);
+    }
+
+    /// <summary>The <c>most_actives</c> symbols of a most-actives response, in screener order.</summary>
+    public static List<string> ParseMostActives(JsonElement root)
+    {
+        var list = new List<string>();
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("most_actives", out var m) && m.ValueKind == JsonValueKind.Array)
+            foreach (var el in m.EnumerateArray())
+            {
+                var sym = el.TryGetProperty("symbol", out var s) ? s.GetString() : null;
+                if (!string.IsNullOrWhiteSpace(sym)) list.Add(sym.ToUpperInvariant());
+            }
+        return list;
+    }
+
     /// <summary>The <c>gainers</c> of a movers-screener response as (symbol, percent change, price).</summary>
     public static List<(string Symbol, double Percent, double Price)> ParseGainers(JsonElement root)
     {

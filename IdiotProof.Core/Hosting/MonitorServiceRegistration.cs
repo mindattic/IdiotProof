@@ -52,6 +52,15 @@ public static class MonitorServiceRegistration
         services.TryAddSingleton<IdiotProof.DataFeeds.Streaming.IStreamSocketFactory, IdiotProof.DataFeeds.Streaming.ClientWebSocketFactory>();
         services.AddHostedService<IdiotProof.Core.Catalysts.CatalystIntakeWorker>();
         services.AddHostedService(sp => sp.GetRequiredService<IdiotProof.Core.Catalysts.CatalystClassifier>());
+
+        // Formation recorder (IP-T443): idle unless SettingsKv formation.enabled = "true"; leader-only, paper-only,
+        // 03:55-09:45 ET weekdays; research rows through IGapperSnapshotSink only, never an arm. Also runs the
+        // scheduled `gapper auto` pass when gapper.auto.scheduledEt is set.
+        services.AddSingleton<IdiotProof.Core.Monitoring.Formation.FormationUniverseBuilder>();
+        services.AddSingleton<IdiotProof.Core.Monitoring.Formation.FormationBarCache>();
+        services.AddSingleton<IdiotProof.Core.Monitoring.Formation.IFormationBarSource>(sp => sp.GetRequiredService<IdiotProof.Core.Monitoring.Formation.FormationBarCache>());
+        services.AddScoped<IdiotProof.Core.Monitoring.Formation.GapperFormationScanner>();
+        services.AddHostedService<IdiotProof.Core.Monitoring.Formation.GapperFormationWorker>();
         return services;
     }
 }

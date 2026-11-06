@@ -163,7 +163,8 @@ public sealed class LlmVotingService
         IReadOnlyList<Candle> recentCandles,
         SignalVotingCredentials credentials,
         decimal consensusThreshold,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        TradeSignalFacts? facts = null)
     {
         var result = new LlmVotingResult();
         if (!credentials.VotingEnabled || string.IsNullOrWhiteSpace(credentials.ClaudeApiKey))
@@ -172,7 +173,7 @@ public sealed class LlmVotingService
         var request = new VoteRequest
         {
             Question            = $"Should this {signal.Direction} trade on {signal.Symbol} be executed now?",
-            Context             = BuildSignalContext(signal, recentCandles),
+            Context             = BuildSignalContext(signal, recentCandles, facts),
             Options             = [ApproveOption, RejectOption, AbstainOption],
             MaxTokens           = 512,
             Temperature         = 0.3,
@@ -251,7 +252,11 @@ public sealed class LlmVotingService
             .Select(v => $"{v.PersonaName}: {v.Reasoning}"));
     }
 
-    internal static string BuildSignalContext(TradeSignal signal, IReadOnlyList<Candle> candles)
+    internal static string BuildSignalContext(TradeSignal signal, IReadOnlyList<Candle> candles) =>
+        BuildSignalContext(signal, candles, null);
+
+    /// <summary>The ballot context; <paramref name="facts"/>, when given, adds CATALYST and MOMENTUM sections after the price action.</summary>
+    internal static string BuildSignalContext(TradeSignal signal, IReadOnlyList<Candle> candles, TradeSignalFacts? facts)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"TRADE SIGNAL — {signal.Symbol}");
@@ -283,7 +288,49 @@ public sealed class LlmVotingService
             }
         }
 
+        if (facts is not null)
+        {
+            sb.AppendLine();
+            sb.AppendLine("CATALYST:");
+            if (!facts.HasCatalyst)
+                sb.AppendLine("  None known since the prior close.");
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(facts.CatalystHeadline))
+                    sb.AppendLine($"  Headline: {Sanitize(facts.CatalystHeadline)}");
+                var parts = new List<string>();
+                if (facts.CatalystScore is { } score) parts.Add($"score {score:0}/100");
+                if (facts.CatalystDirection is { } dir) parts.Add(dir > 0 ? "direction bullish" : dir < 0 ? "direction bearish" : "direction neutral");
+                if (!string.IsNullOrWhiteSpace(facts.CatalystPreClass)) parts.Add($"type {facts.CatalystPreClass}");
+                if (facts.CatalystAgeMinutes is { } age) parts.Add($"published {age:0} min before this signal");
+                if (parts.Count > 0) sb.AppendLine("  " + string.Join(", ", parts));
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("MOMENTUM:");
+            if (!facts.HasMomentum)
+                sb.AppendLine("  No formation features available.");
+            else
+            {
+                var velocities = new List<string>();
+                if (facts.Velocity1m is { } v1) velocities.Add($"1m {v1:+0.00;-0.00}%/min");
+                if (facts.Velocity3m is { } v3) velocities.Add($"3m {v3:+0.00;-0.00}%/min");
+                if (facts.Velocity5m is { } v5) velocities.Add($"5m {v5:+0.00;-0.00}%/min");
+                if (velocities.Count > 0) sb.AppendLine("  Velocity: " + string.Join(", ", velocities));
+                if (facts.Acceleration is { } a) sb.AppendLine($"  Acceleration (v3 now vs 3 min ago): {a:+0.00;-0.00}");
+                if (facts.VolRatioTod is { } vr) sb.AppendLine($"  Volume vs time-of-day norm: {vr:0.0}x");
+                if (facts.DistFromPmHighPct is { } d) sb.AppendLine($"  Below premarket high: {d:0.0}%");
+                if (facts.Halted is { } h) sb.AppendLine(h ? "  Trading status: HALTED" : "  Trading status: trading");
+            }
+        }
+
         return sb.ToString().TrimEnd();
+    }
+
+    private static string Sanitize(string headline)
+    {
+        var oneLine = string.Join(' ', headline.Split(['\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries)).Trim();
+        return oneLine.Length <= 200 ? oneLine : oneLine[..199] + "…";
     }
 }
 

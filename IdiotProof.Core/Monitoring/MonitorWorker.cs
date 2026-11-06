@@ -60,8 +60,12 @@ public sealed class MonitorWorker(
     MonitorPauseFlag pauseFlag,
     ILogger<MonitorWorker> logger,
     TimeProvider? clock = null,
-    IdiotProof.Core.Evidence.IHistoricalBarStore? barStore = null) : BackgroundService
+    IdiotProof.Core.Evidence.IHistoricalBarStore? barStore = null,
+    IdiotProof.Core.Monitoring.Formation.IGapperSnapshotSink? snapshotSink = null) : BackgroundService
 {
+    /// <summary>Streamed bars waiting for a tick; the formation recorder subscribes symbols no strategy holds, so the queue is capped.</summary>
+    private const int MaxQueuedBars = 20_000;
+
     /// <summary>Wall clock for every session gate and cadence; a test pins it to a chosen ET instant.</summary>
     private DateTime UtcNow => (clock ?? TimeProvider.System).GetUtcNow().UtcDateTime;
 
@@ -348,7 +352,11 @@ public sealed class MonitorWorker(
         // Set IDIOTPROOF_ALPACA_FEED=iex to fall back to the free partial feed.
         var tier = Environment.GetEnvironmentVariable("IDIOTPROOF_ALPACA_FEED") ?? "sip";
         streaming = new AlpacaStreamingClient(appSettings.AlpacaApiKeyId, appSettings.AlpacaApiSecretKey, tier);
-        streaming.BarReceived += bar => streamedBars.Enqueue(bar);
+        streaming.BarReceived += bar =>
+        {
+            streamedBars.Enqueue(bar);
+            while (streamedBars.Count > MaxQueuedBars && streamedBars.TryDequeue(out _)) { }
+        };
         streaming.Start();
         logger.LogInformation("Alpaca websocket streaming started ({Tier}).", tier);
     }
@@ -517,9 +525,8 @@ public sealed class MonitorWorker(
             }
         }
 
-        if (active.Count == 0) return;
-
         DrainStreamedBars();
+        if (active.Count == 0) return;
 
         var symbols = active.Select(s => s.Symbol.ToUpperInvariant()).Distinct().ToList();
         if (streaming is not null)
@@ -594,6 +601,45 @@ public sealed class MonitorWorker(
     }
 
     // ── Market data ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// What the voter panel sees beyond the signal: the latest catalyst published by the signal's
+    /// instant and today's latest live formation snapshot for the symbol; null when neither exists.
+    /// </summary>
+    internal async Task<IdiotProof.Core.Services.TradeSignalFacts?> SignalFactsAsync(string symbol, DateTime asOfUtc, CancellationToken ct)
+    {
+        IdiotProof.Core.Data.CatalystEvent? catalyst = null;
+        IdiotProof.Core.Monitoring.Formation.FormationSnapshotRow? snapshot = null;
+        try { catalyst = await new IdiotProof.Core.Catalysts.CatalystLookup(dbFactory).LatestForSymbolAsync(symbol, asOfUtc, ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { logger.LogDebug(ex, "catalyst lookup for the voter panel failed"); }
+        if (snapshotSink is not null)
+        {
+            try
+            {
+                var dateEt = DateOnly.FromDateTime(IdiotProof.Evidence.Gappers.MinuteBarMath.ToEastern(asOfUtc));
+                snapshot = (await snapshotSink.ReadAsync(new IdiotProof.Core.Monitoring.Formation.GapperSnapshotQuery(symbol, dateEt, 1), ct)).FirstOrDefault();
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { logger.LogDebug(ex, "formation snapshot read for the voter panel failed"); }
+        }
+        if (catalyst is null && snapshot is null) return null;
+        return new IdiotProof.Core.Services.TradeSignalFacts
+        {
+            CatalystHeadline = catalyst?.Headline,
+            CatalystScore = catalyst?.CatalystScore ?? snapshot?.CatalystScore,
+            CatalystAgeMinutes = catalyst is not null ? Math.Max(0, (asOfUtc - catalyst.PublishedUtc).TotalMinutes) : snapshot?.CatalystAgeMinutes,
+            CatalystDirection = catalyst?.Direction ?? snapshot?.CatalystDirection,
+            CatalystPreClass = catalyst?.PreClass ?? snapshot?.CatalystPreClass,
+            Velocity1m = snapshot?.Velocity1m,
+            Velocity3m = snapshot?.Velocity3m,
+            Velocity5m = snapshot?.Velocity5m,
+            Acceleration = snapshot?.Acceleration,
+            VolRatioTod = snapshot?.VolRatioTod ?? snapshot?.OwnProfileRatio,
+            DistFromPmHighPct = snapshot?.DistToPmHighPct,
+            Halted = snapshot?.Halted,
+        };
+    }
 
     private void DrainStreamedBars()
     {
@@ -1076,7 +1122,8 @@ public sealed class MonitorWorker(
         if (votingCredentials.VotingEnabled && !string.IsNullOrWhiteSpace(votingCredentials.ClaudeApiKey))
         {
             var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, votingCredentials,
-                await LlmPanelSettings.ThresholdAsync(dbFactory, appSettings.LlmConsensusThreshold, ct), ct);
+                await LlmPanelSettings.ThresholdAsync(dbFactory, appSettings.LlmConsensusThreshold, ct), ct,
+                await SignalFactsAsync(stored.Symbol, signal.GeneratedUtc, ct));
             if (voteResult.Votes.Count == 0 || voteResult.Consensus != VoteDecision.Approve)
             {
                 var why = voteResult.Votes.Count == 0
