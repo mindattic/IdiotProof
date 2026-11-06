@@ -91,7 +91,9 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         static bool HasPrefix(string v, params string[] prefixes)
             => prefixes.Any(p => v.StartsWith(p, StringComparison.Ordinal));
 
-        var setup   = all.Where(v => HasPrefix(v, "Name(", "Ticker(", "Session(", "Account(", "Window(")).ToList();
+        // Step( opens a step (a setup-level boundary); ThenWhen(/Within( describe what happens
+        // after the step's exit, so they sit with the exits.
+        var setup   = all.Where(v => HasPrefix(v, "Name(", "Ticker(", "Session(", "Account(", "Window(", "Step(")).ToList();
         var filters = all.Where(v => HasPrefix(v, "Require", "Trending(", "EntryWindow(", "While(", "EndWhile(", "ExitWhenFalse(")).ToList();
         // Quantity* belongs to the ORDER phase per the DSL spec (CLAUDE.md:
         // "Order — direction, quantity, type, price"); it was miscategorized
@@ -99,7 +101,7 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         var order   = all.Where(v => HasPrefix(v, "Long(", "Short(", "Order(", "Quantity", "AutonomousTrading(", "AdaptiveOrder(")).ToList();
         var risk    = all.Where(v => HasPrefix(v, "StopLoss", "TrailingStop")).ToList();
         var exit    = all.Where(v => HasPrefix(v, "TakeProfit", "AddTarget(", "ExitStrategy(", "Repeat(", "SellBy(", "PeakGiveback(",
-            "VelocityExhaustion", "ExitAtRollingHigh(", "ExitAtRollingLow(", "ExitAtPriorHigh(", "For(", "ForEach(")).ToList();
+            "VelocityExhaustion", "ExitAtRollingHigh(", "ExitAtRollingLow(", "ExitAtPriorHigh(", "For(", "ForEach(", "ThenWhen(", "Within(")).ToList();
 
         var usedSet = new HashSet<string>(StringComparer.Ordinal);
         foreach (var list in new[] { setup, filters, order, risk, exit })
@@ -227,6 +229,23 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         sb.AppendLine("          .EndIf()");
         sb.AppendLine("      .Build();");
         sb.AppendLine("If(condition) takes one condition expression (compose with .And()/.Or()/.Not()); Then(body), ElseIf(condition, body) and Else(body) take only Long/Short, TakeProfit, AddTarget, StopLoss, StopLossPercent, TrailingStopLoss and extra entry-condition verbs; always close with .EndIf(). The first branch whose condition holds wins, so keep a base stop outside the block.");
+        sb.AppendLine();
+        sb.AppendLine("Sequence example (\"short it under VWAP into earnings; once it has exited and made 3 higher lows, buy it back within 7 days\"):");
+        sb.AppendLine("  Stock.Ticker(\"NVDA\")");
+        sb.AppendLine("      .Step(\"short-into-earnings\")");
+        sb.AppendLine("      .IsBelowVwap()");
+        sb.AppendLine("      .Short()");
+        sb.AppendLine("      .StopLossPercent(3)");
+        sb.AppendLine("      .TakeProfitPercent(6)");
+        sb.AppendLine("      .ThenWhen(HigherLows(3))");
+        sb.AppendLine("      .Within(7)");
+        sb.AppendLine("      .Step(\"buy-back\")");
+        sb.AppendLine("      .IsAboveVwap()");
+        sb.AppendLine("      .Long()");
+        sb.AppendLine("      .StopLossPercent(2)");
+        sb.AppendLine("      .TakeProfitPercent(5)");
+        sb.AppendLine("      .Build();");
+        sb.AppendLine("Step(name) opens the next step with its own entry, direction and exits; ThenWhen(condition) is checked only while flat after that step's exit and arms the next step; Within(days) ends the sequence if the transition never comes. Repeat() goes once, at the end.");
         sb.AppendLine();
         sb.AppendLine("If the user's description is ambiguous about a setting it does not mention, prefer conservative defaults: paper-mode-friendly, RTH session, ADX>20 regime filter, simple Long/Short, fixed-price stop and target.");
         sb.AppendLine($"NEVER drop, weaken or approximate a condition the user stated. Every price level, count, order of events and threshold they gave must appear in the chain. If any part of the request cannot be expressed with the catalog verbs, output nothing but one line starting with `{UnsupportedMarker}` that names the part that cannot be expressed.");

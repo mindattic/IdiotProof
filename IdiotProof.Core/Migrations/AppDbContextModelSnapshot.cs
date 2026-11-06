@@ -541,6 +541,12 @@ namespace IdiotProof.Core.Migrations
                     b.Property<int>("PassedCount")
                         .HasColumnType("int");
 
+                    b.Property<int?>("StepCount")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("int");
+
                     b.Property<int>("TotalCount")
                         .HasColumnType("int");
 
@@ -2147,6 +2153,9 @@ namespace IdiotProof.Core.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
 
+                    b.Property<bool>("AwaitingTransition")
+                        .HasColumnType("bit");
+
                     b.Property<string>("BrokerMode")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -2211,6 +2220,12 @@ namespace IdiotProof.Core.Migrations
                     b.Property<string>("ScriptText")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("StepArmedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("StepIndex")
+                        .HasColumnType("int");
 
                     b.Property<string>("Symbol")
                         .IsRequired()

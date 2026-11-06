@@ -238,6 +238,10 @@
                                         var fullPass = p.IsFullPass;
                                         <span class="@(fullPass ? "badge bg-success" : "badge bg-secondary")"
                                               data-tooltip="Last evaluated @EasternTime.Format(p.EvaluatedUtc, "HH:mm:ss 'ET'")">
+                                            @if (p.StepCount is { } stepCount)
+                                            {
+                                                <span data-cy="step-badge">step @((p.StepIndex ?? 0) + 1)/@stepCount · </span>
+                                            }
                                             @p.PassedCount/@p.TotalCount
                                             @if (!fullPass && !string.IsNullOrEmpty(p.FirstFailingVerb))
                                             {

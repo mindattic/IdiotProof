@@ -42,6 +42,12 @@ public sealed class ConditionProgress
     /// <summary>UTC timestamp of the last <see cref="LastPrice"/> write.</summary>
     public DateTime? LastPriceUtc { get; set; }
 
+    /// <summary>The step a sequenced strategy was on at the most recent evaluation (0-based); null for a single-step strategy.</summary>
+    public int? StepIndex { get; set; }
+
+    /// <summary>How many steps the sequenced strategy has; null for a single-step strategy.</summary>
+    public int? StepCount { get; set; }
+
     /// <summary>True when every entry condition passed on the most recent evaluation.</summary>
     public bool IsFullPass => TotalCount > 0 && PassedCount == TotalCount;
 }
