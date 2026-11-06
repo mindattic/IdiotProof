@@ -38,6 +38,12 @@ public sealed class CatalystEvent
     /// <summary>1 primary (EDGAR), 2 editorial, 3 wire/promotional.</summary>
     public int SourceTier { get; set; } = 3;
 
+    /// <summary>The item's own source name as the feed gave it ("benzinga", "fiscal.ai"); null for older rows.</summary>
+    [MaxLength(64)] public string? SourceName { get; set; }
+
+    /// <summary>A <see cref="IdiotProof.Core.Catalysts.CatalystStampKind"/>: realtime | batch (PublishedUtc is an ingestion upper bound) | unknown.</summary>
+    [MaxLength(12)] public string StampKind { get; set; } = "unknown";
+
     /// <summary>A <see cref="IdiotProof.Core.Catalysts.CatalystPreClass"/> name.</summary>
     [MaxLength(24)] public string PreClass { get; set; } = "Other";
     public int PreDirection { get; set; }

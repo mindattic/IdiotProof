@@ -185,6 +185,15 @@ public static class CoreServiceRegistration
         services.AddScoped<IdiotProof.Core.Catalysts.CatalystBackfillService>();
         services.AddScoped<IdiotProof.Core.Catalysts.CatalystLookup>();
 
+        // ── Gapper study (IP-T442): research-DB stages behind `research gappers *`; params load lazily from docs/research ──
+        services.AddScoped<IdiotProof.Core.Research.Gappers.GapperStudyServices>();
+        services.AddScoped<IdiotProof.Core.Research.Gappers.GapperUniverseStage>();
+        services.AddScoped<IdiotProof.Core.Research.Gappers.GapperPullStage>();
+        services.AddScoped<IdiotProof.Core.Research.Gappers.GapperCatalystStage>();
+        services.AddScoped<IdiotProof.Core.Research.Gappers.GapperSnapshotStage>();
+        services.AddScoped<IdiotProof.Core.Research.Gappers.GapperLabelStage>();
+        services.AddScoped<IdiotProof.Core.Research.Gappers.GapperStatusStage>();
+
         return services;
     }
 

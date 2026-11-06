@@ -65,7 +65,7 @@ public static class GapperFormationFeatures
             Halted = inputs.Halted,
         };
 
-        var catalyst = inputs.Catalysts.Where(c => c.PublishedUtc <= t).OrderByDescending(c => c.PublishedUtc).FirstOrDefault();
+        var catalyst = LatestCatalyst(inputs.Catalysts, t);
         if (catalyst is not null)
             core = core with
             {
@@ -73,9 +73,27 @@ public static class GapperFormationFeatures
                 CatalystAgeMinutes = (t - catalyst.PublishedUtc).TotalMinutes,
                 CatalystDirection = catalyst.Direction,
                 CatalystPreClass = catalyst.PreClass,
+                CatalystStampIsUpperBound = catalyst.StampIsUpperBound,
             };
 
         return core with { Extra = (registry ?? GapperFeatureRegistry.Default()).Compute(inputs, core) };
+    }
+
+    /// <summary>Items within this many minutes of each other are one release seen through several copies (a Benzinga flash and its batch-stamped wire copy).</summary>
+    public static readonly TimeSpan CatalystClusterWindow = TimeSpan.FromMinutes(60);
+
+    /// <summary>
+    /// The catalyst in force at t: the newest item known by t, except that every item inside the
+    /// cluster window before it is the same release, so the earliest of them is the catalyst time
+    /// (a batch stamp is only an upper bound; the earlier real-time flash is the truth).
+    /// </summary>
+    public static CatalystObservation? LatestCatalyst(IReadOnlyList<CatalystObservation> catalysts, DateTime t)
+    {
+        var known = catalysts.Where(c => c.PublishedUtc <= t).OrderByDescending(c => c.PublishedUtc).ToList();
+        if (known.Count == 0) return null;
+        var newest = known[0];
+        var cluster = known.Where(c => c.PublishedUtc >= newest.PublishedUtc - CatalystClusterWindow).ToList();
+        return cluster.OrderBy(c => c.PublishedUtc).ThenBy(c => c.StampIsUpperBound).First();
     }
 
     private static double? Adv(IReadOnlyList<Candle> daily, int days)

@@ -2,8 +2,13 @@ using IdiotProof.Models;
 
 namespace IdiotProof.Evidence.Gappers;
 
-/// <summary>A news item or filing already classified into a catalyst, as known at decision time.</summary>
-public sealed record CatalystObservation(DateTime PublishedUtc, string PreClass, int Direction, int SourceTier, double Score);
+/// <summary>
+/// A news item or filing already classified into a catalyst, as known at decision time.
+/// <paramref name="StampIsUpperBound"/> is true when <paramref name="PublishedUtc"/> is a batch
+/// ingestion stamp (fiscal.ai wire copies land on half-hour boundaries), so it bounds the real
+/// publication time from above and is never exact.
+/// </summary>
+public sealed record CatalystObservation(DateTime PublishedUtc, string PreClass, int Direction, int SourceTier, double Score, bool StampIsUpperBound = false);
 
 /// <summary>An EDGAR filing with its acceptance instant and 8-K item codes (empty for other forms).</summary>
 public sealed record FilingObservation(string FormType, DateTime AcceptedUtc, IReadOnlyList<string> Items);
