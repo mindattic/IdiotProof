@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using IdiotProof.Core.Trading;
+using IdiotProof.DataFeeds.Streaming;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace IdiotProof.Operations.Streaming;

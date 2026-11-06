@@ -52,9 +52,18 @@ public sealed class CatalystExtractor(
     AppSettings  appSettings,
     ILogger<CatalystExtractor> logger)
 {
-    private const string SystemPrompt = """
+    public const string SystemPrompt = """
         You are a financial intelligence analyst. Given article text or SEC filing content
         about a publicly traded company, extract every catalyst and portent.
+
+        TYPES: Earnings (results, guidance in a results release), Contract (award, purchase order,
+        supply or distribution agreement), Insider (Form 4 buys/sells), MA (acquisition, merger,
+        tender or buyout), Guidance (standalone outlook change), Regulatory (government or exchange
+        rule, listing compliance), Fda (FDA/EMA approval, clearance, CRL, PDUFA date, trial readout),
+        ReverseSplit (reverse stock split or share consolidation), Offering (public offering, registered
+        direct, private placement, ATM, S-1/424B, warrant or convertible financing — dilution),
+        Uplisting (approved to list on Nasdaq/NYSE from OTC), PromoPr (promotional wire release with
+        superlatives and no concrete numbers), News (anything else).
 
         KEY CONCEPT — PORTENT vs CATALYST:
         - A PORTENT is an announced event that has NOT yet executed. Examples:
@@ -81,7 +90,7 @@ public sealed class CatalystExtractor(
           "catalysts": [
             {
               "summary": "concise description under 120 chars, factual",
-              "type": "Earnings|Contract|Insider|MA|Guidance|Regulatory|News",
+              "type": "Earnings|Contract|Insider|MA|Guidance|Regulatory|Fda|ReverseSplit|Offering|Uplisting|PromoPr|News",
               "sentiment": "Bullish|Bearish|Neutral",
               "magnitude": "High|Medium|Low",
               "has_happened_already": true,

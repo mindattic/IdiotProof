@@ -1,0 +1,44 @@
+{
+  "_comment": "Deterministic catalyst pre-classification rules (IP-T443, IP-LAW-7). CatalystPreClassifier applies them in this order: offering forms, 8-K items, keyword rules (first match wins, in listed order), then the promo test. Phrases are matched case-insensitively against headline + summary. The gapper study recomputes these on history, so a change here changes the study: version it.",
+  "version": 1,
+  "offeringFormPrefixes": [ "424B", "S-1", "S-3", "F-1", "F-3" ],
+  "eightK": {
+    "items": {
+      "1.01": { "class": "ContractAward", "direction": 1, "confidence": 0.55 },
+      "2.02": { "class": "Earnings", "direction": 0, "confidence": 0.9 },
+      "3.02": { "class": "OfferingDilution", "direction": -1, "confidence": 0.85 }
+    },
+    "combos": [
+      { "items": [ "1.01", "2.01" ], "class": "MA", "direction": 1, "confidence": 0.8 }
+    ],
+    "reverseSplitItems": [ "3.03", "5.03" ],
+    "reverseSplitConfidence": 0.85,
+    "priority": [ "MA", "OfferingDilution", "ReverseSplit", "Earnings", "ContractAward" ]
+  },
+  "reverseSplitPhrases": [ "reverse stock split", "reverse split", "reverse share split", "share consolidation" ],
+  "keywordRules": [
+    { "class": "Fda", "direction": -1, "confidence": 0.85, "any": [ "complete response letter", "clinical hold", "refuse to file", "did not meet", "failed to meet", "missed primary endpoint", "fda rejects", "fda declines", "fda warning letter", "trial halted", "discontinue the trial", "discontinues trial" ] },
+    { "class": "Fda", "direction": 1, "confidence": 0.85, "any": [ "fda approval", "fda approves", "fda approved", "fda clearance", "fda clears", "fda cleared", "510(k) clearance", "510(k) clear", "receives fda", "granted fda", "breakthrough therapy designation", "breakthrough device designation", "fast track designation", "orphan drug designation", "met primary endpoint", "met the primary endpoint", "meets primary endpoint", "positive topline", "positive top-line", "positive phase", "ema approval", "ce mark" ] },
+    { "class": "Fda", "direction": 0, "confidence": 0.5, "any": [ "pdufa", "fda ", "phase 3", "phase 2", "phase 1", "topline results", "top-line results", "clinical trial results", "nda submission", "bla submission", "ind clearance" ] },
+    { "class": "ReverseSplit", "direction": -1, "confidence": 0.9, "any": [ "reverse stock split", "reverse split", "reverse share split", "share consolidation" ] },
+    { "class": "OfferingDilution", "direction": -1, "confidence": 0.85, "any": [ "pricing of public offering", "pricing of underwritten", "pricing of registered direct", "pricing of private placement", "prices public offering", "prices underwritten", "prices registered direct", "prices private placement", "announces pricing of", "announces proposed public offering", "proposed public offering", "public offering of common stock", "registered direct offering", "private placement", "at-the-market offering", "at the market offering", "equity line", "securities purchase agreement", "convertible note", "convertible notes", "warrant inducement", "shelf registration", "mixed shelf" ] },
+    { "class": "Uplisting", "direction": 1, "confidence": 0.8, "any": [ "uplist", "up-list", "approved for listing on nasdaq", "approved for listing on the nasdaq", "approved for listing on nyse", "approved for listing on the nyse", "approved to list on", "to begin trading on nasdaq", "to begin trading on the nasdaq", "to begin trading on nyse", "to begin trading on the nyse", "listing on the nasdaq", "listing on nasdaq", "listing on the nyse", "listing on nyse american", "transfers listing to" ] },
+    { "class": "MA", "direction": 1, "confidence": 0.8, "any": [ "definitive agreement to acquire", "definitive agreement to be acquired", "to be acquired by", "agreement to be acquired", "agrees to acquire", "agreed to acquire", "to acquire", "acquisition of", "acquires ", "merger agreement", "definitive merger agreement", "agreement and plan of merger", "business combination agreement", "to merge with", "merger with", "takeover offer", "tender offer", "buyout" ] },
+    { "class": "ContractAward", "direction": 1, "confidence": 0.8, "any": [ "contract award", "awarded a contract", "awarded contract", "awarded a $", "awarded $", "wins contract", "wins $", "secures contract", "secures order", "secures $", "receives order", "receives purchase order", "receives $", "purchase order", "task order", "idiq", "multi-year contract", "multiyear contract", "supply agreement", "distribution agreement", "contract with the u.s.", "contract from the u.s.", "department of defense contract", "u.s. army", "u.s. navy", "u.s. air force", "government contract" ] },
+    { "class": "Earnings", "direction": 0, "confidence": 0.8, "any": [ "financial results", "quarterly results", "reports first quarter", "reports second quarter", "reports third quarter", "reports fourth quarter", "first quarter results", "second quarter results", "third quarter results", "fourth quarter results", "first quarter 20", "second quarter 20", "third quarter 20", "fourth quarter 20", "q1 20", "q2 20", "q3 20", "q4 20", "fiscal year results", "full year results", "full-year results", "year-end results", "earnings call", "earnings release", "reports earnings", "reports record revenue", "reports revenue", "preliminary results", "guidance" ] }
+  ],
+  "promo": {
+    "wireSources": [ "globenewswire", "prnewswire", "pr newswire", "prweb", "accesswire", "businesswire", "business wire", "newsfile", "newsfilecorp", "einpresswire", "ein presswire", "issuewire", "marketwired", "otc markets" ],
+    "superlatives": [ "revolutionary", "revolutionize", "game-changing", "game changing", "game changer", "massive", "skyrocket", "explosive", "groundbreaking", "ground-breaking", "unprecedented", "disruptive", "disrupt the", "huge", "incredible", "first-ever", "first ever", "world's first", "worlds first", "next-generation", "next generation", "cutting-edge", "cutting edge", "transformative", "paradigm", "enormous", "multi-billion", "trillion", "takes off", "to the moon", "poised to", "set to dominate" ],
+    "specificNumberPattern": "\\$\\s?\\d|\\d+(\\.\\d+)?\\s?(%|percent|million|billion|m\\b|mm\\b|bn\\b)",
+    "minSignals": 2,
+    "confidence": 0.6,
+    "direction": 1
+  },
+  "sourceTiers": {
+    "default": 2,
+    "wire": 3,
+    "edgar": 1,
+    "bySource": { "reuters": 2, "bloomberg": 2, "benzinga": 2, "marketwatch": 2, "cnbc": 2, "seeking alpha": 3, "motley fool": 3, "investorplace": 3, "zacks": 3 }
+  }
+}

@@ -1,6 +1,6 @@
 using System.Net.WebSockets;
 
-namespace IdiotProof.Operations.Streaming;
+namespace IdiotProof.DataFeeds.Streaming;
 
 /// <summary>One frame read from a <see cref="IStreamSocket"/>: its bytes and whether it was sent as binary.</summary>
 public sealed record StreamFrame(byte[] Data, bool Binary);

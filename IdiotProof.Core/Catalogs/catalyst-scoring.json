@@ -1,0 +1,30 @@
+{
+  "_comment": "CatalystScorer weights (IP-T443, IP-LAW-7): score = clamp((TypePrior x Magnitude x SourceWeight + NoveltyBonus) x Freshness(ageMinutes), 0, 100). PLACEHOLDER values until the gapper study (docs/research/gapper-study-2026-11) sets them from the F2 catalyst-group results; the study reads these so it can report what the live scorer would have said.",
+  "version": 1,
+  "typePriors": {
+    "Fda": 70,
+    "MA": 65,
+    "ContractAward": 50,
+    "OfferingDilution": 55,
+    "ReverseSplit": 45,
+    "Uplisting": 45,
+    "Earnings": 35,
+    "PromoPr": 30,
+    "Other": 15
+  },
+  "magnitude": {
+    "High": 1.0,
+    "Medium": 0.7,
+    "Low": 0.4,
+    "Unknown": 0.6
+  },
+  "sourceWeights": {
+    "1": 1.0,
+    "2": 0.9,
+    "3": 0.7
+  },
+  "NoveltyBonusMax": 15,
+  "NoveltyWindowDays": 90,
+  "FreshnessHalfLifeMinutes": 240,
+  "FreshnessFloor": 0.05
+}

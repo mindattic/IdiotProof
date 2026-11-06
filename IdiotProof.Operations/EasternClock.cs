@@ -33,6 +33,10 @@ public static class EasternClock
     public static string FormatDate(DateTime utc) =>
         ToEastern(utc).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
+    /// <summary>An ET wall-clock time (a date the caller typed) as the UTC instant it names.</summary>
+    public static DateTime ToUtcFromEastern(DateTime eastern) =>
+        TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(eastern, DateTimeKind.Unspecified), MarketTime.Eastern);
+
     internal static DateTime AsUtc(DateTime value) => value.Kind switch
     {
         DateTimeKind.Utc => value,

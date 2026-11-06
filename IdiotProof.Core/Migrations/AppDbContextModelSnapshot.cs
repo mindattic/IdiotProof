@@ -326,6 +326,137 @@ namespace IdiotProof.Core.Migrations
                     b.ToTable("DomainNameBlacklist");
                 });
 
+            modelBuilder.Entity("IdiotProof.Core.Data.CatalystEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Backfilled")
+                        .HasColumnType("bit");
+
+                    b.Property<double>("CatalystScore")
+                        .HasColumnType("float");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("FormType")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Headline")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ItemsJson")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("LlmClassifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool?>("LlmHasHappened")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LlmMagnitude")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("LlmMechanism")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LlmSentiment")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("LlmType")
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<int>("NoveltyCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PreClass")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<double>("PreConfidence")
+                        .HasColumnType("float");
+
+                    b.Property<int>("PreDirection")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PrimarySymbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime>("PublishedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RawSnippet")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ReceivedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ScoreComputedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<int>("SourceTier")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SymbolsJson")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceivedUtc");
+
+                    b.HasIndex("PrimarySymbol", "PublishedUtc");
+
+                    b.HasIndex("Source", "ExternalId")
+                        .IsUnique();
+
+                    b.ToTable("CatalystEvents");
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.CatalystEventSymbol", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Symbol")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("EventId", "Symbol");
+
+                    b.HasIndex("Symbol");
+
+                    b.ToTable("CatalystEventSymbols");
+                });
+
             modelBuilder.Entity("IdiotProof.Core.Data.CommandLedgerEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -2073,6 +2204,15 @@ namespace IdiotProof.Core.Migrations
                     b.HasOne("IdiotProof.Core.Data.AutoGapperScan", null)
                         .WithMany()
                         .HasForeignKey("ScanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.CatalystEventSymbol", b =>
+                {
+                    b.HasOne("IdiotProof.Core.Data.CatalystEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

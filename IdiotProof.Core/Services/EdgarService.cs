@@ -23,14 +23,23 @@ public sealed class EdgarService(IHttpClientFactory httpFactory, ILogger<EdgarSe
 {
     private const string SearchBase = "https://efts.sec.gov/LATEST/search-index";
 
-    public async Task<List<EdgarFiling>> GetRecentFilingsAsync(
+    public Task<List<EdgarFiling>> GetRecentFilingsAsync(
         string ticker,
         string forms,
         int daysBack = 30,
+        CancellationToken ct = default) =>
+        GetFilingsAsync(ticker, forms, DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-daysBack)), DateOnly.FromDateTime(DateTime.UtcNow), ct);
+
+    /// <summary>Full-text search for <paramref name="ticker"/> over an explicit filing-date range (inclusive); <paramref name="forms"/> is comma-separated.</summary>
+    public async Task<List<EdgarFiling>> GetFilingsAsync(
+        string ticker,
+        string forms,
+        DateOnly from,
+        DateOnly to,
         CancellationToken ct = default)
     {
-        var start = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-daysBack)).ToString("yyyy-MM-dd");
-        var end   = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+        var start = from.ToString("yyyy-MM-dd");
+        var end   = to.ToString("yyyy-MM-dd");
         var url   = $"{SearchBase}?q=%22{Uri.EscapeDataString(ticker)}%22&forms={forms}&dateRange=custom&startdt={start}&enddt={end}";
 
         try

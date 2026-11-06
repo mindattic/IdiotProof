@@ -1,14 +1,9 @@
 using IdiotProof.Core.Trading;
+using IdiotProof.DataFeeds.Streaming;
 using IdiotProof.Engine.Settings;
 
 using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Streaming;
-
-/// <summary>An Alpaca key pair for a websocket's auth message. Never printed.</summary>
-public sealed record AlpacaStreamKeys(string KeyId, string Secret)
-{
-    public override string ToString() => "AlpacaStreamKeys(redacted)";
-}
 
 /// <summary>
 /// The key pairs the Hub's Alpaca websockets authenticate with, behind the same rules as

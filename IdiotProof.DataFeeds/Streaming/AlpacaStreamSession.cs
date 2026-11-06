@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace IdiotProof.Operations.Streaming;
+namespace IdiotProof.DataFeeds.Streaming;
 
 /// <summary>Alpaca refused the stream for good (bad keys, connection limit, missing subscription); reconnecting would not help.</summary>
 public sealed class AlpacaStreamRefusedException(string message) : Exception(message);
@@ -198,6 +198,6 @@ public sealed class AlpacaStreamSession
             ? socket.SendAsync(MsgPack.Encode(message), binary: true, ct)
             : socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(message), binary: false, ct);
 
-    internal static string? Str(JsonElement e, string name) =>
+    public static string? Str(JsonElement e, string name) =>
         e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 }

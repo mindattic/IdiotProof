@@ -173,6 +173,18 @@ public static class CoreServiceRegistration
         // One research scan pass: the scheduled ResearchScanner and the Hub's `research scan`.
         services.AddScoped<IResearchScanPass, ScanPassRunner>();
 
+        // ── Catalyst intake (IP-T443): rows every host can read and backfill; the live worker is hosted with the Monitor ──
+        services.AddSingleton<IdiotProof.Core.Catalysts.CatalystIntakeSettings>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.CatalystIntakeState>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.EdgarRateGate>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.EdgarTickerMap>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.EdgarFilingHeaders>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.EdgarLatestFilingsPoller>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.CatalystClassifier>();
+        services.AddScoped<IdiotProof.Core.Catalysts.CatalystIngestor>();
+        services.AddScoped<IdiotProof.Core.Catalysts.CatalystBackfillService>();
+        services.AddScoped<IdiotProof.Core.Catalysts.CatalystLookup>();
+
         return services;
     }
 

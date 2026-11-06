@@ -1,4 +1,5 @@
 using System.Text.Json;
+using IdiotProof.DataFeeds.Streaming;
 using IdiotProof.Operations.Streaming;
 using Microsoft.Extensions.DependencyInjection;
 

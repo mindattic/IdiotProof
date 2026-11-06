@@ -2,6 +2,7 @@ using System.Text;
 using System.Threading.Channels;
 using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
+using IdiotProof.DataFeeds.Streaming;
 using IdiotProof.Operations.Streaming;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

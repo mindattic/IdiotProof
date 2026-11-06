@@ -47,6 +47,11 @@ public static class MonitorServiceRegistration
         // Intraday exhaustion templates (IP-US-S2): idle unless SettingsKv exhaustion.enabled = "true"; paper-only, leader-only.
         services.AddSingleton<ExhaustionScanner>();
         services.AddHostedService<ExhaustionScanWorker>();
+
+        // Catalyst intake (IP-T443): idle unless SettingsKv catalyst.intake.enabled = "true"; leader-only; research rows only.
+        services.TryAddSingleton<IdiotProof.DataFeeds.Streaming.IStreamSocketFactory, IdiotProof.DataFeeds.Streaming.ClientWebSocketFactory>();
+        services.AddHostedService<IdiotProof.Core.Catalysts.CatalystIntakeWorker>();
+        services.AddHostedService(sp => sp.GetRequiredService<IdiotProof.Core.Catalysts.CatalystClassifier>());
         return services;
     }
 }

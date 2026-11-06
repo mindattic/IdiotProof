@@ -45,6 +45,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<InsiderTransaction>   InsiderTransactions  => Set<InsiderTransaction>();
     public DbSet<TrackedTicker>        TrackedTickers       => Set<TrackedTicker>();
     public DbSet<ScanRun>              ScanRuns             => Set<ScanRun>();
+    public DbSet<CatalystEvent>        CatalystEvents       => Set<CatalystEvent>();
+    public DbSet<CatalystEventSymbol>  CatalystEventSymbols => Set<CatalystEventSymbol>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -247,6 +249,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
         b.Entity<ScanRun>(e =>
         {
             e.HasIndex(s => s.StartedUtc);
+        });
+
+        b.Entity<CatalystEvent>(e =>
+        {
+            e.HasIndex(x => new { x.Source, x.ExternalId }).IsUnique();
+            e.HasIndex(x => new { x.PrimarySymbol, x.PublishedUtc });
+            e.HasIndex(x => x.ReceivedUtc);
+        });
+        b.Entity<CatalystEventSymbol>(e =>
+        {
+            e.HasKey(x => new { x.EventId, x.Symbol });
+            e.HasIndex(x => x.Symbol);
+            e.HasOne<CatalystEvent>().WithMany().HasForeignKey(x => x.EventId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<ResearchClaimVector>(e =>

@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Threading.Channels;
 using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
+using IdiotProof.DataFeeds.Streaming;
 using IdiotProof.Operations.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;

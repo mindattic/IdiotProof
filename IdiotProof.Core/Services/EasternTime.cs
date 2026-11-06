@@ -22,6 +22,10 @@ public static class EasternTime
         return TimeZoneInfo.ConvertTimeFromUtc(asUtc, Et);
     }
 
+    /// <summary>An ET wall-clock time (EDGAR's acceptance stamps) as UTC.</summary>
+    public static DateTime ToUtc(DateTime eastern) =>
+        TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(eastern, DateTimeKind.Unspecified), Et);
+
     /// <summary>Convenience overload: format a UTC DateTime as ET in one call.</summary>
     public static string Format(DateTime utc, string format) =>
         FromUtc(utc).ToString(format);

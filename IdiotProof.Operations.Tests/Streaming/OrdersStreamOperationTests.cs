@@ -1,6 +1,7 @@
 using System.Text.Json;
 using IdiotProof.Core.Data;
 using IdiotProof.Core.Trading;
+using IdiotProof.DataFeeds.Streaming;
 using IdiotProof.Operations.Account;
 using IdiotProof.Operations.Streaming;
 using Microsoft.EntityFrameworkCore;

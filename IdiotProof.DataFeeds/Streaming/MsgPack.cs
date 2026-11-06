@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
-namespace IdiotProof.Operations.Streaming;
+namespace IdiotProof.DataFeeds.Streaming;
 
 /// <summary>
 /// The little MessagePack the Alpaca options stream needs (it speaks msgpack only): encode a

@@ -41,7 +41,7 @@ public static class OperationServiceRegistration
     /// </summary>
     public static IServiceCollection AddIdiotProofStreaming(this IServiceCollection services)
     {
-        services.TryAddSingleton<Streaming.IStreamSocketFactory, Streaming.ClientWebSocketFactory>();
+        services.TryAddSingleton<DataFeeds.Streaming.IStreamSocketFactory, DataFeeds.Streaming.ClientWebSocketFactory>();
         services.TryAddSingleton<Streaming.AlpacaStreamCredentials>();
         services.TryAddSingleton<Streaming.FillRecorder>();
         services.TryAddSingleton<Streaming.StreamRegistry>();

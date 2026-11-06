@@ -1939,6 +1939,321 @@
       }
     },
     {
+      "name": "catalyst backfill",
+      "noun": "catalyst",
+      "verb": "backfill",
+      "tool_name": "catalyst_backfill",
+      "summary": "Fill catalyst events for past dates from Alpaca news (paged) and EDGAR full-text search, through the same pre-classifier and scorer as live intake; rows are marked backfilled.",
+      "description": "Writes research rows only (no strategy, order or setting changes). Needs an owner for the Alpaca keys. EDGAR calls are rate-limited (120 ms apart), so wide ranges take minutes.",
+      "risk": "read",
+      "usage": "idiotproof catalyst backfill --symbols \u003Cstring\u003E --from \u003Cdate\u003E [--to \u003Cdate\u003E] [--llm-budget \u003Cint\u003E] [--edgar]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "Comma-separated symbols to backfill.",
+          "default": "",
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": true,
+          "description": "First day (ET, yyyy-MM-dd).",
+          "default": "0001-01-01",
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last day (ET, yyyy-MM-dd); default today.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "llm-budget",
+          "json_name": "llm_budget",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "At most this many new rows get a Haiku classification (default 0: none).",
+          "default": 0,
+          "enum_values": null
+        },
+        {
+          "name": "edgar",
+          "json_name": "edgar",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Also search EDGAR filings (default on; --no-edgar for news only).",
+          "default": true,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof catalyst backfill --symbols ABCD,EFGH --from 2026-10-01 --to 2026-10-31",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof catalyst backfill --symbols ABCD --from 2026-11-01 --llm-budget 20",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Fill catalyst events for past dates from Alpaca news (paged) and EDGAR full-text search, through the same pre-classifier and scorer as live intake; rows are marked backfilled.",
+        "properties": {
+          "symbols": {
+            "type": "string",
+            "description": "Comma-separated symbols to backfill.",
+            "default": ""
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First day (ET, yyyy-MM-dd).",
+            "default": "0001-01-01"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last day (ET, yyyy-MM-dd); default today."
+          },
+          "llm_budget": {
+            "type": "integer",
+            "description": "At most this many new rows get a Haiku classification (default 0: none).",
+            "default": 0
+          },
+          "edgar": {
+            "type": "boolean",
+            "description": "Also search EDGAR filings (default on; --no-edgar for news only).",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbols",
+          "from"
+        ]
+      }
+    },
+    {
+      "name": "catalyst intake-status",
+      "noun": "catalyst",
+      "verb": "intake-status",
+      "tool_name": "catalyst_intake_status",
+      "summary": "Whether the catalyst intake is enabled, who owns it, whether this Hub leads, the news stream\u0027s health, the last message ET, EDGAR polling and today\u0027s counts.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof catalyst intake-status",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof catalyst intake-status",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Whether the catalyst intake is enabled, who owns it, whether this Hub leads, the news stream\u0027s health, the last message ET, EDGAR polling and today\u0027s counts.",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "catalyst list",
+      "noun": "catalyst",
+      "verb": "list",
+      "tool_name": "catalyst_list",
+      "summary": "Catalyst events the intake recorded (news and EDGAR filings): published ET, receive lag, symbol, pre-class, direction, score, source, headline.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof catalyst list [--symbol \u003Cstring\u003E] [--since \u003Cstring\u003E] [--limit \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "symbol",
+          "json_name": "symbol",
+          "kind": "option",
+          "position": null,
+          "short": "s",
+          "type": "string",
+          "required": false,
+          "description": "Only events naming this symbol.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "since",
+          "json_name": "since",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Window start: today, yesterday, 6h, 3d, or a date (ET). Default 24h.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "limit",
+          "json_name": "limit",
+          "kind": "option",
+          "position": null,
+          "short": "n",
+          "type": "int",
+          "required": false,
+          "description": "Most recent N events (default 50, max 500).",
+          "default": 50,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof catalyst list --since today",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof catalyst list --symbol ABCD --since 3d",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Catalyst events the intake recorded (news and EDGAR filings): published ET, receive lag, symbol, pre-class, direction, score, source, headline.",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "Only events naming this symbol."
+          },
+          "since": {
+            "type": "string",
+            "description": "Window start: today, yesterday, 6h, 3d, or a date (ET). Default 24h."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Most recent N events (default 50, max 500).",
+            "default": 50
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "catalyst score",
+      "noun": "catalyst",
+      "verb": "score",
+      "tool_name": "catalyst_score",
+      "summary": "The latest catalyst event for a symbol and its score breakdown as of now (type prior \u00D7 magnitude \u00D7 source \u002B novelty, decayed by age).",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof catalyst score \u003Csymbol\u003E",
+      "parameters": [
+        {
+          "name": "symbol",
+          "json_name": "symbol",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "The symbol whose latest catalyst to score.",
+          "default": "",
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof catalyst score ABCD",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "The latest catalyst event for a symbol and its score breakdown as of now (type prior \u00D7 magnitude \u00D7 source \u002B novelty, decayed by age).",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "description": "The symbol whose latest catalyst to score.",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "symbol"
+        ]
+      }
+    },
+    {
+      "name": "catalyst show",
+      "noun": "catalyst",
+      "verb": "show",
+      "tool_name": "catalyst_show",
+      "summary": "Every field of one catalyst event, with its score broken down as of now.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof catalyst show \u003Cid\u003E",
+      "parameters": [
+        {
+          "name": "id",
+          "json_name": "id",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "The event id (or an id prefix of 6\u002B hex characters).",
+          "default": "",
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof catalyst show 0190abcd",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Every field of one catalyst event, with its score broken down as of now.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The event id (or an id prefix of 6\u002B hex characters).",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
       "name": "corporate-actions list",
       "noun": "corporate-actions",
       "verb": "list",

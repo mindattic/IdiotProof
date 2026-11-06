@@ -1,3 +1,4 @@
+using IdiotProof.DataFeeds.Streaming;
 using IdiotProof.Operations.Account;
 using IdiotProof.Operations.Streaming;
 using Microsoft.Extensions.DependencyInjection;
