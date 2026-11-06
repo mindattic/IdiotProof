@@ -10,7 +10,8 @@
 
     Renders one card per phase (Setup / Filters / Entry / Order / Risk / Exit)
     with chips for each item in that phase. Branching blocks render nested
-    inside Entry as If/ElseIf/Else columns.
+    inside Entry as If/ElseIf/Else columns. A sequenced strategy renders one
+    card group per step with a "Then when" connector between them.
 
     Read-only — editing is the StrategyBuilder.razor page's job. This component
     is intentionally pure render so it can be embedded anywhere prose lives.
@@ -26,6 +27,19 @@
 else
 {
     <div class="strategy-renderer @CssClass">
+        @{ var steps = Strategy.AllSteps().ToList(); }
+        @foreach (var (step, stepIndex) in steps.Select((s, i) => (s, i)))
+        {
+            @if (Strategy.IsSequence)
+            {
+                <div class="step-header" data-cy="step-header">
+                    <span class="strategy-chip step-chip">
+                        <i class="bi bi-signpost-split" aria-hidden="true"></i>
+                        Step @(stepIndex + 1)/@steps.Count@(string.IsNullOrEmpty(step.StepName) ? "" : $" \"{step.StepName}\"")
+                    </span>
+                </div>
+            }
+            <div class="step-group" aria-label="@(Strategy.IsSequence ? $"Step {stepIndex + 1} of {steps.Count}" : "Strategy")">
         <!-- SETUP -->
         <section class="strategy-phase" aria-label="Setup phase">
             <div class="phase-header">
@@ -35,14 +49,14 @@ else
             <div class="phase-body">
                 <span class="strategy-chip ticker-chip">
                     <i class="bi bi-tag-fill" aria-hidden="true"></i>
-                    @(string.IsNullOrEmpty(Strategy.Symbol) ? "<symbol>" : Strategy.Symbol)
+                    @(string.IsNullOrEmpty(step.Symbol) ? "<symbol>" : step.Symbol)
                 </span>
-                <span class="strategy-chip">Session: @Strategy.Session</span>
-                @if (Strategy.Quantity > 0)
+                <span class="strategy-chip">Session: @step.Session</span>
+                @if (step.Quantity > 0)
                 {
-                    <span class="strategy-chip">Qty: @Strategy.Quantity</span>
+                    <span class="strategy-chip">Qty: @step.Quantity</span>
                 }
-                else if (Strategy.NotionalAmount is { } setupNotional)
+                else if (step.NotionalAmount is { } setupNotional)
                 {
                     @* Every gapper sizes by dollars — omitting this rendered
                        the flagship strategy with NO sizing at all. *@
@@ -51,7 +65,7 @@ else
             </div>
         </section>
 
-        @{ var filterConds = Strategy.EntryConditions.Where(c => c.Phase == StrategyPhase.Filters).ToList(); }
+        @{ var filterConds = step.EntryConditions.Where(c => c.Phase == StrategyPhase.Filters).ToList(); }
         @if (filterConds.Count > 0)
         {
             <!-- FILTERS -->
@@ -70,8 +84,8 @@ else
             </section>
         }
 
-        @{ var entryConds = Strategy.EntryConditions.Where(c => c.Phase == StrategyPhase.Entry).ToList(); }
-        @if (entryConds.Count > 0 || Strategy.ConditionalBlocks.Count > 0)
+        @{ var entryConds = step.EntryConditions.Where(c => c.Phase == StrategyPhase.Entry).ToList(); }
+        @if (entryConds.Count > 0 || step.ConditionalBlocks.Count > 0)
         {
             <!-- ENTRY -->
             <section class="strategy-phase" aria-label="Entry phase">
@@ -85,10 +99,10 @@ else
                     {
                         <span class="strategy-chip entry-chip">@c.ToScript()</span>
                     }
-                    @if (Strategy.ConditionalBlocks.Count > 0)
+                    @if (step.ConditionalBlocks.Count > 0)
                     {
                         <div class="branching-block">
-                            @foreach (var block in Strategy.ConditionalBlocks)
+                            @foreach (var block in step.ConditionalBlocks)
                             {
                                 <div class="branch-tree">
                                     @foreach (var (branch, idx) in block.Branches.Select((b, i) => (b, i)))
@@ -133,22 +147,22 @@ else
                 <h3 class="phase-title">Order</h3>
             </div>
             <div class="phase-body">
-                <span class="strategy-chip @(Strategy.Direction == TradeDirection.Long ? "long-chip" : "short-chip")">
-                    <i class="bi @(Strategy.Direction == TradeDirection.Long ? "bi-arrow-up-circle-fill" : "bi-arrow-down-circle-fill")" aria-hidden="true"></i>
-                    @(Strategy.Direction == TradeDirection.Long ? "Long" : "Short")
+                <span class="strategy-chip @(step.Direction == TradeDirection.Long ? "long-chip" : "short-chip")">
+                    <i class="bi @(step.Direction == TradeDirection.Long ? "bi-arrow-up-circle-fill" : "bi-arrow-down-circle-fill")" aria-hidden="true"></i>
+                    @(step.Direction == TradeDirection.Long ? "Long" : "Short")
                 </span>
-                @if (Strategy.Quantity > 0)
+                @if (step.Quantity > 0)
                 {
-                    <span class="strategy-chip">@Strategy.Quantity shares</span>
+                    <span class="strategy-chip">@step.Quantity shares</span>
                 }
-                else if (Strategy.NotionalAmount is { } orderNotional)
+                else if (step.NotionalAmount is { } orderNotional)
                 {
                     <span class="strategy-chip">$@orderNotional notional</span>
                 }
             </div>
         </section>
 
-        @if (Strategy.StopLossPrice.HasValue || Strategy.StopLossPercent.HasValue || Strategy.TrailingStopPercent.HasValue)
+        @if (step.StopLossPrice.HasValue || step.StopLossPercent.HasValue || step.TrailingStopPercent.HasValue)
         {
             <!-- RISK -->
             <section class="strategy-phase" aria-label="Risk phase">
@@ -157,23 +171,23 @@ else
                     <h3 class="phase-title">Risk</h3>
                 </div>
                 <div class="phase-body">
-                    @if (Strategy.StopLossPrice.HasValue)
+                    @if (step.StopLossPrice.HasValue)
                     {
-                        <span class="strategy-chip stop-chip">Stop @Strategy.StopLossPrice</span>
+                        <span class="strategy-chip stop-chip">Stop @step.StopLossPrice</span>
                     }
-                    @if (Strategy.StopLossPercent.HasValue)
+                    @if (step.StopLossPercent.HasValue)
                     {
-                        <span class="strategy-chip stop-chip">Stop @Strategy.StopLossPercent%</span>
+                        <span class="strategy-chip stop-chip">Stop @step.StopLossPercent%</span>
                     }
-                    @if (Strategy.TrailingStopPercent.HasValue)
+                    @if (step.TrailingStopPercent.HasValue)
                     {
-                        <span class="strategy-chip">Trail @Strategy.TrailingStopPercent%</span>
+                        <span class="strategy-chip">Trail @step.TrailingStopPercent%</span>
                     }
                 </div>
             </section>
         }
 
-        @if (Strategy.TakeProfitPrice.HasValue || Strategy.TakeProfitTargets.Count > 0 || Strategy.ExitTime.HasValue || Strategy.PeakGivebackPercent.HasValue)
+        @if (step.TakeProfitPrice.HasValue || step.TakeProfitTargets.Count > 0 || step.ExitTime.HasValue || step.PeakGivebackPercent.HasValue)
         {
             <!-- EXIT -->
             <section class="strategy-phase" aria-label="Exit phase">
@@ -182,31 +196,59 @@ else
                     <h3 class="phase-title">Exit</h3>
                 </div>
                 <div class="phase-body">
-                    @if (Strategy.TakeProfitTargets.Count > 0)
+                    @if (step.TakeProfitTargets.Count > 0)
                     {
-                        @foreach (var t in Strategy.TakeProfitTargets)
+                        @foreach (var t in step.TakeProfitTargets)
                         {
                             <span class="strategy-chip target-chip">@t.Label: @t.Price (@t.PercentToSell%)</span>
                         }
                     }
-                    else if (Strategy.TakeProfitPrice.HasValue)
+                    else if (step.TakeProfitPrice.HasValue)
                     {
-                        <span class="strategy-chip target-chip">Target @Strategy.TakeProfitPrice</span>
+                        <span class="strategy-chip target-chip">Target @step.TakeProfitPrice</span>
                     }
-                    @if (Strategy.PeakGivebackPercent is { } giveback)
+                    @if (step.PeakGivebackPercent is { } giveback)
                     {
                         @* The gapper's signature momentum-rollover exit — was
                            invisible in every preview before this chip. *@
                         <span class="strategy-chip target-chip">
-                            Giveback @giveback%@(Strategy.PeakGivebackArmTime is { } arm ? $" armed {arm:hh\\:mm} ET" : "")
+                            Giveback @giveback%@(step.PeakGivebackArmTime is { } arm ? $" armed {arm:hh\\:mm} ET" : "")
                         </span>
                     }
-                    @if (Strategy.ExitTime.HasValue)
+                    @if (step.ExitTime.HasValue)
                     {
-                        <span class="strategy-chip">Time exit @Strategy.ExitTime</span>
+                        <span class="strategy-chip">Time exit @step.ExitTime</span>
                     }
                 </div>
             </section>
+        }
+            </div>
+
+            @if (stepIndex + 1 < steps.Count)
+            {
+                <!-- THEN WHEN: the transition to the next step, watched only while flat after this step's exit -->
+                <section class="strategy-phase transition-phase" aria-label="Transition to step @(stepIndex + 2)" data-cy="then-when">
+                    <div class="phase-header">
+                        <span class="phase-number"><i class="bi bi-arrow-down" aria-hidden="true"></i></span>
+                        <h3 class="phase-title">Then when</h3>
+                        <span class="phase-hint">after this step exits</span>
+                    </div>
+                    <div class="phase-body">
+                        @if (step.ThenWhen.Count == 0)
+                        {
+                            <span class="strategy-chip">right away</span>
+                        }
+                        @foreach (var c in step.ThenWhen)
+                        {
+                            <span class="strategy-chip entry-chip">@c.ToScript()</span>
+                        }
+                        @if (step.ThenWithinDays is { } days)
+                        {
+                            <span class="strategy-chip">within @days day@(days == 1 ? "" : "s")</span>
+                        }
+                    </div>
+                </section>
+            }
         }
     </div>
 }

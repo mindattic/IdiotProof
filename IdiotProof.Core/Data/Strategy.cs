@@ -151,6 +151,20 @@ public sealed class Strategy
     /// </summary>
     public int? InitialPositionQty { get; set; }
 
+    // ── Sequencing (Steps, IP-T445) ────────────────────────────────────
+    // A sequenced strategy's canon holds its steps; which one the Monitor is on lives here, so a
+    // restart resumes exactly where the sequence stood. All three stay 0/false/null on a
+    // single-step strategy.
+
+    /// <summary>The step the Monitor is evaluating (0 = the root definition).</summary>
+    public int StepIndex { get; set; }
+
+    /// <summary>True while flat after a step's exit, waiting for its ThenWhen to arm the next step.</summary>
+    public bool AwaitingTransition { get; set; }
+
+    /// <summary>When the current step was armed (UTC); null for step 0 until a sequence has advanced.</summary>
+    public DateTime? StepArmedUtc { get; set; }
+
     /// <summary>
     /// Per-strategy broker routing: "Paper" | "Live" | "Sandbox". Defaults to "Paper".
     /// Overrides the global UserApiKeys.AlpacaIsPaper for this strategy only.

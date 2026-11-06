@@ -147,8 +147,9 @@ public sealed class StrategyShowOperation : IOperation<StrategyRefArgs>
             .Add("symbol", s.Symbol)
             .Add("mode", OrderIntent.ParseMode(s.BrokerMode).ToString())
             .Add("active", s.IsActive ? "yes — the Monitor evaluates it every tick" : "no")
-            .Add("position", s.PositionQty == 0 ? "flat" : $"{s.PositionQty} @ {Fmt.Money(s.LastEntryPrice ?? 0)} since {Fmt.Et(s.EntryFilledUtc)}")
-            .Add("conditions", progress is null ? "(not evaluated yet)" : $"{progress.PassedCount}/{progress.TotalCount} passing; waiting on {progress.FirstFailingVerb ?? "nothing"} ({Fmt.Et(progress.EvaluatedUtc)})")
+            .Add("position", s.PositionQty == 0 ? "flat" : $"{s.PositionQty} @ {Fmt.Money(s.LastEntryPrice ?? 0)} since {Fmt.Et(s.EntryFilledUtc)}");
+        if (load.Definition is { IsSequence: true } sequence) kv.Add("sequence", StrategySequence.Describe(s, sequence));
+        kv.Add("conditions", progress is null ? "(not evaluated yet)" : $"{progress.PassedCount}/{progress.TotalCount} passing; waiting on {progress.FirstFailingVerb ?? "nothing"} ({Fmt.Et(progress.EvaluatedUtc)})")
             .Add("fired", s.FireCount == 0 ? "never" : $"{s.FireCount}× (last {Fmt.Et(s.LastFiredUtc)})")
             .Add("last exit", s.LastExitedUtc is null ? "—" : $"{Fmt.Money(s.LastExitPrice ?? 0)} — {s.LastExitReason} ({Fmt.Et(s.LastExitedUtc)})")
             .Add("author", s.Author ?? "—")
@@ -160,6 +161,7 @@ public sealed class StrategyShowOperation : IOperation<StrategyRefArgs>
         {
             s.Id, Stamp = load.Definition?.ShortId(), s.Title, s.Symbol, Mode = OrderIntent.ParseMode(s.BrokerMode).ToString(),
             s.IsActive, s.PositionQty, s.LastEntryPrice, s.EntryFilledUtc, s.FireCount, s.LastFiredUtc,
+            s.StepIndex, StepCount = load.Definition?.StepCount, s.AwaitingTransition, s.StepArmedUtc,
             Progress = progress is null ? null : new { progress.PassedCount, progress.TotalCount, progress.FirstFailingVerb, progress.EvaluatedUtc },
             Quarantined = load.CanonicalError, Script = script,
         }, kv.Render() + "\n\n" + script);

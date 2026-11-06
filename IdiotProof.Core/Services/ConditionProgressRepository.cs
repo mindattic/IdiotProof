@@ -17,7 +17,7 @@ namespace IdiotProof.Core.Services;
 public sealed class ConditionProgressRepository(IDbContextFactory<AppDbContext> dbFactory)
 {
     public async Task UpsertAsync(Guid strategyId, int passedCount, int totalCount, string? firstFailingVerb,
-        CancellationToken ct = default, decimal? lastPrice = null)
+        CancellationToken ct = default, decimal? lastPrice = null, int? stepIndex = null, int? stepCount = null)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var row = await db.ConditionProgress.FirstOrDefaultAsync(p => p.StrategyId == strategyId, ct);
@@ -34,6 +34,8 @@ public sealed class ConditionProgressRepository(IDbContextFactory<AppDbContext> 
                 EvaluatedUtc     = now,
                 LastPrice        = lastPrice,
                 LastPriceUtc     = lastPrice.HasValue ? now : null,
+                StepIndex        = stepIndex,
+                StepCount        = stepCount,
             });
         }
         else
@@ -42,6 +44,8 @@ public sealed class ConditionProgressRepository(IDbContextFactory<AppDbContext> 
             row.TotalCount       = totalCount;
             row.FirstFailingVerb = firstFailingVerb;
             row.EvaluatedUtc     = now;
+            row.StepIndex        = stepIndex;
+            row.StepCount        = stepCount;
             if (lastPrice.HasValue)
             {
                 row.LastPrice    = lastPrice;

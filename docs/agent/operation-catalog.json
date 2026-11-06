@@ -1833,7 +1833,7 @@
       "summary": "Backtest a saved strategy or a script over a range of ET days with StrategyBacktester: triggers, trades and P\u0026L per day (saved for backtest conditions).",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof backtest run [\u003Cstrategy\u003E] [--script \u003Cstring\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--qty \u003Cint\u003E]",
+      "usage": "idiotproof backtest run [\u003Cstrategy\u003E] [--script \u003Cstring\u003E] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--qty \u003Cint\u003E] [--days \u003Cint\u003E]",
       "parameters": [
         {
           "name": "strategy",
@@ -1894,6 +1894,18 @@
           "description": "Share count when the strategy doesn\u0027t pin one (default 100).",
           "default": 100,
           "enum_values": null
+        },
+        {
+          "name": "days",
+          "json_name": "days",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Replay this many trading days from --from as ONE continuous run, so a sequenced strategy\u0027s hand-off between steps (and its Within deadline) crosses the day boundaries. Not with --to.",
+          "default": null,
+          "enum_values": null
         }
       ],
       "examples": [
@@ -1904,6 +1916,10 @@
         {
           "command_line": "idiotproof backtest run --script \u0022Ticker(\\\u0022INTC\\\u0022).IsAboveVwap().StopLoss(2).TakeProfit(4)\u0022 --from 2026-10-29",
           "description": null
+        },
+        {
+          "command_line": "idiotproof backtest run NVDA --from 2026-10-20 --days 7",
+          "description": "A two-step sequence replayed as one run across seven trading days."
         }
       ],
       "input_schema": {
@@ -1933,6 +1949,10 @@
             "type": "integer",
             "description": "Share count when the strategy doesn\u0027t pin one (default 100).",
             "default": 100
+          },
+          "days": {
+            "type": "integer",
+            "description": "Replay this many trading days from --from as ONE continuous run, so a sequenced strategy\u0027s hand-off between steps (and its Within deadline) crosses the day boundaries. Not with --to."
           }
         },
         "additionalProperties": false
@@ -23124,6 +23144,73 @@
           "compact": {
             "type": "boolean",
             "description": "Leave out the armored payload block (picture only).",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "strategy"
+        ]
+      }
+    },
+    {
+      "name": "strategy step",
+      "noun": "strategy",
+      "verb": "step",
+      "tool_name": "strategy_step",
+      "summary": "Where a sequenced strategy stands (step k/N, armed or awaiting its transition); --reset starts it over at step 1.",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof strategy step \u003Cstrategy\u003E [--reset]",
+      "parameters": [
+        {
+          "name": "strategy",
+          "json_name": "strategy",
+          "kind": "argument",
+          "position": 0,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "Id, id prefix, stamp id (IP-XXXX-XXXX) or symbol.",
+          "default": "",
+          "enum_values": null
+        },
+        {
+          "name": "reset",
+          "json_name": "reset",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Put the sequence back at step 1 (refused while it holds a position).",
+          "default": false,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof strategy step NVDA",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof strategy step NVDA --reset",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Where a sequenced strategy stands (step k/N, armed or awaiting its transition); --reset starts it over at step 1.",
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "description": "Id, id prefix, stamp id (IP-XXXX-XXXX) or symbol.",
+            "default": ""
+          },
+          "reset": {
+            "type": "boolean",
+            "description": "Put the sequence back at step 1 (refused while it holds a position).",
             "default": false
           }
         },
