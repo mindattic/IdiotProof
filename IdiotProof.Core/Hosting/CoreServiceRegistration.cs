@@ -89,6 +89,9 @@ public static class CoreServiceRegistration
             sql => sql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorNumbersToAdd: null)));
         services.AddScoped<AppDbContext>(sp => sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
+        // ── Permanent market history (IP-T454): its own database on the local SQL Server Developer instance ──
+        services.AddSingleton(_ => IdiotProof.Core.History.HistoryDatabase.FromEnvironment(configuration.GetConnectionString("IdiotProofHistory")));
+
         // ── Engine: storage, AppSettings overlay chain, workspaces, audit logger ──
         // The SQL workspace store is registered first so the engine's TryAdd keeps it.
         services.AddSingleton<IWorkspaceStore>(sp =>

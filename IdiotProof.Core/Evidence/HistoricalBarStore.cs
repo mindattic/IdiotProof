@@ -19,7 +19,7 @@ public sealed class HistoricalBarStore : IHistoricalBarStore
     private const int MaxAttempts = 5;
     private const int MaxDaysPerRequest = 30;
 
-    private readonly IDbContextFactory<AppDbContext> dbFactory;
+    private readonly IBarCache cache;
     private readonly IMarketDataFeed feed;
     private readonly TimeProvider clock;
     private readonly Func<TimeSpan, CancellationToken, Task> delay;
@@ -27,8 +27,15 @@ public sealed class HistoricalBarStore : IHistoricalBarStore
 
     public HistoricalBarStore(IDbContextFactory<AppDbContext> dbFactory, IMarketDataFeed feed,
         TimeProvider? clock = null, Func<TimeSpan, CancellationToken, Task>? delay = null, ISplitSource? splits = null)
+        : this(new AppDbBarCache(dbFactory), feed, clock, delay, splits)
     {
-        this.dbFactory = dbFactory;
+    }
+
+    /// <summary>The same read-through store over any <see cref="IBarCache"/> (IP-T454: the history database).</summary>
+    public HistoricalBarStore(IBarCache cache, IMarketDataFeed feed,
+        TimeProvider? clock = null, Func<TimeSpan, CancellationToken, Task>? delay = null, ISplitSource? splits = null)
+    {
+        this.cache = cache;
         this.feed = feed;
         this.clock = clock ?? TimeProvider.System;
         this.delay = delay ?? Task.Delay;
@@ -66,15 +73,8 @@ public sealed class HistoricalBarStore : IHistoricalBarStore
         for (var d = fromEt; d <= toEt; d = d.AddDays(1))
             if (IsTradingDay(d)) tradingDays.Add(d);
 
-        string fromKey = Key(fromEt), toKey = Key(toEt);
-        await using var db = await dbFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
-        var covered = (await db.HistoricalBarCoverage.AsNoTracking()
-                .Where(c => c.Symbol == symbol && c.Timeframe == tf
-                         && string.Compare(c.DateEt, fromKey) >= 0 && string.Compare(c.DateEt, toKey) <= 0)
-                .Select(c => c.DateEt).ToListAsync(ct).ConfigureAwait(false))
-            .ToHashSet(StringComparer.Ordinal);
-
-        var missing = tradingDays.Where(d => !covered.Contains(Key(d))).ToList();
+        var covered = await cache.CoveredDaysAsync(symbol, timeframe, fromEt, toEt, ct).ConfigureAwait(false);
+        var missing = tradingDays.Where(d => !covered.Contains(d)).ToList();
         var live = new List<Candle>();
 
         foreach (var run in Runs(missing))
@@ -86,49 +86,12 @@ public sealed class HistoricalBarStore : IHistoricalBarStore
             foreach (var d in run.Where(d => d >= todayEt))
                 if (byDay.TryGetValue(d, out var partial)) live.AddRange(partial);
             if (completed.Count == 0) continue;
-
-            string runFrom = Key(completed[0]), runTo = Key(completed[^1]);
-            var startKeys = (await db.HistoricalBars.AsNoTracking()
-                    .Where(b => b.Symbol == symbol && b.Timeframe == tf
-                             && string.Compare(b.DateEt, runFrom) >= 0 && string.Compare(b.DateEt, runTo) <= 0)
-                    .Select(b => b.StartUtc).ToListAsync(ct).ConfigureAwait(false))
-                .ToHashSet();
-
-            var now = clock.GetUtcNow().UtcDateTime;
-            foreach (var d in completed)
-            {
-                var bars = byDay.TryGetValue(d, out var list) ? list : new List<Candle>();
-                foreach (var c in bars.DistinctBy(c => c.StartUtc))
-                {
-                    if (!startKeys.Add(c.StartUtc)) continue;
-                    db.HistoricalBars.Add(new HistoricalBar
-                    {
-                        Symbol = symbol, Timeframe = tf, DateEt = Key(d), StartUtc = c.StartUtc,
-                        Open = c.Open, High = c.High, Low = c.Low, Close = c.Close, Volume = c.Volume,
-                        Feed = BarProvenance.SourceOf(c, feed.FeedName),
-                    });
-                }
-                db.HistoricalBarCoverage.Add(new HistoricalBarCoverage
-                {
-                    Symbol = symbol, Timeframe = tf, DateEt = Key(d), BarCount = bars.Count, FetchedUtc = now,
-                });
-            }
-            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            var days = completed.Select(d => (d, (IReadOnlyList<Candle>)(byDay.TryGetValue(d, out var list) ? list : new List<Candle>()))).ToList();
+            await cache.SaveDaysAsync(symbol, timeframe, days, feed.FeedName, clock.GetUtcNow().UtcDateTime, ct).ConfigureAwait(false);
         }
 
-        var stored = await db.HistoricalBars.AsNoTracking()
-            .Where(b => b.Symbol == symbol && b.Timeframe == tf
-                     && string.Compare(b.DateEt, fromKey) >= 0 && string.Compare(b.DateEt, toKey) <= 0)
-            .ToListAsync(ct).ConfigureAwait(false);
-
-        var step = Span(timeframe);
+        var stored = await cache.ReadAsync(symbol, timeframe, fromEt, toEt, ct).ConfigureAwait(false);
         return stored
-            .Select(b => new Candle
-            {
-                Symbol = b.Symbol, StartUtc = DateTime.SpecifyKind(b.StartUtc, DateTimeKind.Utc),
-                EndUtc = DateTime.SpecifyKind(b.StartUtc, DateTimeKind.Utc) + step,
-                Open = b.Open, High = b.High, Low = b.Low, Close = b.Close, Volume = b.Volume, Note = b.Feed,
-            })
             .Concat(live)
             .DistinctBy(c => c.StartUtc)
             .OrderBy(c => c.StartUtc)
