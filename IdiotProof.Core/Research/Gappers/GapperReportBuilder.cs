@@ -35,6 +35,9 @@ public sealed class GapperReportModel
 
     /// <summary>SIP provenance across train+validation study minute bars, computed live from the file store; takes precedence over <see cref="Sample"/>'s cached pull stats.</summary>
     public double? LiveSipSharePct { get; init; }
+
+    /// <summary>Amendment 01 (IP-T448), or null when its file is absent.</summary>
+    public GapperAmendment? Amendment { get; init; }
 }
 
 /// <summary>
@@ -65,6 +68,7 @@ public static class GapperReportBuilder
         Sample(sb, m);
         DataTiers(sb, m);
         Families(sb, m, runs);
+        Amendment(sb, m, runs);
         Gate(sb, m, runs);
         ExitTiming(sb, m, runs);
         WhatThisSays(sb, m, runs);
@@ -207,6 +211,37 @@ public static class GapperReportBuilder
         }
     }
 
+    private static void Amendment(StringBuilder sb, GapperReportModel m, List<HypothesisRun> runs)
+    {
+        if (m.Amendment is not { } a) return;
+        sb.AppendLine($"## Amendment {a.Id}: population-weighted detection and strategy ({a.Ticket})");
+        sb.AppendLine();
+        sb.AppendLine($"Registered {Utc(a.RegisteredUtc)} before any test on study data ([`amendment-01.md`]({m.StudyDirName}/amendment-01.md), sha256 `{Short(a.Sha256, 12)}`). " +
+            "The frozen H1, H9, H11 and H12 are asked among candidate days, which are selected on the day's own outcome, so they bound from above what the same rule achieves on the live universe. " +
+            $"Each amended hypothesis asks the same question with the same thresholds over every candidate day (weight 1) plus a seeded {a.PopulationSample.Rate:P0} sample of non-candidate universe days (weight {a.SampleWeight}). " +
+            "Amended runs are corrected as their own set, so no frozen q or Holm p moves. Promotion requires the frozen conditions **and** H11p and H12p.");
+        sb.AppendLine();
+        sb.AppendLine("| hypothesis | split | frozen (candidate days) | population estimate | corrected statistic | verdict |");
+        sb.AppendLine("|---|---|---|---|---|---|");
+        foreach (var h in a.Hypotheses)
+        {
+            var own = runs.Where(r => r.Id.Equals(h.Id, StringComparison.OrdinalIgnoreCase)).OrderBy(r => Array.IndexOf(Splits, r.Split)).ToList();
+            if (own.Count == 0) { sb.AppendLine($"| {h.Id} (amends {h.BasedOn}) | — | — | — | — | not run |"); continue; }
+            foreach (var r in own)
+            {
+                var part = r.Parts.FirstOrDefault();
+                if (part is null) continue;
+                var frozen = runs.FirstOrDefault(x => x.Id.Equals(h.BasedOn, StringComparison.OrdinalIgnoreCase) && x.Split == r.Split)?.Parts.FirstOrDefault();
+                string frozenPrecision = frozen is not null && Stat(frozen, "bucketRate") is double fr ? $", precision {fr:P1}" : "";
+                string populationPrecision = Stat(part, "groupRate") is double pr ? $", precision {pr:P1}" : "";
+                string frozenText = frozen is null ? "not run" : $"{F(frozen.Effect)}{frozenPrecision} ({frozen.Verdict})";
+                string population = $"{Effect(part)}{populationPrecision}; n {part.N:N0} ({part.Days:N0} days), {Stat(part, "sampleRows")} sample rows";
+                sb.AppendLine($"| {h.Id} (amends {h.BasedOn}) | {r.Split} | {frozenText} | {population} | {Corrected(r, part, m.Params)} | **{part.Verdict}** |");
+            }
+        }
+        sb.AppendLine();
+    }
+
     private static string Effect(HypothesisPart part)
     {
         if (part.Verdict == HypothesisVerdict.Void && part.Effect is null) return "void: " + string.Join("; ", part.Reasons.Take(1));
@@ -218,7 +253,7 @@ public static class GapperReportBuilder
     private static string Corrected(HypothesisRun r, HypothesisPart part, GapperStudyParams p)
     {
         if (r.Family == "F3") return $"{(int)Math.Round(p.Statistics.CiLevel * 100)}% interval only (descriptive)";
-        if (r.Id.Equals("H12", StringComparison.OrdinalIgnoreCase))
+        if (r.Id.Equals("H12", StringComparison.OrdinalIgnoreCase) || r.Inputs.AmendsHypothesis?.Equals("H12", StringComparison.OrdinalIgnoreCase) == true)
             return $"SPA p {F(Stat(part, HypothesisCorrections.SpaKey))}, DSR {F(Stat(part, HypothesisCorrections.DsrKey))}, trades {Stat(part, "selectedTrades")}";
         var text = $"p {F(part.RawP)}, BH q {F(part.FamilyQ)}";
         if (r.Primary && part.HolmP is not null) text += $", Holm p {F(part.HolmP)}";
@@ -242,13 +277,23 @@ public static class GapperReportBuilder
             sb.AppendLine($"- **{r.Split}**: AUC detector {F(Stat(part, "aucDetector"))} vs benchmark {F(Stat(part, "aucBenchmark"))}; difference {F(part.Effect)} " +
                 $"[{F(part.CiLow)}, {F(part.CiHigh)}] vs ≥ {F(part.MinEffect)}; p {F(part.RawP)}, Holm p {F(part.HolmP)}; n {part.N:N0} on {part.Days:N0} days; verdict **{part.Verdict}**.");
         }
+        var h11p = runs.Where(r => r.Inputs.AmendsHypothesis?.Equals("H11", StringComparison.OrdinalIgnoreCase) == true).ToList();
+        foreach (var r in h11p)
+        {
+            var part = r.Parts.FirstOrDefault();
+            if (part is null) continue;
+            sb.AppendLine($"- **{r.Split}, population ({r.Id})**: AUC detector {F(Stat(part, "aucDetector"))} vs benchmark {F(Stat(part, "aucBenchmark"))}; difference {F(part.Effect)} " +
+                $"[{F(part.CiLow)}, {F(part.CiHigh)}] vs ≥ {F(part.MinEffect)}; p {F(part.RawP)}, Holm p {F(part.HolmP)}; n {part.N:N0} on {part.Days:N0} days; verdict **{part.Verdict}**.");
+        }
         var validation = h11.FirstOrDefault(r => r.Split == "validation");
+        var validationP = h11p.FirstOrDefault(r => r.Split == "validation");
+        bool amended = m.Amendment is not null;
         sb.AppendLine();
-        sb.AppendLine(validation is null
-            ? "Gate status: **not yet testable** (no validation run). Strategy work waits."
-            : validation.Verdict == HypothesisVerdict.Supported
-                ? "Gate status: **passed on validation** — the detector carries information beyond catalyst latency; strategy work may proceed to H12."
-                : "Gate status: **failed on validation** — **catalyst latency is the edge.** Per the kill criteria, strategy work stops and the product of this study is the catalyst-latency pipeline.");
+        sb.AppendLine(validation is null || amended && validationP is null
+            ? "Gate status: **not yet testable** (no validation run" + (amended ? " of H11 and H11p" : "") + "). Strategy work waits."
+            : validation.Verdict == HypothesisVerdict.Supported && (!amended || validationP!.Verdict == HypothesisVerdict.Supported)
+                ? "Gate status: **passed on validation** — the detector carries information beyond catalyst latency" + (amended ? " among candidates and over the population" : "") + "; strategy work may proceed to H12."
+                : "Gate status: **failed on validation** — **catalyst latency is the edge.** Per the kill criteria" + (amended ? " (amendment 01 applies them to H11 and H11p)" : "") + ", strategy work stops and the product of this study is the catalyst-latency pipeline.");
         sb.AppendLine();
     }
 
@@ -293,7 +338,7 @@ public static class GapperReportBuilder
         if (runs.Count == 0) { sb.AppendLine("- No hypothesis has been run yet."); sb.AppendLine(); return; }
         foreach (var split in Splits)
         {
-            var own = runs.Where(r => r.Split == split).ToList();
+            var own = runs.Where(r => r.Split == split && r.Inputs.AmendmentId is null).ToList();
             if (own.Count == 0) continue;
             var counts = own.GroupBy(r => m.PostHocHypotheses.Contains(r.Id) ? "void" : r.Verdict).ToDictionary(g => g.Key, g => g.Count());
             sb.AppendLine($"- **{split}**: {own.Count} hypotheses run — " + string.Join(", ", new[] { HypothesisVerdict.Supported, HypothesisVerdict.Refuted, HypothesisVerdict.Undecided, HypothesisVerdict.Void }
@@ -302,12 +347,12 @@ public static class GapperReportBuilder
                     ? "Supported primaries: " + string.Join(", ", own.Where(r => r.Verdict == HypothesisVerdict.Supported && r.Primary && !m.PostHocHypotheses.Contains(r.Id)).Select(r => r.Id)) + "."
                     : "No primary survived its family correction and Holm on this split."));
         }
-        var h12 = runs.Where(r => r.Id == "H12").ToList();
+        var h12 = runs.Where(r => r.Id == "H12" || r.Inputs.AmendsHypothesis == "H12").ToList();
         foreach (var r in h12)
         {
             var part = r.Parts.FirstOrDefault();
             if (part is null) continue;
-            sb.AppendLine($"- H12 on {r.Split}: selected `{Stat(part, "selectedConfig")}` ({Stat(part, "selection")}); mean net {F(part.Effect)}%/trade " +
+            sb.AppendLine($"- {r.Id} on {r.Split}{(r.Inputs.AmendmentId is null ? " (candidate days)" : " (population)")}: selected `{Stat(part, "selectedConfig")}` ({Stat(part, "selection")}); mean net {F(part.Effect)}%/trade " +
                 $"[{F(part.CiLow)}, {F(part.CiHigh)}], {part.N:N0} trades on {part.Days:N0} days, SPA p {F(Stat(part, HypothesisCorrections.SpaKey))}, DSR {F(Stat(part, HypothesisCorrections.DsrKey))}, " +
                 $"mean round-trip cost {Pct(Stat(part, "meanRoundTripCost"))}: **{part.Verdict}**.");
         }
@@ -328,6 +373,11 @@ public static class GapperReportBuilder
         sb.AppendLine($"| SIP provenance of study minute bars | >= {p.KillCriteria.MinSipProvenanceShare:P0} | {(sip is { } s ? Pct(s) : "n/a")} | {(sip is { } s2 ? s2 >= p.KillCriteria.MinSipProvenanceShare ? "met" : "**KILL: below minimum**" : "not yet measurable")} |");
         var h11v = runs.FirstOrDefault(r => r.Id == "H11" && r.Split == "validation");
         sb.AppendLine($"| H11 on validation | supported | {(h11v is null ? "not run" : h11v.Verdict)} | {(h11v is null ? "not yet testable" : h11v.Verdict == HypothesisVerdict.Supported ? "met" : "**KILL: catalyst latency is the edge**")} |");
+        if (m.Amendment is not null)
+        {
+            var h11pv = runs.FirstOrDefault(r => r.Inputs.AmendsHypothesis == "H11" && r.Split == "validation");
+            sb.AppendLine($"| H11p on validation (amendment {m.Amendment.Id}) | supported | {(h11pv is null ? "not run" : h11pv.Verdict)} | {(h11pv is null ? "not yet testable" : h11pv.Verdict == HypothesisVerdict.Supported ? "met" : "**KILL: catalyst latency is the edge**")} |");
+        }
         sb.AppendLine($"| Post-unlock edits to protocol/hypotheses/params | none | {(m.HoldoutRunExists ? m.PostUnlockCommits.Count + " commit(s)" : "holdout not opened")} | {(m.HoldoutRunExists ? m.PostUnlockCommits.Count == 0 ? "met" : "**affected hypotheses void: " + string.Join(", ", m.PostHocHypotheses.OrderBy(x => x)) + "**" : "not yet applicable")} |");
         var cik = m.Sample?["cikCoverage"]?["coveragePct"]?.GetValue<double>();
         sb.AppendLine($"| H8 CIK coverage (drop, not redefine) | >= {p.KillCriteria.H8DropIfCikCoverageBelow:P0} | {(cik is { } c ? (c / 100).ToString("P1") : "n/a")} | {(cik is { } c2 ? c2 / 100 >= p.KillCriteria.H8DropIfCikCoverageBelow ? "kept" : "H8 dropped" : "not yet measurable")} |");
@@ -354,6 +404,16 @@ public static class GapperReportBuilder
         sb.AppendLine($"4. Single holdout run nets >= {p.Promotion.HoldoutMeanNetPctPerTrade}%/trade with the day-clustered lower bound > {p.Promotion.HoldoutLowerBoundAbove}: " +
             $"{(h12h is null ? (m.HoldoutRunExists ? "not run" : "holdout locked") : $"mean {F(h12h.Parts.FirstOrDefault()?.Effect)}% [{F(h12h.Parts.FirstOrDefault()?.CiLow)}, {F(h12h.Parts.FirstOrDefault()?.CiHigh)}]")}");
         sb.AppendLine($"5. Paper shadow: {p.Promotion.PaperShadowTradingDays} trading days of live snapshots agreeing with the backtest before any Live BrokerMode is offered.");
+        if (m.Amendment is { } a)
+        {
+            var h11pv = runs.FirstOrDefault(r => r.Inputs.AmendsHypothesis == "H11" && r.Split == "validation");
+            var h12pv = runs.FirstOrDefault(r => r.Inputs.AmendsHypothesis == "H12" && r.Split == "validation");
+            var h12ph = runs.FirstOrDefault(r => r.Inputs.AmendsHypothesis == "H12" && r.Split == "holdout");
+            sb.AppendLine($"6. Amendment {a.Id}: H11p on validation {(h11pv is null ? "not run" : h11pv.Verdict)}; H12p on validation {(h12pv is null ? "not run" : h12pv.Verdict)}; " +
+                $"H12p at the holdout run >= {p.Promotion.HoldoutMeanNetPctPerTrade}%/trade with lower bound > {p.Promotion.HoldoutLowerBoundAbove}: " +
+                $"{(h12ph is null ? (m.HoldoutRunExists ? "not run" : "holdout locked") : $"mean {F(h12ph.Parts.FirstOrDefault()?.Effect)}% [{F(h12ph.Parts.FirstOrDefault()?.CiLow)}, {F(h12ph.Parts.FirstOrDefault()?.CiHigh)}]")}. " +
+                "Every condition above must hold; the amendment only adds conditions.");
+        }
         sb.AppendLine();
     }
 
@@ -386,7 +446,7 @@ public static class GapperReportBuilder
         sb.AppendLine();
     }
 
-    private static int Number(string id) => int.TryParse(id.TrimStart('H', 'h'), out var n) ? n : 0;
+    private static int Number(string id) => int.TryParse(new string(id.TrimStart('H', 'h').TakeWhile(char.IsDigit).ToArray()), out var n) ? n : 0;
 
     private static object? Stat(HypothesisPart part, string key)
     {

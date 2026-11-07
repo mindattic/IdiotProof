@@ -48,6 +48,7 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
         gate?.BeginStage("snapshot", s.UtcNow, new { split, symbolDays = days.Count, profileFile = s.Paths.ProfileFile(req.Smoke) });
 
         var schedule = p.DecisionTimes();
+        var sampleSchedule = s.SampleDecisionTimes();
         var registry = Registry(p);
         int rows = 0, withProfile = 0, done = 0;
         foreach (var dayGroup in days.GroupBy(d => d.DateEt).OrderBy(g => g.Key))
@@ -57,7 +58,7 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
             foreach (var u in dayGroup)
             {
                 var ctx = await LoadAsync(u, store, ct);
-                foreach (var dt in schedule)
+                foreach (var dt in GapperStudyServices.SampleOnly(u) ? sampleSchedule : schedule)
                 {
                     var decisionDay = dt.DayOffset == 0 ? u.DateEt : OffsetTradingDay(u.DateEt, dt.DayOffset);
                     var t = MinuteBarMath.ToUtc(decisionDay, dt.TimeEt);
@@ -112,14 +113,8 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
         return cursor;
     }
 
-    private async Task<List<GapperStudyUniverseDay>> ScopeAsync(string split, SnapshotStageRequest req, CancellationToken ct)
-    {
-        await using var db = await s.Db.CreateDbContextAsync(ct);
-        var q = db.GapperStudyUniverseDays.AsNoTracking().Where(r => r.Split == split && r.ExcludedReason == null && (r.IsCandidate || r.ControlForSymbol != null));
-        if (req.From is { } f) q = q.Where(r => r.DateEt >= f);
-        if (req.To is { } t) q = q.Where(r => r.DateEt <= t);
-        return await q.OrderBy(r => r.DateEt).ThenBy(r => r.Symbol).ToListAsync(ct);
-    }
+    private Task<List<GapperStudyUniverseDay>> ScopeAsync(string split, SnapshotStageRequest req, CancellationToken ct) =>
+        s.StudyDaysAsync(split, req.From, req.To, ct);
 
     /// <summary>Loads the saved profile, or fits it on train control days (smoke: the smoke run's control days, else its candidate days) and saves it; other splits refuse without the file.</summary>
     private async Task<(TimeOfDayProfile? Profile, bool Built, int Days)> ProfileAsync(string split, bool smoke, FileBackedBarStore store, CancellationToken ct)

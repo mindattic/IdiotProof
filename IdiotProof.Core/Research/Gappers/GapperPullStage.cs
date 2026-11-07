@@ -37,6 +37,7 @@ public sealed class GapperPullStage(
     public const string CikTier = "cik";
     public const string EdgarIndexTier = "edgar-index";
     public const string EdgarHeaderTier = "edgar-header";
+    public const string EdgarIndexAmendmentTier = "edgar-index-a01";
     public const string Form4Tier = "form4";
 
     public async Task<List<TierSummary>> RunAsync(PullStageRequest req, CancellationToken ct)
@@ -77,7 +78,7 @@ public sealed class GapperPullStage(
         var sw = Stopwatch.StartNew();
         var p = s.Params;
         var lookback = p.Features.Form4.LookbackDays;
-        var candidates = await CandidateDaysAsync(req, ct);
+        var candidates = await TargetDaysAsync(req, ct);
         if (candidates.Count == 0) return new TierSummary(Form4Tier, 0, 0, 0, null, "no candidate days in scope");
         var windows = candidates.GroupBy(c => c.Symbol).ToDictionary(g => g.Key, g => g.Select(c => (From: c.DateEt.AddDays(-lookback), To: c.DateEt)).ToList(), StringComparer.Ordinal);
         var from = candidates.Min(c => c.DateEt).AddDays(-lookback);
@@ -168,6 +169,22 @@ public sealed class GapperPullStage(
             .Select(x => (x.Symbol, x.DateEt)).OrderBy(x => x.DateEt).ThenBy(x => x.Symbol, StringComparer.Ordinal).ToList();
     }
 
+    private async Task<HashSet<(string Symbol, DateOnly DateEt)>> PopulationSampleAsync(PullStageRequest req, CancellationToken ct)
+    {
+        await using var db = await s.Db.CreateDbContextAsync(ct);
+        return await s.PopulationSampleAsync(Scoped(db, req), ct);
+    }
+
+    /// <summary>The days every fetching tier serves: candidate days, plus amendment 01's population sample so sample rows get exactly the candidates' data tiers.</summary>
+    private async Task<List<(string Symbol, DateOnly DateEt)>> TargetDaysAsync(PullStageRequest req, CancellationToken ct)
+    {
+        var days = await CandidateDaysAsync(req, ct);
+        var sample = await PopulationSampleAsync(req, ct);
+        if (sample.Count == 0) return days;
+        s.Logger.LogInformation("[{Now}] amendment {Id}: {Sample} population-sample days join {Candidates} candidate days", GapperStudyServices.Et(s.UtcNow), s.Amendment!.Id, sample.Count, days.Count);
+        return days.Concat(sample).Distinct().OrderBy(x => x.DateEt).ThenBy(x => x.Symbol, StringComparer.Ordinal).ToList();
+    }
+
     // ── T2 bars ──────────────────────────────────────────────────────────
 
     private async Task<TierSummary> PullBarsAsync(PullStageRequest req, CallBudget calls, CancellationToken ct)
@@ -176,7 +193,7 @@ public sealed class GapperPullStage(
         var keys = await s.ResolveKeysAsync(req.Owner, ct);
         await using var feed = s.Feed(keys);
         var store = await s.StoreAsync(ct);
-        var candidates = await CandidateDaysAsync(req, ct);
+        var candidates = await TargetDaysAsync(req, ct);
         int priorDays = s.Params.DataTiers.MinuteBars.PriorDays;
 
         var wanted = new HashSet<(string, DateOnly)>();
@@ -364,8 +381,48 @@ public sealed class GapperPullStage(
             await s.MarkAsync(NewsTier, [(key, r.NewsSeen)], ct);
             if (windows % 50 == 0) s.Logger.LogInformation("[{Now}] news: {Windows} windows, {Seen} items seen, {Inserted} new", GapperStudyServices.Et(s.UtcNow), windows, seen, inserted);
         }
-        return new TierSummary(NewsTier, inserted, windows, Math.Round(sw.Elapsed.TotalMinutes, 2), ranges.Count == 0 ? null : Math.Round(100.0 * (skipped + windows) / ranges.Count, 2),
-            $"{seen} items seen, {inserted} new rows, {skipped} windows already covered");
+        var population = await PullPopulationNewsAsync(req, calls, ct);
+        return new TierSummary(NewsTier, inserted + population.Inserted, windows + population.Calls, Math.Round(sw.Elapsed.TotalMinutes, 2), ranges.Count == 0 ? null : Math.Round(100.0 * (skipped + windows) / ranges.Count, 2),
+            $"{seen} items seen, {inserted} new rows, {skipped} windows already covered" + (population.Calls + population.Skipped > 0 ? $"; population sample: {population.Calls} batches, {population.Seen} items seen, {population.Inserted} new, {population.Skipped} batches already covered" : ""));
+    }
+
+    public const string NewsPopulationTier = "news-population";
+    private const int NewsSymbolsPerRequest = 100;
+
+    /// <summary>
+    /// Amendment 01's sample days get the candidates' news window [D-Before, D+After], fetched one
+    /// trading day at a time with up to 100 symbols per request (the sample is spread thin across
+    /// symbols, so per-symbol windows would cost one call each). Items land through the same ingestor,
+    /// deduplicated by source id, and are read back per symbol exactly as candidates' are.
+    /// </summary>
+    private async Task<(int Calls, int Skipped, int Seen, int Inserted)> PullPopulationNewsAsync(PullStageRequest req, CallBudget calls, CancellationToken ct)
+    {
+        var sample = await PopulationSampleAsync(req, ct);
+        if (sample.Count == 0) return (0, 0, 0, 0);
+        var window = s.Params.DataTiers.NewsWindowDays;
+        var covered = await s.CoveredAsync(NewsPopulationTier, ct);
+        var batches = sample.GroupBy(x => x.DateEt).OrderBy(g => g.Key)
+            .SelectMany(g => g.Select(x => x.Symbol).OrderBy(x => x, StringComparer.Ordinal).Chunk(NewsSymbolsPerRequest).Select((chunk, i) => (Day: g.Key, Index: i, Symbols: chunk)))
+            .ToList();
+        s.Logger.LogInformation("[{Now}] news: {Batches} population-sample batches for {Days} sample days", GapperStudyServices.Et(s.UtcNow), batches.Count, sample.Count);
+        int done = 0, skipped = 0, seen = 0, inserted = 0;
+        foreach (var (day, index, symbols) in batches)
+        {
+            var key = $"{day:yyyy-MM-dd}|{index}|{symbols.Length}";
+            if (covered.Contains(key)) { skipped++; continue; }
+            if (!calls.Allow()) { s.Logger.LogWarning("news (population): --max-calls reached"); break; }
+            await s.RateGate.WaitAsync(ct);
+            var fromUtc = EasternTime.ToUtc(day.AddDays(-window.Before).ToDateTime(TimeOnly.MinValue));
+            var toUtc = EasternTime.ToUtc(day.AddDays(window.After + 1).ToDateTime(TimeOnly.MinValue));
+            if (toUtc > s.UtcNow) toUtc = s.UtcNow;
+            var r = await backfill.BackfillAsync(symbols, fromUtc, toUtc, 0, req.Owner, includeEdgar: false, ct);
+            inserted += r.Inserted;
+            seen += r.NewsSeen;
+            done++;
+            await s.MarkAsync(NewsPopulationTier, [(key, r.NewsSeen)], ct);
+            if (done % 50 == 0) s.Logger.LogInformation("[{Now}] news (population): {Done}/{Total} batches, {Seen} items seen, {Inserted} new", GapperStudyServices.Et(s.UtcNow), done, batches.Count - skipped, seen, inserted);
+        }
+        return (done, skipped, seen, inserted);
     }
 
     private static IEnumerable<(DateOnly From, DateOnly To)> Merge(IEnumerable<(DateOnly From, DateOnly To)> ranges)
@@ -389,6 +446,7 @@ public sealed class GapperPullStage(
     {
         var sw = Stopwatch.StartNew();
         var candidateSymbols = (await CandidateDaysAsync(req, ct)).Select(c => c.Symbol).Distinct().ToList();
+        var targetSymbols = (await TargetDaysAsync(req, ct)).Select(c => c.Symbol).ToHashSet(StringComparer.Ordinal);
         var universeSymbols = new List<string>();
         await using (var db = await s.Db.CreateDbContextAsync(ct))
             universeSymbols = await Scoped(db, req).Select(r => r.Symbol).Distinct().ToListAsync(ct);
@@ -434,8 +492,8 @@ public sealed class GapperPullStage(
             }
             await db.SaveChangesAsync(ct);
 
-            var unmapped = rows.Where(r => r.Cik is null && candidateSymbols.Contains(r.Symbol)).OrderBy(r => r.Symbol, StringComparer.Ordinal).ToList();
-            s.Logger.LogInformation("[{Now}] cik: {File} from company_tickers.json, {Name} by issuer name; {Left} candidate symbols go to Form 4 search", GapperStudyServices.Et(s.UtcNow), fromFile, fromName, unmapped.Count);
+            var unmapped = rows.Where(r => r.Cik is null && targetSymbols.Contains(r.Symbol)).OrderBy(r => r.Symbol, StringComparer.Ordinal).ToList();
+            s.Logger.LogInformation("[{Now}] cik: {File} from company_tickers.json, {Name} by issuer name; {Left} candidate or population-sample symbols go to Form 4 search", GapperStudyServices.Et(s.UtcNow), fromFile, fromName, unmapped.Count);
             var span = s.Params.DataTiers.DailyBars;
             foreach (var row in unmapped)
             {
@@ -490,8 +548,25 @@ public sealed class GapperPullStage(
         if (symbolByCik.Count == 0)
             return new TierSummary("edgar", 0, 0, 0, null, "no CIK mappings yet: run `pull --tier cik` first");
 
-        var covered = await s.CoveredAsync(EdgarIndexTier, ct);
         int indexRows = 0, quarterCalls = 0;
+        await ReadQuartersAsync(EdgarIndexTier);
+        if (s.Amendment is not null)
+        {
+            // CIKs mapped after a quarter was first read (the Form 4 search for population-sample symbols) have no index rows yet.
+            symbolByCik = await MappedCiksAsync();
+            await ReadQuartersAsync(EdgarIndexAmendmentTier);
+        }
+
+        async Task<Dictionary<string, string>> MappedCiksAsync()
+        {
+            await using var db = await s.Db.CreateDbContextAsync(ct);
+            return (await db.GapperStudyCikMap.AsNoTracking().Where(r => r.Cik != null).Select(r => new { r.Symbol, r.Cik }).ToListAsync(ct))
+                .GroupBy(r => r.Cik!).ToDictionary(g => g.Key, g => g.OrderBy(x => x.Symbol, StringComparer.Ordinal).First().Symbol, StringComparer.Ordinal);
+        }
+
+        async Task ReadQuartersAsync(string tier)
+        {
+        var covered = await s.CoveredAsync(tier, ct);
         foreach (var (year, quarter) in EdgarFormIndex.Quarters(from, to))
         {
             var key = $"{year}/QTR{quarter}";
@@ -526,18 +601,20 @@ public sealed class GapperPullStage(
                 }
                 await db.SaveChangesAsync(ct);
             }
-            await s.MarkAsync(EdgarIndexTier, [(key, rows.Count)], ct);
-            s.Logger.LogInformation("[{Now}] edgar: {Quarter} → {Rows} rows for mapped CIKs ({Total} inserted so far)", GapperStudyServices.Et(s.UtcNow), key, rows.Count, indexRows);
+            await s.MarkAsync(tier, [(key, rows.Count)], ct);
+            s.Logger.LogInformation("[{Now}] edgar: {Quarter} → {Rows} rows for mapped CIKs ({Total} inserted so far, {Tier})", GapperStudyServices.Et(s.UtcNow), key, rows.Count, indexRows, tier);
+        }
         }
 
         int headerCalls = 0, headersFilled = 0;
-        var windows = candidates.GroupBy(c => c.Symbol).ToDictionary(g => g.Key, g => g.Select(c => (From: c.DateEt.AddDays(-acceptance.Before), To: c.DateEt.AddDays(acceptance.After))).ToList(), StringComparer.Ordinal);
+        var targets = await TargetDaysAsync(req, ct);
+        var windows = targets.GroupBy(c => c.Symbol).ToDictionary(g => g.Key, g => g.Select(c => (From: c.DateEt.AddDays(-acceptance.Before), To: c.DateEt.AddDays(acceptance.After))).ToList(), StringComparer.Ordinal);
         await using (var db = await s.Db.CreateDbContextAsync(ct))
         {
-            var candidateSymbols = windows.Keys.ToList();
-            var pending = await db.EdgarFilingIndex.Where(r => r.HeaderFetchedUtc == null && r.Symbol != null && candidateSymbols.Contains(r.Symbol) && r.FiledDate >= from && r.FiledDate <= to).ToListAsync(ct);
+            var targetSymbols = windows.Keys.ToList();
+            var pending = await db.EdgarFilingIndex.Where(r => r.HeaderFetchedUtc == null && r.Symbol != null && targetSymbols.Contains(r.Symbol) && r.FiledDate >= from && r.FiledDate <= to).ToListAsync(ct);
             var inWindow = pending.Where(r => windows[r.Symbol!].Any(w => r.FiledDate >= w.From && r.FiledDate <= w.To)).OrderBy(r => r.FiledDate).ToList();
-            s.Logger.LogInformation("[{Now}] edgar: {Count} filings inside [D-{B}, D+{A}] of candidate days need acceptance times", GapperStudyServices.Et(s.UtcNow), inWindow.Count, acceptance.Before, acceptance.After);
+            s.Logger.LogInformation("[{Now}] edgar: {Count} filings inside [D-{B}, D+{A}] of candidate or population-sample days need acceptance times", GapperStudyServices.Et(s.UtcNow), inWindow.Count, acceptance.Before, acceptance.After);
             foreach (var row in inWindow)
             {
                 if (!calls.Allow()) { s.Logger.LogWarning("edgar headers: --max-calls reached"); break; }
@@ -562,7 +639,7 @@ public sealed class GapperPullStage(
         double? coveragePct;
         await using (var db = await s.Db.CreateDbContextAsync(ct))
         {
-            var candidateSymbols = windows.Keys.ToList();
+            var candidateSymbols = candidates.Select(c => c.Symbol).Distinct().ToList();
             var total = await db.EdgarFilingIndex.CountAsync(r => r.Symbol != null && candidateSymbols.Contains(r.Symbol) && r.FiledDate >= from && r.FiledDate <= to, ct);
             var withTime = await db.EdgarFilingIndex.CountAsync(r => r.Symbol != null && candidateSymbols.Contains(r.Symbol) && r.FiledDate >= from && r.FiledDate <= to && r.AcceptedUtc != null, ct);
             coveragePct = total == 0 ? null : Math.Round(100.0 * withTime / total, 2);

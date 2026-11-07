@@ -23,7 +23,7 @@ public sealed record TestStageResult(string Split, List<HypothesisRun> Runs, str
 /// with the frozen cost model, SPA and DSR), corrects within family (BH) and across primaries
 /// (Holm), writes one run file per hypothesis, and opens the holdout once through <see cref="HoldoutLock"/>.
 /// </summary>
-public sealed class GapperTestStage(GapperStudyServices s, GapperStudyPanel panel)
+public sealed partial class GapperTestStage(GapperStudyServices s, GapperStudyPanel panel)
 {
     public const string Stage = "test";
     private const int MinDays = 5;
@@ -33,10 +33,12 @@ public sealed class GapperTestStage(GapperStudyServices s, GapperStudyPanel pane
         var sw = Stopwatch.StartNew();
         var p = s.Params;
         var set = GapperHypothesisSet.Load(s.Paths);
+        var amendment = s.Amendment;
         var split = req.Smoke ? GapperStudyServices.SmokeSplit : req.Split.ToLowerInvariant();
+        GapperHypothesis Resolve(string id) => amendment?.Find(id) is { } a ? amendment.Resolve(a, set) : set.Find(id);
         var ids = req.Hypotheses.Count == 0 || req.Hypotheses.Any(h => h.Equals("all", StringComparison.OrdinalIgnoreCase))
-            ? set.Hypotheses.Select(h => h.Id).ToList()
-            : req.Hypotheses.Select(h => set.Find(h).Id).Distinct().ToList();
+            ? set.Hypotheses.Select(h => h.Id).Concat(amendment?.Hypotheses.Select(h => h.Id) ?? []).ToList()
+            : req.Hypotheses.Select(h => Resolve(h).Id).Distinct().ToList();
 
         string? holdoutNote = null;
         HoldoutLock? gate = null;
@@ -52,14 +54,21 @@ public sealed class GapperTestStage(GapperStudyServices s, GapperStudyPanel pane
         var runs = new List<HypothesisRun>();
         foreach (var id in ids)
         {
-            var h = set.Find(id);
+            var h = Resolve(id);
+            var amended = amendment?.Find(id);
             var started = Stopwatch.StartNew();
             var run = NewRun(h, split, req.Smoke, set);
+            if (amended is not null)
+            {
+                run.Inputs.AmendmentId = amendment!.Id;
+                run.Inputs.AmendmentSha256 = amendment.Sha256;
+                run.Inputs.AmendsHypothesis = amended.BasedOn;
+            }
             if (!req.Smoke && !h.AllowsSplit(split))
-                run.Parts.Add(HypothesisPart.VoidPart("split", $"hypotheses.json allows {id} on {string.Join(", ", h.SplitsAllowed)} only"));
+                run.Parts.Add(HypothesisPart.VoidPart("split", $"{(amended is null ? "hypotheses.json" : "amendment " + amendment!.Id)} allows {id} on {string.Join(", ", h.SplitsAllowed)} only"));
             else
             {
-                try { await DispatchAsync(h, run, split, ct); }
+                try { await (amended is null ? DispatchAsync(h, run, split, ct) : DispatchAmendedAsync(h, amended, run, split, ct)); }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {
@@ -72,7 +81,7 @@ public sealed class GapperTestStage(GapperStudyServices s, GapperStudyPanel pane
             s.Logger.LogInformation("[{Now}] test {Id} on {Split}: {Parts} part(s) in {Seconds}s", GapperStudyServices.Et(s.UtcNow), id, split, run.Parts.Count, run.Seconds);
         }
 
-        HypothesisCorrections.Apply(runs, p, $"BH within family and Holm across the {runs.Count} hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis");
+        HypothesisCorrections.ApplyAll(runs, p, $"BH within family and Holm across the {runs.Count} hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis");
         Directory.CreateDirectory(s.Paths.RunsDir);
         var stamp = s.UtcNow;
         foreach (var run in runs)
@@ -802,10 +811,10 @@ public sealed class GapperTestStage(GapperStudyServices s, GapperStudyPanel pane
     }
 
     /// <summary>The configuration the latest train run of H12 selected, as an index into the grid; null without a train run file.</summary>
-    private int? LatestTrainSelection(List<GapperRuleConfig> configs)
+    private int? LatestTrainSelection(List<GapperRuleConfig> configs, string id = "H12")
     {
         if (!Directory.Exists(s.Paths.RunsDir)) return null;
-        var latest = Directory.GetFiles(s.Paths.RunsDir, "test-H12-train-*.json").OrderByDescending(f => f, StringComparer.Ordinal)
+        var latest = Directory.GetFiles(s.Paths.RunsDir, $"test-{id}-train-*.json").OrderByDescending(f => f, StringComparer.Ordinal)
             .Select(f => HypothesisRun.FromJson(File.ReadAllText(f))).FirstOrDefault(r => r is not null);
         var label = latest?.Parts.FirstOrDefault()?.Statistic.GetValueOrDefault("selectedConfig")?.ToString();
         if (label is null) return null;

@@ -113,6 +113,79 @@ public static class LogisticRegression
         }
         return new LogisticModel(featureNames, means, stds, w, b, ran, n == 0 ? double.NaN : loss / n);
     }
+
+    /// <summary>
+    /// <see cref="Fit"/> with a sampling weight per row: standardization, gradient and loss are weighted,
+    /// and the sample size is the total weight, so integer weights give the fit of the replicated rows.
+    /// </summary>
+    public static LogisticModel FitWeighted(IReadOnlyList<string> featureNames, IReadOnlyList<double[]> x, IReadOnlyList<bool> y, IReadOnlyList<double> weights,
+        double l2 = 1.0, int epochs = 500, double learningRate = 0.1)
+    {
+        int n = x.Count, d = featureNames.Count;
+        if (n != y.Count || n != weights.Count) throw new ArgumentException("x, y and weights differ in length.");
+        double total = 0;
+        foreach (var wt in weights) total += wt;
+        double scale = Math.Max(1, total);
+        var means = new double[d];
+        var stds = new double[d];
+        for (int j = 0; j < d; j++)
+        {
+            double sum = 0, sumSq = 0, count = 0;
+            for (int i = 0; i < n; i++)
+            {
+                double v = j < x[i].Length ? x[i][j] : double.NaN;
+                if (double.IsNaN(v) || double.IsInfinity(v)) continue;
+                sum += weights[i] * v; sumSq += weights[i] * v * v; count += weights[i];
+            }
+            means[j] = count == 0 ? 0 : sum / count;
+            double var = count < 2 ? 0 : Math.Max(0, sumSq / count - means[j] * means[j]);
+            stds[j] = var > 1e-18 ? Math.Sqrt(var) : 1;
+        }
+
+        var z = new double[n][];
+        for (int i = 0; i < n; i++)
+        {
+            z[i] = new double[d];
+            for (int j = 0; j < d; j++)
+            {
+                double v = j < x[i].Length ? x[i][j] : double.NaN;
+                z[i][j] = double.IsNaN(v) || double.IsInfinity(v) ? 0 : (v - means[j]) / stds[j];
+            }
+        }
+
+        var w = new double[d];
+        double b = 0, loss = double.NaN;
+        var grad = new double[d];
+        int ran = 0;
+        for (int epoch = 0; epoch < epochs; epoch++)
+        {
+            Array.Clear(grad);
+            double gb = 0;
+            loss = 0;
+            for (int i = 0; i < n; i++)
+            {
+                double s = b;
+                for (int j = 0; j < d; j++) s += w[j] * z[i][j];
+                double p = 1.0 / (1.0 + Math.Exp(-s));
+                double err = weights[i] * (p - (y[i] ? 1 : 0));
+                for (int j = 0; j < d; j++) grad[j] += err * z[i][j];
+                gb += err;
+                double pc = Math.Clamp(p, 1e-12, 1 - 1e-12);
+                loss -= weights[i] * (y[i] ? Math.Log(pc) : Math.Log(1 - pc));
+            }
+            double norm = 0;
+            for (int j = 0; j < d; j++)
+            {
+                double g = grad[j] / scale + l2 * w[j] / scale;
+                w[j] -= learningRate * g;
+                norm += g * g;
+            }
+            b -= learningRate * gb / scale;
+            ran = epoch + 1;
+            if (Math.Sqrt(norm) < 1e-7) break;
+        }
+        return new LogisticModel(featureNames, means, stds, w, b, ran, total == 0 ? double.NaN : loss / total);
+    }
 }
 
 /// <summary>AUC of two scores compared on the same rows, with a day-block bootstrap interval for their difference.</summary>

@@ -35,17 +35,11 @@ public sealed class GapperLabelStage(GapperStudyServices s)
         var profilePath = s.Paths.ProfileFile(req.Smoke);
         var profile = File.Exists(profilePath) ? TimeOfDayProfile.Load(profilePath) : null;
 
-        List<GapperStudyUniverseDay> days;
-        await using (var db = await s.Db.CreateDbContextAsync(ct))
-        {
-            var q = db.GapperStudyUniverseDays.AsNoTracking().Where(r => r.Split == split && r.ExcludedReason == null && (r.IsCandidate || r.ControlForSymbol != null));
-            if (req.From is { } f) q = q.Where(r => r.DateEt >= f);
-            if (req.To is { } t) q = q.Where(r => r.DateEt <= t);
-            days = await q.OrderBy(r => r.DateEt).ThenBy(r => r.Symbol).ToListAsync(ct);
-        }
+        var days = await s.StudyDaysAsync(split, req.From, req.To, ct);
         gate?.BeginStage("label", s.UtcNow, new { split, symbolDays = days.Count });
 
         var schedule = p.DecisionTimes();
+        var sampleSchedule = s.SampleDecisionTimes();
         int rows = 0, withEntry = 0, done = 0;
         foreach (var dayGroup in days.GroupBy(d => d.DateEt).OrderBy(g => g.Key))
         {
@@ -54,7 +48,7 @@ public sealed class GapperLabelStage(GapperStudyServices s)
             {
                 var bars = store.ReadDay(u.Symbol, u.DateEt);
                 var day = GapperStudyLabeler.ComputeDay(p, bars, u.AdjPrevClose, u.DateEt, profile, u.AdvDecile, (double)u.Adv20Shares);
-                foreach (var dt in schedule)
+                foreach (var dt in GapperStudyServices.SampleOnly(u) ? sampleSchedule : schedule)
                 {
                     var decisionDay = dt.DayOffset == 0 ? u.DateEt : GapperSnapshotStage.OffsetTradingDay(u.DateEt, dt.DayOffset);
                     var t = MinuteBarMath.ToUtc(decisionDay, dt.TimeEt);

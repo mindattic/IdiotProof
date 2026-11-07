@@ -77,6 +77,73 @@ public sealed class GapperStudyServices(
     public GapperStudyPaths Paths => paths ??= GapperStudyPaths.Resolve();
     public GapperStudyParams Params => parameters ??= GapperStudyParams.Load(Paths);
 
+    private bool amendmentLoaded;
+    private GapperAmendment? amendment;
+
+    /// <summary>Amendment 01, or null when its file is absent (then every stage runs exactly as frozen).</summary>
+    public GapperAmendment? Amendment
+    {
+        get
+        {
+            if (!amendmentLoaded) { amendment = GapperAmendment.Load(Paths); amendmentLoaded = true; }
+            return amendment;
+        }
+    }
+
+    /// <summary>
+    /// The population-sample symbol-days inside <paramref name="scoped"/>: eligible rows (not excluded,
+    /// not a candidate) whose seeded hash falls under the amendment's rate. Empty without the amendment
+    /// and on the smoke split.
+    /// </summary>
+    public async Task<HashSet<(string Symbol, DateOnly DateEt)>> PopulationSampleAsync(IQueryable<GapperStudyUniverseDay> scoped, CancellationToken ct)
+    {
+        var result = new HashSet<(string, DateOnly)>();
+        if (Amendment is not { } a) return result;
+        var eligible = await scoped.Where(r => r.ExcludedReason == null && !r.IsCandidate && r.Split != SmokeSplit)
+            .Select(r => new { r.Symbol, r.DateEt }).ToListAsync(ct);
+        foreach (var r in eligible)
+            if (a.IsSampleMember(r.Symbol, r.DateEt)) result.Add((r.Symbol, r.DateEt));
+        return result;
+    }
+
+    /// <summary>A scoped day that is in the study only through the population sample (neither a candidate nor a control).</summary>
+    public static bool SampleOnly(GapperStudyUniverseDay u) => !u.IsCandidate && u.ControlForSymbol == null;
+
+    /// <summary>
+    /// The decision times a population-sample-only day is snapshotted and labelled at: the frozen
+    /// decision time of every hypothesis the amendment re-asks (08:00, 08:30, 09:00). Candidate and
+    /// control days keep the full frozen schedule. Computing the other ten times for sample days would
+    /// change no estimate and would not fit LocalDB's 10 GB cap.
+    /// </summary>
+    public IReadOnlyList<DecisionTime> SampleDecisionTimes()
+    {
+        if (Amendment is not { } a) return [];
+        var frozen = GapperHypothesisSet.Load(Paths);
+        var labels = a.Hypotheses.Select(h => frozen.Find(h.BasedOn).DecisionTime).Where(t => !string.IsNullOrWhiteSpace(t)).ToHashSet(StringComparer.Ordinal);
+        return Params.DecisionTimes().Where(d => labels.Contains(d.Label)).ToList();
+    }
+
+    /// <summary>
+    /// The universe days a snapshot or label stage covers for a split: candidate and control days
+    /// (the frozen scope) plus amendment 01's population-sample days, ordered by day then symbol.
+    /// </summary>
+    public async Task<List<GapperStudyUniverseDay>> StudyDaysAsync(string split, DateOnly? from, DateOnly? to, CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var q = db.GapperStudyUniverseDays.AsNoTracking().Where(r => r.Split == split && r.ExcludedReason == null);
+        if (from is { } f) q = q.Where(r => r.DateEt >= f);
+        if (to is { } t) q = q.Where(r => r.DateEt <= t);
+        var rows = await q.Where(r => r.IsCandidate || r.ControlForSymbol != null).ToListAsync(ct);
+        var have = rows.Select(r => (r.Symbol, r.DateEt)).ToHashSet();
+        foreach (var day in (await PopulationSampleAsync(q, ct)).Where(k => !have.Contains(k)).GroupBy(k => k.DateEt))
+        {
+            var date = day.Key;
+            var symbols = day.Select(k => k.Symbol).ToList();
+            rows.AddRange(await db.GapperStudyUniverseDays.AsNoTracking().Where(r => r.Split == split && r.DateEt == date && symbols.Contains(r.Symbol)).ToListAsync(ct));
+        }
+        return rows.OrderBy(r => r.DateEt).ThenBy(r => r.Symbol, StringComparer.Ordinal).ToList();
+    }
+
     /// <summary>Null when the connection string names a research database; otherwise why the stage must refuse.</summary>
     public string? GuardError()
     {

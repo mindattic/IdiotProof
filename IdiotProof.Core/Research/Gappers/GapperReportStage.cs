@@ -31,7 +31,7 @@ public sealed class GapperReportStage(GapperStudyServices s, GapperStatusStage s
         int withheld = runs.Count(r => r.Split == "holdout" && !holdoutRunExists);
         if (!holdoutRunExists) runs = runs.Where(r => r.Split != "holdout").ToList();
         foreach (var split in runs.GroupBy(r => r.Split))
-            HypothesisCorrections.Apply(split.ToList(), p, $"latest run of every hypothesis on {split.Key}");
+            HypothesisCorrections.ApplyAll(split.ToList(), p, $"latest run of every hypothesis on {split.Key}");
 
         DateTime? runStart = null;
         var commits = new List<(string, string, string)>();
@@ -72,7 +72,7 @@ public sealed class GapperReportStage(GapperStudyServices s, GapperStatusStage s
             StudyDirName = Path.GetFileName(s.Paths.StudyDir), Sample = sample, Status = st, Runs = runs, HoldoutRunExists = holdoutRunExists, HoldoutRunsWithheld = withheld,
             HoldoutRunStartUtc = runStart, PostUnlockCommits = commits, PostHocHypotheses = postHoc, SpreadMultiplier = multiplier, SpreadMultiplierSource = source,
             PostRegistrationFeatures = registry.PostRegistrationNames, PostRegistrationSummaries = summaries, Exports = exports, ExportNote = exportNote,
-            LiveSipSharePct = sipShare,
+            LiveSipSharePct = sipShare, Amendment = s.Amendment,
         };
         File.WriteAllText(ReportFile, GapperReportBuilder.Build(model));
         return new ReportStageResult(ReportFile, runs.Count, withheld, postHoc.Count, exports, Math.Round(sw.Elapsed.TotalMinutes, 2));

@@ -14,6 +14,15 @@ public sealed record PanelRow(
 {
     public bool IsTier50 => GapTier is "Tier50" or "Tier100";
 
+    /// <summary>Amendment 01: a non-candidate day drawn into the population sample. No frozen hypothesis reads such a row.</summary>
+    public bool IsPopulationSample { get; init; }
+
+    /// <summary>The row's weight in a population estimate: 1 for a candidate day (census), 1/rate for a population-sample day.</summary>
+    public double Weight { get; init; } = 1;
+
+    /// <summary>A row of the amendment's population: every candidate day and every population-sample day.</summary>
+    public bool InPopulation => IsCandidate || IsPopulationSample;
+
     /// <summary>A hypothesis feature name resolved against the row; null when the column is empty.</summary>
     public double? Column(string name) => name switch
     {
@@ -62,11 +71,26 @@ public sealed class GapperStudyPanel(GapperStudyServices s)
         var days = (await db.GapperStudyUniverseDays.AsNoTracking().Where(r => r.Split == split && r.ExcludedReason == null && (r.IsCandidate || r.ControlForSymbol != null))
                 .Select(r => new { r.Symbol, r.DateEt, r.IsCandidate, r.ControlForSymbol, r.IsGapper, r.GapTier, r.GapperSubType }).ToListAsync(ct))
             .ToDictionary(r => (r.Symbol, r.DateEt));
+        var amendment = s.Amendment;
         var rows = new List<PanelRow>(snapshots.Count);
         foreach (var snap in snapshots.OrderBy(r => r.DateEt).ThenBy(r => r.Symbol, StringComparer.Ordinal))
         {
-            if (!labels.TryGetValue((snap.Symbol, snap.DateEt), out var label) || !days.TryGetValue((snap.Symbol, snap.DateEt), out var u)) continue;
-            rows.Add(new PanelRow(snap.Symbol, snap.DateEt, u.IsCandidate, u.ControlForSymbol != null, u.IsGapper, u.GapTier, u.GapperSubType, snap, label, GapperSnapshotExtras.Parse(snap.ExtraJson)));
+            if (!labels.TryGetValue((snap.Symbol, snap.DateEt), out var label)) continue;
+            if (days.TryGetValue((snap.Symbol, snap.DateEt), out var u))
+            {
+                bool sampled = !u.IsCandidate && amendment is not null && split != GapperStudyServices.SmokeSplit && amendment.IsSampleMember(snap.Symbol, snap.DateEt);
+                rows.Add(new PanelRow(snap.Symbol, snap.DateEt, u.IsCandidate, u.ControlForSymbol != null, u.IsGapper, u.GapTier, u.GapperSubType, snap, label, GapperSnapshotExtras.Parse(snap.ExtraJson))
+                {
+                    IsPopulationSample = sampled, Weight = sampled ? amendment!.SampleWeight : 1,
+                });
+                continue;
+            }
+            // Snapshot rows exist only for scoped days, so a row outside candidates and controls is a population-sample day.
+            if (amendment is null || snap.IsCandidate || split == GapperStudyServices.SmokeSplit || !amendment.IsSampleMember(snap.Symbol, snap.DateEt)) continue;
+            rows.Add(new PanelRow(snap.Symbol, snap.DateEt, false, false, false, null, null, snap, label, GapperSnapshotExtras.Parse(snap.ExtraJson))
+            {
+                IsPopulationSample = true, Weight = amendment.SampleWeight,
+            });
         }
         return rows;
     }

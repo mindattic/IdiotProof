@@ -22,6 +22,7 @@ public sealed class GapperStudyPaths
     public string StudyDir { get; }
     public string ParamsFile => Path.Combine(StudyDir, "params.json");
     public string HypothesesFile => Path.Combine(StudyDir, "hypotheses.json");
+    public string AmendmentFile => Path.Combine(StudyDir, "amendment-01.json");
     public string DataDir => Path.Combine(StudyDir, "data");
     public string RunsDir => Path.Combine(StudyDir, "runs");
     public string SampleFile(bool smoke) => Path.Combine(StudyDir, smoke ? "sample.smoke.json" : "sample.json");
