@@ -500,6 +500,21 @@ falsified intraday timing signals on 20 already-volatile names and never studied
 study reuses its discipline (pre-declared sample, one stage per process, research-DB guard,
 verdict rule fixed in advance).
 
+**Permanent market history (IP-T454).** Everything fetched is kept so nothing is fetched twice:
+`IdiotProof_History` is its own database on the local SQL Server Developer instance (LocalDB's 10 GB
+cap is far too small for years of minute bars). Minute bars sit in an ordered clustered columnstore;
+daily bars, splits, news (with every tagged symbol) and SEC filings in rowstore tables; `Coverage`
+and `CoverageRanges` record what was fetched, empty days included. The schema is versioned SQL in
+`HistoryDatabase.Steps`. `HistoricalBarStore` reads through `IBarCache`: `FallbackBarCache` puts the
+history database first and the app database's own cache second whenever the history server does not
+answer (`IDIOTPROOF_HISTORY_STORE=app` opts out). `HistoryBackfillService` queues every ticker the app
+meets (strategies, tracked tickers, gapper candidates) for five years of daily and 1-minute
+extended-hours bars plus its news, runs jobs one at a time month by month through the same
+read-through store, and queues the last session nightly for every held symbol; the Hub's
+`HistoryBackfillWorker` runs it when `history.backfill.enabled` is true (leader-only). Ops:
+`history status`, `history import --research --minutes --app-cache`, `history backfill
+--symbols|--discover [--run N]`. Backups: IP-T449.
+
 **How to research a feature.** [`docs/RESEARCH_PLAYBOOK.md`](RESEARCH_PLAYBOOK.md) records this
 study's method as the template for any feature that rests on a market claim: survey, pre-register,
 locked holdout, look-ahead audit, shared live/backtest code, counted corrections, amendments before
