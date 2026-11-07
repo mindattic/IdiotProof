@@ -500,6 +500,11 @@ falsified intraday timing signals on 20 already-volatile names and never studied
 study reuses its discipline (pre-declared sample, one stage per process, research-DB guard,
 verdict rule fixed in advance).
 
+**How to research a feature.** [`docs/RESEARCH_PLAYBOOK.md`](RESEARCH_PLAYBOOK.md) records this
+study's method as the template for any feature that rests on a market claim: survey, pre-register,
+locked holdout, look-ahead audit, shared live/backtest code, counted corrections, amendments before
+results, train-only exploration with a trial ledger, honest reporting, paper shadow before live.
+
 **Study amendments (registered before any test on study data; frozen files never edited).** Each
 `amendment-NN.json`/`.md` beside the protocol is committed before its tests run, loaded in order by
 `GapperAmendment.LoadAll`, and corrected as its own set so no frozen q or Holm p moves.
