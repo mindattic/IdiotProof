@@ -14,11 +14,22 @@ namespace IdiotProof.Core.History;
 /// </summary>
 public sealed class SqlHistoryBarCache(HistoryDatabase history) : IBarCache
 {
+    private Task? schema;
+
+    /// <summary>Opens a connection, creating the database and applying the schema on first use.</summary>
+    private async Task<SqlConnection> OpenAsync(CancellationToken ct)
+    {
+        var ensure = schema ??= history.EnsureSchemaAsync(CancellationToken.None);
+        try { await ensure.ConfigureAwait(false); }
+        catch { schema = null; throw; }
+        return await history.OpenAsync(ct).ConfigureAwait(false);
+    }
+
     private static string Kind(BarTimeframe tf) => tf == BarTimeframe.Day1 ? HistoryDatabase.Kinds.Daily : HistoryDatabase.Kinds.Minute;
 
     public async Task<HashSet<DateOnly>> CoveredDaysAsync(string symbol, BarTimeframe timeframe, DateOnly from, DateOnly to, CancellationToken ct)
     {
-        await using var c = await history.OpenAsync(ct).ConfigureAwait(false);
+        await using var c = await OpenAsync(ct).ConfigureAwait(false);
         return await CoveredAsync(c, null, symbol, Kind(timeframe), from, to, ct).ConfigureAwait(false);
     }
 
@@ -73,7 +84,7 @@ public sealed class SqlHistoryBarCache(HistoryDatabase history) : IBarCache
     public async Task SaveDaysAsync(string symbol, BarTimeframe timeframe, IReadOnlyList<(DateOnly Day, IReadOnlyList<Candle> Bars)> days, string feedName, DateTime nowUtc, CancellationToken ct)
     {
         if (days.Count == 0) return;
-        await using var c = await history.OpenAsync(ct).ConfigureAwait(false);
+        await using var c = await OpenAsync(ct).ConfigureAwait(false);
         await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
         var kind = Kind(timeframe);
         var covered = await CoveredAsync(c, tx, symbol, kind, days.Min(d => d.Day), days.Max(d => d.Day), ct).ConfigureAwait(false);
@@ -95,7 +106,7 @@ public sealed class SqlHistoryBarCache(HistoryDatabase history) : IBarCache
 
     public async Task<List<Candle>> ReadAsync(string symbol, BarTimeframe timeframe, DateOnly from, DateOnly to, CancellationToken ct)
     {
-        await using var c = await history.OpenAsync(ct).ConfigureAwait(false);
+        await using var c = await OpenAsync(ct).ConfigureAwait(false);
         var result = new List<Candle>();
         if (timeframe == BarTimeframe.Day1)
         {

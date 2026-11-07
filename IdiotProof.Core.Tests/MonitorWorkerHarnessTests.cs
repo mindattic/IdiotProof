@@ -39,7 +39,7 @@ public sealed class MonitorWorkerHarnessTests
     private static readonly DateTimeOffset WeekendInstant = new(2026, 7, 18, 14, 30, 0, TimeSpan.Zero);
 
     private string root = "";
-    private string? savedConn, savedBroker, savedFeed, savedStreaming;
+    private string? savedConn, savedBroker, savedFeed, savedStreaming, savedHistoryStore;
 
     [OneTimeSetUp]
     public void PinEnvironment()
@@ -52,6 +52,9 @@ public sealed class MonitorWorkerHarnessTests
         Environment.SetEnvironmentVariable(TradingServiceRegistration.BrokerEnvVar, null);
         Environment.SetEnvironmentVariable(TradingServiceRegistration.FeedEnvVar, null);
         Environment.SetEnvironmentVariable("IDIOTPROOF_STREAMING", "0");
+        // Mock-feed bars must never reach the permanent history database (IP-T454).
+        savedHistoryStore = Environment.GetEnvironmentVariable(TradingServiceRegistration.HistoryStoreEnvVar);
+        Environment.SetEnvironmentVariable(TradingServiceRegistration.HistoryStoreEnvVar, "app");
         root = Path.Combine(Path.GetTempPath(), $"monitor-harness-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
     }
@@ -63,6 +66,7 @@ public sealed class MonitorWorkerHarnessTests
         Environment.SetEnvironmentVariable(TradingServiceRegistration.BrokerEnvVar, savedBroker);
         Environment.SetEnvironmentVariable(TradingServiceRegistration.FeedEnvVar, savedFeed);
         Environment.SetEnvironmentVariable("IDIOTPROOF_STREAMING", savedStreaming);
+        Environment.SetEnvironmentVariable(TradingServiceRegistration.HistoryStoreEnvVar, savedHistoryStore);
         SqlConnection.ClearAllPools();
         try
         {

@@ -42,6 +42,9 @@ public sealed record HistoryImportArgs
     [Option("research-db", Description = "Research database name on LocalDB (default IdiotProof_Research_GAP).")]
     public string ResearchDb { get; init; } = "IdiotProof_Research_GAP";
 
+    [Option("app-cache", Description = "Import the app database's own bar cache (HistoricalBars) from the app's connection string.")]
+    public bool AppCache { get; init; }
+
     [Option("minutes", Description = "Import the 1-minute file store (every covered day, zero-bar days included).")]
     public bool Minutes { get; init; }
 
@@ -62,7 +65,7 @@ public sealed class HistoryImportOperation : IOperation<HistoryImportArgs>
 {
     public async Task<OperationResult> ExecuteAsync(HistoryImportArgs args, OperationContext ctx)
     {
-        if (!args.Research && !args.Minutes) return OperationResult.Usage("Pass --research, --minutes or both.");
+        if (!args.Research && !args.Minutes && !args.AppCache) return OperationResult.Usage("Pass --research, --minutes, --app-cache or any of them together.");
         var h = ctx.Get<HistoryDatabase>();
         await h.EnsureSchemaAsync(ctx.CancellationToken);
         var importer = new HistoryImporter(h, m => Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {m}"));
@@ -72,6 +75,8 @@ public sealed class HistoryImportOperation : IOperation<HistoryImportArgs>
             var research = $@"Server=(localdb)\MSSQLLocalDB;Database={args.ResearchDb};Trusted_Connection=True;TrustServerCertificate=True;Command Timeout=0;";
             results.AddRange(await importer.ImportResearchAsync(research, ctx.CancellationToken));
         }
+        if (args.AppCache)
+            results.AddRange(await importer.ImportAppCacheAsync(ctx.Get<IdiotProof.Core.Hosting.IdiotProofDatabase>().ConnectionString, ctx.CancellationToken));
         if (args.Minutes)
         {
             var only = string.IsNullOrWhiteSpace(args.Symbols) ? null : args.Symbols.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

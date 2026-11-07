@@ -25,13 +25,28 @@ public static class TradingServiceRegistration
     /// <summary>Env knob: Alpaca data tier, <c>sip</c> (default, Algo Trader Plus) or <c>iex</c> (free tier).</summary>
     public const string AlpacaFeedEnvVar = "IDIOTPROOF_ALPACA_FEED";
 
+    /// <summary>Env knob (IP-T454): <c>app</c> keeps bars in the app database's own cache instead of the permanent history database.</summary>
+    public const string HistoryStoreEnvVar = "IDIOTPROOF_HISTORY_STORE";
+
+    /// <summary>
+    /// Where fetched bars are kept: the permanent history database (falling back to the app cache when
+    /// its server does not answer), unless no history database is registered or the env knob says <c>app</c>.
+    /// </summary>
+    private static IBarCache BarCache(IServiceProvider sp)
+    {
+        var app = new AppDbBarCache(sp.GetRequiredService<IDbContextFactory<AppDbContext>>());
+        var history = sp.GetService<IdiotProof.Core.History.HistoryDatabase>();
+        if (history is null || string.Equals(Environment.GetEnvironmentVariable(HistoryStoreEnvVar), "app", StringComparison.OrdinalIgnoreCase)) return app;
+        return new IdiotProof.Core.History.FallbackBarCache(new IdiotProof.Core.History.SqlHistoryBarCache(history), app,
+            sp.GetService<TimeProvider>() ?? TimeProvider.System, sp.GetService<Microsoft.Extensions.Logging.ILogger<IdiotProof.Core.History.FallbackBarCache>>());
+    }
+
     public static IServiceCollection AddIdiotProofTrading(this IServiceCollection services)
     {
         services.AddSingleton<IMarketDataFeed>(sp => CreateFeed(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<ISplitSource>(sp => CreateSplitSource(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<IHistoricalBarStore>(sp => new HistoricalBarStore(
-            sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), sp.GetRequiredService<IMarketDataFeed>(),
-            splits: sp.GetRequiredService<ISplitSource>()));
+            BarCache(sp), sp.GetRequiredService<IMarketDataFeed>(), splits: sp.GetRequiredService<ISplitSource>()));
         services.AddSingleton(sp => CreateRouter(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<UserBrokerResolver>();
         // Every order — Monitor, manual, options, flatten — goes through the gateway.

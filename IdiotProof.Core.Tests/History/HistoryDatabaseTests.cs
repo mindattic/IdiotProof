@@ -171,6 +171,19 @@ public class HistoryDatabaseTests
         });
     }
 
+    [Test]
+    public async Task Fallback_ServesFromTheSecondCache_WhenTheHistoryServerDoesNotAnswer()
+    {
+        var dead = new SqlHistoryBarCache(new HistoryDatabase("Server=tcp:127.0.0.1,1;Database=Nope;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=1;"));
+        var good = new SqlHistoryBarCache(db);
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset.UtcNow);
+        var cache = new FallbackBarCache(dead, good, clock);
+        var d = new DateOnly(2024, 3, 5);
+        await cache.SaveDaysAsync("ABC", BarTimeframe.Minute1, [(d, [Minute(d, 9, 30, 2m)])], "sip", DateTime.UtcNow, CancellationToken.None);
+        var read = await cache.ReadAsync("ABC", BarTimeframe.Minute1, d, d, CancellationToken.None);
+        Assert.That(read, Has.Count.EqualTo(1), "the save and the read both went to the fallback");
+    }
+
     private sealed class CountingFeed : IMarketDataFeed
     {
         public int Calls;

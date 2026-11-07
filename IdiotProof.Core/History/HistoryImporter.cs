@@ -93,6 +93,42 @@ public sealed class HistoryImporter(HistoryDatabase history, Action<string>? log
         return results;
     }
 
+    /// <summary>The app database's own bar cache (HistoricalBars and HistoricalBarCoverage), so what the app fetched before IP-T454 is kept too.</summary>
+    public async Task<IReadOnlyList<HistoryImportResult>> ImportAppCacheAsync(string appConnectionString, CancellationToken ct) =>
+    [
+        await StageAndInsertAsync(appConnectionString, "app cache minute bars",
+            "SELECT UPPER(LEFT(b.Symbol, 16)) AS Symbol, b.StartUtc, b.[Open], b.High, b.Low, b.[Close], b.Volume, LEFT(b.Feed, 24) AS Feed, CONVERT(date, b.DateEt) AS DateEt FROM dbo.HistoricalBars b WHERE b.Timeframe = '1Min'",
+            "Symbol varchar(16), StartUtc datetime2(0), [Open] decimal(19,6), High decimal(19,6), Low decimal(19,6), [Close] decimal(19,6), Volume decimal(19,4), Feed varchar(24), DateEt date",
+            """
+            INSERT dbo.MinuteBars (Symbol, StartUtc, [Open], High, Low, [Close], Volume, TradeCount, Vwap, Feed)
+            SELECT s.Symbol, s.StartUtc, MIN(s.[Open]), MAX(s.High), MIN(s.Low), MIN(s.[Close]), MAX(s.Volume), NULL, NULL, MIN(s.Feed) FROM #stage s
+            WHERE NOT EXISTS (SELECT 1 FROM dbo.Coverage c WHERE c.Symbol = s.Symbol AND c.Kind = '1Min' AND c.DateEt = s.DateEt)
+            GROUP BY s.Symbol, s.StartUtc
+            """, ct),
+        await StageAndInsertAsync(appConnectionString, "app cache daily bars",
+            "SELECT UPPER(LEFT(Symbol, 16)) AS Symbol, CONVERT(date, DateEt) AS DateEt, [Open], High, Low, [Close], Volume, LEFT(Feed, 24) AS Feed FROM dbo.HistoricalBars WHERE Timeframe = '1Day'",
+            "Symbol varchar(16), DateEt date, [Open] decimal(19,6), High decimal(19,6), Low decimal(19,6), [Close] decimal(19,6), Volume decimal(19,4), Feed varchar(24)",
+            """
+            INSERT dbo.DailyBars (Symbol, DateEt, [Open], High, Low, [Close], Volume, Feed)
+            SELECT s.Symbol, s.DateEt, MIN(s.[Open]), MAX(s.High), MIN(s.Low), MIN(s.[Close]), MAX(s.Volume), MIN(s.Feed) FROM #stage s
+            WHERE NOT EXISTS (SELECT 1 FROM dbo.DailyBars d WHERE d.Symbol = s.Symbol AND d.DateEt = s.DateEt)
+            GROUP BY s.Symbol, s.DateEt
+            """, ct),
+        await StageAndInsertAsync(appConnectionString, "app cache coverage",
+            "SELECT UPPER(LEFT(Symbol, 16)) AS Symbol, Timeframe AS Kind, CONVERT(date, DateEt) AS DateEt, BarCount AS Items, FetchedUtc FROM dbo.HistoricalBarCoverage",
+            "Symbol varchar(16), Kind varchar(16), DateEt date, Items int, FetchedUtc datetime2(0)",
+            """
+            INSERT dbo.Coverage (Symbol, Kind, DateEt, Items, FetchedUtc)
+            SELECT s.Symbol, s.Kind, s.DateEt, MAX(s.Items), MAX(s.FetchedUtc) FROM #stage s
+            WHERE s.Kind = '1Min' AND NOT EXISTS (SELECT 1 FROM dbo.Coverage c WHERE c.Symbol = s.Symbol AND c.Kind = s.Kind AND c.DateEt = s.DateEt)
+            GROUP BY s.Symbol, s.Kind, s.DateEt;
+            INSERT dbo.CoverageRanges (Symbol, Kind, FromEt, ToEt, Items, FetchedUtc, Source)
+            SELECT s.Symbol, s.Kind, s.DateEt, s.DateEt, MAX(s.Items), MAX(s.FetchedUtc), 'app-cache' FROM #stage s
+            WHERE s.Kind = '1Day' AND NOT EXISTS (SELECT 1 FROM dbo.CoverageRanges c WHERE c.Symbol = s.Symbol AND c.Kind = s.Kind AND c.FromEt = s.DateEt AND c.ToEt = s.DateEt)
+            GROUP BY s.Symbol, s.Kind, s.DateEt;
+            """, ct),
+    ];
+
     /// <summary>Stream a source query into a temp table on the history server, then insert the rows not already held.</summary>
     private async Task<HistoryImportResult> StageAndInsertAsync(string sourceConnection, string step, string sourceSql, string stageColumns, string insertSql, CancellationToken ct)
     {
