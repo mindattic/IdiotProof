@@ -2,6 +2,7 @@ using System.Data;
 using IdiotProof.Core.Data;
 using IdiotProof.Core.Evidence;
 using IdiotProof.DataFeeds;
+using IdiotProof.Core.Services;
 using IdiotProof.Models;
 using IdiotProof.Scripting;
 using Microsoft.Data.SqlClient;
@@ -12,7 +13,7 @@ namespace IdiotProof.Core.History;
 
 public sealed record BackfillJob(long Id, string Symbol, string Reason, DateOnly FromEt, DateOnly ToEt, string Status);
 
-public sealed record BackfillRunResult(BackfillJob Job, int DailyBars, int MinuteBars, int MonthsFetched, string? Error);
+public sealed record BackfillRunResult(BackfillJob Job, int DailyBars, int MinuteBars, int MonthsFetched, string? Error, int NewsItems = 0);
 
 /// <summary>
 /// Keeps the permanent history complete (IP-T454). Every ticker the app has seen (a strategy, a
@@ -28,7 +29,8 @@ public sealed class HistoryBackfillService(
     IDbContextFactory<AppDbContext> appDb,
     TimeProvider time,
     ILogger<HistoryBackfillService> log,
-    ISplitSource? splits = null)
+    ISplitSource? splits = null,
+    IdiotProof.Core.Services.AlpacaNewsService? news = null)
 {
     public const int Years = 5;
     public const string Pending = "pending";
@@ -122,7 +124,7 @@ public sealed class HistoryBackfillService(
     public async Task<BackfillRunResult> RunAsync(BackfillJob job, CancellationToken ct)
     {
         var store = new HistoricalBarStore(new SqlHistoryBarCache(history), feed, time, splits: splits);
-        int daily = 0, minute = 0, months = 0;
+        int daily = 0, minute = 0, months = 0, newsItems = 0;
         string? error = null;
         try
         {
@@ -136,6 +138,7 @@ public sealed class HistoryBackfillService(
                 months++;
                 if (MonthPause > TimeSpan.Zero && job.FromEt != job.ToEt) await Task.Delay(MonthPause, time, ct).ConfigureAwait(false);
             }
+            newsItems = await BackfillNewsAsync(job, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -143,7 +146,60 @@ public sealed class HistoryBackfillService(
             log.LogWarning(ex, "History backfill {Symbol} failed.", job.Symbol);
         }
         await FinishAsync(job.Id, error, ct).ConfigureAwait(false);
-        return new BackfillRunResult(job, daily, minute, months, error);
+        return new BackfillRunResult(job, daily, minute, months, error, newsItems);
+    }
+
+    /// <summary>
+    /// Alpaca news tagged with the symbol over the job's window, pre-classified, kept once by
+    /// (source, id), and the window marked covered. A multi-year window that returns nothing at all
+    /// is not marked: the news API answers an outage with an empty page, and no traded symbol goes
+    /// years without a headline, so the next pass tries again.
+    /// </summary>
+    private async Task<int> BackfillNewsAsync(BackfillJob job, CancellationToken ct)
+    {
+        if (news is null) return 0;
+        await using var c = await history.OpenAsync(ct).ConfigureAwait(false);
+        var held = await SqlHistoryBarCache.RangesAsync(c, null, job.Symbol, HistoryDatabase.Kinds.News, job.FromEt, job.ToEt, ct).ConfigureAwait(false);
+        if (held.Any(r => r.From <= job.FromEt && r.To >= job.ToEt)) return 0;
+        var from = FileBackedBarStore.EtToUtc(job.FromEt, TimeOnly.MinValue);
+        var to = FileBackedBarStore.EtToUtc(job.ToEt.AddDays(1), TimeOnly.MinValue);
+        var items = new List<AlpacaNewsItem>();
+        await foreach (var item in news.GetNewsRangeAsync([job.Symbol], from, to, ct: ct).ConfigureAwait(false)) items.Add(item);
+        bool multiYear = job.ToEt.DayNumber - job.FromEt.DayNumber > 365;
+        if (items.Count == 0 && multiYear) return 0;
+
+        var rows = new System.Data.DataTable();
+        foreach (var (name, type) in new (string, Type)[] { ("Id", typeof(Guid)), ("Source", typeof(string)), ("ExternalId", typeof(string)), ("PublishedUtc", typeof(DateTime)), ("Headline", typeof(string)), ("Url", typeof(string)), ("PreClass", typeof(string)), ("Direction", typeof(int)), ("SourceName", typeof(string)), ("Symbols", typeof(string)) })
+            rows.Columns.Add(name, type);
+        foreach (var n in items.DistinctBy(n => n.Id))
+        {
+            var pre = IdiotProof.Core.Catalysts.CatalystPreClassifier.Classify(n.Headline, n.Summary, source: n.Source);
+            rows.Rows.Add(Guid.NewGuid(), IdiotProof.Core.Catalysts.CatalystIntake.AlpacaNews, n.Id.Length > 128 ? n.Id[..128] : n.Id, n.CreatedAt,
+                n.Headline.Length > 1000 ? n.Headline[..1000] : n.Headline, n.Url.Length > 1000 ? n.Url[..1000] : n.Url, pre.Class.ToString(), pre.Direction,
+                n.Source.Length > 200 ? n.Source[..200] : n.Source, string.Join(",", n.Symbols.Select(x => x.ToUpperInvariant()).Where(x => x.Length <= 16)));
+        }
+        await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await using (var create = new SqlCommand("CREATE TABLE #news (Id uniqueidentifier, Source varchar(32), ExternalId varchar(128), PublishedUtc datetime2(0), Headline nvarchar(1000), Url nvarchar(1000), PreClass varchar(32), Direction int, SourceName nvarchar(200), Symbols nvarchar(max))", c, tx))
+            await create.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        await SqlHistoryBarCache.BulkAsync(c, tx, "#news", rows, ct).ConfigureAwait(false);
+        int inserted;
+        await using (var insert = new SqlCommand("""
+            DECLARE @new TABLE (Id uniqueidentifier, Symbols nvarchar(max));
+            INSERT dbo.News (Id, Source, ExternalId, PublishedUtc, ReceivedUtc, StampKind, Headline, Url, SourceTier, PreClass, Direction, SourceName, Snippet)
+            OUTPUT inserted.Id, NULL INTO @new
+            SELECT s.Id, s.Source, s.ExternalId, s.PublishedUtc, NULL, 'realtime', s.Headline, s.Url, NULL, s.PreClass, s.Direction, s.SourceName, NULL FROM #news s
+            WHERE NOT EXISTS (SELECT 1 FROM dbo.News d WHERE d.Source = s.Source AND d.ExternalId = s.ExternalId);
+            INSERT dbo.NewsSymbols (NewsId, Symbol)
+            SELECT DISTINCT n.Id, LEFT(LTRIM(RTRIM(v.value)), 16) FROM #news s
+            JOIN dbo.News n ON n.Source = s.Source AND n.ExternalId = s.ExternalId
+            CROSS APPLY STRING_SPLIT(s.Symbols, ',') v
+            WHERE LEN(v.value) > 0 AND NOT EXISTS (SELECT 1 FROM dbo.NewsSymbols x WHERE x.Symbol = LEFT(LTRIM(RTRIM(v.value)), 16) AND x.NewsId = n.Id);
+            SELECT COUNT(*) FROM @new;
+            """, c, tx))
+            inserted = (int)(await insert.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
+        await SqlHistoryBarCache.AddRangeAsync(c, tx, job.Symbol, HistoryDatabase.Kinds.News, job.FromEt, job.ToEt, items.Count, time.GetUtcNow().UtcDateTime, IdiotProof.Core.Catalysts.CatalystIntake.AlpacaNews, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return inserted;
     }
 
     private async Task FinishAsync(long id, string? error, CancellationToken ct)

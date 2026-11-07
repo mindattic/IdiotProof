@@ -184,6 +184,53 @@ public class HistoryDatabaseTests
         Assert.That(read, Has.Count.EqualTo(1), "the save and the read both went to the fallback");
     }
 
+    [Test]
+    public async Task NewsBackfill_KeepsEachItemOnce_TagsEverySymbol_AndSkipsAnEmptyMultiYearAnswer()
+    {
+        var page = """
+            {"news":[
+              {"id":101,"headline":"ABC wins FDA approval","summary":"","author":"a","source":"benzinga","url":"https://x/1","created_at":"2024-03-05T12:00:00Z","symbols":["ABC","XYZ"]},
+              {"id":102,"headline":"ABC prices offering","summary":"","author":"a","source":"benzinga","url":"https://x/2","created_at":"2024-03-06T12:00:00Z","symbols":["ABC"]}
+            ],"next_page_token":null}
+            """;
+        var newsService = new IdiotProof.Core.Services.AlpacaNewsService(new StubHttp(page), new IdiotProof.Engine.Settings.AppSettings { AlpacaApiKeyId = "k", AlpacaApiSecretKey = "s" },
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<IdiotProof.Core.Services.AlpacaNewsService>.Instance);
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(new DateTimeOffset(2024, 3, 8, 12, 0, 0, TimeSpan.Zero));
+        HistoryBackfillService Svc(IdiotProof.Core.Services.AlpacaNewsService n) => new(db, new CountingFeed(), null!, clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<HistoryBackfillService>.Instance, news: n) { MonthPause = TimeSpan.Zero };
+        var job = new BackfillJob(0, "ABC", "test", new DateOnly(2024, 3, 4), new DateOnly(2024, 3, 7), "running");
+        var first = await Svc(newsService).RunAsync(job, CancellationToken.None);
+        var second = await Svc(newsService).RunAsync(job, CancellationToken.None);
+        var empty = new IdiotProof.Core.Services.AlpacaNewsService(new StubHttp("""{"news":[],"next_page_token":null}"""), new IdiotProof.Engine.Settings.AppSettings { AlpacaApiKeyId = "k", AlpacaApiSecretKey = "s" },
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<IdiotProof.Core.Services.AlpacaNewsService>.Instance);
+        await Svc(empty).RunAsync(new BackfillJob(0, "QQQX", "test", new DateOnly(2021, 3, 4), new DateOnly(2024, 3, 7), "running"), CancellationToken.None);
+        await using var c = await db.OpenAsync(CancellationToken.None);
+        async Task<int> Count(string sql) { await using var q = new SqlCommand(sql, c); return (int)(await q.ExecuteScalarAsync())!; }
+        int news = await Count("SELECT COUNT(*) FROM dbo.News");
+        int xyz = await Count("SELECT COUNT(*) FROM dbo.NewsSymbols WHERE Symbol = 'XYZ'");
+        int fda = await Count("SELECT COUNT(*) FROM dbo.News WHERE PreClass = 'Fda'");
+        int outage = await Count("SELECT COUNT(*) FROM dbo.CoverageRanges WHERE Symbol = 'QQQX' AND Kind = 'news'");
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.NewsItems, Is.EqualTo(2));
+            Assert.That(second.NewsItems, Is.Zero, "the window is covered, so nothing is fetched or written again");
+            Assert.That(news, Is.EqualTo(2));
+            Assert.That(xyz, Is.EqualTo(1), "every tagged symbol is kept");
+            Assert.That(fda, Is.EqualTo(1), "pre-classified on the way in");
+            Assert.That(outage, Is.Zero, "three empty years look like an outage, so they are not marked");
+        });
+    }
+
+    private sealed class StubHttp(string body) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(new Handler(body));
+
+        private sealed class Handler(string body) : HttpMessageHandler
+        {
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) =>
+                Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
+        }
+    }
+
     private sealed class CountingFeed : IMarketDataFeed
     {
         public int Calls;

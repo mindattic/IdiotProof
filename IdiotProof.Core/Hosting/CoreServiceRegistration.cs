@@ -95,7 +95,7 @@ public static class CoreServiceRegistration
             sp.GetRequiredService<IdiotProof.Core.History.HistoryDatabase>(), sp.GetRequiredService<IdiotProof.DataFeeds.IMarketDataFeed>(),
             sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), sp.GetService<TimeProvider>() ?? TimeProvider.System,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<IdiotProof.Core.History.HistoryBackfillService>>(),
-            sp.GetService<IdiotProof.DataFeeds.ISplitSource>()));
+            sp.GetService<IdiotProof.DataFeeds.ISplitSource>(), sp.GetService<IdiotProof.Core.Services.AlpacaNewsService>()));
 
         // ── Engine: storage, AppSettings overlay chain, workspaces, audit logger ──
         // The SQL workspace store is registered first so the engine's TryAdd keeps it.
