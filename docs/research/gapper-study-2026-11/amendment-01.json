@@ -1,0 +1,74 @@
+{
+  "id": "A01",
+  "version": 1,
+  "registeredUtc": "2026-11-07T05:40:00Z",
+  "ticket": "IP-T448",
+  "registeredBeforeResults": "When this file was committed no test-* run file existed for the train, validation or holdout split; the only test runs were on the three-symbol smoke split. No hypothesis outcome on study data had been computed.",
+  "problem": "H1, H9, H11 and H12 are evaluated only on candidate days, and a candidate day is defined by the day's own outcome (daily high >= +10% over the adjusted prior close, or full-day volume >= 3x ADV20). A live detector at 08:00 cannot know which symbols will become candidates, so precision, AUC and per-trade P&L measured on candidates alone overstate what the same rule achieves on the live universe. The matched controls cannot repair this because they are matched to gappers on ADV decile and price tier, not drawn uniformly.",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json"],
+  "populationSample": {
+    "eligible": "every member of U(D) with ExcludedReason null and IsCandidate false, in every split",
+    "rate": 0.10,
+    "weight": 10,
+    "hashAlgorithm": "SHA-256",
+    "hashInput": "{symbol}|{D:yyyy-MM-dd}|{salt}",
+    "salt": "gapper-study-2026-11-amendment-01",
+    "rule": "a symbol-day is a member when the first 8 hex digits of the hash, read as an unsigned 32-bit integer and divided by 2^32, are below rate",
+    "data": "the same tiers as candidate days: 1-minute extended-hours bars for D and D-1..D-5; Alpaca news over [D-5, D+1]; CIK mapping including the Form 4 issuer search; EDGAR form index and acceptance headers over [D-30, D+1]; Form 4 submissions over [D-30, D]",
+    "unchangedByThisSample": "the time-of-day profile (fit on train control days only), the matched controls, gapper classification, and every frozen hypothesis population"
+  },
+  "weighting": "Stratified estimator: candidate days are a census (weight 1); population-sample rows carry weight 1/rate. Every amended estimate is the weighted estimate over U(D) restricted by the same row filters the frozen hypothesis applies.",
+  "hypotheses": [
+    {
+      "id": "H1p",
+      "basedOn": "H1",
+      "primary": true,
+      "family": "F1",
+      "claim": "The top quintile of pmVolRatio at 08:00 has precision for reach20By0945 at least 3x the base rate over the population of U(D) members with premarket volume by 08:00.",
+      "population": "candidate days and population-sample days with VolRatioTod present, PmCumVol > 0 and a reach20By0945 label (the H1 filters)",
+      "method": "Quintile edges are weighted quantiles of pmVolRatio on the train population. Effect = weighted reach20By0945 rate in the top quintile divided by the weighted base rate on the evaluated split. Interval and two-sided p (rate minus base rate) from a day-clustered bootstrap over per-day weighted sums (params.statistics.bootstrapDraws, seed). minBucketN counts unweighted rows in the tested bucket.",
+      "minEffect": { "precisionOverBaseRate": 3.0 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    },
+    {
+      "id": "H9p",
+      "basedOn": "H9",
+      "primary": true,
+      "family": "F1",
+      "claim": "v_3 above 1%/min and pmVolRatio above 5 at 09:00 predict fwdMax_09:45 >= 10% with lift at least 2 over the population base rate.",
+      "population": "candidate days and population-sample days with a FwdMax0945 label",
+      "method": "As H1p with the pass flag of the H9 feature text as the bucket.",
+      "minEffect": { "lift": 2.0 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    },
+    {
+      "id": "H11p",
+      "basedOn": "H11",
+      "primary": true,
+      "family": "F1",
+      "claim": "The H11 feature detector beats the catalyst-latency benchmark by at least 0.05 AUC for reach20By0945 over the population.",
+      "population": "candidate days and population-sample days at 08:00 with a reach20By0945 label",
+      "method": "The same 28 detector features and L2 logistic regression as H11, fit on the train population with row weights; AUC is the weighted Mann-Whitney statistic (ties count half); the difference is bootstrapped over whole days with the weights kept.",
+      "minEffect": { "aucDifference": 0.05 },
+      "splitsAllowed": ["validation", "holdout"]
+    },
+    {
+      "id": "H12p",
+      "basedOn": "H12",
+      "primary": true,
+      "family": "F4",
+      "claim": "The H12 rule grid nets at least +1.0%/trade after the frozen cost model when it trades every pass in the population, not only passes on candidate days.",
+      "population": "candidate days and population-sample days at 08:30",
+      "method": "The same 24-configuration grid, simulator, exits and cost model as H12. Mean net and its 2.5% bound are weighted per trade, bootstrapped over days from per-day weighted sums. minTrades and minDays count unweighted trades. Selection on train by the weighted bound among configurations with enough unweighted trades, carried to validation and holdout. SPA runs on per-day weighted mean returns per configuration (zero for cells without a trade); DSR on the weighted per-trade return moments.",
+      "minEffect": { "meanNetPctPerTrade": 1.0, "clusteredLowerBoundAbove": 0.0, "minTrades": 150, "minDays": 40 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    }
+  ],
+  "decisionRules": {
+    "corrections": "The amended hypotheses form their own set: BH within each family among A01 members, Holm across the four A01 primaries. Frozen corrections are computed exactly as before, without A01 members.",
+    "killCriterion": "The H11 kill criterion applies to H11 and to H11p: if either fails on validation, strategy work stops and the write-up says catalyst latency is the edge.",
+    "promotion": "A rule is promoted to the paper shadow only if every frozen promotion condition holds AND H11p and H12p meet their minimum effects on validation and, at the single holdout run, H12p nets >= +0.5%/trade with a lower bound > 0. The amendment can only make promotion harder.",
+    "holdout": "The single holdout test invocation runs the frozen hypotheses and the A01 hypotheses together.",
+    "reporting": "Frozen results are reported unchanged; each A01 result is reported beside the hypothesis it amends, with the difference between them stated."
+  }
+}
