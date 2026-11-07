@@ -277,6 +277,12 @@ public static class GapperReportBuilder
                         $"{Pct(Stat(part, "shareWithPreAbove5Pct"))} of events had already run 5% or more before publication.");
                 else if (r.Test == "latency-decay")
                     sb.AppendLine($"- {r.Id} on {r.Split}: mean gross return to 09:28 by entry latency: {Stat(part, "curve")}.");
+                else if (r.Test == GapperTestStage.CorobsNoveltyTest)
+                    sb.AppendLine($"- {r.Id} on {r.Split}: top novelty decile reaches +20% by 09:45 at {Pct(Stat(part, "groupRate"))} against a base rate of {Pct(Stat(part, "baseRate"))} (lift {F(part.Effect)} [{F(part.CiLow)}, {F(part.CiHigh)}]).");
+                else if (r.Test is GapperTestStage.CorobsAucTest or GapperTestStage.CorobsPluginTest or GapperTestStage.CorobsVersusLogisticTest)
+                    sb.AppendLine($"- {r.Id} on {r.Split} ({Stat(part, "compared")}): weighted AUC benchmark {F(Stat(part, "aucBenchmark"))}, logistic {F(Stat(part, "aucLogistic"))}, " +
+                        $"Corobs alone {F(Stat(part, "aucCorobs"))}, combined {F(Stat(part, "aucCombined"))}; difference {F(part.Effect)} [{F(part.CiLow)}, {F(part.CiHigh)}]; " +
+                        $"combined-model weight on logit(Corobs) {Stat(part, "logitCorobsCoefficient")}; {Stat(part, "trainRows")} training mornings, {Stat(part, "dimensions")} dimensions, k {Stat(part, "k")}.");
             }
             sb.AppendLine();
         }

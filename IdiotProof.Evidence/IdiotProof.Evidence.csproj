@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\IdiotProof.Models\IdiotProof.Models.csproj" />
+    <!-- Gapper study amendment 03 (IP-T451): the Corobs look-alike detector. Corobs is pure (no I/O). -->
+    <ProjectReference Include="..\..\Corobs\Corobs.Csharp\Corobs\Corobs.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

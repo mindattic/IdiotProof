@@ -38,6 +38,7 @@ public sealed partial class GapperTestStage
         HypothesisCorrections.NewsRideGridTest => NewsRideGridAsync(h, a, run, split, ct),
         "prepub-drift" => PrePublicationDriftAsync(h, run, split, ct),
         "latency-decay" => LatencyDecayAsync(h, run, split, ct),
+        _ when IsCorobsTest(a.Test) => DispatchCorobsAsync(h, a, run, split, ct),
         _ => Unknown(h, run),
     };
 
