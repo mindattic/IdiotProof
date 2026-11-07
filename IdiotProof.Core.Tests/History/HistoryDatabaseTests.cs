@@ -141,6 +141,36 @@ public class HistoryDatabaseTests
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
+    [Test]
+    public async Task Backfill_QueuesOnce_RunsResumably_AndSkipsWhatIsHeld()
+    {
+        var feed = new CountingFeed();
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(new DateTimeOffset(2024, 3, 7, 12, 0, 0, TimeSpan.Zero));
+        var svc = new HistoryBackfillService(db, feed, null!, clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<HistoryBackfillService>.Instance) { MonthPause = TimeSpan.Zero };
+        var first = await svc.EnqueueAsync(["abc", "ABC"], "test", years: 1);
+        var again = await svc.EnqueueAsync(["ABC"], "test", years: 1);
+        var job = await svc.ClaimAsync(CancellationToken.None);
+        var none = await svc.ClaimAsync(CancellationToken.None);
+        var run = await svc.RunAsync(job!, CancellationToken.None);
+        int callsAfterFirst = feed.Calls;
+        await svc.EnqueueAsync(["ABC"], "test", years: 1);
+        var second = await svc.ClaimAsync(CancellationToken.None);
+        if (second is not null) await svc.RunAsync(second, CancellationToken.None);
+        var status = await HistoryStatus.ReadAsync(db, CancellationToken.None);
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.EqualTo(new[] { "ABC" }), "case-folded and de-duplicated");
+            Assert.That(again, Is.Empty, "a pending job is not queued twice");
+            Assert.That(job!.Symbol, Is.EqualTo("ABC"));
+            Assert.That(none, Is.Null, "a running job is not claimed twice");
+            Assert.That(run.Error, Is.Null);
+            Assert.That(run.MonthsFetched, Is.EqualTo(13));
+            Assert.That(run.MinuteBars, Is.EqualTo(2), "the fake feed returns two bars on 2024-03-05");
+            Assert.That(feed.Calls - callsAfterFirst, Is.Zero, "a second pass over the same window fetches nothing");
+            Assert.That(status.Jobs["done"], Is.GreaterThanOrEqualTo(1));
+        });
+    }
+
     private sealed class CountingFeed : IMarketDataFeed
     {
         public int Calls;

@@ -82,3 +82,44 @@ public sealed class HistoryImportOperation : IOperation<HistoryImportArgs>
         return OperationResult.Ok(results, table.Render());
     }
 }
+
+public sealed record HistoryBackfillArgs
+{
+    [Option("symbols", Description = "Tickers to queue, comma-separated. Omit with --discover to queue every ticker the app has met.")]
+    public string? Symbols { get; init; }
+
+    [Option("discover", Description = "Queue every ticker the app has met (strategies, tracked tickers, gapper candidates) that is not yet held.")]
+    public bool Discover { get; init; }
+
+    [Option("years", Description = "Years of history to hold (default 5).")]
+    public int Years { get; init; } = HistoryBackfillService.Years;
+
+    [Option("run", Description = "Also run queued jobs here, now, up to this many (default 0: leave them for the Hub worker).")]
+    public int Run { get; init; }
+}
+
+[Operation("history backfill", Summary = "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars) and optionally run the queue here; days already held are never fetched again.", Risk = OperationRisk.Write,
+    Description = "Writes the history database; reads market data from the configured feed, paced month by month. The Hub worker (history.backfill.enabled) drains the same queue.")]
+[Example("idiotproof history backfill --symbols NVDA,TSLA --run 2")]
+[Example("idiotproof history backfill --discover")]
+public sealed class HistoryBackfillOperation : IOperation<HistoryBackfillArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(HistoryBackfillArgs args, OperationContext ctx)
+    {
+        if (string.IsNullOrWhiteSpace(args.Symbols) && !args.Discover) return OperationResult.Usage("Pass --symbols or --discover.");
+        var h = ctx.Get<HistoryDatabase>();
+        await h.EnsureSchemaAsync(ctx.CancellationToken);
+        var backfill = ctx.Get<HistoryBackfillService>();
+        var queued = new List<string>();
+        if (!string.IsNullOrWhiteSpace(args.Symbols))
+            queued.AddRange(await backfill.EnqueueAsync(args.Symbols.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), "requested", args.Years, ctx.CancellationToken));
+        if (args.Discover) queued.AddRange(await backfill.DiscoverAsync(ctx.CancellationToken));
+        var lines = new List<string> { $"queued: {(queued.Count == 0 ? "none (already held or already queued)" : string.Join(", ", queued))}" };
+        for (int i = 0; i < args.Run && await backfill.ClaimAsync(ctx.CancellationToken) is { } job; i++)
+        {
+            var r = await backfill.RunAsync(job, ctx.CancellationToken);
+            lines.Add($"{job.Symbol}: {r.DailyBars:N0} daily, {r.MinuteBars:N0} minute bars over {r.MonthsFetched} months{(r.Error is null ? "" : $" — failed: {r.Error}")}");
+        }
+        return OperationResult.Ok(new { queued }, string.Join("\n", lines));
+    }
+}

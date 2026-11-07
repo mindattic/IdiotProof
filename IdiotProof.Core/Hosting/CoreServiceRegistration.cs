@@ -91,6 +91,11 @@ public static class CoreServiceRegistration
 
         // ── Permanent market history (IP-T454): its own database on the local SQL Server Developer instance ──
         services.AddSingleton(_ => IdiotProof.Core.History.HistoryDatabase.FromEnvironment(configuration.GetConnectionString("IdiotProofHistory")));
+        services.AddScoped(sp => new IdiotProof.Core.History.HistoryBackfillService(
+            sp.GetRequiredService<IdiotProof.Core.History.HistoryDatabase>(), sp.GetRequiredService<IdiotProof.DataFeeds.IMarketDataFeed>(),
+            sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), sp.GetService<TimeProvider>() ?? TimeProvider.System,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<IdiotProof.Core.History.HistoryBackfillService>>(),
+            sp.GetService<IdiotProof.DataFeeds.ISplitSource>()));
 
         // ── Engine: storage, AppSettings overlay chain, workspaces, audit logger ──
         // The SQL workspace store is registered first so the engine's TryAdd keeps it.

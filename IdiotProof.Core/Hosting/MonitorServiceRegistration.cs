@@ -61,6 +61,10 @@ public static class MonitorServiceRegistration
         services.AddSingleton<IdiotProof.Core.Monitoring.Formation.IFormationBarSource>(sp => sp.GetRequiredService<IdiotProof.Core.Monitoring.Formation.FormationBarCache>());
         services.AddScoped<IdiotProof.Core.Monitoring.Formation.GapperFormationScanner>();
         services.AddHostedService<IdiotProof.Core.Monitoring.Formation.GapperFormationWorker>();
+
+        // Permanent market history (IP-T454): idle unless SettingsKv history.backfill.enabled = "true"; leader-only;
+        // queues 5 years for every newly met ticker and the last session nightly; writes the history database only.
+        services.AddHostedService<IdiotProof.Core.History.HistoryBackfillWorker>();
         return services;
     }
 }
