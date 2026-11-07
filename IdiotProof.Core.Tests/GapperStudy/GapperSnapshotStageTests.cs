@@ -132,6 +132,30 @@ public class GapperSnapshotStageTests
     }
 
     [Test]
+    public async Task Snapshot_IsIdempotent_AndCarriesTheNewFeaturesInExtraJson()
+    {
+        await SeedAsync();
+        var stage = services.GetRequiredService<GapperSnapshotStage>();
+        var first = await stage.RunAsync(new SnapshotStageRequest("train", Smoke: true, null, null), CancellationToken.None);
+        var second = await stage.RunAsync(new SnapshotStageRequest("train", Smoke: true, null, null), CancellationToken.None);
+        var db = await services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
+        var rows = await db.GapperFormationSnapshots.AsNoTracking().Where(r => r.Symbol == "GAP").ToListAsync();
+        var at0945 = rows.Single(r => r.DecisionLabel == "09:45");
+        var extras = GapperSnapshotExtras.Parse(at0945.ExtraJson);
+        Assert.Multiple(() =>
+        {
+            Assert.That(second.Rows, Is.EqualTo(first.Rows));
+            Assert.That(rows, Has.Count.EqualTo(Params.DecisionTimes().Count), "re-running replaces rows in place");
+            Assert.That(extras.Number(GapperSnapshotExtras.TradesRoc), Is.EqualTo(0).Within(1e-12), "every minute prints the same trade count");
+            Assert.That(extras.Has(GapperSnapshotExtras.Form4BuysD30), Is.False, "no CIK mapping: null, so absent");
+            Assert.That(extras.Has(GapperSnapshotExtras.EightKItemCount), Is.False);
+            Assert.That(extras.EightKItems(), Is.Null);
+            Assert.That(at0945.TradesProxy, Is.EqualTo(15 * 3), "the kit's bars carry 3 trades a minute");
+            Assert.That(GapperSnapshotStage.Registry(Params).IsPostRegistration(VelocityDeathNearPmHighFeature.FeatureName), Is.True);
+        });
+    }
+
+    [Test]
     public async Task Snapshot_VolRatioTod_IsNull_WhenNoProfileCanBeFit()
     {
         await SeedAsync();

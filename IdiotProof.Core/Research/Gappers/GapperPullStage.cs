@@ -29,19 +29,21 @@ public sealed class GapperPullStage(
     EdgarService edgar,
     EdgarFilingHeaders headers,
     EdgarRateGate edgarGate,
-    IHttpClientFactory httpFactory)
+    IHttpClientFactory httpFactory,
+    Form4Parser form4Parser)
 {
     public const string BarsTier = "bars";
     public const string NewsTier = "news";
     public const string CikTier = "cik";
     public const string EdgarIndexTier = "edgar-index";
     public const string EdgarHeaderTier = "edgar-header";
+    public const string Form4Tier = "form4";
 
     public async Task<List<TierSummary>> RunAsync(PullStageRequest req, CancellationToken ct)
     {
         var tiers = req.Tier.ToLowerInvariant() switch
         {
-            "all" => new[] { "splits", BarsTier, NewsTier, CikTier, "edgar" },
+            "all" => new[] { "splits", BarsTier, NewsTier, CikTier, "edgar", Form4Tier },
             var t => new[] { t },
         };
         var calls = new CallBudget(req.MaxCalls);
@@ -54,11 +56,98 @@ public sealed class GapperPullStage(
                 NewsTier => await PullNewsAsync(req, calls, ct),
                 CikTier => await MapCiksAsync(req, calls, ct),
                 "edgar" => await PullEdgarAsync(req, calls, ct),
+                Form4Tier => await PullForm4Async(req, calls, ct),
                 "splits" => await PullSplitsAsync(req, calls, ct),
-                _ => throw new ArgumentException($"Unknown tier '{tier}'. Use bars, news, edgar, cik, splits or all."),
+                _ => throw new ArgumentException($"Unknown tier '{tier}'. Use bars, news, edgar, form4, cik, splits or all."),
             });
         }
         return results;
+    }
+
+    // ── Form 4 purchases (feature form4BuysD30) ──────────────────────────
+
+    /// <summary>
+    /// For every Form 4 in the index filed inside [D - lookback, D] of a candidate day, fetches the
+    /// submission text, parses the ownership XML and writes one Insider claim per filing with its
+    /// transaction lines, so <c>form4BuysD30</c> and <c>research insiders</c> read the same rows.
+    /// Resumable per accession; a filing whose claim already exists is only marked.
+    /// </summary>
+    private async Task<TierSummary> PullForm4Async(PullStageRequest req, CallBudget calls, CancellationToken ct)
+    {
+        var sw = Stopwatch.StartNew();
+        var p = s.Params;
+        var lookback = p.Features.Form4.LookbackDays;
+        var candidates = await CandidateDaysAsync(req, ct);
+        if (candidates.Count == 0) return new TierSummary(Form4Tier, 0, 0, 0, null, "no candidate days in scope");
+        var windows = candidates.GroupBy(c => c.Symbol).ToDictionary(g => g.Key, g => g.Select(c => (From: c.DateEt.AddDays(-lookback), To: c.DateEt)).ToList(), StringComparer.Ordinal);
+        var from = candidates.Min(c => c.DateEt).AddDays(-lookback);
+        var to = candidates.Max(c => c.DateEt);
+        var covered = await s.CoveredAsync(Form4Tier, ct);
+
+        List<EdgarFilingIndexRow> filings;
+        await using (var db = await s.Db.CreateDbContextAsync(ct))
+        {
+            var symbols = windows.Keys.ToList();
+            filings = await db.EdgarFilingIndex.AsNoTracking()
+                .Where(f => f.FormType == Form4Submission.FormType && f.Symbol != null && symbols.Contains(f.Symbol) && f.FiledDate >= from && f.FiledDate <= to)
+                .OrderBy(f => f.FiledDate).ThenBy(f => f.Symbol).ToListAsync(ct);
+        }
+        var pending = filings.Where(f => !covered.Contains(Key(f)) && windows[f.Symbol!].Any(w => f.FiledDate >= w.From && f.FiledDate <= w.To)).ToList();
+        s.Logger.LogInformation("[{Now}] form4: {Pending} of {Total} indexed Form 4 filings inside [D-{Lookback}, D] still to fetch", GapperStudyServices.Et(s.UtcNow), pending.Count, filings.Count, lookback);
+
+        int fetched = 0, claims = 0, lines = 0, purchases = 0, skipped = 0;
+        foreach (var f in pending)
+        {
+            if (!calls.Allow()) { s.Logger.LogWarning("form4: --max-calls reached"); break; }
+            var url = Form4Submission.Url(f.Cik, f.AccessionNumber);
+            await using var db = await s.Db.CreateDbContextAsync(ct);
+            if (await db.ResearchClaims.AnyAsync(c => c.SourceUrl == url, ct))
+            {
+                skipped++;
+                await s.MarkAsync(Form4Tier, [(Key(f), 0)], ct);
+                continue;
+            }
+            fetched++;
+            var text = await edgarGate.RunAsync(async c =>
+            {
+                var http = httpFactory.CreateClient(p.DataTiers.EdgarHttpClientName);
+                using var resp = await http.GetAsync(url, c);
+                return resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync(c) : null;
+            }, ct);
+            if (text is null) { s.Logger.LogWarning("form4: {Url} not fetched", url); continue; }
+            var xml = Form4Submission.ExtractOwnershipXml(text);
+            var transactions = xml is null ? [] : form4Parser.Parse(xml, url);
+            var buys = transactions.Where(t => t.TransactionCode == p.Features.Form4.TransactionCode).ToList();
+            var summary = transactions.Count == 0
+                ? $"SEC Form 4 filed {f.FiledDate:yyyy-MM-dd} by {f.CompanyName}: no non-derivative lines parsed."
+                : string.Join(" ", transactions.Take(4).Select(form4Parser.Summarize));
+            var claim = new ResearchClaim
+            {
+                Ticker = f.Symbol!, SourceName = Form4Submission.SourceName, SourceUrl = url, SourceTier = 1, ArticleDate = f.FiledDate,
+                ClaimSummary = summary.Length > 500 ? summary[..500] : summary, ClaimType = Form4Submission.ClaimType,
+                Sentiment = buys.Count > 0 ? "Bullish" : "Neutral", Magnitude = "Low", HasHappenedAlready = true, Status = "Realized", CreatedUtc = s.UtcNow,
+            };
+            db.ResearchClaims.Add(claim);
+            foreach (var t in transactions)
+            {
+                t.ClaimId = claim.Id;
+                t.FilingUrl = url;
+                t.CreatedUtc = s.UtcNow;
+                db.InsiderTransactions.Add(t);
+            }
+            await db.SaveChangesAsync(ct);
+            claims++;
+            lines += transactions.Count;
+            purchases += buys.Count;
+            await s.MarkAsync(Form4Tier, [(Key(f), transactions.Count)], ct);
+            if (fetched % 100 == 0) s.Logger.LogInformation("[{Now}] form4: {Fetched} fetched, {Claims} claims, {Lines} lines ({Buys} purchases)", GapperStudyServices.Et(s.UtcNow), fetched, claims, lines, purchases);
+        }
+        var done = filings.Count(f => covered.Contains(Key(f))) + fetched + skipped;
+        var inScope = filings.Count(f => windows[f.Symbol!].Any(w => f.FiledDate >= w.From && f.FiledDate <= w.To));
+        return new TierSummary(Form4Tier, lines, fetched, Math.Round(sw.Elapsed.TotalMinutes, 2), inScope == 0 ? null : Math.Round(100.0 * Math.Min(done, inScope) / inScope, 2),
+            $"{claims} filings parsed, {lines} lines, {purchases} code-{p.Features.Form4.TransactionCode} purchases, {skipped} already on file");
+
+        static string Key(EdgarFilingIndexRow f) => $"{f.Cik}|{f.AccessionNumber}";
     }
 
     // ── Scope ────────────────────────────────────────────────────────────

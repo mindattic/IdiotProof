@@ -65,8 +65,10 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
                     {
                         Symbol = u.Symbol, DateEt = u.DateEt, DecisionUtc = t, MinuteBars = ctx.DayBars, DailyBars = ctx.Daily,
                         PriorClose = u.AdjPrevClose, Profile = profile, AdvDecile = u.AdvDecile, Adv20Shares = (double)u.Adv20Shares,
-                        PriorDayMinuteBars = ctx.PriorDays, Catalysts = ctx.Catalysts, Filings = ctx.Filings,
+                        PriorDayMinuteBars = ctx.PriorDays, Catalysts = ctx.Catalysts, Filings = ctx.Filings, Form4Filings = ctx.Form4Filings,
                         CorporateActions = new CorporateActionDates(ctx.ReverseSplit), AbnormalVolumeMultiple = p.Features.AbnormalVolumeMultiple,
+                        CatalystLookbackHours = p.Features.Catalyst.LookbackHours, Form4LookbackDays = p.Features.Form4.LookbackDays,
+                        TradesRocWindowMinutes = p.Features.TradesWindowsMin.Count > 0 ? p.Features.TradesWindowsMin.Max() : 5,
                     };
                     var extras = new GapperFeatureRegistry();
                     foreach (var f in registry.Features) extras.Add(f);
@@ -93,9 +95,14 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
         return new SnapshotStageResult(split, days.Count, rows, withProfile, s.Paths.ProfileFile(req.Smoke), built, profileDays, holdoutNote, Math.Round(sw.Elapsed.TotalMinutes, 2));
     }
 
+    /// <summary>Window of the post-registration velocity-death variant (ticket note 10972: "death within 30 min of the PM high"); not in the frozen params by design.</summary>
+    public const int PostRegistrationDeathWindowMinutes = 30;
+
     public static GapperFeatureRegistry Registry(GapperStudyParams p) => GapperFeatureRegistry.Default()
         .Add(new LeeMyklandJumpFeature(p.Features.LeeMykland.LocalWindowBars, p.Features.LeeMykland.Alpha))
-        .Add(new PriorDaysCorwinSchultzFeature(p.Features.CorwinSchultz.MinBars));
+        .Add(new PriorDaysCorwinSchultzFeature(p.Features.CorwinSchultz.MinBars))
+        .Add(new VelocityDeathNearPmHighFeature(p.Gapper.OrderedTiers()[0].Value, PostRegistrationDeathWindowMinutes,
+            p.Labels.VelocityDeath.Window, p.Labels.VelocityDeath.ConsecutiveNegativeBars), postRegistration: true);
 
     /// <summary>D + offset trading days (offset -1 = the previous session).</summary>
     public static DateOnly OffsetTradingDay(DateOnly d, int offset)
@@ -153,7 +160,50 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
         IReadOnlyList<CatalystObservation> Catalysts,
         IReadOnlyList<CatalystEvent> CatalystRows,
         IReadOnlyList<FilingObservation> Filings,
+        IReadOnlyList<Form4FilingObservation>? Form4Filings,
         DateOnly? ReverseSplit);
+
+    public static int? SentimentOf(string? llmSentiment) => llmSentiment switch
+    {
+        "Bullish" => 1,
+        "Bearish" => -1,
+        "Neutral" => 0,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Form 4 filings of the symbol as the study's pull stored them (one claim per filing, purchase
+    /// lines as InsiderTransactions), with EDGAR's acceptance instant where the header was fetched
+    /// and the filing date's end otherwise. Null when the symbol has no CIK mapping.
+    /// </summary>
+    public static async Task<IReadOnlyList<Form4FilingObservation>?> LoadForm4Async(AppDbContext db, GapperStudyParams p, string symbol, DateOnly dateEt, CancellationToken ct)
+    {
+        var mapped = await db.GapperStudyCikMap.AsNoTracking().Where(m => m.Symbol == symbol).Select(m => m.Cik).FirstOrDefaultAsync(ct);
+        if (mapped is null) return null;
+        var from = dateEt.AddDays(-p.Features.Form4.LookbackDays - 5);
+        var claims = await db.ResearchClaims.AsNoTracking()
+            .Where(c => c.Ticker == symbol && c.ClaimType == Form4Submission.ClaimType && c.SourceName == Form4Submission.SourceName && c.ArticleDate >= from && c.ArticleDate <= dateEt)
+            .Select(c => new { c.Id, c.SourceUrl, c.ArticleDate }).ToListAsync(ct);
+        if (claims.Count == 0) return [];
+        var ids = claims.Select(c => c.Id).ToList();
+        var code = p.Features.Form4.TransactionCode;
+        var lines = await db.InsiderTransactions.AsNoTracking()
+            .Where(t => ids.Contains(t.ClaimId) && t.TransactionCode == code)
+            .Select(t => new { t.ClaimId, t.DollarValue, t.SharesTransacted, t.PricePerShare }).ToListAsync(ct);
+        var accepted = (await db.EdgarFilingIndex.AsNoTracking()
+                .Where(f => f.Symbol == symbol && f.FormType == Form4Submission.FormType && f.FiledDate >= from && f.FiledDate <= dateEt && f.AcceptedUtc != null)
+                .Select(f => new { f.AccessionNumber, f.AcceptedUtc }).ToListAsync(ct))
+            .ToDictionary(f => f.AccessionNumber, f => f.AcceptedUtc!.Value, StringComparer.Ordinal);
+        var result = new List<Form4FilingObservation>();
+        foreach (var c in claims)
+        {
+            var purchases = lines.Where(l => l.ClaimId == c.Id).ToList();
+            var accession = Form4Submission.AccessionOf(c.SourceUrl);
+            var when = accession is not null && accepted.TryGetValue(accession, out var at) ? at : EasternTime.ToUtc(c.ArticleDate.ToDateTime(new TimeOnly(23, 59, 59)));
+            result.Add(new Form4FilingObservation(when, purchases.Count, purchases.Sum(l => (double)(l.DollarValue ?? 0m))));
+        }
+        return result;
+    }
 
     private async Task<DayContext> LoadAsync(GapperStudyUniverseDay u, FileBackedBarStore store, CancellationToken ct)
     {
@@ -186,7 +236,9 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
         var catalystRows = await db.CatalystEvents.AsNoTracking()
             .Where(e => ids.Contains(e.Id) && e.PublishedUtc >= catalystFrom && e.PublishedUtc < catalystTo)
             .OrderBy(e => e.PublishedUtc).ToListAsync(ct);
-        var catalysts = catalystRows.Select(e => new CatalystObservation(e.PublishedUtc, e.PreClass, e.Direction, e.SourceTier, e.CatalystScore, CatalystStampKind.IsUpperBound(e.StampKind))).ToList();
+        var catalysts = catalystRows.Select(e => new CatalystObservation(e.PublishedUtc, e.PreClass, e.Direction, e.SourceTier, e.CatalystScore, CatalystStampKind.IsUpperBound(e.StampKind),
+            e.LlmClassifiedUtc is null ? null : SentimentOf(e.LlmSentiment))).ToList();
+        var form4 = await LoadForm4Async(db, p, u.Symbol, u.DateEt, ct);
 
         var filingFrom = u.DateEt.AddDays(-p.Features.DaysSinceMaxDays - 5);
         var filings = (await db.EdgarFilingIndex.AsNoTracking()
@@ -194,15 +246,20 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
             .Select(f => new FilingObservation(f.FormType, f.AcceptedUtc ?? EasternTime.ToUtc(f.FiledDate.ToDateTime(new TimeOnly(23, 59, 59))),
                 f.ItemsJson is null ? [] : JsonSerializer.Deserialize<List<string>>(f.ItemsJson) ?? []))
             .ToList();
-        return new DayContext(dayBars, daily, priors, catalysts, catalystRows, filings, reverse);
+        return new DayContext(dayBars, daily, priors, catalysts, catalystRows, filings, form4, reverse);
+    }
+
+    private async Task<Dictionary<string, int>> TopMoverRanksAsync(DateOnly d, string split, CancellationToken ct)
+    {
+        await using var db = await s.Db.CreateDbContextAsync(ct);
+        return await TopMoverRanksAsync(db, d, split, ct);
     }
 
     /// <summary>Rank of each U(D-1) member by its D-1 daily return (1 = largest gain), from raw daily closes.</summary>
-    private async Task<Dictionary<string, int>> TopMoverRanksAsync(DateOnly d, string split, CancellationToken ct)
+    public static async Task<Dictionary<string, int>> TopMoverRanksAsync(AppDbContext db, DateOnly d, string split, CancellationToken ct)
     {
         var prev = MarketCalendar.PreviousTradingDay(d);
         var prev2 = MarketCalendar.PreviousTradingDay(prev);
-        await using var db = await s.Db.CreateDbContextAsync(ct);
         var members = await db.GapperStudyUniverseDays.AsNoTracking().Where(r => r.DateEt == prev && r.Split == split && r.ExcludedReason == null).Select(r => r.Symbol).ToListAsync(ct);
         if (members.Count == 0) return new Dictionary<string, int>(StringComparer.Ordinal);
         var closes = await db.GapperStudyDailyBars.AsNoTracking()
@@ -243,6 +300,6 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
         VolumeRatioD1 = snap.VolumeRatioD1, VolumeRatioD2 = snap.VolumeRatioD2, VolumeRatioD3 = snap.VolumeRatioD3, VolumeRatioD4 = snap.VolumeRatioD4, VolumeRatioD5 = snap.VolumeRatioD5,
         DaysSinceReverseSplit = snap.DaysSinceReverseSplit, DaysSince424B = snap.DaysSince424B, DaysSinceS1 = snap.DaysSinceS1,
         CatalystScore = snap.CatalystScore, CatalystAgeMinutes = snap.CatalystAgeMinutes, CatalystDirection = snap.CatalystDirection, CatalystPreClass = snap.CatalystPreClass,
-        CatalystStampIsUpperBound = snap.CatalystStampIsUpperBound, Halted = snap.Halted, ExtraJson = JsonSerializer.Serialize(snap.Extra), ComputedUtc = DateTime.UtcNow,
+        CatalystStampIsUpperBound = snap.CatalystStampIsUpperBound, Halted = snap.Halted, ExtraJson = GapperSnapshotExtras.Write(snap), ComputedUtc = DateTime.UtcNow,
     };
 }

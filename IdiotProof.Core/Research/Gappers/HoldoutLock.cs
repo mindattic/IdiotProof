@@ -84,6 +84,27 @@ public sealed class HoldoutLock(GapperStudyPaths paths, GapperStudyParams p, Fun
 
     public static string? GitHead(GapperStudyPaths paths) => Git(paths.StudyDir, "rev-parse", "HEAD");
 
+    /// <summary>Commits (hash, author date, subject) touching the named study files with an author date after <paramref name="sinceUtc"/>, newest first.</summary>
+    public static List<(string Hash, string AuthorDate, string Subject)> GitCommitsSince(GapperStudyPaths paths, DateTime sinceUtc, IEnumerable<string> files)
+    {
+        var args = new List<string> { "log", "--format=%H|%aI|%s", $"--since={sinceUtc:yyyy-MM-ddTHH:mm:ssZ}", "--" };
+        args.AddRange(files);
+        var output = Git(paths.StudyDir, args.ToArray());
+        if (string.IsNullOrWhiteSpace(output)) return [];
+        return output.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Split('|', 3))
+            .Where(parts => parts.Length == 3)
+            .Select(parts => (parts[0].Trim(), parts[1].Trim(), parts[2].Trim()))
+            .ToList();
+    }
+
+    /// <summary>The content of a study file at a commit, or null when git cannot show it.</summary>
+    public static string? GitShow(GapperStudyPaths paths, string commit, string fileName)
+    {
+        var relative = Git(paths.StudyDir, "ls-files", "--full-name", fileName);
+        return string.IsNullOrWhiteSpace(relative) ? null : Git(paths.StudyDir, "show", $"{commit}:{relative.Trim()}");
+    }
+
     private static string? Git(string workingDir, params string[] args)
     {
         try

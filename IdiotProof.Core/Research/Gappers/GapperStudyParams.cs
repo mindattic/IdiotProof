@@ -73,8 +73,10 @@ public sealed class GapperStudyParams
     public LabelParams Labels { get; init; } = new();
     public StatisticsParams Statistics { get; init; } = new();
     public CostModelParams CostModel { get; init; } = new();
+    public H12GridParams H12Grid { get; init; } = new();
     public Dictionary<string, SplitRange> Splits { get; init; } = new(StringComparer.OrdinalIgnoreCase);
     public HoldoutLockParams HoldoutLock { get; init; } = new();
+    public PromotionParams Promotion { get; init; } = new();
     public KillCriteriaParams KillCriteria { get; init; } = new();
     public ExpectedCountsParams ExpectedCounts { get; init; } = new();
 
@@ -370,6 +372,34 @@ public sealed class GapperStudyParams
         public double RoundTripFloor { get; init; }
         public string HaltFillRule { get; init; } = "";
         public JsonElement WorthTrading { get; init; }
+    }
+
+    public sealed class H12GridParams
+    {
+        public int MaxConfigs { get; init; } = 24;
+        public string PassAtEt { get; init; } = "08:30";
+        public List<double> PmVolRatioMin { get; init; } = [];
+        public List<double> V3MinPctPerMin { get; init; } = [];
+        public H12ExitParams Exit { get; init; } = new();
+        public string Selection { get; init; } = "";
+    }
+
+    public sealed class H12ExitParams
+    {
+        public List<int> VelocityDeathWindow { get; init; } = [];
+        public List<double> StopLossPct { get; init; } = [];
+        public List<string> SellByEt { get; init; } = [];
+        public List<bool> VwapLossExit { get; init; } = [];
+    }
+
+    public sealed class PromotionParams
+    {
+        public double TrainQ { get; init; }
+        public bool ValidationSameSign { get; init; }
+        public bool H12SpaOnValidation { get; init; }
+        public double HoldoutMeanNetPctPerTrade { get; init; }
+        public double HoldoutLowerBoundAbove { get; init; }
+        public int PaperShadowTradingDays { get; init; }
     }
 
     public sealed class SplitRange

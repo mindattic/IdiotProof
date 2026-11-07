@@ -1,4 +1,5 @@
 using IdiotProof.Evidence.Economics;
+using IdiotProof.Models;
 
 namespace IdiotProof.Evidence.Gappers;
 
@@ -44,7 +45,9 @@ public sealed class LeeMyklandJumpFeature(int localWindowBars = 60, double alpha
 /// </summary>
 public sealed class PriorDaysCorwinSchultzFeature(int minBars = 60) : IGapperFeature
 {
-    public string Name => "csSpreadPrior";
+    public const string FeatureName = "csSpreadPrior";
+
+    public string Name => FeatureName;
 
     public double? Compute(GapperFeatureInputs inputs, GapperFormationSnapshot core)
     {
@@ -52,6 +55,49 @@ public sealed class PriorDaysCorwinSchultzFeature(int minBars = 60) : IGapperFea
         if (bars.Count < minBars) return null;
         var s = TradingCosts.CorwinSchultzSpread(bars);
         return double.IsNaN(s) ? null : s;
+    }
+}
+
+/// <summary>
+/// Post-registration exit-timing variant (IP-T442 note 10972): minutes from the premarket high to the
+/// first minute with <c>consecutiveBars</c> consecutive negative v3 readings inside the
+/// <c>windowMinutes</c> after that high, counted only when the run from the prior close to that high is
+/// at least <c>minRunFraction</c>. Null when the run is too small or no death prints inside the window
+/// by t. Uses bars ending at or before t only, so before 09:30 the "premarket high" is the high so far.
+/// </summary>
+public sealed class VelocityDeathNearPmHighFeature(double minRunFraction, int windowMinutes = 30, int velocityWindow = 3, int consecutiveBars = 2) : IGapperFeature
+{
+    public const string FeatureName = "velocityDeathNearPmHigh";
+
+    public string Name => FeatureName;
+
+    public double? Compute(GapperFeatureInputs inputs, GapperFormationSnapshot core)
+    {
+        var t = inputs.DecisionUtc;
+        var sessionStart = MinuteBarMath.ToUtc(inputs.DateEt, MinuteBarMath.SessionStartEt);
+        var pmCutoff = MinuteBarMath.ToUtc(inputs.DateEt, MinuteBarMath.RthOpenEt);
+        var bars = MinuteBarMath.ForwardFill(inputs.MinuteBars, sessionStart, t);
+        if (bars.Count == 0) return null;
+        var priorClose = GapperFormationFeatures.PriorCloseOf(inputs);
+        if (priorClose is not > 0) return null;
+
+        Candle? pmHigh = null;
+        foreach (var b in bars)
+        {
+            if (b.EndUtc > pmCutoff) break;
+            if (pmHigh is null || b.High > pmHigh.High) pmHigh = b;
+        }
+        if (pmHigh is not { } high || (double)(high.High / priorClose.Value - 1m) < minRunFraction) return null;
+
+        int negatives = 0;
+        for (var m = high.EndUtc; m <= t && m <= high.EndUtc.AddMinutes(windowMinutes); m = m.AddMinutes(1))
+        {
+            var v = MinuteBarMath.Velocity(bars, m, velocityWindow);
+            if (v is null) { negatives = 0; continue; }
+            negatives = v < 0 ? negatives + 1 : 0;
+            if (negatives >= consecutiveBars) return (m - high.StartUtc).TotalMinutes;
+        }
+        return null;
     }
 }
 

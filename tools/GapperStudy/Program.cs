@@ -20,6 +20,9 @@ using Microsoft.Extensions.Logging;
 //   dotnet run --project tools/GapperStudy -- catalysts [--llm-budget N]
 //   dotnet run --project tools/GapperStudy -- snapshot <train|validation|holdout> [--smoke] [--from D --to D]
 //   dotnet run --project tools/GapperStudy -- label <train|validation|holdout> [--smoke] [--from D --to D]
+//   dotnet run --project tools/GapperStudy -- calibrate-spread [--split train --events 500] [--force]
+//   dotnet run --project tools/GapperStudy -- test <H1 H2 ...|all> --split <train|validation|holdout> [--smoke]
+//   dotnet run --project tools/GapperStudy -- report [--skip-export]
 //   dotnet run --project tools/GapperStudy -- status
 //   --user <guid> names the owner whose Alpaca keys are used when the host has none; --db <name> overrides the research DB name.
 
@@ -68,7 +71,7 @@ await using (var db = new AppDbContext(migrateOptions))
 
 Guid? owner = Guid.TryParse(flags.GetValueOrDefault("user"), out var explicitOwner) ? explicitOwner : null;
 var settings = root.GetRequiredService<AppSettings>();
-if (string.IsNullOrWhiteSpace(settings.AlpacaApiKeyId) && owner is null && stage is "build-universe" or "pull")
+if (string.IsNullOrWhiteSpace(settings.AlpacaApiKeyId) && owner is null && stage is "build-universe" or "pull" or "calibrate-spread")
 {
     var resolvedOwner = await OwnerResolver.ResolveAsync(root.GetRequiredService<IDbContextFactory<AppDbContext>>(), null);
     owner = resolvedOwner.OwnerId;
@@ -109,8 +112,18 @@ try
             Split = positional.FirstOrDefault() ?? flags.GetValueOrDefault("split") ?? "train", Smoke = flags.ContainsKey("smoke"),
             From = Date(flags, "from"), To = Date(flags, "to"),
         }, ctx),
+        "calibrate-spread" => await new GapperCalibrateSpreadOperation().ExecuteAsync(new GapperCalibrateSpreadArgs
+        {
+            Split = flags.GetValueOrDefault("split"), Events = flags.ContainsKey("events") ? Int(flags, "events") : null, Force = flags.ContainsKey("force"),
+        }, ctx),
+        "test" => await new GapperTestOperation().ExecuteAsync(new GapperTestArgs
+        {
+            Hypothesis = positional.Count > 0 ? positional.SelectMany(x => x.Split(',', StringSplitOptions.RemoveEmptyEntries)).ToArray() : (flags.GetValueOrDefault("hypothesis") ?? "all").Split(','),
+            Split = flags.GetValueOrDefault("split") ?? "train", Smoke = flags.ContainsKey("smoke"),
+        }, ctx),
+        "report" => await new GapperReportOperation().ExecuteAsync(new GapperReportArgs { SkipExport = flags.ContainsKey("skip-export") }, ctx),
         "status" => await new GapperStatusOperation().ExecuteAsync(new GapperStatusArgs(), ctx),
-        _ => throw new ArgumentException($"Unknown stage '{stage}'. Use build-universe, pull, catalysts, snapshot, label or status."),
+        _ => throw new ArgumentException($"Unknown stage '{stage}'. Use build-universe, pull, catalysts, snapshot, label, calibrate-spread, test, report or status."),
     };
 }
 catch (Exception ex)

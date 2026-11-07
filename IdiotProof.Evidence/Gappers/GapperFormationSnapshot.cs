@@ -34,7 +34,7 @@ public sealed record GapperFormationSnapshot
     /// <summary>Volume of the last three minutes over the three before them.</summary>
     public double? VolumeRoc { get; init; }
 
-    /// <summary>Minute bars with volume in the last 15 minutes (a stand-in for trade count).</summary>
+    /// <summary>Trades in the last 15 minutes: the bars' trade counts when the feed carries them, else the number of bars with volume.</summary>
     public int TradesProxy { get; init; }
 
     /// <summary>Corwin-Schultz spread estimate over the last ten traded bars, as a fraction of price.</summary>
@@ -73,5 +73,6 @@ public sealed record GapperFormationSnapshot
 
     public bool? Halted { get; init; }
 
+    /// <summary>Registered literature add-ons plus the protocol features keyed by <see cref="GapperExtraKeys"/> (trade-count ROC, LLM sentiment, Form 4 purchases, 8-K items).</summary>
     public IReadOnlyDictionary<string, double> Extra { get; init; } = new Dictionary<string, double>();
 }

@@ -228,6 +228,125 @@ public sealed class GapperLabelOperation : IOperation<GapperLabelArgs>
     }
 }
 
+public sealed record GapperCalibrateSpreadArgs
+{
+    [Option("split", Description = "Calibration split; must match params.json costModel.spread.calibration.split (train).")]
+    public string? Split { get; init; }
+
+    [Option("events", Description = "Number of Tier20 events in (D, symbol) order; must match params.json (500).")]
+    public int? Events { get; init; }
+
+    [Option("force", Description = "Recalibrate although data/spread-multiplier.json exists; the forced run is written to runs/calibrate-spread-audit.log.")]
+    public bool Force { get; init; }
+}
+
+[Operation("research gappers calibrate-spread", Summary = "Gapper study cost model: the one-time premarket spread multiplier, median of (quoted relative spread at 08:00 ET from /v2/stocks/{s}/quotes) over (Corwin-Schultz on D-1..D-5) across the first 500 training Tier20 events, written to data/spread-multiplier.json.", Risk = OperationRisk.Read,
+    Description = GapperStudyOps.ResearchOnly + " Refuses to run twice unless --force, and a forced run leaves an audit line in the runs log.")]
+[Example("idiotproof research gappers calibrate-spread --split train --events 500")]
+public sealed class GapperCalibrateSpreadOperation : IOperation<GapperCalibrateSpreadArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(GapperCalibrateSpreadArgs args, OperationContext ctx)
+    {
+        if (args.Split is { } sp && GapperStudyOps.CheckSplit(sp) is { } usage) return usage;
+        if (args.Events is <= 0) return OperationResult.Usage("--events must be positive.");
+        var s = ctx.Get<GapperStudyServices>();
+        if (GapperStudyOps.Guard(s) is { } blocked) return blocked;
+        var stage = ctx.Get<GapperSpreadCalibrationStage>();
+        stage.QuoteSourceFactory = keys => new AlpacaQuoteSource(keys, s.Params.DataTiers.AlpacaFeed, s.RateGate);
+        try
+        {
+            var r = await stage.RunAsync(new SpreadCalibrationRequest(args.Split, args.Events, args.Force, ctx.OwnerId), ctx.CancellationToken);
+            var kv = new KeyValueBlock()
+                .Add("multiplier", r.Multiplier is { } m ? m.ToString("0.0000") : "none", "none")
+                .Add("statistic", r.Statistic)
+                .Add("events", $"{r.EventsUsed} usable of {r.EventsSampled} sampled ({r.EventsRequested} requested)")
+                .Add("quote calls", r.QuoteCalls.ToString())
+                .Add("note", r.Note)
+                .Add("file", r.File)
+                .Add("minutes", r.Minutes.ToString("0.00"));
+            return OperationResult.Ok(r, kv.Render());
+        }
+        catch (InvalidOperationException ex) { return OperationResult.Blocked(ex.Message); }
+    }
+}
+
+public sealed record GapperTestArgs
+{
+    [Option("hypothesis", Description = "Hypothesis ids to run, comma-separated (H1,H2) or all.", Required = true)]
+    public string[] Hypothesis { get; init; } = [];
+
+    [Option("split", Description = "train, validation or holdout (holdout needs holdout-unlock.txt and runs the test stage once).", Required = true)]
+    public string Split { get; init; } = "train";
+
+    [Option("smoke", Description = "Run on the smoke-tagged rows instead (verdicts are void by construction; checks the plumbing).")]
+    public bool Smoke { get; init; }
+}
+
+[Operation("research gappers test", Summary = "Gapper study hypothesis tests: each pre-registered hypothesis with the primitive hypotheses.json names (bucket-lift, event-study-bmp, proportion-diff-clustered, wilson-ci, quantile-ci, group-diff, auc-delong, search-grid-spa), BH within family, Holm across primaries, one run file per hypothesis under runs/.", Risk = OperationRisk.Read,
+    Description = GapperStudyOps.ResearchOnly + " Every threshold comes from hypotheses.json and params.json. The holdout split goes through the same lock as snapshot and label and opens once.")]
+[Example("idiotproof research gappers test --hypothesis H1,H9 --split train")]
+[Example("idiotproof research gappers test --hypothesis all --split validation")]
+public sealed class GapperTestOperation : IOperation<GapperTestArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(GapperTestArgs args, OperationContext ctx)
+    {
+        if (GapperStudyOps.CheckSplit(args.Split) is { } usage) return usage;
+        if (args.Hypothesis.Length == 0) return OperationResult.Usage("--hypothesis names at least one id, or all.");
+        var s = ctx.Get<GapperStudyServices>();
+        if (GapperStudyOps.Guard(s) is { } blocked) return blocked;
+        try
+        {
+            var r = await ctx.Get<GapperTestStage>().RunAsync(new TestStageRequest(args.Hypothesis, args.Split, args.Smoke), ctx.CancellationToken);
+            var table = new TextTable { MaxWidth = ctx.Width }
+                .Column("hypothesis").Column("part").Column("n", Align.Right).Column("days", Align.Right).Column("effect", Align.Right).Column("min", Align.Right).Column("p", Align.Right).Column("q", Align.Right).Column("holm", Align.Right).Column("verdict");
+            foreach (var run in r.Runs)
+                foreach (var part in run.Parts)
+                    table.Row(run.Id, part.Name, part.N.ToString(), part.Days.ToString(), HypothesisCorrections.Fmt(part.Effect), HypothesisCorrections.Fmt(part.MinEffect),
+                        HypothesisCorrections.Fmt(part.RawP), HypothesisCorrections.Fmt(part.FamilyQ), HypothesisCorrections.Fmt(part.HolmP), part.Verdict);
+            var kv = new KeyValueBlock()
+                .Add("split", r.Split)
+                .Add("runs", string.Join(", ", r.Runs.Select(x => $"{x.Id}={x.Verdict}")))
+                .Add("files", string.Join("\n", r.Runs.Select(x => x.File ?? "")))
+                .Add("holdout", r.HoldoutNote, "not a holdout run")
+                .Add("minutes", r.Minutes.ToString("0.00"));
+            return OperationResult.Ok(r, table.Render() + "\n" + kv.Render());
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Holdout locked", StringComparison.Ordinal))
+        {
+            return OperationResult.Blocked(ex.Message);
+        }
+        catch (ArgumentException ex) { return OperationResult.Usage(ex.Message); }
+    }
+}
+
+public sealed record GapperReportArgs
+{
+    [Option("skip-export", Description = "Skip the events/snapshots/labels CSV export and manifest.")]
+    public bool SkipExport { get; init; }
+}
+
+[Operation("research gappers report", Summary = "Gapper study results document: docs/research/gapper-study-2026-11.md in the evidence sweep's shape (protocol link, sample, data tiers, one verdict table per family, the H11 gate, exit timing with the post-registration variant marked, kill criteria, promotion), plus events/snapshots/labels CSVs with a hashed manifest under data/.", Risk = OperationRisk.Read,
+    Description = GapperStudyOps.ResearchOnly + " Holdout numbers are withheld unless holdout-run.json exists; hypotheses edited after the unlock are marked post-hoc and void.")]
+[Example("idiotproof research gappers report")]
+[Example("idiotproof research gappers report --skip-export")]
+public sealed class GapperReportOperation : IOperation<GapperReportArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(GapperReportArgs args, OperationContext ctx)
+    {
+        var s = ctx.Get<GapperStudyServices>();
+        if (GapperStudyOps.Guard(s) is { } blocked) return blocked;
+        var r = await ctx.Get<GapperReportStage>().RunAsync(new ReportStageRequest(!args.SkipExport), ctx.CancellationToken);
+        var kv = new KeyValueBlock()
+            .Add("report", r.ReportFile)
+            .Add("runs used", r.RunsUsed.ToString())
+            .Add("holdout runs withheld", r.HoldoutRunsWithheld.ToString())
+            .Add("post-hoc hypotheses", r.PostHocHypotheses.ToString())
+            .Add("exports", string.Join(", ", r.Exports.Select(e => $"{e.Name} ({e.Rows} rows)")), "none")
+            .Add("minutes", r.Minutes.ToString("0.00"));
+        return OperationResult.Ok(r, kv.Render());
+    }
+}
+
 public sealed record GapperStatusArgs;
 
 [Operation("research gappers status", Summary = "What the gapper study holds per split (universe days, candidates, gappers per tier, controls, minute-bar coverage, snapshots, labels), the data tiers' row counts, and the holdout lock state.", Risk = OperationRisk.Read,

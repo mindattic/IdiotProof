@@ -54,6 +54,27 @@ public static class MultipleTesting
     }
 
     /// <summary>
+    /// Holm step-down adjusted p-values: sorted ascending, the i-th smallest is multiplied by (m - i + 1)
+    /// and the running maximum is kept, so rejecting every adjusted p ≤ α controls the family-wise error
+    /// rate at α. Returned in the input order.
+    /// </summary>
+    public static double[] Holm(IReadOnlyList<double> pValues)
+    {
+        int m = pValues.Count;
+        var adjusted = new double[m];
+        if (m == 0) return adjusted;
+        var order = Enumerable.Range(0, m).OrderBy(i => pValues[i]).ToArray();
+        double running = 0;
+        for (int rank = 1; rank <= m; rank++)
+        {
+            int i = order[rank - 1];
+            running = Math.Max(running, pValues[i] * (m - rank + 1));
+            adjusted[i] = Math.Min(1, running);
+        }
+        return adjusted;
+    }
+
+    /// <summary>
     /// The Sharpe ratio the best of <paramref name="trials"/> skill-less configs would show by luck alone
     /// (Bailey &amp; López de Prado's expected maximum Sharpe), given the variance of Sharpe across trials.
     /// </summary>

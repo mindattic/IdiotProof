@@ -6,12 +6,16 @@ namespace IdiotProof.Evidence.Gappers;
 /// A news item or filing already classified into a catalyst, as known at decision time.
 /// <paramref name="StampIsUpperBound"/> is true when <paramref name="PublishedUtc"/> is a batch
 /// ingestion stamp (fiscal.ai wire copies land on half-hour boundaries), so it bounds the real
-/// publication time from above and is never exact.
+/// publication time from above and is never exact. <paramref name="LlmSentiment"/> is +1/-1/0 when
+/// an LLM classified the item, null when only the deterministic pre-classifier ran.
 /// </summary>
-public sealed record CatalystObservation(DateTime PublishedUtc, string PreClass, int Direction, int SourceTier, double Score, bool StampIsUpperBound = false);
+public sealed record CatalystObservation(DateTime PublishedUtc, string PreClass, int Direction, int SourceTier, double Score, bool StampIsUpperBound = false, int? LlmSentiment = null);
 
 /// <summary>An EDGAR filing with its acceptance instant and 8-K item codes (empty for other forms).</summary>
 public sealed record FilingObservation(string FormType, DateTime AcceptedUtc, IReadOnlyList<string> Items);
+
+/// <summary>One Form 4 filing: when EDGAR accepted it, how many open-market purchase lines (code P) it carries and their dollar total.</summary>
+public sealed record Form4FilingObservation(DateTime AcceptedUtc, int PurchaseLines, double PurchaseDollars);
 
 /// <summary>Dates of the corporate actions the study tracks; null when none is known.</summary>
 public sealed record CorporateActionDates(DateOnly? ReverseSplit = null, DateOnly? Offering424B = null, DateOnly? S1 = null);
@@ -55,10 +59,25 @@ public sealed record GapperFeatureInputs
 
     public IReadOnlyList<FilingObservation> Filings { get; init; } = [];
 
+    /// <summary>Form 4 filings of the symbol's CIK; null when the symbol has no CIK mapping (the feature is then null, not zero).</summary>
+    public IReadOnlyList<Form4FilingObservation>? Form4Filings { get; init; }
+
     public CorporateActionDates? CorporateActions { get; init; }
 
     public bool? Halted { get; init; }
 
     /// <summary>A minute is "abnormal" when its volume is at least this many times the profile's expectation for that clock minute.</summary>
     public double AbnormalVolumeMultiple { get; init; } = 5;
+
+    /// <summary>The catalyst block looks back this many hours from t for the latest 8-K item codes.</summary>
+    public int CatalystLookbackHours { get; init; } = 24;
+
+    /// <summary>Form 4 purchases are counted over [D - this many days, t].</summary>
+    public int Form4LookbackDays { get; init; } = 30;
+
+    /// <summary>Window of the trade-count rate of change: trades over the last k minutes against the k before them.</summary>
+    public int TradesRocWindowMinutes { get; init; } = 5;
+
+    /// <summary>Trade-count proxy window: trades summed over the last this many minutes.</summary>
+    public int TradesProxyWindowMinutes { get; init; } = 15;
 }

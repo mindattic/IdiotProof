@@ -7,20 +7,31 @@ public interface IGapperFeature
     double? Compute(GapperFeatureInputs inputs, GapperFormationSnapshot core);
 }
 
-/// <summary>Ordered list of extra features; <see cref="Compute"/> fills <see cref="GapperFormationSnapshot.Extra"/>.</summary>
+/// <summary>
+/// Ordered list of extra features; <see cref="Compute"/> fills <see cref="GapperFormationSnapshot.Extra"/>.
+/// A feature added after the protocol freeze is registered with <c>postRegistration: true</c> so every
+/// report marks it as such.
+/// </summary>
 public sealed class GapperFeatureRegistry
 {
     private readonly List<IGapperFeature> features = [];
+    private readonly HashSet<string> postRegistration = new(StringComparer.Ordinal);
 
     public IReadOnlyList<IGapperFeature> Features => features;
 
-    public GapperFeatureRegistry Add(IGapperFeature feature)
+    /// <summary>Names of the features declared after the freeze.</summary>
+    public IReadOnlyCollection<string> PostRegistrationNames => postRegistration;
+
+    public GapperFeatureRegistry Add(IGapperFeature feature, bool postRegistration = false)
     {
         if (features.Any(f => f.Name == feature.Name))
             throw new ArgumentException($"A feature named '{feature.Name}' is already registered.");
         features.Add(feature);
+        if (postRegistration) this.postRegistration.Add(feature.Name);
         return this;
     }
+
+    public bool IsPostRegistration(string name) => postRegistration.Contains(name);
 
     /// <summary>The two trivial literature features that prove the hook: prior-day overnight return and volume ratio.</summary>
     public static GapperFeatureRegistry Default() => new GapperFeatureRegistry()

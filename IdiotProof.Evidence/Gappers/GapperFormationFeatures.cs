@@ -44,7 +44,7 @@ public static class GapperFormationFeatures
             Velocity15m = MinuteBarMath.Velocity(bars, t, 15),
             Acceleration = MinuteBarMath.Acceleration(bars, t),
             VolumeRoc = MinuteBarMath.VolumeRoc(bars, t),
-            TradesProxy = bars.Count(b => b.Volume > 0 && b.EndUtc > t.AddMinutes(-15)),
+            TradesProxy = (int)Math.Min(int.MaxValue, TradesBetween(bars, t.AddMinutes(-inputs.TradesProxyWindowMinutes), t)),
             SpreadProxy = SpreadProxy(bars),
             DistToPmHighPct = last is not null && pmHigh > 0 ? (double)((pmHigh - last.Close) / pmHigh) * 100.0 : null,
             MinsSinceFirstAbnormal = MinsSinceFirstAbnormal(inputs, bars, sessionStart, adv20),
@@ -76,7 +76,72 @@ public static class GapperFormationFeatures
                 CatalystStampIsUpperBound = catalyst.StampIsUpperBound,
             };
 
-        return core with { Extra = (registry ?? GapperFeatureRegistry.Default()).Compute(inputs, core) };
+        var extra = new Dictionary<string, double>((registry ?? GapperFeatureRegistry.Default()).Compute(inputs, core), StringComparer.Ordinal);
+        if (TradesRoc(bars, t, inputs.TradesRocWindowMinutes) is { } roc) extra[GapperExtraKeys.TradesRoc] = roc;
+        if (catalyst?.LlmSentiment is { } sentiment) extra[GapperExtraKeys.CatalystSentiment] = sentiment;
+        if (Form4Buys(inputs, t) is { } buys)
+        {
+            extra[GapperExtraKeys.Form4BuysD30] = buys.Filings;
+            extra[GapperExtraKeys.Form4BuyDollarsD30] = buys.Dollars;
+        }
+        if (LatestEightK(inputs, t) is { } eightK)
+        {
+            extra[GapperExtraKeys.EightKItemCount] = eightK.Items.Count;
+            foreach (var item in eightK.Items) extra[GapperExtraKeys.EightKItemKey(item)] = 1;
+        }
+        return core with { Extra = extra };
+    }
+
+    /// <summary>Trades printed by bars ending in (fromUtc, toUtc]: the feed's trade count when a bar carries one, else one per bar with volume.</summary>
+    public static long TradesBetween(IReadOnlyList<Candle> bars, DateTime fromUtc, DateTime toUtc)
+    {
+        long sum = 0;
+        foreach (var b in bars)
+            if (b.EndUtc > fromUtc && b.EndUtc <= toUtc) sum += Trades(b);
+        return sum;
+    }
+
+    public static long Trades(Candle b) => b is DetailedCandle { TradeCount: > 0 } d ? d.TradeCount : b.Volume > 0 ? 1 : 0;
+
+    /// <summary>trades_k(t) / trades_k(t - k) - 1; null when the earlier window printed no trade.</summary>
+    public static double? TradesRoc(IReadOnlyList<Candle> bars, DateTime nowUtc, int windowMinutes)
+    {
+        if (windowMinutes <= 0) return null;
+        var recent = TradesBetween(bars, nowUtc.AddMinutes(-windowMinutes), nowUtc);
+        var prior = TradesBetween(bars, nowUtc.AddMinutes(-2 * windowMinutes), nowUtc.AddMinutes(-windowMinutes));
+        return prior > 0 ? (double)recent / prior - 1 : null;
+    }
+
+    /// <summary>The prior close the gap is measured from: the given one, else the last daily close before D.</summary>
+    public static decimal? PriorCloseOf(GapperFeatureInputs inputs)
+    {
+        if (inputs.PriorClose is { } given) return given;
+        var daily = inputs.DailyBars.Where(d => DateOnly.FromDateTime(MinuteBarMath.ToEastern(d.StartUtc)) < inputs.DateEt).ToList();
+        return daily.Count > 0 ? daily[^1].Close : null;
+    }
+
+    private static (int Filings, double Dollars)? Form4Buys(GapperFeatureInputs inputs, DateTime t)
+    {
+        if (inputs.Form4Filings is null) return null;
+        var from = MinuteBarMath.ToUtc(inputs.DateEt.AddDays(-inputs.Form4LookbackDays), TimeSpan.Zero);
+        int filings = 0;
+        double dollars = 0;
+        foreach (var f in inputs.Form4Filings)
+        {
+            if (f.AcceptedUtc < from || f.AcceptedUtc > t || f.PurchaseLines <= 0) continue;
+            filings++;
+            dollars += f.PurchaseDollars;
+        }
+        return (filings, dollars);
+    }
+
+    private static FilingObservation? LatestEightK(GapperFeatureInputs inputs, DateTime t)
+    {
+        var from = t.AddHours(-inputs.CatalystLookbackHours);
+        return inputs.Filings
+            .Where(f => f.AcceptedUtc <= t && f.AcceptedUtc >= from && f.FormType.StartsWith("8-K", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(f => f.AcceptedUtc)
+            .FirstOrDefault();
     }
 
     /// <summary>Items within this many minutes of each other are one release seen through several copies (a Benzinga flash and its batch-stamped wire copy).</summary>
