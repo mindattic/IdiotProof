@@ -77,17 +77,20 @@ public sealed class GapperStudyServices(
     public GapperStudyPaths Paths => paths ??= GapperStudyPaths.Resolve();
     public GapperStudyParams Params => parameters ??= GapperStudyParams.Load(Paths);
 
-    private bool amendmentLoaded;
-    private GapperAmendment? amendment;
+    private IReadOnlyList<GapperAmendment>? amendments;
 
-    /// <summary>Amendment 01, or null when its file is absent (then every stage runs exactly as frozen).</summary>
-    public GapperAmendment? Amendment
+    /// <summary>Every registered amendment in order; empty when there are none (then every stage runs exactly as frozen).</summary>
+    public IReadOnlyList<GapperAmendment> Amendments => amendments ??= GapperAmendment.LoadAll(Paths);
+
+    /// <summary>The amendment that defines the population sample (amendment 01), or null.</summary>
+    public GapperAmendment? Amendment => Amendments.FirstOrDefault(a => a.DefinesSample);
+
+    /// <summary>The amendment that registered <paramref name="id"/>, with its hypothesis; null for a frozen id.</summary>
+    public (GapperAmendment Amendment, AmendedHypothesis Hypothesis)? FindAmended(string id)
     {
-        get
-        {
-            if (!amendmentLoaded) { amendment = GapperAmendment.Load(Paths); amendmentLoaded = true; }
-            return amendment;
-        }
+        foreach (var a in Amendments)
+            if (a.Find(id) is { } h) return (a, h);
+        return null;
     }
 
     /// <summary>
@@ -119,7 +122,7 @@ public sealed class GapperStudyServices(
     {
         if (Amendment is not { } a) return [];
         var frozen = GapperHypothesisSet.Load(Paths);
-        var labels = a.Hypotheses.Select(h => frozen.Find(h.BasedOn).DecisionTime).Where(t => !string.IsNullOrWhiteSpace(t)).ToHashSet(StringComparer.Ordinal);
+        var labels = a.Hypotheses.Where(h => !string.IsNullOrEmpty(h.BasedOn)).Select(h => frozen.Find(h.BasedOn).DecisionTime).Where(t => !string.IsNullOrWhiteSpace(t)).ToHashSet(StringComparer.Ordinal);
         return Params.DecisionTimes().Where(d => labels.Contains(d.Label)).ToList();
     }
 

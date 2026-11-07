@@ -20,10 +20,18 @@ public sealed class PopulationSampleSpec
 public sealed class AmendedHypothesis
 {
     public string Id { get; init; } = "";
+
+    /// <summary>The frozen hypothesis this one re-asks over the population; empty for a new question the amendment adds.</summary>
     public string BasedOn { get; init; } = "";
     public bool Primary { get; init; }
     public string Family { get; init; } = "";
     public string Claim { get; init; } = "";
+
+    /// <summary>The test of a new question (empty when <see cref="BasedOn"/> names a frozen hypothesis, whose test is reused).</summary>
+    public string? Test { get; init; }
+
+    /// <summary>A new question's grid or other registered settings, read by its test.</summary>
+    public JsonElement? Grid { get; init; }
     public string? Population { get; init; }
     public string? Method { get; init; }
     public Dictionary<string, JsonElement> MinEffect { get; init; } = new(StringComparer.OrdinalIgnoreCase);
@@ -54,16 +62,23 @@ public sealed class GapperAmendment
 
     public static GapperAmendment? Load(GapperStudyPaths paths) => File.Exists(paths.AmendmentFile) ? Parse(File.ReadAllText(paths.AmendmentFile)) : null;
 
+    /// <summary>Every registered amendment in order; empty when there are none.</summary>
+    public static IReadOnlyList<GapperAmendment> LoadAll(GapperStudyPaths paths) => paths.AmendmentFiles.Select(f => Parse(File.ReadAllText(f))).ToList();
+
+    /// <summary>Whether this amendment defines the population sample (amendment 01) rather than only adding questions.</summary>
+    [JsonIgnore] public bool DefinesSample => PopulationSample.Rate > 0;
+
     public static GapperAmendment Parse(string json)
     {
         var a = JsonSerializer.Deserialize<GapperAmendment>(json, Options) ?? throw new InvalidDataException("amendment file is empty.");
+        a.Sha256 = GapperStudyParams.Sha256(json);
         var spec = a.PopulationSample;
-        if (spec.Rate is <= 0 or > 1) throw new InvalidDataException($"populationSample.rate {spec.Rate} is not in (0, 1].");
+        if (spec.Rate == 0) return a;
+        if (spec.Rate is < 0 or > 1) throw new InvalidDataException($"populationSample.rate {spec.Rate} is not in (0, 1].");
         var weight = Math.Round(1 / spec.Rate);
         if (Math.Abs(spec.Weight - weight) > 1e-9 || Math.Abs(1 / spec.Rate - weight) > 1e-9)
             throw new InvalidDataException($"populationSample.weight {spec.Weight} must equal 1/rate and be an integer.");
         a.SampleWeight = (int)weight;
-        a.Sha256 = GapperStudyParams.Sha256(json);
         return a;
     }
 
@@ -85,6 +100,12 @@ public sealed class GapperAmendment
     /// <summary>The amended hypothesis as a runnable hypothesis: the frozen one's feature, label, time and test, with the amendment's id, claim, minimum effects and splits.</summary>
     public GapperHypothesis Resolve(AmendedHypothesis a, GapperHypothesisSet frozen)
     {
+        if (string.IsNullOrEmpty(a.BasedOn))
+            return new GapperHypothesis
+            {
+                Id = a.Id, Primary = a.Primary, Family = a.Family, Claim = a.Claim, Test = a.Test ?? "", MinEffect = a.MinEffect,
+                SplitsAllowed = a.SplitsAllowed, Notes = $"amendment {Id}: {a.Method}",
+            };
         var b = frozen.Find(a.BasedOn);
         return new GapperHypothesis
         {

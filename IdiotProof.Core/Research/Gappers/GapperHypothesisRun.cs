@@ -152,13 +152,22 @@ public static class HypothesisCorrections
     /// </summary>
     public static void ApplyAll(IReadOnlyList<HypothesisRun> runs, GapperStudyParams p, string scope)
     {
-        var frozen = runs.Where(r => r.Inputs.AmendmentId is null).ToList();
-        var amended = runs.Where(r => r.Inputs.AmendmentId is not null).ToList();
-        Apply(frozen, p, scope);
-        if (amended.Count == 0) return;
-        var holmIds = amended.Where(r => r.Inputs.AmendsHypothesis is { } b && p.Statistics.HolmOverPrimariesWithPValue.Contains(b, StringComparer.OrdinalIgnoreCase)).Select(r => r.Id).ToList();
-        Apply(amended, p, scope + $"; amendment {amended[0].Inputs.AmendmentId} corrected as its own set", holmIds);
+        Apply(runs.Where(r => r.Inputs.AmendmentId is null).ToList(), p, scope);
+        foreach (var amendment in runs.Where(r => r.Inputs.AmendmentId is not null).GroupBy(r => r.Inputs.AmendmentId!))
+        {
+            var amended = amendment.ToList();
+            var holmIds = amended.Where(r => r.Inputs.AmendsHypothesis is { } b && p.Statistics.HolmOverPrimariesWithPValue.Contains(b, StringComparer.OrdinalIgnoreCase)).Select(r => r.Id).ToList();
+            Apply(amended, p, scope + $"; amendment {amendment.Key} corrected as its own set", holmIds);
+        }
     }
+
+    /// <summary>A strategy grid judged by its minimum effects, SPA and DSR: the frozen H12, its amended form, and the news-ride grid.</summary>
+    public static bool IsStrategyGrid(HypothesisRun run) =>
+        run.Id.Equals("H12", StringComparison.OrdinalIgnoreCase)
+        || run.Inputs.AmendsHypothesis?.Equals("H12", StringComparison.OrdinalIgnoreCase) == true
+        || run.Test.Equals(NewsRideGridTest, StringComparison.Ordinal);
+
+    public const string NewsRideGridTest = "news-ride-grid";
 
     public static void Apply(IReadOnlyList<HypothesisRun> runs, GapperStudyParams p, string scope, IReadOnlyCollection<string>? holmIds = null)
     {
@@ -192,7 +201,7 @@ public static class HypothesisCorrections
             part.Reasons.Add($"verdict: interval [{Fmt(part.CiLow)}, {Fmt(part.CiHigh)}] against {part.MinEffect} ({part.Direction}); descriptive, no p");
             return;
         }
-        if (run.Id.Equals("H12", StringComparison.OrdinalIgnoreCase) || run.Inputs.AmendsHypothesis?.Equals("H12", StringComparison.OrdinalIgnoreCase) == true)
+        if (IsStrategyGrid(run))
         {
             double? spa = part.Statistic.TryGetValue(SpaKey, out var sp) && sp is double d1 ? d1 : null;
             double? dsr = part.Statistic.TryGetValue(DsrKey, out var ds) && ds is double d2 ? d2 : null;

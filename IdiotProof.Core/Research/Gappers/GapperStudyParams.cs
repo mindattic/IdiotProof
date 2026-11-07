@@ -23,6 +23,11 @@ public sealed class GapperStudyPaths
     public string ParamsFile => Path.Combine(StudyDir, "params.json");
     public string HypothesesFile => Path.Combine(StudyDir, "hypotheses.json");
     public string AmendmentFile => Path.Combine(StudyDir, "amendment-01.json");
+
+    /// <summary>Every registered amendment, in registration order (amendment-01.json, amendment-02.json, ...).</summary>
+    public IReadOnlyList<string> AmendmentFiles => Directory.Exists(StudyDir)
+        ? Directory.GetFiles(StudyDir, "amendment-*.json").OrderBy(f => f, StringComparer.Ordinal).ToList()
+        : [];
     public string DataDir => Path.Combine(StudyDir, "data");
     public string RunsDir => Path.Combine(StudyDir, "runs");
     public string SampleFile(bool smoke) => Path.Combine(StudyDir, smoke ? "sample.smoke.json" : "sample.json");

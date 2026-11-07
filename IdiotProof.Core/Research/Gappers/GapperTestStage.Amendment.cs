@@ -15,6 +15,7 @@ public sealed partial class GapperTestStage
 {
     private Task DispatchAmendedAsync(GapperHypothesis h, AmendedHypothesis a, HypothesisRun run, string split, CancellationToken ct) => a.BasedOn.ToUpperInvariant() switch
     {
+        "" => DispatchNewQuestionAsync(h, a, run, split, ct),
         "H1" or "H9" => PopulationLiftAsync(h, a, run, split, ct),
         "H11" => PopulationAucAsync(h, run, split, ct),
         "H12" => PopulationGridAsync(h, run, split, ct),
@@ -189,7 +190,22 @@ public sealed partial class GapperTestStage
             }
         }
 
-        // SPA over per-day weighted mean returns per cell (zero where a cell did not trade).
+        part.Statistic["cellsPassingLoosest"] = cellsPassing;
+        part.Statistic["sampleCellsPassingLoosest"] = samplePassing;
+        part.Statistic["meanRoundTripCost"] = cellsPassing == 0 ? double.NaN : costSum / cellsPassing;
+        part.Statistic["spreadMultiplier"] = multiplier;
+        part.Statistic["spreadMultiplierSource"] = source;
+        ScoreWeightedGrid(h, run, part, split, configs.Select(c => c.Label).ToList(), trades, daySums, dayWeight, rows.Count);
+    }
+
+    /// <summary>
+    /// The weighted grid verdict shared by H12p and H18: per-configuration weighted mean and day-clustered
+    /// bound, DSR at the unweighted trade count, SPA on per-day weighted mean returns per population cell,
+    /// the configuration selected on train (carried to later splits), and the worth-trading minimums.
+    /// </summary>
+    private void ScoreWeightedGrid(GapperHypothesis h, HypothesisRun run, HypothesisPart part, string split, IReadOnlyList<string> labels,
+        List<List<WeightedTrade>> trades, List<double[]> daySums, double[] dayWeight, int cells)
+    {
         var series = daySums.Select(sums => sums.Select((v, i) => dayWeight[i] > 0 ? v / dayWeight[i] : 0).ToArray()).ToList();
         var replicated = trades.Select(t => WeightedPopulation.Replicate(t.Select(x => (x.Net, x.Weight)))).ToList();
         var moments = trades.Select((t, k) => ReturnMoments.Of(replicated[k]) with { Count = t.Count }).ToList();
@@ -197,51 +213,47 @@ public sealed partial class GapperTestStage
         var q = MultipleTesting.BenjaminiHochberg(naiveP);
         var sharpes = moments.Select(m => m.Sharpe).ToList();
         double sharpeVariance = sharpes.Count > 1 ? Math.Pow(EvidenceStats.StdDev(sharpes), 2) : 0;
-        var dsr = moments.Select(m => MultipleTesting.DeflatedSharpe(m, configs.Count, sharpeVariance)).ToArray();
+        var dsr = moments.Select(m => MultipleTesting.DeflatedSharpe(m, labels.Count, sharpeVariance)).ToArray();
         var summaries = new List<ConfigSummary>();
         var bounds = new List<BootstrapInterval>();
-        for (int k = 0; k < configs.Count; k++)
+        for (int k = 0; k < labels.Count; k++)
         {
             var b = trades[k].Count == 0
                 ? new BootstrapInterval(double.NaN, double.NaN, double.NaN, 1, 0, 0, 0)
                 : WeightedPopulation.Mean(trades[k].Select(t => new WeightedValue(t.Day, t.Net * 100, t.Weight)).ToList(), P.Statistics.BootstrapDraws, P.Statistics.Seed, P.Statistics.CiLevel, MinDays);
             bounds.Add(b);
-            summaries.Add(new ConfigSummary(configs[k].Label, trades[k].Count, trades[k].Select(t => t.Day).Distinct().Count(), b.Estimate, b.Low, moments[k].Sharpe, naiveP[k], q[k], dsr[k],
+            summaries.Add(new ConfigSummary(labels[k], trades[k].Count, trades[k].Select(t => t.Day).Distinct().Count(), b.Estimate, b.Low, moments[k].Sharpe, naiveP[k], q[k], dsr[k],
                 trades[k].GroupBy(t => t.Reason).ToDictionary(g => g.Key, g => g.Count())));
         }
+        double minEffect = h.MinEffectNumber("meanNetPctPerTrade");
         int minTrades = (int)h.MinEffectNumber("minTrades"), minDays = (int)h.MinEffectNumber("minDays");
         double lowerBoundAbove = h.MinEffectNumber("clusteredLowerBoundAbove");
-        var rc = dayKeys.Count >= 2 ? RealityCheck.Run(series, Math.Max(100, P.Statistics.PlaceboDraws), 5, P.Statistics.Seed) : null;
+        var rc = dayWeight.Length >= 2 ? RealityCheck.Run(series, Math.Max(100, P.Statistics.PlaceboDraws), 5, P.Statistics.Seed) : null;
 
         int? selected = null;
         string selection;
-        var carried = split is "train" ? null : LatestTrainSelection(configs, h.Id);
+        var carried = split is "train" ? null : LatestTrainSelection(labels, h.Id);
         if (carried is { } c) { selected = c; selection = "carried from the latest train run of " + h.Id; }
         else
         {
-            var eligible = Enumerable.Range(0, configs.Count).Where(k => summaries[k].Trades >= minTrades && !double.IsNaN(summaries[k].LowerBoundPct)).ToList();
+            var eligible = Enumerable.Range(0, labels.Count).Where(k => summaries[k].Trades >= minTrades && !double.IsNaN(summaries[k].LowerBoundPct)).ToList();
             if (eligible.Count > 0) selected = eligible.OrderByDescending(k => summaries[k].LowerBoundPct).ThenByDescending(k => summaries[k].MeanNetPct).First();
             selection = split is "train" ? "highest weighted day-clustered lower bound on this split among configs with enough unweighted trades" : "in-sample selection on this split (no train run file found)";
         }
         part.Statistic["configs"] = summaries;
-        part.Statistic["configCount"] = configs.Count;
-        part.Statistic["cells"] = rows.Count;
-        part.Statistic["cellsPassingLoosest"] = cellsPassing;
-        part.Statistic["sampleCellsPassingLoosest"] = samplePassing;
-        part.Statistic["meanRoundTripCost"] = cellsPassing == 0 ? double.NaN : costSum / cellsPassing;
-        part.Statistic["spreadMultiplier"] = multiplier;
-        part.Statistic["spreadMultiplierSource"] = source;
+        part.Statistic["configCount"] = labels.Count;
+        part.Statistic["cells"] = cells;
         part.Statistic["selection"] = selection;
         part.Statistic["whiteP"] = rc?.WhitePValue;
         part.Statistic[HypothesisCorrections.SpaKey] = rc?.SpaPValue;
-        part.Statistic["spaBestConfig"] = rc is null ? null : configs[rc.BestConfig].Label;
+        part.Statistic["spaBestConfig"] = rc is null ? null : labels[rc.BestConfig];
         part.Statistic["spaResamples"] = rc?.Resamples;
         part.Statistic["spaSeries"] = "per-day weighted mean net return per population cell (zero where the configuration did not trade)";
         part.Statistic["dsrLength"] = "unweighted trade count";
         if (selected is not { } best || summaries[best].Trades == 0)
         {
             part.Verdict = HypothesisVerdict.Void;
-            part.Reasons.Add($"no configuration with at least {minTrades} unweighted trades on {rows.Count} population cells");
+            part.Reasons.Add($"no configuration with at least {minTrades} unweighted trades on {cells} population cells");
             run.Parts.Add(part);
             return;
         }

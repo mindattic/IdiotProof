@@ -33,11 +33,10 @@ public sealed partial class GapperTestStage(GapperStudyServices s, GapperStudyPa
         var sw = Stopwatch.StartNew();
         var p = s.Params;
         var set = GapperHypothesisSet.Load(s.Paths);
-        var amendment = s.Amendment;
         var split = req.Smoke ? GapperStudyServices.SmokeSplit : req.Split.ToLowerInvariant();
-        GapperHypothesis Resolve(string id) => amendment?.Find(id) is { } a ? amendment.Resolve(a, set) : set.Find(id);
+        GapperHypothesis Resolve(string id) => s.FindAmended(id) is { } a ? a.Amendment.Resolve(a.Hypothesis, set) : set.Find(id);
         var ids = req.Hypotheses.Count == 0 || req.Hypotheses.Any(h => h.Equals("all", StringComparison.OrdinalIgnoreCase))
-            ? set.Hypotheses.Select(h => h.Id).Concat(amendment?.Hypotheses.Select(h => h.Id) ?? []).ToList()
+            ? set.Hypotheses.Select(h => h.Id).Concat(s.Amendments.SelectMany(a => a.Hypotheses.Select(h => h.Id))).ToList()
             : req.Hypotheses.Select(h => Resolve(h).Id).Distinct().ToList();
 
         string? holdoutNote = null;
@@ -55,17 +54,18 @@ public sealed partial class GapperTestStage(GapperStudyServices s, GapperStudyPa
         foreach (var id in ids)
         {
             var h = Resolve(id);
-            var amended = amendment?.Find(id);
+            var found = s.FindAmended(id);
+            var amended = found?.Hypothesis;
             var started = Stopwatch.StartNew();
             var run = NewRun(h, split, req.Smoke, set);
-            if (amended is not null)
+            if (found is { } f)
             {
-                run.Inputs.AmendmentId = amendment!.Id;
-                run.Inputs.AmendmentSha256 = amendment.Sha256;
-                run.Inputs.AmendsHypothesis = amended.BasedOn;
+                run.Inputs.AmendmentId = f.Amendment.Id;
+                run.Inputs.AmendmentSha256 = f.Amendment.Sha256;
+                run.Inputs.AmendsHypothesis = string.IsNullOrEmpty(f.Hypothesis.BasedOn) ? null : f.Hypothesis.BasedOn;
             }
             if (!req.Smoke && !h.AllowsSplit(split))
-                run.Parts.Add(HypothesisPart.VoidPart("split", $"{(amended is null ? "hypotheses.json" : "amendment " + amendment!.Id)} allows {id} on {string.Join(", ", h.SplitsAllowed)} only"));
+                run.Parts.Add(HypothesisPart.VoidPart("split", $"{(found is null ? "hypotheses.json" : "amendment " + found.Value.Amendment.Id)} allows {id} on {string.Join(", ", h.SplitsAllowed)} only"));
             else
             {
                 try { await (amended is null ? DispatchAsync(h, run, split, ct) : DispatchAmendedAsync(h, amended, run, split, ct)); }
@@ -811,14 +811,16 @@ public sealed partial class GapperTestStage(GapperStudyServices s, GapperStudyPa
     }
 
     /// <summary>The configuration the latest train run of H12 selected, as an index into the grid; null without a train run file.</summary>
-    private int? LatestTrainSelection(List<GapperRuleConfig> configs, string id = "H12")
+    private int? LatestTrainSelection(List<GapperRuleConfig> configs) => LatestTrainSelection(configs.Select(c => c.Label).ToList(), "H12");
+
+    private int? LatestTrainSelection(IReadOnlyList<string> labels, string id)
     {
         if (!Directory.Exists(s.Paths.RunsDir)) return null;
         var latest = Directory.GetFiles(s.Paths.RunsDir, $"test-{id}-train-*.json").OrderByDescending(f => f, StringComparer.Ordinal)
             .Select(f => HypothesisRun.FromJson(File.ReadAllText(f))).FirstOrDefault(r => r is not null);
         var label = latest?.Parts.FirstOrDefault()?.Statistic.GetValueOrDefault("selectedConfig")?.ToString();
         if (label is null) return null;
-        int idx = configs.FindIndex(c => c.Label == label);
+        int idx = labels.ToList().FindIndex(c => c == label);
         return idx < 0 ? null : idx;
     }
 }

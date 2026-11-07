@@ -72,7 +72,7 @@ public sealed class GapperReportStage(GapperStudyServices s, GapperStatusStage s
             StudyDirName = Path.GetFileName(s.Paths.StudyDir), Sample = sample, Status = st, Runs = runs, HoldoutRunExists = holdoutRunExists, HoldoutRunsWithheld = withheld,
             HoldoutRunStartUtc = runStart, PostUnlockCommits = commits, PostHocHypotheses = postHoc, SpreadMultiplier = multiplier, SpreadMultiplierSource = source,
             PostRegistrationFeatures = registry.PostRegistrationNames, PostRegistrationSummaries = summaries, Exports = exports, ExportNote = exportNote,
-            LiveSipSharePct = sipShare, Amendment = s.Amendment,
+            LiveSipSharePct = sipShare, Amendment = s.Amendment, Amendments = s.Amendments,
         };
         File.WriteAllText(ReportFile, GapperReportBuilder.Build(model));
         return new ReportStageResult(ReportFile, runs.Count, withheld, postHoc.Count, exports, Math.Round(sw.Elapsed.TotalMinutes, 2));

@@ -38,6 +38,9 @@ public sealed class GapperReportModel
 
     /// <summary>Amendment 01 (IP-T448), or null when its file is absent.</summary>
     public GapperAmendment? Amendment { get; init; }
+
+    /// <summary>Every registered amendment in order (01 defines the population sample; later ones add questions).</summary>
+    public IReadOnlyList<GapperAmendment> Amendments { get; init; } = [];
 }
 
 /// <summary>
@@ -69,6 +72,7 @@ public static class GapperReportBuilder
         DataTiers(sb, m);
         Families(sb, m, runs);
         Amendment(sb, m, runs);
+        NewQuestions(sb, m, runs);
         Gate(sb, m, runs);
         ExitTiming(sb, m, runs);
         WhatThisSays(sb, m, runs);
@@ -242,6 +246,42 @@ public static class GapperReportBuilder
         sb.AppendLine();
     }
 
+    private static void NewQuestions(StringBuilder sb, GapperReportModel m, List<HypothesisRun> runs)
+    {
+        foreach (var a in m.Amendments.Where(x => x.Hypotheses.Any(h => string.IsNullOrEmpty(h.BasedOn))))
+        {
+            sb.AppendLine($"## Amendment {a.Id}: new questions ({a.Ticket})");
+            sb.AppendLine();
+            sb.AppendLine($"Registered {Utc(a.RegisteredUtc)} before any test on study data ([`amendment-{a.Id[1..]}.md`]({m.StudyDirName}/amendment-{a.Id[1..]}.md), sha256 `{Short(a.Sha256, 12)}`), corrected as its own set, on amendment 01's weighted population.");
+            sb.AppendLine();
+            sb.AppendLine("| hypothesis | split | n (days) | effect vs minimum | corrected statistic | verdict |");
+            sb.AppendLine("|---|---|---|---|---|---|");
+            foreach (var h in a.Hypotheses.Where(x => string.IsNullOrEmpty(x.BasedOn)))
+            {
+                var own = runs.Where(r => r.Id.Equals(h.Id, StringComparison.OrdinalIgnoreCase)).OrderBy(r => Array.IndexOf(Splits, r.Split)).ToList();
+                if (own.Count == 0) { sb.AppendLine($"| {h.Id}{(h.Primary ? "" : " (secondary)")} | — | — | — | — | not run |"); continue; }
+                foreach (var r in own)
+                    foreach (var part in r.Parts)
+                        sb.AppendLine($"| {h.Id}{(h.Primary ? "" : " (secondary)")} | {r.Split} | {part.N:N0} ({part.Days:N0}) | {Effect(part)} | {Corrected(r, part, m.Params)} | **{part.Verdict}** |");
+            }
+            sb.AppendLine();
+            foreach (var r in runs.Where(r => r.Inputs.AmendmentId == a.Id).OrderBy(r => Number(r.Id)).ThenBy(r => Array.IndexOf(Splits, r.Split)))
+            {
+                var part = r.Parts.FirstOrDefault();
+                if (part is null || part.Verdict == HypothesisVerdict.Void && part.Effect is null) continue;
+                if (r.Test == HypothesisCorrections.NewsRideGridTest)
+                    sb.AppendLine($"- {r.Id} on {r.Split}: selected `{Stat(part, "selectedConfig")}` ({Stat(part, "selection")}); mean net {F(part.Effect)}%/trade [{F(part.CiLow)}, {F(part.CiHigh)}], " +
+                        $"{part.N:N0} trades on {part.Days:N0} days; {Stat(part, "newsDays")} news days ({Stat(part, "newsDaysBullish")} bullish); mean round-trip cost {Pct(Stat(part, "meanRoundTripCost"))}; exits {Stat(part, "selectedExits")}.");
+                else if (r.Test == "prepub-drift")
+                    sb.AppendLine($"- {r.Id} on {r.Split}: median share of the hour's move before the headline {F(part.Effect)} [{F(part.CiLow)}, {F(part.CiHigh)}]; median {F(Stat(part, "medianPrePct"))}% in the 30 minutes before vs {F(Stat(part, "medianPostPct"))}% high in the 30 after; " +
+                        $"{Pct(Stat(part, "shareWithPreAbove5Pct"))} of events had already run 5% or more before publication.");
+                else if (r.Test == "latency-decay")
+                    sb.AppendLine($"- {r.Id} on {r.Split}: mean gross return to 09:28 by entry latency: {Stat(part, "curve")}.");
+            }
+            sb.AppendLine();
+        }
+    }
+
     private static string Effect(HypothesisPart part)
     {
         if (part.Verdict == HypothesisVerdict.Void && part.Effect is null) return "void: " + string.Join("; ", part.Reasons.Take(1));
@@ -253,7 +293,7 @@ public static class GapperReportBuilder
     private static string Corrected(HypothesisRun r, HypothesisPart part, GapperStudyParams p)
     {
         if (r.Family == "F3") return $"{(int)Math.Round(p.Statistics.CiLevel * 100)}% interval only (descriptive)";
-        if (r.Id.Equals("H12", StringComparison.OrdinalIgnoreCase) || r.Inputs.AmendsHypothesis?.Equals("H12", StringComparison.OrdinalIgnoreCase) == true)
+        if (HypothesisCorrections.IsStrategyGrid(r))
             return $"SPA p {F(Stat(part, HypothesisCorrections.SpaKey))}, DSR {F(Stat(part, HypothesisCorrections.DsrKey))}, trades {Stat(part, "selectedTrades")}";
         var text = $"p {F(part.RawP)}, BH q {F(part.FamilyQ)}";
         if (r.Primary && part.HolmP is not null) text += $", Holm p {F(part.HolmP)}";
@@ -414,6 +454,11 @@ public static class GapperReportBuilder
                 $"{(h12ph is null ? (m.HoldoutRunExists ? "not run" : "holdout locked") : $"mean {F(h12ph.Parts.FirstOrDefault()?.Effect)}% [{F(h12ph.Parts.FirstOrDefault()?.CiLow)}, {F(h12ph.Parts.FirstOrDefault()?.CiHigh)}]")}. " +
                 "Every condition above must hold; the amendment only adds conditions.");
         }
+        var h18v = runs.FirstOrDefault(r => r.Test == HypothesisCorrections.NewsRideGridTest && r.Split == "validation");
+        var h18h = runs.FirstOrDefault(r => r.Test == HypothesisCorrections.NewsRideGridTest && r.Split == "holdout");
+        if (m.Amendments.Any(a => a.Hypotheses.Any(h => h.Test == HypothesisCorrections.NewsRideGridTest)))
+            sb.AppendLine($"7. News-ride rule (H18, its own path, not stopped by H11): validation {(h18v is null ? "not run" : h18v.Verdict)}; holdout >= {p.Promotion.HoldoutMeanNetPctPerTrade}%/trade with lower bound > {p.Promotion.HoldoutLowerBoundAbove}: " +
+                $"{(h18h is null ? (m.HoldoutRunExists ? "not run" : "holdout locked") : $"mean {F(h18h.Parts.FirstOrDefault()?.Effect)}% [{F(h18h.Parts.FirstOrDefault()?.CiLow)}, {F(h18h.Parts.FirstOrDefault()?.CiHigh)}]")}; then the paper shadow.");
         sb.AppendLine();
     }
 
