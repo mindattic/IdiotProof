@@ -1,0 +1,77 @@
+{
+  "id": "A03",
+  "version": 1,
+  "registeredUtc": "2026-11-07T15:58:00Z",
+  "ticket": "IP-T451",
+  "registeredBeforeResults": "When this file was committed no test-* run file existed for the train, validation or holdout split; the only test runs were on the three-symbol smoke split. Amendments 01 and 02 had been registered; none of their tests had run.",
+  "question": "Does a correlithm-object (Corobs) look-alike detector recognize a forming gapper at 08:00, and does it work better alone, better plugged into the frozen logistic detector, or not at all? Corobs scores by proximity to known examples in a high-dimensional unit cube (P. Nick Lawrence, Correlithm Object Technology, 2004), an unproven method for this problem, so every Corobs score is computed and reported separately from every other score.",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json", "amendment-01.json", "amendment-02.json"],
+  "population": "Amendment 01's population at the 08:00 decision time: candidate days (weight 1) and population-sample days (weight 1/rate) with a reach20By0945 label, the H11p rows. No new sample is drawn.",
+  "label": "reach20By0945",
+  "library": "Corobs (D:/Projects/MindAttic/Corobs/Corobs.Csharp/Corobs), used unmodified: SeededPrng, ContinuousConverter (line string CO), Correlithm distances.",
+  "encoding": {
+    "features": "the 28 H11 detector features of the 08:00 snapshot, in the H11 order",
+    "plies": "one ply per feature, a ContinuousConverter of 8 dimensions; the state point is the 28 ply points concatenated (224 dimensions)",
+    "range": "per feature, the weighted 1st and 99th percentiles of its non-missing values on the train population; values are clamped into that range before conversion; a feature whose two percentiles are equal is always converted as missing",
+    "missing": "NaN or null converts to the ply midpoint (Corobs' missing value, no information)",
+    "seed": "new SeededPrng(params.statistics.seed).Derive(\"gapper-study-2026-11-amendment-03\").Derive(featureName) for each ply"
+  },
+  "scores": {
+    "corobs": "Look-alike score. For a scored row, the k = 100 training rows nearest by Euclidean distance between state points (ties broken by date, then symbol, ordinal). score = (sum of weight x label over the neighbours + 10 x trainBaseRate) / (sum of neighbour weights + 10), where trainBaseRate is the weighted reach20By0945 rate of the train population. A training row scored on train never sees its own day: neighbours from the same date are excluded (leave-one-day-out).",
+    "novelty": "Mean Euclidean distance from the scored row to the same k = 100 nearest training rows: high means unlike anything seen in training.",
+    "logistic": "The H11p detector exactly as amendment 01 runs it (28 features, weighted L2 logistic, fit on the train population).",
+    "combined": "A weighted L2 logistic fit on the train population with the 28 H11 features plus logit(corobs score), where each train row's corobs score is its leave-one-day-out score; same l2, epochs and learning rate as H11p.",
+    "benchmark": "The H11 catalyst-latency indicator: a news item or 8-K with pubToTMinutes <= 60 exists at 08:00."
+  },
+  "hypotheses": [
+    {
+      "id": "H21",
+      "primary": true,
+      "family": "F1",
+      "test": "corobs-auc",
+      "claim": "The Corobs look-alike score alone beats the catalyst-latency benchmark by at least 0.05 weighted AUC for reach20By0945 over the population (the H11p bar, with Corobs in place of the logistic detector).",
+      "method": "Weighted Mann-Whitney AUC (ties count half) of corobs and of benchmark; the difference bootstrapped over whole days with the weights kept (WeightedAuc.CompareByDay, params.statistics.bootstrapDraws, seed, ciLevel). The weighted AUC of the logistic detector is reported beside it.",
+      "minEffect": { "aucDifference": 0.05 },
+      "splitsAllowed": ["validation", "holdout"]
+    },
+    {
+      "id": "H22",
+      "primary": true,
+      "family": "F1",
+      "test": "corobs-plugin-auc",
+      "claim": "Plugging the Corobs score into the logistic detector (the combined model) raises weighted AUC for reach20By0945 by at least 0.01 over the logistic detector alone.",
+      "method": "Weighted AUC of combined minus weighted AUC of logistic, bootstrapped over whole days as H21. The combined model's coefficient on logit(corobs) is reported.",
+      "minEffect": { "aucDifference": 0.01 },
+      "splitsAllowed": ["validation", "holdout"]
+    },
+    {
+      "id": "H23",
+      "primary": false,
+      "family": "F1",
+      "test": "corobs-vs-logistic-auc",
+      "claim": "Head to head: the Corobs score alone has a weighted AUC for reach20By0945 at least as high as the logistic detector alone.",
+      "method": "Weighted AUC of corobs minus weighted AUC of logistic, bootstrapped over whole days as H21. Supported when the difference is at least 0 and significant; refuted when it is below 0 and significant; undecided otherwise.",
+      "minEffect": { "aucDifference": 0.0 },
+      "splitsAllowed": ["validation", "holdout"]
+    },
+    {
+      "id": "H24",
+      "primary": false,
+      "family": "F1",
+      "test": "corobs-novelty-lift",
+      "claim": "The top decile of the novelty score (rows least like anything in training) has precision for reach20By0945 at least 2x the weighted base rate.",
+      "method": "Decile edge is the weighted 90th percentile of novelty on the train population (train rows scored leave-one-day-out). Effect = weighted rate in the top decile / weighted base rate, as H1p (WeightedLift, day-clustered bootstrap over per-day weighted sums). Absolute precision is reported beside the lift.",
+      "minEffect": { "precisionOverBaseRate": 2.0 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    }
+  ],
+  "decisionRules": {
+    "corrections": "A03 runs are corrected as their own set: BH within F1 among A03 members, Holm across H21 and H22. Frozen, A01 and A02 corrections are unchanged.",
+    "separation": "Corobs scores never replace or alter a frozen, A01 or A02 score. The logistic detector of H22 and H23 is the H11p model recomputed, not a new one.",
+    "interpretation": "Corobs works alone if H21 is supported; it adds to the existing logic if H22 is supported; it is no better than the existing logic if H23 is refuted and H22 is not supported; it does nothing useful if neither H21 nor H22 is supported.",
+    "promotion": "A03 tests detection only and cannot promote any trading rule. If H21 or H22 is supported on validation, a Corobs-gated trading grid may be registered in a later amendment before it is tested; until then no Corobs score is wired into any live path.",
+    "killCriterion": "A03 neither triggers nor lifts the H11/H11p kill criterion.",
+    "holdout": "The single holdout test invocation runs frozen, A01, A02 and A03 hypotheses together.",
+    "reporting": "Every A03 result is reported, including failures, in its own section, with the four weighted AUCs (benchmark, logistic, corobs, combined) side by side."
+  }
+}
