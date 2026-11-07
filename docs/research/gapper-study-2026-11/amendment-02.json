@@ -1,0 +1,70 @@
+{
+  "id": "A02",
+  "version": 1,
+  "registeredUtc": "2026-11-07T07:15:00Z",
+  "ticket": "IP-T450",
+  "registeredBeforeResults": "When this file was committed no test-* run file existed for the train, validation or holdout split. Amendment 01 had been registered; its tests had not run.",
+  "question": "If the people who move a gapper first are acting on news, can a trader who only sees the news second-hand, a minute or five after publication, still ride the move and get out before the bell? And does price move before the headline, which would mean someone trades ahead of it?",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json", "amendment-01.json"],
+  "population": "Amendment 01's population: every candidate day (weight 1) and every population-sample day (weight 1/rate). No new sample is drawn.",
+  "event": {
+    "source": "alpaca-news rows of CatalystEvents tagged with the symbol (CatalystEventSymbols)",
+    "stampKind": "realtime only (batch stamps are upper bounds; unknown stamps are excluded)",
+    "window": "PublishedUtc in (D-1 16:00 ET, D 09:20 ET]",
+    "which": "the first such item for the symbol on D (one event per symbol-day)",
+    "trigger": "max(PublishedUtc, D 04:00 ET) + latencyMinutes",
+    "entry": "the open of the first bar with volume starting at or after the trigger and before 09:25 ET; no such bar, no trade",
+    "bullish": "the item's pre-classifier direction is +1 (Fda approval wording, ContractAward, MA, Uplisting, PromoPr)"
+  },
+  "hypotheses": [
+    {
+      "id": "H18",
+      "primary": true,
+      "family": "F4",
+      "test": "news-ride-grid",
+      "claim": "Buying the first premarket news item second-hand and exiting on the frozen exit ladder nets at least +1.0%/trade after the frozen cost model over the population, on a grid of 24 configurations.",
+      "grid": {
+        "latencyMinutes": [1, 5],
+        "newsFilter": ["any", "bullish"],
+        "confirmation": ["none", "up5"],
+        "sellByEt": ["09:15", "09:28", "09:45"],
+        "velocityDeathWindow": 3,
+        "stopLossPct": 10,
+        "vwapLossExit": true
+      },
+      "confirmationRule": "up5: the last close before the trigger is at least 1.05 x the adjusted prior close",
+      "method": "The H12 simulator, exit ladder and frozen cost model, with pmCumVol taken from the bars up to the entry bar. Weighted as amendment 01: mean net and its 2.5% bound per trade from per-day weighted sums; minTrades and minDays count unweighted trades; selection on train by the weighted bound among configurations with enough unweighted trades, carried to validation and holdout; SPA on per-day weighted mean returns per population cell; DSR at the unweighted trade count.",
+      "minEffect": { "meanNetPctPerTrade": 1.0, "clusteredLowerBoundAbove": 0.0, "minTrades": 150, "minDays": 40 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    },
+    {
+      "id": "H19",
+      "primary": true,
+      "family": "F3",
+      "test": "prepub-drift",
+      "claim": "On Tier20 gapper days whose first news item publishes between 04:30 and 09:15 ET, the median share of the hour's move that happens before publication is at most 0.25: the move mostly follows the headline rather than leading it.",
+      "measure": "pre = close of the last bar ending at or before publication / close of the last bar ending at or before publication - 30 min - 1; post = highest high in (publication, publication + 30 min] / close at publication - 1; preShare = max(pre, 0) / (max(pre, 0) + max(post, 0)), defined when the denominator is positive.",
+      "method": "Descriptive. Median preShare with a day-clustered bootstrap interval; supported when the interval sits at or below 0.25, refuted when it sits above, undecided otherwise. Median pre and post are reported beside it. Gapper days are a census, so no weights.",
+      "minEffect": { "medianPreShareAtMost": 0.25 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    },
+    {
+      "id": "H20",
+      "primary": false,
+      "family": "F3",
+      "test": "latency-decay",
+      "claim": "On bullish news events, the weighted mean gross return from a second-hand entry to a 09:28 exit is at least 1.0 percentage point higher at a 1-minute latency than at a 15-minute latency.",
+      "measure": "For latency L in {1, 2, 5, 10, 15} minutes: entry as in H18 at trigger(L), exit at the open of the first bar at or after 09:28 ET with no other exit; events with an entry at every L only (a paired comparison).",
+      "method": "Descriptive. The paired weighted mean difference (L=1 minus L=15) with a day-clustered bootstrap interval; supported when the interval sits at or above 1.0, refuted when it sits below. The mean at every L is reported as the decay curve.",
+      "minEffect": { "meanDifferencePctAtLeast": 1.0 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    }
+  ],
+  "decisionRules": {
+    "corrections": "A02 runs are corrected as their own set and never enter the frozen or A01 corrections. H18 is judged by its minimum effects, SPA p < params.statistics.spaAlpha and DSR >= params.statistics.dsrMin; H19 and H20 by their intervals alone.",
+    "relationToH11": "H18 is the trading form of the catalyst-latency benchmark, so the H11 kill criterion does not stop it: if H11 fails, catalyst latency is the edge and H18 is how that edge would be traded.",
+    "promotion": "A news-ride rule is promoted to the paper shadow only if H18 meets its minimums and passes SPA and DSR on validation (with the configuration carried from train), and the single holdout run nets >= +0.5%/trade with a lower bound > 0, followed by params.promotion.paperShadowTradingDays of paper trading.",
+    "holdout": "The single holdout test invocation runs frozen, A01 and A02 hypotheses together.",
+    "reporting": "Every A02 result is reported, including failures, in its own section."
+  }
+}
