@@ -500,6 +500,23 @@ falsified intraday timing signals on 20 already-volatile names and never studied
 study reuses its discipline (pre-declared sample, one stage per process, research-DB guard,
 verdict rule fixed in advance).
 
+**Study amendments (registered before any test on study data; frozen files never edited).** Each
+`amendment-NN.json`/`.md` beside the protocol is committed before its tests run, loaded in order by
+`GapperAmendment.LoadAll`, and corrected as its own set so no frozen q or Holm p moves.
+*Amendment 01 (IP-T448)* fixes a selection problem in the frozen design: H1, H9, H11 and H12 are
+asked only on candidate days, which are chosen by the day's own outcome, so they overstate what a
+live 08:00 scan achieves. A seeded 10% SHA-256 sample of non-candidate universe days (weight 10)
+gets the candidates' data tiers, and H1p/H9p/H11p/H12p re-ask the same questions with the same
+thresholds over the whole universe (weighted primitives in `IdiotProof.Evidence/Evaluation/WeightedPopulation.cs`).
+Sample-only days are snapshotted only at the three decision times those hypotheses read, to fit
+LocalDB's 10 GB cap. Promotion needs the frozen conditions **and** H11p/H12p. *Amendment 02
+(IP-T450)* tests the catalyst-latency edge as a trade: H18 buys the first realtime premarket news item
+second-hand (1 or 5 minutes after publication) and exits by 09:15, 09:28 or 09:45 through the
+frozen simulator and cost model; H19 measures how much of a news-driven gapper's hour comes before
+the headline (does someone trade ahead of it); H20 measures how fast the second-hand edge decays.
+H18 is not stopped by the H11 kill criterion, because it is how that edge would be traded, but it
+reaches paper trading only through the same validation, holdout and paper-shadow gate.
+
 **Options (manual).** `/options` (`Options.razor` + `OptionsTradingService`) offers single-leg
 calls and puts on Sandbox, Paper or Live, defaulting to Sandbox unless Alpaca routing is opted
 in and keyed. The chain spans today to `AlpacaBrokerClient.ChainHorizon` (3 years). Pricing math
