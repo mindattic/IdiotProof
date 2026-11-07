@@ -23,6 +23,7 @@ using Microsoft.Extensions.Logging;
 //   dotnet run --project tools/GapperStudy -- calibrate-spread [--split train --events 500] [--force]
 //   dotnet run --project tools/GapperStudy -- test <H1 H2 ...|all> --split <train|validation|holdout> [--smoke]
 //   dotnet run --project tools/GapperStudy -- report [--skip-export]
+//   dotnet run --project tools/GapperStudy -- explore <build|visibility|models|exits> [--times "08:00,08:30"] [--force] [--from D --to D] (train only, IP-T453)
 //   dotnet run --project tools/GapperStudy -- status
 //   --user <guid> names the owner whose Alpaca keys are used when the host has none; --db <name> overrides the research DB name.
 
@@ -122,8 +123,14 @@ try
             Split = flags.GetValueOrDefault("split") ?? "train", Smoke = flags.ContainsKey("smoke"),
         }, ctx),
         "report" => await new GapperReportOperation().ExecuteAsync(new GapperReportArgs { SkipExport = flags.ContainsKey("skip-export") }, ctx),
+        "explore" => await new GapperExploreOperation().ExecuteAsync(new GapperExploreArgs
+        {
+            Command = positional.FirstOrDefault() ?? flags.GetValueOrDefault("command") ?? "", Split = flags.GetValueOrDefault("split") ?? "train",
+            Times = flags.GetValueOrDefault("times"), Force = flags.ContainsKey("force"), From = Date(flags, "from"), To = Date(flags, "to"),
+            Parallelism = flags.ContainsKey("parallelism") ? Int(flags, "parallelism") : 4,
+        }, ctx),
         "status" => await new GapperStatusOperation().ExecuteAsync(new GapperStatusArgs(), ctx),
-        _ => throw new ArgumentException($"Unknown stage '{stage}'. Use build-universe, pull, catalysts, snapshot, label, calibrate-spread, test, report or status."),
+        _ => throw new ArgumentException($"Unknown stage '{stage}'. Use build-universe, pull, catalysts, snapshot, label, calibrate-spread, test, report, explore or status."),
     };
 }
 catch (Exception ex)

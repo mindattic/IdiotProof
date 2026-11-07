@@ -381,3 +381,57 @@ public sealed class GapperStatusOperation : IOperation<GapperStatusArgs>
         return OperationResult.Ok(r, (r.Splits.Count == 0 ? "No universe rows yet." : table.Render()) + "\n" + kv.Render());
     }
 }
+
+public sealed record GapperExploreArgs
+{
+    [Option("command", Description = "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation) or exits (when velocity runs out).", Required = true)]
+    public string Command { get; init; } = "";
+
+    [Option("split", Description = "Must be train: the exploratory round never reads validation or holdout.")]
+    public string Split { get; init; } = "train";
+
+    [Option("times", Description = "Decision times, comma-separated (\"08:00,08:30\"); default every frozen decision time (models and exits default to 08:00).")]
+    public string? Times { get; init; }
+
+    [Option("force", Description = "build: rebuild decision times already cached.")]
+    public bool Force { get; init; }
+
+    [Option("from", Description = "build: first train day (ET, yyyy-MM-dd), for a partial build.")]
+    public DateOnly? From { get; init; }
+
+    [Option("to", Description = "build: last train day (ET, yyyy-MM-dd), for a partial build.")]
+    public DateOnly? To { get; init; }
+
+    [Option("parallelism", Description = "build: trading days computed at once (default 4).")]
+    public int Parallelism { get; init; } = 4;
+}
+
+[Operation("research gappers explore", Summary = "Gapper study exploratory round (IP-T453, explore-plan.md), train only: build the in-memory panel cache at any decision time, then score tracks on four rolling folds inside train, logging every configuration to runs/explore/ledger.jsonl.", Risk = OperationRisk.Read,
+    Description = GapperStudyOps.ResearchOnly + " Refuses any split but train, so no validation or holdout label reaches a search. Writes nothing to SQL.")]
+[Example("idiotproof research gappers explore --command build --times 08:00")]
+[Example("idiotproof research gappers explore --command visibility")]
+public sealed class GapperExploreOperation : IOperation<GapperExploreArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(GapperExploreArgs args, OperationContext ctx)
+    {
+        if (!string.Equals(args.Split, "train", StringComparison.OrdinalIgnoreCase))
+            return OperationResult.Blocked($"Explore refuses split '{args.Split}': the exploratory round runs on train only.");
+        var s = ctx.Get<GapperStudyServices>();
+        if (GapperStudyOps.Guard(s) is { } blocked) return blocked;
+        try
+        {
+            var times = (args.Times ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            var r = await ctx.Get<IdiotProof.Core.Research.Gappers.Explore.GapperExploreStage>().RunAsync(
+                new IdiotProof.Core.Research.Gappers.Explore.ExploreRequest(args.Command, args.Split, times, args.Force, args.From, args.To, args.Parallelism), ctx.CancellationToken);
+            var kv = new KeyValueBlock()
+                .Add("command", r.Command)
+                .Add("report", r.ReportFile, "none")
+                .Add("trials logged", r.Trials.ToString())
+                .Add("ledger total", r.LedgerTotal.ToString())
+                .Add("minutes", r.Minutes.ToString("0.00"));
+            return OperationResult.Ok(r, kv.Render() + "\n" + string.Join("\n", r.Lines));
+        }
+        catch (ArgumentException ex) { return OperationResult.Usage(ex.Message); }
+        catch (InvalidOperationException ex) { return OperationResult.Blocked(ex.Message); }
+    }
+}

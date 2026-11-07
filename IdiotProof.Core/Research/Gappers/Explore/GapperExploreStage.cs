@@ -1,0 +1,376 @@
+using System.Diagnostics;
+using System.Globalization;
+using System.Text;
+using System.Text.Json;
+using IdiotProof.Evidence.Evaluation;
+using IdiotProof.Evidence.Gappers;
+
+namespace IdiotProof.Core.Research.Gappers.Explore;
+
+public sealed record ExploreRequest(string Command, string Split, IReadOnlyList<string> Times, bool Force, DateOnly? From = null, DateOnly? To = null, int Parallelism = 4,
+    int InitialFitMonths = 12, int EvalMonths = 6);
+
+public sealed record ExploreResult(string Command, string? ReportFile, int Trials, int LedgerTotal, IReadOnlyList<string> Lines, double Minutes);
+
+/// <summary>
+/// <c>research gappers explore</c> (IP-T453, docs/research/gapper-study-2026-11/explore-plan.md): the
+/// exploratory round, on TRAIN ONLY. <c>build</c> computes the panel cache at any decision times in
+/// memory with the shared feature code and the frozen labeler (nothing is written to SQL);
+/// <c>visibility</c>, <c>models</c> and <c>exits</c> are the first tracks, each scored on the four
+/// rolling folds inside train and logged to the trial ledger. Every other split is refused here, so
+/// no validation or holdout label can reach a search.
+/// </summary>
+public sealed class GapperExploreStage(GapperStudyServices s, GapperSnapshotStage snapshots)
+{
+    public const string Target = "Reach20By0945";
+    /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
+    public const double FormedGapPct = 20;
+
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits"];
+
+    /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
+    public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
+    {
+        ["volume vs time of day"] = ["VolRatioTod", "OwnProfileRatio", "LogPmCumVol", "MinsSinceFirstAbnormal", "VolumeRoc"],
+        ["velocity"] = ["Velocity1m", "Velocity3m", "Velocity5m", "Velocity15m", "Acceleration"],
+        ["price level"] = ["GapPct", "DistToPmHighPct"],
+        ["prior days"] = ["AbnormalReturnD", "VolumeRatioD", "x.priorDayTopMoverRank"],
+        ["corporate actions"] = ["DaysSinceReverseSplit", "DaysSince424B", "DaysSinceS1"],
+        ["catalyst"] = ["Catalyst", "Pre.", "x.promoSourceShare", "x.llm", "x.form4", "x.8k"],
+        ["microstructure"] = ["TradesProxy", "SpreadProxy", "x.tradesRoc", "x.csSpreadPrior", "x.leeMykland"],
+    };
+
+    public string CacheDir() => Environment.GetEnvironmentVariable("GAPPER_EXPLORE_DIR") is { Length: > 0 } dir
+        ? dir
+        : Path.Combine(Path.GetDirectoryName(s.Params.DataTiers.MinuteBarRoot().TrimEnd('\\', '/'))!, "explore");
+
+    public string ReportDir => Path.Combine(s.Paths.RunsDir, "explore");
+
+    public ExploreLedger Ledger => new(Path.Combine(ReportDir, "ledger.jsonl"));
+
+    private (int Initial, int Eval) foldMonths = (12, 6);
+
+    private List<ExploreFold> Folds(ExploreTable t) => ExploreFolds.Build(t.Days, foldMonths.Initial, foldMonths.Eval);
+
+    public async Task<ExploreResult> RunAsync(ExploreRequest req, CancellationToken ct)
+    {
+        foldMonths = (req.InitialFitMonths, req.EvalMonths);
+        if (!string.Equals(req.Split, "train", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Explore refuses split '{req.Split}': the exploratory round runs on train only (explore-plan.md).");
+        var sw = Stopwatch.StartNew();
+        var times = req.Times.Count > 0 ? req.Times : s.Params.DecisionTimesEt;
+        var command = req.Command.ToLowerInvariant();
+        var (lines, trials, file) = command switch
+        {
+            "build" => await BuildAsync(times, req, ct),
+            "visibility" => Visibility(times),
+            "models" => Models(times),
+            "exits" => Exits(times),
+            _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
+        };
+        return new ExploreResult(command, file, trials, Ledger.Count, lines, Math.Round(sw.Elapsed.TotalMinutes, 2));
+    }
+
+    // ── build ─────────────────────────────────────────────────────────────
+
+    private async Task<(List<string>, int, string?)> BuildAsync(IReadOnlyList<string> labels, ExploreRequest req, CancellationToken ct)
+    {
+        var p = s.Params;
+        var dir = CacheDir();
+        var all = p.DecisionTimes().ToDictionary(t => t.Label, StringComparer.Ordinal);
+        var times = labels.Select(l => all.TryGetValue(l, out var t) ? t : DecisionTime.Parse(l)).Where(t => req.Force || !ExplorePanelFile.Exists(dir, t.Label)).ToList();
+        var lines = new List<string>();
+        if (times.Count == 0)
+        {
+            lines.Add($"every requested decision time is already cached in {dir} (pass --force to rebuild)");
+            return (lines, 0, null);
+        }
+        var profilePath = s.Paths.ProfileFile(false);
+        if (!File.Exists(profilePath)) throw new InvalidOperationException($"{Path.GetFileName(profilePath)} does not exist; run `snapshot train` first so the time-of-day profile is fit.");
+        var profile = TimeOfDayProfile.Load(profilePath);
+        var store = await s.StoreAsync(ct);
+        var amendment = s.Amendment;
+        var registry = GapperSnapshotStage.Registry(p);
+
+        var days = (await s.StudyDaysAsync("train", req.From, req.To, ct))
+            .Select(u => (U: u, Sampled: !u.IsCandidate && amendment is not null && amendment.IsSampleMember(u.Symbol, u.DateEt)))
+            .Where(x => x.U.IsCandidate || x.Sampled).ToList();
+        var writers = times.ToDictionary(t => t.Label, t => new ExplorePanelFile.Writer(dir, t.Label), StringComparer.Ordinal);
+        int done = 0;
+        try
+        {
+            var groups = days.GroupBy(d => d.U.DateEt).OrderBy(g => g.Key).ToList();
+            await Parallel.ForEachAsync(groups, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, req.Parallelism), CancellationToken = ct }, async (group, token) =>
+            {
+                Dictionary<string, int> topMovers;
+                await using (var db = await s.Db.CreateDbContextAsync(token))
+                    topMovers = await GapperSnapshotStage.TopMoverRanksAsync(db, group.Key, "train", token);
+                foreach (var (u, sampled) in group)
+                {
+                    var day = await snapshots.ComputeDayAsync(u, times, store, profile, topMovers, registry, token);
+                    var dayLabels = GapperStudyLabeler.ComputeDay(p, day.DayBars, u.AdjPrevClose, u.DateEt, profile, u.AdvDecile, (double)u.Adv20Shares);
+                    double weight = sampled ? amendment!.SampleWeight : 1;
+                    foreach (var (dt, snap) in day.Snapshots)
+                    {
+                        var fwd = GapperStudyLabeler.ComputeForward(p, day.DayBars, u.DateEt, snap.DecisionUtc);
+                        writers[dt.Label].Add(u.Symbol, u.DateEt, u.IsCandidate, weight, ExploreColumns.Features(snap), ExploreColumns.Labels(dayLabels, fwd, u.IsGapper, u.GapTier));
+                    }
+                }
+                int now = Interlocked.Add(ref done, group.Count());
+                s.Logger.LogInformation("[{Now}] explore build: {Day} done, {Done}/{Total} symbol-days", GapperStudyServices.Et(s.UtcNow), group.Key, now, days.Count);
+            });
+            foreach (var w in writers.Values) w.Finish(s.UtcNow);
+        }
+        finally
+        {
+            foreach (var w in writers.Values) w.Dispose();
+        }
+        lines.Add($"built {times.Count} decision times over {days.Count:N0} train population symbol-days ({days.Count(d => d.U.IsCandidate):N0} candidates, {days.Count(d => d.Sampled):N0} sample) into {dir}");
+        return (lines, 0, null);
+    }
+
+    // ── shared scoring ────────────────────────────────────────────────────
+
+    private ExploreTable Load(string decision)
+    {
+        var dir = CacheDir();
+        if (!ExplorePanelFile.Exists(dir, decision)) throw new InvalidOperationException($"No explore panel for {decision} in {dir}; run `explore build --times \"{decision}\"` first.");
+        return ExplorePanelFile.Read(dir, decision);
+    }
+
+    /// <summary>Rows with a defined target, optionally only mornings still forming (GapPct below the formed level at t).</summary>
+    public static List<int> Scorable(ExploreTable t, bool formingOnly)
+    {
+        var y = t.Binary(Target);
+        int gap = t.Feature("GapPct");
+        var rows = new List<int>();
+        for (int r = 0; r < t.Rows; r++)
+        {
+            if (y[r] is null || t.Weights[r] <= 0) continue;
+            if (formingOnly && gap >= 0 && t.Value(r, gap) is var g && !float.IsNaN(g) && g >= FormedGapPct) continue;
+            rows.Add(r);
+        }
+        return rows;
+    }
+
+    public delegate double[] Learner(ExploreTable t, int[] featureIdx, List<int> fit, List<int> eval);
+
+    public static double[] Logistic(ExploreTable t, int[] featureIdx, List<int> fit, List<int> eval)
+    {
+        double[] Row(int r) => featureIdx.Select(f => (double)t.Value(r, f)).ToArray();
+        var y = t.Binary(Target);
+        var names = featureIdx.Select(f => t.FeatureNames[f]).ToList();
+        var model = LogisticRegression.FitWeighted(names, fit.Select(Row).ToList(), fit.Select(r => y[r]!.Value).ToList(), fit.Select(r => t.Weights[r]).ToList());
+        return eval.Select(r => model.Predict(Row(r))).ToArray();
+    }
+
+    public static double[] Boosted(ExploreTable t, int[] featureIdx, List<int> fit, List<int> eval) => BoostedWith(t, featureIdx, fit, eval, null, out _);
+
+    public static double[] BoostedWith(ExploreTable t, int[] featureIdx, List<int> fit, List<int> eval, BoostingOptions? options, out BoostedTreeModel model)
+    {
+        var y = t.Binary(Target);
+        int d = featureIdx.Length;
+        var x = new float[fit.Count * d];
+        for (int i = 0; i < fit.Count; i++)
+            for (int j = 0; j < d; j++) x[i * d + j] = t.Value(fit[i], featureIdx[j]);
+        model = GradientBoostedTrees.Fit(featureIdx.Select(f => t.FeatureNames[f]).ToList(), x, fit.Select(r => y[r]!.Value).ToArray(), fit.Select(r => t.Weights[r]).ToArray(), options);
+        var row = new float[d];
+        var result = new double[eval.Count];
+        for (int i = 0; i < eval.Count; i++)
+        {
+            for (int j = 0; j < d; j++) row[j] = t.Value(eval[i], featureIdx[j]);
+            result[i] = model.Predict(row);
+        }
+        return result;
+    }
+
+    public static double[] CorobsLearner(ExploreTable t, int[] featureIdx, List<int> fit, List<int> eval, int k)
+    {
+        double[] Row(int r) => featureIdx.Select(f => (double)t.Value(r, f)).ToArray();
+        var y = t.Binary(Target);
+        var model = CorobsLookAlike.Fit(featureIdx.Select(f => t.FeatureNames[f]).ToList(), fit.Select(Row).ToList(), fit.Select(r => y[r]!.Value).ToList(),
+            fit.Select(r => t.Weights[r]).ToList(), fit.Select(r => t.Days[r].DayNumber).ToList(), seed: 1337, k: k);
+        return model.Score(eval.Select(Row).ToList()).Select(c => c.Score).ToArray();
+    }
+
+    public static double[] Benchmark(ExploreTable t, List<int> eval)
+    {
+        int age = t.Feature("CatalystAgeMinutes");
+        return eval.Select(r => age >= 0 && t.Value(r, age) is var a && !float.IsNaN(a) && a <= 60 ? 1.0 : 0.0).ToArray();
+    }
+
+    /// <summary>Weighted AUC per fold (fit on the fold's fit window, scored on its eval window) and pooled over the four eval windows.</summary>
+    public static (double?[] Folds, double? Pooled, int Rows) ScoreFolds(ExploreTable t, List<int> rows, IReadOnlyList<ExploreFold> folds, Func<List<int>, List<int>, double[]> score)
+    {
+        var y = t.Binary(Target);
+        var perFold = new double?[folds.Count];
+        var pooledScores = new List<double>(); var pooledLabels = new List<bool>(); var pooledWeights = new List<double>();
+        int scored = 0;
+        for (int k = 0; k < folds.Count; k++)
+        {
+            var fit = rows.Where(r => folds[k].InFit(t.Days[r])).ToList();
+            var eval = rows.Where(r => folds[k].InEval(t.Days[r])).ToList();
+            var labels = eval.Select(r => y[r]!.Value).ToList();
+            if (fit.Count == 0 || eval.Count == 0 || !fit.Any(r => y[r] == true) || labels.All(v => v) || labels.All(v => !v)) continue;
+            var scores = score(fit, eval);
+            var weights = eval.Select(r => t.Weights[r]).ToList();
+            perFold[k] = WeightedAuc.Compute(scores, labels, weights);
+            pooledScores.AddRange(scores); pooledLabels.AddRange(labels); pooledWeights.AddRange(weights);
+            scored += eval.Count;
+        }
+        double? pooled = pooledLabels.Count > 0 && pooledLabels.Any(v => v) && pooledLabels.Any(v => !v) ? WeightedAuc.Compute(pooledScores, pooledLabels, pooledWeights) : null;
+        return (perFold, pooled, scored);
+    }
+
+    private static int[] AllFeatures(ExploreTable t) => Enumerable.Range(0, t.FeatureCount).ToArray();
+
+    private static string F(double? v) => v is { } x && !double.IsNaN(x) ? x.ToString("0.000", CultureInfo.InvariantCulture) : "n/a";
+
+    private (List<string>, int, string?) Write(string track, StringBuilder md, List<ExploreTrial> trials, object json)
+    {
+        Directory.CreateDirectory(ReportDir);
+        var stamp = s.UtcNow.ToString("yyyyMMdd-HHmm", CultureInfo.InvariantCulture);
+        var numbered = Ledger.Append(trials, s.UtcNow);
+        var file = Path.Combine(ReportDir, $"{track}-{stamp}.md");
+        md.AppendLine();
+        md.AppendLine($"Trials logged: {numbered.Count} (ids {(numbered.Count > 0 ? $"{numbered[0].Id}..{numbered[^1].Id}" : "none")}); ledger total {Ledger.Count}.");
+        File.WriteAllText(file, md.ToString());
+        File.WriteAllText(Path.ChangeExtension(file, ".json"), JsonSerializer.Serialize(json, new JsonSerializerOptions { WriteIndented = true, NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals }));
+        return (md.ToString().Split('\n').Select(l => l.TrimEnd('\r')).ToList(), numbered.Count, file);
+    }
+
+    private static string Header(string title, IReadOnlyList<ExploreFold> folds)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"# Explore: {title}");
+        sb.AppendLine();
+        sb.AppendLine("Train only. Weighted (amendment 01 population). Folds:");
+        foreach (var f in folds) sb.AppendLine($"- {f.Label}");
+        sb.AppendLine();
+        return sb.ToString();
+    }
+
+    // ── track 1: how early is a gapper visible ────────────────────────────
+
+    private (List<string>, int, string?) Visibility(IReadOnlyList<string> times)
+    {
+        var md = new StringBuilder();
+        var trials = new List<ExploreTrial>();
+        var json = new List<object>();
+        bool headed = false;
+        foreach (var decision in times.Where(d => ExplorePanelFile.Exists(CacheDir(), d)))
+        {
+            var t = Load(decision);
+            var folds = Folds(t);
+            if (!headed)
+            {
+                md.Append(Header("how early is a gapper visible (reach +20% by 09:45, mornings still below +20% at t)", folds));
+                md.AppendLine("| decision | rows | benchmark | logistic | boosted trees | boosted per fold |");
+                md.AppendLine("|---|---|---|---|---|---|");
+                headed = true;
+            }
+            var rows = Scorable(t, formingOnly: true);
+            var all = AllFeatures(t);
+            var bench = ScoreFolds(t, rows, folds, (_, eval) => Benchmark(t, eval));
+            var logit = ScoreFolds(t, rows, folds, (fit, eval) => Logistic(t, all, fit, eval));
+            var boost = ScoreFolds(t, rows, folds, (fit, eval) => Boosted(t, all, fit, eval));
+            md.AppendLine($"| {decision} | {boost.Rows:N0} | {F(bench.Pooled)} | {F(logit.Pooled)} | {F(boost.Pooled)} | {string.Join(" / ", boost.Folds.Select(F))} |");
+            foreach (var (name, r) in new[] { ("benchmark", bench), ("logistic", logit), ("boosted", boost) })
+                trials.Add(new ExploreTrial { Track = "visibility", Config = $"t={decision} learner={name} rows=forming", Metric = "weightedAuc", FoldValues = r.Folds, Pooled = r.Pooled, Rows = r.Rows });
+            json.Add(new { decision, rows = boost.Rows, benchmark = bench, logistic = logit, boosted = boost });
+        }
+        if (!headed) return (["no explore panel is cached yet; run `explore build` first"], 0, null);
+        md.AppendLine();
+        md.AppendLine("Reading: where the learners pull away from the benchmark is when a gapper becomes visible from price and volume rather than from the news.");
+        return Write("visibility", md, trials, json);
+    }
+
+    // ── track 2: what makes a gapper (learners and ablation) ──────────────
+
+    private (List<string>, int, string?) Models(IReadOnlyList<string> times)
+    {
+        var decision = times.Count == 1 ? times[0] : "08:00";
+        var t = Load(decision);
+        var folds = Folds(t);
+        var rows = Scorable(t, formingOnly: true);
+        var all = AllFeatures(t);
+        var md = new StringBuilder(Header($"what makes a gapper at {decision} (learners and feature-block ablation)", folds));
+        var trials = new List<ExploreTrial>();
+        var json = new List<object>();
+        md.AppendLine("| configuration | pooled AUC | per fold | change vs boosted-all |");
+        md.AppendLine("|---|---|---|---|");
+
+        void Add(string config, (double?[] Folds, double? Pooled, int Rows) r, double? reference)
+        {
+            md.AppendLine($"| {config} | {F(r.Pooled)} | {string.Join(" / ", r.Folds.Select(F))} | {(reference is { } b && r.Pooled is { } p ? (p - b).ToString("+0.000;-0.000", CultureInfo.InvariantCulture) : "")} |");
+            trials.Add(new ExploreTrial { Track = "models", Config = $"t={decision} {config}", Metric = "weightedAuc", FoldValues = r.Folds, Pooled = r.Pooled, Rows = r.Rows });
+            json.Add(new { config, r.Folds, r.Pooled, r.Rows });
+        }
+
+        var full = ScoreFolds(t, rows, folds, (fit, eval) => Boosted(t, all, fit, eval));
+        Add("benchmark (news <= 60 min)", ScoreFolds(t, rows, folds, (_, eval) => Benchmark(t, eval)), full.Pooled);
+        Add("logistic, all features", ScoreFolds(t, rows, folds, (fit, eval) => Logistic(t, all, fit, eval)), full.Pooled);
+        Add("corobs k=100, all features", ScoreFolds(t, rows, folds, (fit, eval) => CorobsLearner(t, all, fit, eval, 100)), full.Pooled);
+        Add("boosted, all features", full, null);
+        foreach (var (block, prefixes) in Blocks)
+        {
+            var keep = all.Where(f => !prefixes.Any(pre => t.FeatureNames[f].StartsWith(pre, StringComparison.Ordinal))).ToArray();
+            if (keep.Length == all.Length) continue;
+            Add($"boosted, without {block}", ScoreFolds(t, rows, folds, (fit, eval) => Boosted(t, keep, fit, eval)), full.Pooled);
+            var only = all.Except(keep).ToArray();
+            Add($"boosted, {block} only", ScoreFolds(t, rows, folds, (fit, eval) => Boosted(t, only, fit, eval)), full.Pooled);
+        }
+
+        // Importance from one fit on every scorable row of the fit windows' union (descriptive only).
+        var fitAll = rows.Where(r => folds.Count > 0 && folds[^1].InFit(t.Days[r])).ToList();
+        if (fitAll.Count > 0)
+        {
+            BoostedWith(t, all, fitAll, [], null, out var model);
+            md.AppendLine();
+            md.AppendLine("Top features by gain (fold 4 fit window, descriptive):");
+            foreach (var (feature, share) in model.Importance().Take(15)) md.AppendLine($"- {feature}: {share:P1}");
+        }
+        return Write("models", md, trials, json);
+    }
+
+    // ── track 5: when does velocity run out ───────────────────────────────
+
+    private (List<string>, int, string?) Exits(IReadOnlyList<string> times)
+    {
+        var decision = times.Count == 1 ? times[0] : "08:00";
+        var t = Load(decision);
+        var folds = Folds(t);
+        var md = new StringBuilder(Header("when does velocity run out (gapper days, descriptive)", folds));
+        int isG = t.Label("IsGapper"), t50 = t.Label("Tier50"), hod = t.Label("HodMinEt"), death = t.Label("VelocityDeathMinEt"), gap = t.Label("DeathToHodMin"), vwap = t.Label("VwapLossMinEt");
+        int age = t.Feature("CatalystAgeMinutes");
+        var json = new List<object>();
+        md.AppendLine("| group | days | HOD median ET | HOD before 09:30 | HOD 09:30-09:45 | velocity death median ET | death-to-HOD median min | VWAP loss median ET |");
+        md.AppendLine("|---|---|---|---|---|---|---|---|");
+        foreach (var (name, pick) in new (string, Func<int, bool>)[]
+        {
+            ("Tier20+", r => t.LabelValue(r, isG) > 0.5f),
+            ("Tier50+", r => t50 >= 0 && t.LabelValue(r, t50) > 0.5f),
+            ("Tier20+ with news <= 24h", r => t.LabelValue(r, isG) > 0.5f && age >= 0 && !float.IsNaN(t.Value(r, age))),
+            ("Tier20+ without news", r => t.LabelValue(r, isG) > 0.5f && (age < 0 || float.IsNaN(t.Value(r, age)))),
+        })
+        {
+            var rows = Enumerable.Range(0, t.Rows).Where(r => t.IsCandidate[r] && pick(r)).ToList();
+            double? Median(int label) => label < 0 ? null : MedianOf(rows.Select(r => (double)t.LabelValue(r, label)).Where(double.IsFinite).ToList());
+            double Share(Func<double, bool> test) => rows.Count == 0 ? double.NaN : (double)rows.Count(r => t.LabelValue(r, hod) is var v && !float.IsNaN(v) && test(v)) / rows.Count;
+            md.AppendLine($"| {name} | {rows.Count:N0} | {Clock(Median(hod))} | {Share(v => v < 570):P1} | {Share(v => v is >= 570 and < 585):P1} | {Clock(Median(death))} | {F(Median(gap))} | {Clock(Median(vwap))} |");
+            json.Add(new { group = name, days = rows.Count, hodMedian = Median(hod), deathMedian = Median(death), deathToHodMedian = Median(gap), vwapLossMedian = Median(vwap) });
+        }
+        md.AppendLine();
+        md.AppendLine("Descriptive only: no trial is logged for this table. Gapper days are a census (candidates), so no weights.");
+        return Write("exits", md, [], json);
+    }
+
+    private static double? MedianOf(List<double> v)
+    {
+        if (v.Count == 0) return null;
+        v.Sort();
+        return v.Count % 2 == 1 ? v[v.Count / 2] : (v[v.Count / 2 - 1] + v[v.Count / 2]) / 2;
+    }
+
+    private static string Clock(double? minutes) => minutes is { } m ? $"{(int)m / 60:00}:{(int)m % 60:00}" : "n/a";
+}

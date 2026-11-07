@@ -204,6 +204,7 @@ public static class CoreServiceRegistration
         services.AddScoped<IdiotProof.Core.Research.Gappers.GapperTestStage>();
         services.AddScoped<IdiotProof.Core.Research.Gappers.GapperSpreadCalibrationStage>();
         services.AddScoped<IdiotProof.Core.Research.Gappers.GapperReportStage>();
+        services.AddScoped<IdiotProof.Core.Research.Gappers.Explore.GapperExploreStage>();
 
         return services;
     }

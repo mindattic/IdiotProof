@@ -57,25 +57,9 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
             var toWrite = new List<GapperFormationSnapshotRow>();
             foreach (var u in dayGroup)
             {
-                var ctx = await LoadAsync(u, store, ct);
-                foreach (var dt in GapperStudyServices.SampleOnly(u) ? sampleSchedule : schedule)
+                var day = await ComputeDayAsync(u, GapperStudyServices.SampleOnly(u) ? sampleSchedule : schedule, store, profile, topMovers, registry, ct);
+                foreach (var (dt, snap) in day.Snapshots)
                 {
-                    var decisionDay = dt.DayOffset == 0 ? u.DateEt : OffsetTradingDay(u.DateEt, dt.DayOffset);
-                    var t = MinuteBarMath.ToUtc(decisionDay, dt.TimeEt);
-                    var inputs = new GapperFeatureInputs
-                    {
-                        Symbol = u.Symbol, DateEt = u.DateEt, DecisionUtc = t, MinuteBars = ctx.DayBars, DailyBars = ctx.Daily,
-                        PriorClose = u.AdjPrevClose, Profile = profile, AdvDecile = u.AdvDecile, Adv20Shares = (double)u.Adv20Shares,
-                        PriorDayMinuteBars = ctx.PriorDays, Catalysts = ctx.Catalysts, Filings = ctx.Filings, Form4Filings = ctx.Form4Filings,
-                        CorporateActions = new CorporateActionDates(ctx.ReverseSplit), AbnormalVolumeMultiple = p.Features.AbnormalVolumeMultiple,
-                        CatalystLookbackHours = p.Features.Catalyst.LookbackHours, Form4LookbackDays = p.Features.Form4.LookbackDays,
-                        TradesRocWindowMinutes = p.Features.TradesWindowsMin.Count > 0 ? p.Features.TradesWindowsMin.Max() : 5,
-                    };
-                    var extras = new GapperFeatureRegistry();
-                    foreach (var f in registry.Features) extras.Add(f);
-                    extras.Add(new ConstantFeature("priorDayTopMoverRank", topMovers.TryGetValue(u.Symbol, out var rank) && rank <= p.Features.PriorDayTopMoverMaxRank ? rank : null));
-                    extras.Add(new ConstantFeature("promoSourceShare", PromoShare(ctx.CatalystRows, t, p)));
-                    var snap = GapperFormationFeatures.Compute(inputs, extras);
                     toWrite.Add(ToRow(snap, u, dt, split));
                     rows++;
                     if (snap.VolRatioTod is not null) withProfile++;
@@ -94,6 +78,42 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
         }
         gate?.EndStage("snapshot", s.UtcNow, new { rows, symbolDays = days.Count });
         return new SnapshotStageResult(split, days.Count, rows, withProfile, s.Paths.ProfileFile(req.Smoke), built, profileDays, holdoutNote, Math.Round(sw.Elapsed.TotalMinutes, 2));
+    }
+
+    /// <summary>One symbol-day's snapshots at the given decision times, and the day's minute bars they were computed from.</summary>
+    public sealed record DaySnapshots(IReadOnlyList<Candle> DayBars, IReadOnlyList<(DecisionTime Time, GapperFormationSnapshot Snapshot)> Snapshots);
+
+    /// <summary>
+    /// The shared feature computation for one universe day at the given decision times: everything a
+    /// snapshot row holds, in memory. The snapshot stage writes it; the exploration (IP-T453) reads it
+    /// at decision times the stored panel does not hold.
+    /// </summary>
+    public async Task<DaySnapshots> ComputeDayAsync(GapperStudyUniverseDay u, IReadOnlyList<DecisionTime> times, FileBackedBarStore store, TimeOfDayProfile? profile,
+        IReadOnlyDictionary<string, int> topMovers, GapperFeatureRegistry registry, CancellationToken ct)
+    {
+        var p = s.Params;
+        var ctx = await LoadAsync(u, store, ct);
+        var result = new List<(DecisionTime, GapperFormationSnapshot)>(times.Count);
+        foreach (var dt in times)
+        {
+            var decisionDay = dt.DayOffset == 0 ? u.DateEt : OffsetTradingDay(u.DateEt, dt.DayOffset);
+            var t = MinuteBarMath.ToUtc(decisionDay, dt.TimeEt);
+            var inputs = new GapperFeatureInputs
+            {
+                Symbol = u.Symbol, DateEt = u.DateEt, DecisionUtc = t, MinuteBars = ctx.DayBars, DailyBars = ctx.Daily,
+                PriorClose = u.AdjPrevClose, Profile = profile, AdvDecile = u.AdvDecile, Adv20Shares = (double)u.Adv20Shares,
+                PriorDayMinuteBars = ctx.PriorDays, Catalysts = ctx.Catalysts, Filings = ctx.Filings, Form4Filings = ctx.Form4Filings,
+                CorporateActions = new CorporateActionDates(ctx.ReverseSplit), AbnormalVolumeMultiple = p.Features.AbnormalVolumeMultiple,
+                CatalystLookbackHours = p.Features.Catalyst.LookbackHours, Form4LookbackDays = p.Features.Form4.LookbackDays,
+                TradesRocWindowMinutes = p.Features.TradesWindowsMin.Count > 0 ? p.Features.TradesWindowsMin.Max() : 5,
+            };
+            var extras = new GapperFeatureRegistry();
+            foreach (var f in registry.Features) extras.Add(f);
+            extras.Add(new ConstantFeature("priorDayTopMoverRank", topMovers.TryGetValue(u.Symbol, out var rank) && rank <= p.Features.PriorDayTopMoverMaxRank ? rank : null));
+            extras.Add(new ConstantFeature("promoSourceShare", PromoShare(ctx.CatalystRows, t, p)));
+            result.Add((dt, GapperFormationFeatures.Compute(inputs, extras)));
+        }
+        return new DaySnapshots(ctx.DayBars, result);
     }
 
     /// <summary>Window of the post-registration velocity-death variant (ticket note 10972: "death within 30 min of the PM high"); not in the frozen params by design.</summary>

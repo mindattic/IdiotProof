@@ -29,9 +29,13 @@ D-1..D-5):
 | 3 | 2021-11 .. 2023-10 | 2023-11 .. 2024-04 |
 | 4 | 2021-11 .. 2024-04 | 2024-05 .. 2024-10 |
 
-The time-of-day volume profile is refit per fold on that fold's fit window (the frozen profile uses
-all of train, which would leak into folds 1-3). Weights and population are amendment 01's: candidates
-plus the 10% sample. Every estimate is reported per fold and pooled.
+The time-of-day volume profile stays the frozen one fit on all of train. It is fit on control-day
+volume shapes and never sees an outcome, so it cannot leak a label into folds 1-3 (built: refitting it
+per fold would mean four panel builds for no protection). Weights and population are amendment 01's:
+candidates plus the 10% sample. Every estimate is reported per fold and pooled.
+
+**Forming only.** Detection is scored on mornings still below +20% at t: a stock already up 20% has
+formed, and counting it would make late decision times look far better than they are.
 
 ## Data
 
@@ -48,8 +52,9 @@ nothing to SQL except the ledger. Results go to `runs/explore/`.
 - The same split by news vs no news and by gap tier.
 
 **2. What makes a gapper** (detection models)
-- Learners: weighted logistic with interactions, gradient-boosted trees (ML.NET FastTree inside the
-  harness only; IdiotProof.Evidence stays dependency-free), Corobs look-alike.
+- Learners: weighted logistic, gradient-boosted trees (built as a pure, deterministic weighted
+  learner in `IdiotProof.Evidence/Evaluation/GradientBoostedTrees.cs` instead of ML.NET, so the
+  library stays dependency-free and repeatable), Corobs look-alike.
 - Feature blocks added and removed one at a time (ablation): volume vs time of day, velocity and
   acceleration, prior-day setup (D-1..D-5 abnormal return and volume, prior top-mover rank), corporate
   actions (reverse split, 424B, S-1), catalyst (type, direction, age, source tier, novelty), spread.
@@ -107,9 +112,13 @@ Per trial: weighted AUC or precision@k (detection), mean net %/trade with day-cl
 
 ## Build
 
+Built (IP-T453): `research gappers explore <build|visibility|models|exits>` and
+`GapperStudy.dll explore ...`; panel cache in `D:\IdiotProofData\gapper-study\explore`, reports and
+the ledger in `runs/explore/`. Tracks 3, 4, 6 and 7 and the sympathy/float features are next.
+
 - `explore` stage in `tools/GapperStudy` with the split guard, fold builder, in-memory feature
   computation, ledger (`runs/explore/ledger.jsonl`: trial id, track, config, fold metrics, time).
-- Boosted-tree learner behind the harness (ML.NET), weighted.
+- Boosted-tree learner: pure and weighted (`GradientBoostedTrees`), no new dependency.
 - Sympathy and float-proxy features through the existing `IGapperFeature` registry, so live and
   backtest share them.
 - Tests: split guard refuses validation/holdout; folds respect the embargo; ledger counts trials;

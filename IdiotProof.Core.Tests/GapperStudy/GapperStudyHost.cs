@@ -56,6 +56,7 @@ internal sealed class GapperStudyHost : IDisposable
             .AddSingleton<GapperTestStage>()
             .AddSingleton<GapperSpreadCalibrationStage>()
             .AddSingleton<GapperReportStage>()
+            .AddSingleton<IdiotProof.Core.Research.Gappers.Explore.GapperExploreStage>()
             .BuildServiceProvider();
     }
 
