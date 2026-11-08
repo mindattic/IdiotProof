@@ -119,8 +119,10 @@ type, age and direction vs no-news mornings, day-clustered intervals, one ledger
 horizon), `explore fade` (track 6, descriptive: extension from the open at 09:45 vs close below open
 and fade from the PM high, per tier and by sympathy), and the sympathy features
 (`x.sympathyFormed20`, `x.sympathyForming10`: other symbols already up 20% / 10% at t that morning,
-added when a panel loads, ablation block "sympathy"). Tracks 3 and 4 (they need the minute bars per
-trade) and the float proxy are next.
+added when a panel loads, ablation block "sympathy"), and `explore entries` (track 4: after a
+detection grid of volRatioTod >= 3/5/10 x v3 >= 0/0.5 at t, buy now, first VWAP pullback, premarket-high
+breakout, or buy now only with news <= 60 min, all with one exit and net of the frozen cost model;
+`GapperEntrySimulator` in IdiotProof.Evidence). Track 3 (Corobs variations) and the float proxy are next.
 
 - `explore` stage in `tools/GapperStudy` with the split guard, fold builder, in-memory feature
   computation, ledger (`runs/explore/ledger.jsonl`: trial id, track, config, fold metrics, time).

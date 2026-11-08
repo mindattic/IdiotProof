@@ -20,13 +20,13 @@ public sealed record ExploreResult(string Command, string? ReportFile, int Trial
 /// rolling folds inside train and logged to the trial ledger. Every other split is refused here, so
 /// no validation or holdout label can reach a search.
 /// </summary>
-public sealed class GapperExploreStage(GapperStudyServices s, GapperSnapshotStage snapshots)
+public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnapshotStage snapshots)
 {
     public const string Target = "Reach20By0945";
     /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
     public const double FormedGapPct = 20;
 
-    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade"];
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries"];
 
     /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -69,6 +69,7 @@ public sealed class GapperExploreStage(GapperStudyServices s, GapperSnapshotStag
             "exits" => Exits(times),
             "news" => News(times),
             "fade" => Fade(times),
+            "entries" => await EntriesAsync(times, ct),
             _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
         };
         return new ExploreResult(command, file, trials, Ledger.Count, lines, Math.Round(sw.Elapsed.TotalMinutes, 2));
