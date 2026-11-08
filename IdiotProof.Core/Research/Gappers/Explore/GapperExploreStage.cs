@@ -220,15 +220,46 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     public static double[] Benchmark(ExploreTable t, List<int> eval)
     {
         int age = t.Feature("CatalystAgeMinutes");
-        return eval.Select(r => age >= 0 && t.Value(r, age) is var a && !float.IsNaN(a) && a <= 60 ? 1.0 : 0.0).ToArray();
+        return eval.Select(r => FreshNews(t, age, r) ? 1.0 : 0.0).ToArray();
     }
 
-    /// <summary>Weighted AUC per fold (fit on the fold's fit window, scored on its eval window) and pooled over the four eval windows.</summary>
-    public static (double?[] Folds, double? Pooled, int Rows) ScoreFolds(ExploreTable t, List<int> rows, IReadOnlyList<ExploreFold> folds, Func<List<int>, List<int>, double[]> score)
+    private static bool FreshNews(ExploreTable t, int age, int r) => age >= 0 && t.Value(r, age) is var a && !float.IsNaN(a) && a <= 60;
+
+    /// <summary>The top-gainers screen: rank by the gap so far at t (methods-prediction.md: H11's yes/no news benchmark is easy to beat).</summary>
+    public static double[] ScreenBenchmark(ExploreTable t, List<int> eval)
+    {
+        int gap = t.Feature("GapPct");
+        return eval.Select(r => gap >= 0 && t.Value(r, gap) is var g && !float.IsNaN(g) ? g : double.MinValue).ToArray();
+    }
+
+    /// <summary>Gainers plus news: names with news in the last 60 minutes first, each group ranked by the gap so far. Finalists must beat this.</summary>
+    public static double[] ScreenNewsBenchmark(ExploreTable t, List<int> eval)
+    {
+        int age = t.Feature("CatalystAgeMinutes");
+        var screen = ScreenBenchmark(t, eval);
+        return eval.Select((r, i) => (FreshNews(t, age, r) ? 1e6 : 0) + (screen[i] == double.MinValue ? -1e5 : Math.Clamp(screen[i], -1e5 + 1, 1e5))).ToArray();
+    }
+
+    /// <summary>Mornings ranked per day for precision@k: the top of a live scanner is a handful of names.</summary>
+    public const int PrecisionK = 10;
+
+    /// <summary>
+    /// One scorer over the rolling folds (methods-prediction.md, IP-T465). <see cref="Folds"/>: weighted AUC
+    /// per fold. <see cref="Pooled"/>: the MEAN of the fold AUCs (AUC over concatenated scores from four
+    /// different fold models rewards ranking busy days over picking stocks, so it is not used).
+    /// <see cref="DayAuc"/>: weighted AUC inside each eval morning that has a gapper and a non-gapper,
+    /// averaged over those mornings. <see cref="PrecisionAtK"/>: weighted gapper share among each morning's
+    /// top <see cref="PrecisionK"/> scores, averaged over eval mornings; <see cref="PrecisionCeiling"/> is the
+    /// same with a perfect scorer, since a morning with three gappers can never score above 0.3.
+    /// </summary>
+    public sealed record FoldScore(double?[] Folds, double? Pooled, int Rows, double? DayAuc, double? PrecisionAtK, double? PrecisionCeiling);
+
+    /// <summary>Score every fold (fit on its fit window, scored on its eval window); see <see cref="FoldScore"/>.</summary>
+    public static FoldScore ScoreFolds(ExploreTable t, List<int> rows, IReadOnlyList<ExploreFold> folds, Func<List<int>, List<int>, double[]> score)
     {
         var y = t.Binary(Target);
         var perFold = new double?[folds.Count];
-        var pooledScores = new List<double>(); var pooledLabels = new List<bool>(); var pooledWeights = new List<double>();
+        var dayAucs = new List<double>(); var precisions = new List<double>(); var ceilings = new List<double>();
         int scored = 0;
         for (int k = 0; k < folds.Count; k++)
         {
@@ -239,14 +270,38 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             var scores = score(fit, eval);
             var weights = eval.Select(r => t.Weights[r]).ToList();
             perFold[k] = WeightedAuc.Compute(scores, labels, weights);
-            pooledScores.AddRange(scores); pooledLabels.AddRange(labels); pooledWeights.AddRange(weights);
             scored += eval.Count;
+            foreach (var day in Enumerable.Range(0, eval.Count).GroupBy(i => t.Days[eval[i]]))
+            {
+                var idx = day.ToList();
+                var dl = idx.Select(i => labels[i]).ToList();
+                if (dl.Any(v => v) && dl.Any(v => !v))
+                    dayAucs.Add(WeightedAuc.Compute(idx.Select(i => scores[i]).ToList(), dl, idx.Select(i => weights[i]).ToList()));
+                precisions.Add(TopShare(idx.OrderByDescending(i => scores[i]).ThenBy(i => eval[i]).Select(i => (labels[i], weights[i]))));
+                ceilings.Add(TopShare(idx.OrderByDescending(i => labels[i]).ThenByDescending(i => weights[i]).Select(i => (labels[i], weights[i]))));
+            }
         }
-        double? pooled = pooledLabels.Count > 0 && pooledLabels.Any(v => v) && pooledLabels.Any(v => !v) ? WeightedAuc.Compute(pooledScores, pooledLabels, pooledWeights) : null;
-        return (perFold, pooled, scored);
+        double? Mean(IEnumerable<double> v) { var l = v.Where(double.IsFinite).ToList(); return l.Count == 0 ? null : l.Average(); }
+        return new FoldScore(perFold, Mean(perFold.Where(v => v.HasValue).Select(v => v!.Value)), scored, Mean(dayAucs), Mean(precisions), Mean(ceilings));
+    }
+
+    private static double TopShare(IEnumerable<(bool Label, double Weight)> ranked)
+    {
+        double w = 0, hit = 0;
+        foreach (var (label, weight) in ranked.Take(PrecisionK)) { w += weight; hit += label ? weight : 0; }
+        return w > 0 ? hit / w : double.NaN;
     }
 
     private static int[] AllFeatures(ExploreTable t) => Enumerable.Range(0, t.FeatureCount).ToArray();
+
+    private static string Cell(FoldScore r) => $"{F(r.Pooled)} / {F(r.DayAuc)} / {F(r.PrecisionAtK)}";
+
+    /// <summary>A ledger line for one scorer: fold AUCs, their mean, and the within-morning metrics in the note.</summary>
+    public static ExploreTrial Trial(string track, string config, FoldScore r) => new()
+    {
+        Track = track, Config = config, Metric = "weightedAuc (mean of folds)", FoldValues = r.Folds, Pooled = r.Pooled, Rows = r.Rows,
+        Note = string.Create(CultureInfo.InvariantCulture, $"dayAuc={F(r.DayAuc)} p@{PrecisionK}={F(r.PrecisionAtK)} ceiling={F(r.PrecisionCeiling)}"),
+    };
 
     private static string F(double? v) => v is { } x && !double.IsNaN(x) ? x.ToString("0.000", CultureInfo.InvariantCulture) : "n/a";
 
@@ -289,23 +344,27 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             if (!headed)
             {
                 md.Append(Header("how early is a gapper visible (reach +20% by 09:45, mornings still below +20% at t)", folds));
-                md.AppendLine("| decision | rows | benchmark | logistic | boosted trees | boosted per fold |");
-                md.AppendLine("|---|---|---|---|---|---|");
+                md.AppendLine($"Each cell: mean fold AUC / within-morning AUC / precision@{PrecisionK} (ceiling in the last column).");
+                md.AppendLine();
+                md.AppendLine("| decision | rows | news benchmark | gainers screen | gainers + news | logistic | boosted trees | boosted per fold | precision ceiling |");
+                md.AppendLine("|---|---|---|---|---|---|---|---|---|");
                 headed = true;
             }
             var rows = Scorable(t, formingOnly: true);
             var all = AllFeatures(t);
             var bench = ScoreFolds(t, rows, folds, (_, eval) => Benchmark(t, eval));
+            var screen = ScoreFolds(t, rows, folds, (_, eval) => ScreenBenchmark(t, eval));
+            var screenNews = ScoreFolds(t, rows, folds, (_, eval) => ScreenNewsBenchmark(t, eval));
             var logit = ScoreFolds(t, rows, folds, (fit, eval) => Logistic(t, all, fit, eval));
             var boost = ScoreFolds(t, rows, folds, (fit, eval) => Boosted(t, all, fit, eval));
-            md.AppendLine($"| {decision} | {boost.Rows:N0} | {F(bench.Pooled)} | {F(logit.Pooled)} | {F(boost.Pooled)} | {string.Join(" / ", boost.Folds.Select(F))} |");
-            foreach (var (name, r) in new[] { ("benchmark", bench), ("logistic", logit), ("boosted", boost) })
-                trials.Add(new ExploreTrial { Track = "visibility", Config = $"t={decision} learner={name} rows=forming", Metric = "weightedAuc", FoldValues = r.Folds, Pooled = r.Pooled, Rows = r.Rows });
-            json.Add(new { decision, rows = boost.Rows, benchmark = bench, logistic = logit, boosted = boost });
+            md.AppendLine($"| {decision} | {boost.Rows:N0} | {Cell(bench)} | {Cell(screen)} | {Cell(screenNews)} | {Cell(logit)} | {Cell(boost)} | {string.Join(" / ", boost.Folds.Select(F))} | {F(boost.PrecisionCeiling)} |");
+            foreach (var (name, r) in new[] { ("benchmark", bench), ("screen", screen), ("screen+news", screenNews), ("logistic", logit), ("boosted", boost) })
+                trials.Add(Trial("visibility", $"t={decision} learner={name} rows=forming", r));
+            json.Add(new { decision, rows = boost.Rows, benchmark = bench, screen, screenNews, logistic = logit, boosted = boost });
         }
         if (!headed) return (["no explore panel is cached yet; run `explore build` first"], 0, null);
         md.AppendLine();
-        md.AppendLine("Reading: where the learners pull away from the benchmark is when a gapper becomes visible from price and volume rather than from the news.");
+        md.AppendLine("Reading: where the learners pull away from the gainers-plus-news screen is when a gapper becomes visible from price and volume rather than from the news and the move itself. A finalist must beat gainers + news, not only the news benchmark.");
         return Write("visibility", md, trials, json);
     }
 
@@ -321,18 +380,20 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
         var md = new StringBuilder(Header($"what makes a gapper at {decision} (learners and feature-block ablation)", folds));
         var trials = new List<ExploreTrial>();
         var json = new List<object>();
-        md.AppendLine("| configuration | pooled AUC | per fold | change vs boosted-all |");
-        md.AppendLine("|---|---|---|---|");
+        md.AppendLine($"| configuration | mean fold AUC | within-morning AUC | precision@{PrecisionK} | per fold | change vs boosted-all |");
+        md.AppendLine("|---|---|---|---|---|---|");
 
-        void Add(string config, (double?[] Folds, double? Pooled, int Rows) r, double? reference)
+        void Add(string config, FoldScore r, double? reference)
         {
-            md.AppendLine($"| {config} | {F(r.Pooled)} | {string.Join(" / ", r.Folds.Select(F))} | {(reference is { } b && r.Pooled is { } p ? (p - b).ToString("+0.000;-0.000", CultureInfo.InvariantCulture) : "")} |");
-            trials.Add(new ExploreTrial { Track = "models", Config = $"t={decision} {config}", Metric = "weightedAuc", FoldValues = r.Folds, Pooled = r.Pooled, Rows = r.Rows });
-            json.Add(new { config, r.Folds, r.Pooled, r.Rows });
+            md.AppendLine($"| {config} | {F(r.Pooled)} | {F(r.DayAuc)} | {F(r.PrecisionAtK)} | {string.Join(" / ", r.Folds.Select(F))} | {(reference is { } b && r.Pooled is { } p ? (p - b).ToString("+0.000;-0.000", CultureInfo.InvariantCulture) : "")} |");
+            trials.Add(Trial("models", $"t={decision} {config}", r));
+            json.Add(new { config, r.Folds, r.Pooled, r.DayAuc, r.PrecisionAtK, r.PrecisionCeiling, r.Rows });
         }
 
         var full = ScoreFolds(t, rows, folds, (fit, eval) => Boosted(t, all, fit, eval));
         Add("benchmark (news <= 60 min)", ScoreFolds(t, rows, folds, (_, eval) => Benchmark(t, eval)), full.Pooled);
+        Add("benchmark: gainers screen", ScoreFolds(t, rows, folds, (_, eval) => ScreenBenchmark(t, eval)), full.Pooled);
+        Add("benchmark: gainers + news", ScoreFolds(t, rows, folds, (_, eval) => ScreenNewsBenchmark(t, eval)), full.Pooled);
         Add("logistic, all features", ScoreFolds(t, rows, folds, (fit, eval) => Logistic(t, all, fit, eval)), full.Pooled);
         Add("corobs k=100, all features", ScoreFolds(t, rows, folds, (fit, eval) => CorobsLearner(t, all, fit, eval, 100)), full.Pooled);
         Add("boosted, all features", full, null);

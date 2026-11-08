@@ -90,12 +90,17 @@ nothing to SQL except the ledger. Results go to `runs/explore/`.
 
 ## Scoring and finalist criteria
 
-Per trial: weighted AUC or precision@k (detection), mean net %/trade with day-clustered 95% bounds
-(strategies), per fold and pooled. A finalist must:
+Per trial: weighted AUC per fold, its mean over the folds (not an AUC over the folds' concatenated
+scores, which rewards ranking busy days over picking stocks; IP-T465), the within-morning AUC and
+precision@10 per morning with its ceiling (detection); mean net %/trade with day-clustered 95% bounds
+(strategies), per fold and pooled. Detection is scored against three benchmarks: news within 60
+minutes (H11's), the top-gainers screen (gap so far at t), and gainers + news (fresh-news names
+first, each group by gap). See methods-prediction.md. A finalist must:
 
-1. Show the same sign in at least 3 of 4 folds and in the pooled estimate.
-2. Clear the frozen bars on pooled train: +0.05 AUC over the benchmark (detection) or >= +1.0%/trade
-   net with lower bound > 0 on >= 150 trades over >= 40 days (strategies).
+1. Show the same sign in at least 3 of 4 folds and in the mean over folds.
+2. Clear the frozen bars on train: +0.05 mean fold AUC over the benchmark, and beat gainers + news on
+   mean fold AUC and within-morning precision@10 (detection), or >= +1.0%/trade net with lower bound
+   > 0 on >= 150 trades over >= 40 days (strategies).
 3. Survive leave-one-month-out: no single month carries the result.
 4. Make sense economically: a short written reason why it should work.
 5. Survive deflation by the ledger's trial count (DSR >= the frozen minimum).
