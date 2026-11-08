@@ -8,7 +8,7 @@ using IdiotProof.Evidence.Gappers;
 namespace IdiotProof.Core.Research.Gappers.Explore;
 
 public sealed record ExploreRequest(string Command, string Split, IReadOnlyList<string> Times, bool Force, DateOnly? From = null, DateOnly? To = null, int Parallelism = 4,
-    int InitialFitMonths = 12, int EvalMonths = 6);
+    int InitialFitMonths = 12, int EvalMonths = 6, Guid? Owner = null);
 
 public sealed record ExploreResult(string Command, string? ReportFile, int Trials, int LedgerTotal, IReadOnlyList<string> Lines, double Minutes);
 
@@ -26,7 +26,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
     public const double FormedGapPct = 20;
 
-    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import"];
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow"];
 
     /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -76,6 +76,8 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             "corobs" => Corobs(times),
             "ssr" => await SsrAsync(times, ct),
             "float-import" => await FloatImportAsync(ct),
+            "tradeflow-pull" => await TradeFlowPullAsync(req, ct),
+            "tradeflow" => await TradeFlowAsync(req, ct),
             _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
         };
         return new ExploreResult(command, file, trials, Ledger.Count, lines, Math.Round(sw.Elapsed.TotalMinutes, 2));

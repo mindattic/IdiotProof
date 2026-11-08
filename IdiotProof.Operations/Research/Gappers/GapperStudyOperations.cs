@@ -384,7 +384,7 @@ public sealed class GapperStatusOperation : IOperation<GapperStatusArgs>
 
 public sealed record GapperExploreArgs
 {
-    [Option("command", Description = "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block) or float-import (shares outstanding from SEC companyfacts.zip for the float proxy).", Required = true)]
+    [Option("command", Description = "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow) or tradeflow (retail imbalance collapse vs the high, H17).", Required = true)]
     public string Command { get; init; } = "";
 
     [Option("split", Description = "Must be train: the exploratory round never reads validation or holdout.")]
@@ -422,7 +422,7 @@ public sealed class GapperExploreOperation : IOperation<GapperExploreArgs>
         {
             var times = (args.Times ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
             var r = await ctx.Get<IdiotProof.Core.Research.Gappers.Explore.GapperExploreStage>().RunAsync(
-                new IdiotProof.Core.Research.Gappers.Explore.ExploreRequest(args.Command, args.Split, times, args.Force, args.From, args.To, args.Parallelism), ctx.CancellationToken);
+                new IdiotProof.Core.Research.Gappers.Explore.ExploreRequest(args.Command, args.Split, times, args.Force, args.From, args.To, args.Parallelism, Owner: ctx.OwnerId), ctx.CancellationToken);
             var kv = new KeyValueBlock()
                 .Add("command", r.Command)
                 .Add("report", r.ReportFile, "none")

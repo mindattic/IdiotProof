@@ -7,6 +7,9 @@ namespace IdiotProof.DataFeeds;
 /// <summary>One multi-symbol bars pull: bars per symbol (ascending), pages fetched, and the data tier that served them.</summary>
 public sealed record MultiSymbolBars(IReadOnlyDictionary<string, IReadOnlyList<Candle>> Bars, int Pages, string Tier);
 
+/// <summary>One trade print: time, price, size and the reporting exchange code ("D" = FINRA TRF, off-exchange).</summary>
+public sealed record TradePrintRecord(DateTime Utc, double Price, double Size, string Exchange);
+
 /// <summary>
 /// Alpaca Market Data API historical bar feed. Uses the same API key + secret the
 /// user already has for the broker.
@@ -181,6 +184,59 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
         }
         while (!string.IsNullOrEmpty(pageToken));
         return new MultiSymbolBars(Freeze(bars), pages, tierUsed);
+    }
+
+    /// <summary>
+    /// Trade prints for many symbols over one window (<c>/v2/stocks/trades?symbols=...</c>, paged at 10,000
+    /// prints): time, price, size and reporting exchange per print. <paramref name="onPage"/> runs before each
+    /// request so a caller can pace it; the same backoff and tier downgrade as the multi-symbol bars apply.
+    /// </summary>
+    public async Task<(IReadOnlyDictionary<string, List<TradePrintRecord>> Trades, int Pages, string Tier)> GetTradesForSymbolsAsync(
+        IReadOnlyList<string> symbols, DateTime startUtc, DateTime endUtc, Func<CancellationToken, Task>? onPage = null, CancellationToken ct = default)
+    {
+        var list = symbols.Select(s => s.Trim().ToUpperInvariant()).Where(s => s.Length > 0).Distinct().ToList();
+        var trades = new Dictionary<string, List<TradePrintRecord>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in list) trades[s] = [];
+        if (list.Count == 0) return (trades, 0, feedTier);
+        if (list.Count > MaxSymbolsPerRequest)
+            throw new ArgumentException($"At most {MaxSymbolsPerRequest} symbols per request, got {list.Count}.", nameof(symbols));
+        var query = $"v2/stocks/trades?symbols={Uri.EscapeDataString(string.Join(',', list))}"
+                  + $"&start={Uri.EscapeDataString(startUtc.ToString("O"))}&end={Uri.EscapeDataString(endUtc.ToString("O"))}&limit=10000";
+        string? pageToken = null;
+        int pages = 0;
+        string tierUsed = feedTier;
+        do
+        {
+            if (onPage is not null) await onPage(ct).ConfigureAwait(false);
+            var tier = feedTier;
+            var url = query + $"&feed={tier}" + (pageToken is null ? "" : $"&page_token={Uri.EscapeDataString(pageToken)}");
+            using var response = await SendWithBackoffAsync(url, ct).ConfigureAwait(false);
+            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden && TryDowngradeTier()) continue;
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                throw new HttpRequestException($"Alpaca multi-symbol trades request failed ({(int)response.StatusCode} {response.StatusCode}): {Truncate(body)}", null, response.StatusCode);
+            }
+            pages++;
+            tierUsed = tier;
+            await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+            pageToken = doc.RootElement.TryGetProperty("next_page_token", out var npt) && npt.ValueKind == JsonValueKind.String ? npt.GetString() : null;
+            if (doc.RootElement.TryGetProperty("trades", out var bySymbol) && bySymbol.ValueKind == JsonValueKind.Object)
+                foreach (var entry in bySymbol.EnumerateObject())
+                {
+                    if (entry.Value.ValueKind != JsonValueKind.Array) continue;
+                    if (!trades.TryGetValue(entry.Name, out var target)) trades[entry.Name] = target = [];
+                    foreach (var t in entry.Value.EnumerateArray())
+                    {
+                        if (!t.TryGetProperty("t", out var time) || !t.TryGetProperty("p", out var p) || !t.TryGetProperty("s", out var s)) continue;
+                        target.Add(new TradePrintRecord(DateTime.SpecifyKind(time.GetDateTime().ToUniversalTime(), DateTimeKind.Utc), p.GetDouble(), s.GetDouble(),
+                            t.TryGetProperty("x", out var x) && x.ValueKind == JsonValueKind.String ? x.GetString() ?? "" : ""));
+                    }
+                }
+        }
+        while (!string.IsNullOrEmpty(pageToken));
+        return (trades, pages, tierUsed);
     }
 
     private async Task<HttpResponseMessage> SendWithBackoffAsync(string url, CancellationToken ct)
