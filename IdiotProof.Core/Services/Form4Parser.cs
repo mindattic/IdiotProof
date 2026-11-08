@@ -148,6 +148,8 @@ public sealed class Form4Parser(ILogger<Form4Parser> logger)
         };
     }
 
+    public const decimal MaxPctOfHoldingsChanged = 9999.9999m;
+
     private static decimal? ComputePctOfHoldingsChanged(decimal sharesTransacted, decimal sharesOwnedAfter, string acquiredDisposedCode)
     {
         var isDisposed = acquiredDisposedCode.Equals("D", StringComparison.OrdinalIgnoreCase);
@@ -157,7 +159,9 @@ public sealed class Form4Parser(ILogger<Form4Parser> logger)
 
         if (preTransactionShares <= 0) return null; // avoid divide-by-zero / nonsensical negative base
 
-        var magnitude = sharesTransacted / preTransactionShares * 100m;
+        // The column is decimal(8,4): a tiny pre-transaction base (e.g. 7 shares then a 192k grant) gives
+        // tens of thousands of percent, which SQL rejects; anything past the cap already means "multiplied".
+        var magnitude = Math.Min(sharesTransacted / preTransactionShares * 100m, MaxPctOfHoldingsChanged);
         return isDisposed ? -magnitude : magnitude;
     }
 }
