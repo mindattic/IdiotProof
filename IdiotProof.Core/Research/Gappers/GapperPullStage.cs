@@ -530,6 +530,12 @@ public sealed class GapperPullStage(
 
     // ── T4 EDGAR form index + acceptance headers ─────────────────────────
 
+    /// <summary>Header requests in flight at once; EdgarRateGate still spaces their starts under SEC's 10 req/s.</summary>
+    internal const int HeaderConcurrency = 8;
+
+    /// <summary>Headers fetched, then written in one fresh context, per chunk.</summary>
+    internal const int HeaderChunk = 400;
+
     private async Task<TierSummary> PullEdgarAsync(PullStageRequest req, CallBudget calls, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
@@ -609,31 +615,57 @@ public sealed class GapperPullStage(
         int headerCalls = 0, headersFilled = 0;
         var targets = await TargetDaysAsync(req, ct);
         var windows = targets.GroupBy(c => c.Symbol).ToDictionary(g => g.Key, g => g.Select(c => (From: c.DateEt.AddDays(-acceptance.Before), To: c.DateEt.AddDays(acceptance.After))).ToList(), StringComparer.Ordinal);
-        await using (var db = await s.Db.CreateDbContextAsync(ct))
         {
+            // The pending list is read untracked (only what's needed to fetch), then fetched HeaderConcurrency at a time
+            // through the shared EdgarRateGate, and written chunk by chunk through a fresh context: tracking hundreds of
+            // thousands of rows in one context grew the process by gigabytes, and one request at a time ran ~3/s.
             var targetSymbols = windows.Keys.ToList();
-            var pending = await db.EdgarFilingIndex.Where(r => r.HeaderFetchedUtc == null && r.Symbol != null && targetSymbols.Contains(r.Symbol) && r.FiledDate >= from && r.FiledDate <= to).ToListAsync(ct);
-            var inWindow = pending.Where(r => windows[r.Symbol!].Any(w => r.FiledDate >= w.From && r.FiledDate <= w.To)).OrderBy(r => r.FiledDate).ToList();
+            List<(long Id, string Cik, string Accession, string Symbol, DateOnly Filed)> pending;
+            await using (var db = await s.Db.CreateDbContextAsync(ct))
+                pending = [.. (await db.EdgarFilingIndex.AsNoTracking()
+                    .Where(r => r.HeaderFetchedUtc == null && r.Symbol != null && targetSymbols.Contains(r.Symbol) && r.FiledDate >= from && r.FiledDate <= to)
+                    .Select(r => new { r.Id, r.Cik, r.AccessionNumber, r.Symbol, r.FiledDate }).ToListAsync(ct))
+                    .Select(r => (r.Id, r.Cik, r.AccessionNumber, r.Symbol!, r.FiledDate))];
+            var inWindow = pending.Where(r => windows[r.Symbol].Any(w => r.Filed >= w.From && r.Filed <= w.To)).OrderBy(r => r.Filed).ToList();
             s.Logger.LogInformation("[{Now}] edgar: {Count} filings inside [D-{B}, D+{A}] of candidate or population-sample days need acceptance times", GapperStudyServices.Et(s.UtcNow), inWindow.Count, acceptance.Before, acceptance.After);
-            foreach (var row in inWindow)
+            var budgetHit = false;
+            foreach (var chunk in inWindow.Chunk(HeaderChunk))
             {
-                if (!calls.Allow()) { s.Logger.LogWarning("edgar headers: --max-calls reached"); break; }
-                headerCalls++;
-                var header = await headers.FetchAsync(row.Cik, row.AccessionNumber, ct);
-                row.HeaderFetchedUtc = s.UtcNow;
-                if (header is not null)
+                var allowed = new List<(long Id, string Cik, string Accession, string Symbol, DateOnly Filed)>(chunk.Length);
+                foreach (var r in chunk)
                 {
-                    row.AcceptedUtc = header.AcceptanceUtc;
-                    row.ItemsJson = header.Items.Count > 0 ? JsonSerializer.Serialize(header.Items) : null;
-                    if (header.AcceptanceUtc is not null) headersFilled++;
+                    if (!calls.Allow()) { budgetHit = true; break; }
+                    allowed.Add(r);
                 }
-                if (headerCalls % 100 == 0)
+                var results = new System.Collections.Concurrent.ConcurrentDictionary<long, EdgarFilingHeader?>();
+                await Parallel.ForEachAsync(allowed, new ParallelOptions { MaxDegreeOfParallelism = HeaderConcurrency, CancellationToken = ct },
+                    async (r, token) => results[r.Id] = await headers.FetchAsync(r.Cik, r.Accession, token));
+                var fetchedAt = s.UtcNow;
+                await using (var db = await s.Db.CreateDbContextAsync(ct))
                 {
+                    var ids = results.Keys.ToList();
+                    // Only an answered fetch is marked: a refused or failed one (SEC throttling answers 403/429) stays pending
+                    // for the next run instead of being recorded as fetched with no acceptance time.
+                    foreach (var row in await db.EdgarFilingIndex.Where(r => ids.Contains(r.Id)).ToListAsync(ct))
+                    {
+                        if (results[row.Id] is not { } header) continue;
+                        row.HeaderFetchedUtc = fetchedAt;
+                        row.AcceptedUtc = header.AcceptanceUtc;
+                        row.ItemsJson = header.Items.Count > 0 ? JsonSerializer.Serialize(header.Items) : null;
+                        if (header.AcceptanceUtc is not null) headersFilled++;
+                    }
                     await db.SaveChangesAsync(ct);
-                    s.Logger.LogInformation("[{Now}] edgar headers: {Calls} fetched, {Filled} with acceptance time", GapperStudyServices.Et(s.UtcNow), headerCalls, headersFilled);
+                }
+                headerCalls += results.Count;
+                var failed = results.Count(kv => kv.Value is null);
+                s.Logger.LogInformation("[{Now}] edgar headers: {Calls} of {Total} fetched, {Filled} with acceptance time, {Failed} failed this chunk", GapperStudyServices.Et(s.UtcNow), headerCalls, inWindow.Count, headersFilled, failed);
+                if (budgetHit) { s.Logger.LogWarning("edgar headers: --max-calls reached"); break; }
+                if (results.Count > 0 && failed * 2 > results.Count)
+                {
+                    s.Logger.LogWarning("[{Now}] edgar headers: {Failed} of {Count} failed, backing off 2 minutes", GapperStudyServices.Et(s.UtcNow), failed, results.Count);
+                    await Task.Delay(TimeSpan.FromMinutes(2), ct);
                 }
             }
-            await db.SaveChangesAsync(ct);
         }
 
         double? coveragePct;

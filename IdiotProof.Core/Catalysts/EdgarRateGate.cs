@@ -16,16 +16,18 @@ public sealed class EdgarRateGate(TimeProvider? time = null)
 
     public async Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> call, CancellationToken ct)
     {
+        // Spaces request STARTS (at most one per MinSpacing, under SEC's 10 req/s) without holding the gate for the call
+        // itself, so concurrent callers overlap their network latency instead of queueing behind it.
         await gate.WaitAsync(ct);
         try
         {
             var now = time.GetTimestamp();
             var since = time.GetElapsedTime(lastTicks, now);
             if (lastTicks != 0 && since < MinSpacing) await Task.Delay(MinSpacing - since, time, ct);
+            lastTicks = time.GetTimestamp();
             Requests++;
-            try { return await call(ct); }
-            finally { lastTicks = time.GetTimestamp(); }
         }
         finally { gate.Release(); }
+        return await call(ct);
     }
 }
