@@ -39,6 +39,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
         ["catalyst"] = ["Catalyst", "Pre.", "x.promoSourceShare", "x.llm", "x.form4", "x.8k"],
         ["microstructure"] = ["TradesProxy", "SpreadProxy", "x.tradesRoc", "x.csSpreadPrior", "x.leeMykland"],
         ["sympathy"] = ["x.sympathy"],
+        ["halts"] = ["x.halt"],
     };
 
     public string CacheDir() => Environment.GetEnvironmentVariable("GAPPER_EXPLORE_DIR") is { Length: > 0 } dir
@@ -140,8 +141,19 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     {
         var dir = CacheDir();
         if (!ExplorePanelFile.Exists(dir, decision)) throw new InvalidOperationException($"No explore panel for {decision} in {dir}; run `explore build --times \"{decision}\"` first.");
-        return ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision));
+        var t = ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision));
+        halts ??= HaltHistory.Load(HaltsDir());
+        if (halts is null) return t;
+        var dt = DecisionTime.Parse(decision);
+        return ExploreDerived.AddHalts(t, halts, dt.DayOffset == 0 ? dt.TimeEt : null);
     }
+
+    private HaltHistory? halts;
+
+    /// <summary>The Nasdaq Trader halt history day files (IP-T457); GAPPER_HALTS_DIR overrides, default D:\IdiotProofData\halts beside the study folder.</summary>
+    public string HaltsDir() => Environment.GetEnvironmentVariable("GAPPER_HALTS_DIR") is { Length: > 0 } dir
+        ? dir
+        : Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(CacheDir().TrimEnd('\\', '/'))!)!, "halts");
 
     /// <summary>Rows with a defined target, optionally only mornings still forming (GapPct below the formed level at t).</summary>
     public static List<int> Scorable(ExploreTable t, bool formingOnly)
@@ -364,6 +376,24 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             double Share(Func<double, bool> test) => rows.Count == 0 ? double.NaN : (double)rows.Count(r => t.LabelValue(r, hod) is var v && !float.IsNaN(v) && test(v)) / rows.Count;
             md.AppendLine($"| {name} | {rows.Count:N0} | {Clock(Median(hod))} | {Share(v => v < 570):P1} | {Share(v => v is >= 570 and < 585):P1} | {Clock(Median(death))} | {F(Median(gap))} | {Clock(Median(vwap))} |");
             json.Add(new { group = name, days = rows.Count, hodMedian = Median(hod), deathMedian = Median(death), deathToHodMedian = Median(gap), vwapLossMedian = Median(vwap) });
+        }
+        int pause = t.Label(ExploreDerived.OpenWindowPauseLabel);
+        if (pause >= 0)
+        {
+            md.AppendLine();
+            md.AppendLine("LULD/volatility pauses in the band-halving window (09:30-09:50 ET, Nasdaq Trader halt history):");
+            md.AppendLine();
+            md.AppendLine("| group | days | paused 09:30-09:50 | first pause median ET | HOD at or before the first pause |");
+            md.AppendLine("|---|---|---|---|---|");
+            foreach (var (name, pick) in new (string, Func<int, bool>)[] { ("Tier20+", r => t.LabelValue(r, isG) > 0.5f), ("Tier50+", r => t50 >= 0 && t.LabelValue(r, t50) > 0.5f) })
+            {
+                var rows = Enumerable.Range(0, t.Rows).Where(r => t.IsCandidate[r] && pick(r)).ToList();
+                var paused = rows.Where(r => !float.IsNaN(t.LabelValue(r, pause))).ToList();
+                double share = rows.Count == 0 ? double.NaN : (double)paused.Count / rows.Count;
+                var hodBy = paused.Count(r => t.LabelValue(r, hod) is var h && !float.IsNaN(h) && h <= t.LabelValue(r, pause));
+                md.AppendLine($"| {name} | {rows.Count:N0} | {share:P1} | {Clock(MedianOf(paused.Select(r => (double)t.LabelValue(r, pause)).ToList()))} | {(paused.Count == 0 ? "n/a" : ((double)hodBy / paused.Count).ToString("P1", CultureInfo.InvariantCulture))} |");
+                json.Add(new { group = name + " pauses", days = rows.Count, pausedShare = share, hodAtOrBeforePause = paused.Count == 0 ? (double?)null : (double)hodBy / paused.Count });
+            }
         }
         md.AppendLine();
         md.AppendLine("Descriptive only: no trial is logged for this table. Gapper days are a census (candidates), so no weights.");

@@ -54,6 +54,45 @@ public static class ExploreDerived
         };
     }
 
+    public const string OpenWindowPauseLabel = "OpenWindowPauseMinEt";
+
+    /// <summary>
+    /// Adds the halt-history features (IP-T457: prior-day pauses, a news halt since the prior close, pauses
+    /// today, minutes since the last halt; all from halts stamped at or before t) and one outcome label,
+    /// the first LULD/volatility pause in 09:30-09:50 ET. Only same-day decision times get features.
+    /// </summary>
+    public static ExploreTable AddHalts(ExploreTable t, IdiotProof.Evidence.Gappers.HaltHistory halts, TimeSpan? decisionEt)
+    {
+        if (t.Feature(IdiotProof.Evidence.Gappers.HaltFeatures.PausesToday) >= 0) return t;
+        string[] names = [IdiotProof.Evidence.Gappers.HaltFeatures.PriorDayPauses, IdiotProof.Evidence.Gappers.HaltFeatures.NewsHaltSinceClose,
+            IdiotProof.Evidence.Gappers.HaltFeatures.PausesToday, IdiotProof.Evidence.Gappers.HaltFeatures.MinutesSinceLastHalt];
+        int d = t.FeatureCount, nd = d + names.Length, m = t.LabelNames.Count, nm = m + 1;
+        var x = new float[(long)t.Rows * nd];
+        var l = new float[(long)t.Rows * nm];
+        var prior = new Dictionary<DateOnly, DateOnly>();
+        for (int r = 0; r < t.Rows; r++)
+        {
+            Array.Copy(t.X, (long)r * d, x, (long)r * nd, d);
+            Array.Copy(t.L, (long)r * m, l, (long)r * nm, m);
+            var day = t.Days[r];
+            l[(long)r * nm + m] = (float)IdiotProof.Evidence.Gappers.HaltFeatures.FirstOpenWindowPauseMinEt(halts, t.Symbols[r], day);
+            if (decisionEt is not { } at)
+            {
+                for (int k = 0; k < names.Length; k++) x[(long)r * nd + d + k] = float.NaN;
+                continue;
+            }
+            if (!prior.TryGetValue(day, out var p)) prior[day] = p = IdiotProof.Core.Evidence.MarketCalendar.PreviousTradingDay(day);
+            int j = 0;
+            foreach (var (_, v) in IdiotProof.Evidence.Gappers.HaltFeatures.Compute(halts, t.Symbols[r], day, IdiotProof.Evidence.Gappers.MinuteBarMath.ToUtc(day, at), p))
+                x[(long)r * nd + d + j++] = (float)v;
+        }
+        return new ExploreTable
+        {
+            Decision = t.Decision, FeatureNames = t.FeatureNames.Concat(names).ToList(), LabelNames = t.LabelNames.Append(OpenWindowPauseLabel).ToList(),
+            Symbols = t.Symbols, Days = t.Days, IsCandidate = t.IsCandidate, Weights = t.Weights, X = x, L = l,
+        };
+    }
+
     /// <summary>Weighted mean with a day-clustered 95% interval (day means, normal approximation); null below 2 days.</summary>
     public static (double Mean, double Lo, double Hi, int Days)? ClusteredMean(IEnumerable<(DateOnly Day, double Value, double Weight)> rows)
     {

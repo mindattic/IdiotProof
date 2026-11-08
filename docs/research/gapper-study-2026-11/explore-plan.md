@@ -122,7 +122,7 @@ and fade from the PM high, per tier and by sympathy), and the sympathy features
 added when a panel loads, ablation block "sympathy"), and `explore entries` (track 4: after a
 detection grid of volRatioTod >= 3/5/10 x v3 >= 0/0.5 at t, buy now, first VWAP pullback, premarket-high
 breakout, or buy now only with news <= 60 min, all with one exit and net of the frozen cost model;
-`GapperEntrySimulator` in IdiotProof.Evidence). `explore corobs` (track 3: k = 25/50/100/200 x four feature subsets). PatternMiner/RuleMiner setups, Cue and the float proxy are next.
+`GapperEntrySimulator` in IdiotProof.Evidence). `explore corobs` (track 3: k = 25/50/100/200 x four feature subsets). Halt history (IP-T457): the Nasdaq Trader feed for every trading day 2021-10-01..2026-11-06 (51,715 halts) sits in `D:IdiotProofDatahalts` (GAPPER_HALTS_DIR overrides); loading a panel adds `x.haltPausesD1`, `x.haltNewsSinceClose`, `x.haltPausesToday`, `x.haltMinutesSinceLast` (halts stamped at or before t; ablation block "halts") and the outcome `OpenWindowPauseMinEt` (first LULD pause 09:30-09:50), which `explore exits` reports per tier. PatternMiner/RuleMiner setups, Cue and the float proxy are next.
 
 - `explore` stage in `tools/GapperStudy` with the split guard, fold builder, in-memory feature
   computation, ledger (`runs/explore/ledger.jsonl`: trial id, track, config, fold metrics, time).
