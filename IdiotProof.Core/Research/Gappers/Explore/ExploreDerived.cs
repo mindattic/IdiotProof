@@ -10,6 +10,25 @@ public static class ExploreDerived
     public const string SympathyFormed = "x.sympathyFormed20";
     public const string SympathyForming = "x.sympathyForming10";
 
+    /// <summary>Appends feature columns; <paramref name="values"/> returns one value per name for a row (NaN = missing).</summary>
+    public static ExploreTable AddColumns(ExploreTable t, IReadOnlyList<string> names, Func<int, IReadOnlyList<double>> values)
+    {
+        int d = t.FeatureCount, nd = d + names.Count;
+        var x = new float[(long)t.Rows * nd];
+        for (int r = 0; r < t.Rows; r++)
+        {
+            Array.Copy(t.X, (long)r * d, x, (long)r * nd, d);
+            var v = values(r);
+            if (v.Count != names.Count) throw new InvalidOperationException($"Row {r} gave {v.Count} values for {names.Count} columns.");
+            for (int k = 0; k < names.Count; k++) x[(long)r * nd + d + k] = (float)v[k];
+        }
+        return new ExploreTable
+        {
+            Decision = t.Decision, FeatureNames = t.FeatureNames.Concat(names).ToList(), LabelNames = t.LabelNames, Symbols = t.Symbols, Days = t.Days,
+            IsCandidate = t.IsCandidate, Weights = t.Weights, X = x, L = t.L,
+        };
+    }
+
     /// <summary>
     /// Adds, per row, how many OTHER symbols the same morning were already up at least 20% (formed) and
     /// at least 10% (forming) at t. A symbol up 10% at t has a daily high at least 10% over its prior
