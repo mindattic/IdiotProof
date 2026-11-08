@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 // from docs/research/gapper-study-2026-11/params.json. Each stage writes runs/<stage>-<yyyyMMdd-HHmm>.txt/.json.
 //   dotnet run --project tools/GapperStudy -- build-universe [--from D --to D] [--smoke --symbols A,B,C] [--max-calls N]
 //   dotnet run --project tools/GapperStudy -- pull <bars|news|cik|edgar|splits|all> [--smoke] [--max-calls N] [--from D --to D]
+//   dotnet run --project tools/GapperStudy -- pull <edgar-dilution|edgar-dilution-text> [--max-calls N] (exploration only, never in `all`; files under D:\IdiotProofData\edgar-dilution, IP-T458)
 //   dotnet run --project tools/GapperStudy -- catalysts [--llm-budget N]
 //   dotnet run --project tools/GapperStudy -- snapshot <train|validation|holdout> [--smoke] [--from D --to D]
 //   dotnet run --project tools/GapperStudy -- label <train|validation|holdout> [--smoke] [--from D --to D]

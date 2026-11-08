@@ -58,12 +58,7 @@ public sealed partial class GapperExploreStage
     {
         if (t.Feature(FloatFeatures.LogShares) >= 0) return t;
         shares ??= SharesOutstandingHistory.ReadCsv(SharesCsv());
-        if (cikMap is null && File.Exists(CikMapCsv()))
-        {
-            cikMap = new(StringComparer.OrdinalIgnoreCase);
-            foreach (var line in File.ReadLines(CikMapCsv()).Skip(1))
-                if (line.Split(',') is [var sym, var c] && int.TryParse(c, CultureInfo.InvariantCulture, out var cik)) cikMap[sym] = cik;
-        }
+        LoadCikMap();
         if (shares is null || cikMap is null) return t;
         int logVol = t.Feature("LogPmCumVol");
         return ExploreDerived.AddColumns(t, [FloatFeatures.LogShares, FloatFeatures.Rotation, FloatFeatures.AgeDays, FloatFeatures.GrowthYear], r =>
@@ -72,5 +67,17 @@ public sealed partial class GapperExploreStage
             double pmVol = logVol >= 0 && t.Value(r, logVol) is var lv && !float.IsNaN(lv) ? Math.Exp(lv) - 1 : double.NaN;
             return [Math.Log(f.Shares), pmVol / f.Shares, t.Days[r].DayNumber - f.Filed.DayNumber, shares.GrowthOverYear(cik, t.Days[r]) ?? double.NaN];
         });
+    }
+
+    /// <summary>The study's symbol-to-CIK map written by `explore float-import`; null until that has run.</summary>
+    private Dictionary<string, int>? LoadCikMap()
+    {
+        if (cikMap is null && File.Exists(CikMapCsv()))
+        {
+            cikMap = new(StringComparer.OrdinalIgnoreCase);
+            foreach (var line in File.ReadLines(CikMapCsv()).Skip(1))
+                if (line.Split(',') is [var sym, var c] && int.TryParse(c, CultureInfo.InvariantCulture, out var cik)) cikMap[sym] = cik;
+        }
+        return cikMap;
     }
 }

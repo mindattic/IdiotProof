@@ -23,7 +23,7 @@ public sealed record TierSummary(string Tier, int Rows, int Calls, double Minute
 /// EDGAR form index plus acceptance times, T6 splits. Every tier is resumable by coverage mark and
 /// stops at <c>--max-calls</c>; nothing here changes a frozen definition.
 /// </summary>
-public sealed class GapperPullStage(
+public sealed partial class GapperPullStage(
     GapperStudyServices s,
     CatalystBackfillService backfill,
     EdgarService edgar,
@@ -59,7 +59,9 @@ public sealed class GapperPullStage(
                 "edgar" => await PullEdgarAsync(req, calls, ct),
                 Form4Tier => await PullForm4Async(req, calls, ct),
                 "splits" => await PullSplitsAsync(req, calls, ct),
-                _ => throw new ArgumentException($"Unknown tier '{tier}'. Use bars, news, edgar, form4, cik, splits or all."),
+                EdgarDilutionTier => await PullDilutionIndexAsync(req, calls, ct),
+                EdgarDilutionTextTier => await PullDilutionTextAsync(req, calls, ct),
+                _ => throw new ArgumentException($"Unknown tier '{tier}'. Use bars, news, edgar, form4, cik, splits, all, or the exploration-only {EdgarDilutionTier} / {EdgarDilutionTextTier}."),
             });
         }
         return results;

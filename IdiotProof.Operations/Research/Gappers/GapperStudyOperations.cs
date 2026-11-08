@@ -73,7 +73,7 @@ public sealed class GapperBuildUniverseOperation : IOperation<GapperBuildUnivers
 
 public sealed record GapperPullArgs
 {
-    [Option("tier", Description = "bars (T2 minute bars + gapper classification + controls), news (T3), cik (T5), edgar (T4 form index + acceptance times), splits (T6), or all.", Required = true)]
+    [Option("tier", Description = "bars (T2 minute bars + gapper classification + controls), news (T3), cik (T5), edgar (T4 form index + acceptance times), splits (T6), or all. Exploration only, never part of all (IP-T458): edgar-dilution (6-K, F-1/F-3, EFFECT, 424B1/2/7, S-1/A, SC 13G plus 424B5/S-3 rows into D:/IdiotProofData/edgar-dilution, with acceptance times in ET) and edgar-dilution-text (424B5/S-3/F-3 text through the ATM / baby-shelf detector).", Required = true)]
     public string Tier { get; init; } = "all";
 
     [Option("smoke", Description = "Operate on the smoke-tagged universe rows only.")]
@@ -94,12 +94,14 @@ public sealed record GapperPullArgs
 [Example("idiotproof research gappers pull --tier bars")]
 [Example("idiotproof research gappers pull --tier all --smoke")]
 [Example("idiotproof research gappers pull --tier edgar --max-calls 5000")]
+[Example("idiotproof research gappers pull --tier edgar-dilution --max-calls 50000")]
 public sealed class GapperPullOperation : IOperation<GapperPullArgs>
 {
     public async Task<OperationResult> ExecuteAsync(GapperPullArgs args, OperationContext ctx)
     {
         var tier = args.Tier.Trim().ToLowerInvariant();
-        if (tier is not ("bars" or "news" or "cik" or "edgar" or "splits" or "all")) return OperationResult.Usage("--tier must be bars, news, cik, edgar, splits or all.");
+        if (tier is not ("bars" or "news" or "cik" or "edgar" or "splits" or "all" or GapperPullStage.EdgarDilutionTier or GapperPullStage.EdgarDilutionTextTier))
+            return OperationResult.Usage($"--tier must be bars, news, cik, edgar, splits, all, {GapperPullStage.EdgarDilutionTier} or {GapperPullStage.EdgarDilutionTextTier}.");
         var s = ctx.Get<GapperStudyServices>();
         if (GapperStudyOps.Guard(s) is { } blocked) return blocked;
 

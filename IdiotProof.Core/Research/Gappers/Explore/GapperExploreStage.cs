@@ -42,6 +42,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
         ["halts"] = ["x.halt"],
         ["short-sale constraints"] = ["x.ssr", "x.si"],
         ["float proxy"] = ["x.float"],
+        ["dilution filings"] = ["x.dil"],
     };
 
     public string CacheDir() => Environment.GetEnvironmentVariable("GAPPER_EXPLORE_DIR") is { Length: > 0 } dir
@@ -147,7 +148,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     {
         var dir = CacheDir();
         if (!ExplorePanelFile.Exists(dir, decision)) throw new InvalidOperationException($"No explore panel for {decision} in {dir}; run `explore build --times \"{decision}\"` first.");
-        var t = AddFloat(AddShortSale(ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision))));
+        var t = AddDilution(AddFloat(AddShortSale(ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision)))), decision);
         halts ??= HaltHistory.Load(HaltsDir());
         if (halts is null) return t;
         var dt = DecisionTime.Parse(decision);
