@@ -114,7 +114,13 @@ Per trial: weighted AUC or precision@k (detection), mean net %/trade with day-cl
 
 Built (IP-T453): `research gappers explore <build|visibility|models|exits>` and
 `GapperStudy.dll explore ...`; panel cache in `D:\IdiotProofData\gapper-study\explore`, reports and
-the ledger in `runs/explore/`. Tracks 3, 4, 6 and 7 and the sympathy/float features are next.
+the ledger in `runs/explore/`. Also built: `explore news` (track 7: gross next-open ride by catalyst
+type, age and direction vs no-news mornings, day-clustered intervals, one ledger trial per group and
+horizon), `explore fade` (track 6, descriptive: extension from the open at 09:45 vs close below open
+and fade from the PM high, per tier and by sympathy), and the sympathy features
+(`x.sympathyFormed20`, `x.sympathyForming10`: other symbols already up 20% / 10% at t that morning,
+added when a panel loads, ablation block "sympathy"). Tracks 3 and 4 (they need the minute bars per
+trade) and the float proxy are next.
 
 - `explore` stage in `tools/GapperStudy` with the split guard, fold builder, in-memory feature
   computation, ledger (`runs/explore/ledger.jsonl`: trial id, track, config, fold metrics, time).

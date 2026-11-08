@@ -26,7 +26,7 @@ public sealed class GapperExploreStage(GapperStudyServices s, GapperSnapshotStag
     /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
     public const double FormedGapPct = 20;
 
-    public static readonly string[] Commands = ["build", "visibility", "models", "exits"];
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade"];
 
     /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -38,6 +38,7 @@ public sealed class GapperExploreStage(GapperStudyServices s, GapperSnapshotStag
         ["corporate actions"] = ["DaysSinceReverseSplit", "DaysSince424B", "DaysSinceS1"],
         ["catalyst"] = ["Catalyst", "Pre.", "x.promoSourceShare", "x.llm", "x.form4", "x.8k"],
         ["microstructure"] = ["TradesProxy", "SpreadProxy", "x.tradesRoc", "x.csSpreadPrior", "x.leeMykland"],
+        ["sympathy"] = ["x.sympathy"],
     };
 
     public string CacheDir() => Environment.GetEnvironmentVariable("GAPPER_EXPLORE_DIR") is { Length: > 0 } dir
@@ -66,6 +67,8 @@ public sealed class GapperExploreStage(GapperStudyServices s, GapperSnapshotStag
             "visibility" => Visibility(times),
             "models" => Models(times),
             "exits" => Exits(times),
+            "news" => News(times),
+            "fade" => Fade(times),
             _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
         };
         return new ExploreResult(command, file, trials, Ledger.Count, lines, Math.Round(sw.Elapsed.TotalMinutes, 2));
@@ -135,7 +138,7 @@ public sealed class GapperExploreStage(GapperStudyServices s, GapperSnapshotStag
     {
         var dir = CacheDir();
         if (!ExplorePanelFile.Exists(dir, decision)) throw new InvalidOperationException($"No explore panel for {decision} in {dir}; run `explore build --times \"{decision}\"` first.");
-        return ExplorePanelFile.Read(dir, decision);
+        return ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision));
     }
 
     /// <summary>Rows with a defined target, optionally only mornings still forming (GapPct below the formed level at t).</summary>
@@ -363,6 +366,109 @@ public sealed class GapperExploreStage(GapperStudyServices s, GapperSnapshotStag
         md.AppendLine();
         md.AppendLine("Descriptive only: no trial is logged for this table. Gapper days are a census (candidates), so no weights.");
         return Write("exits", md, [], json);
+    }
+
+    // ── track 7: news ride ────────────────────────────────────────────────
+
+    /// <summary>Catalyst age buckets in minutes since publication at t.</summary>
+    private static readonly (string Name, double Lo, double Hi)[] AgeBuckets =
+        [("<=15 min", 0, 15), ("15-60 min", 15, 60), ("1-4 h", 60, 240), ("4-24 h", 240, 1440)];
+
+    private static readonly string[] RideHorizons = ["FwdClose0945", "FwdClose1030", "FwdClose1600"];
+
+    /// <summary>
+    /// What buying at the next open after t returns, gross, by catalyst type, age and direction, against
+    /// the same mornings without news. Mean with a day-clustered 95% interval per horizon; one ledger
+    /// trial per group and horizon (fold values are the eval-window means). Gross of cost: a group worth
+    /// a finalist slot is costed with the frozen model before amendment 04.
+    /// </summary>
+    private (List<string>, int, string?) News(IReadOnlyList<string> times)
+    {
+        var decision = times.Count == 1 ? times[0] : "08:00";
+        var t = Load(decision);
+        var folds = Folds(t);
+        int age = t.Feature("CatalystAgeMinutes"), dir = t.Feature("CatalystDirection"), gap = t.Feature("GapPct"), entry = t.Label("HasEntry");
+        var md = new StringBuilder(Header($"news ride from {decision} (buy the next open after t, gross)", folds));
+        var trials = new List<ExploreTrial>();
+        var json = new List<object>();
+        var pre = Enumerable.Range(0, t.FeatureCount).Where(f => t.FeatureNames[f].StartsWith("Pre.", StringComparison.Ordinal)).ToList();
+
+        bool HasNews(int r) => age >= 0 && t.Value(r, age) is var a && !float.IsNaN(a) && a <= 1440;
+        var tradable = Enumerable.Range(0, t.Rows).Where(r => t.Weights[r] > 0 && entry >= 0 && t.LabelValue(r, entry) > 0.5f
+            && gap >= 0 && t.Value(r, gap) is var g && !float.IsNaN(g) && g < FormedGapPct).ToList();
+
+        var groups = new List<(string Name, Func<int, bool> Pick)>
+        {
+            ("no news <= 24h", r => !HasNews(r)),
+            ("any news <= 24h", HasNews),
+        };
+        foreach (var (name, lo, hi) in AgeBuckets) groups.Add(($"news age {name}", r => HasNews(r) && t.Value(r, age) is var a && a >= lo && a < hi));
+        groups.Add(("news, positive direction", r => HasNews(r) && dir >= 0 && t.Value(r, dir) > 0));
+        groups.Add(("news, negative direction", r => HasNews(r) && dir >= 0 && t.Value(r, dir) < 0));
+        foreach (var f in pre) groups.Add(($"type {t.FeatureNames[f][4..]}", r => HasNews(r) && t.Value(r, f) > 0.5f));
+
+        md.AppendLine("Mornings still below +20% at t with a next-open entry. Mean gross return, day-clustered 95% interval, days in brackets.");
+        md.AppendLine();
+        md.AppendLine("| group | rows | " + string.Join(" | ", RideHorizons.Select(h => "to " + h[^4..^2] + ":" + h[^2..])) + " |");
+        md.AppendLine("|---|---|" + string.Concat(RideHorizons.Select(_ => "---|")));
+        foreach (var (name, pick) in groups)
+        {
+            var rows = tradable.Where(pick).ToList();
+            if (rows.Count == 0) continue;
+            var cells = new List<string>();
+            foreach (var h in RideHorizons)
+            {
+                int lab = t.Label(h);
+                if (lab < 0) { cells.Add("n/a"); continue; }
+                var all = ExploreDerived.ClusteredMean(rows.Select(r => (t.Days[r], (double)t.LabelValue(r, lab), t.Weights[r])));
+                cells.Add(all is { } m ? string.Create(CultureInfo.InvariantCulture, $"{m.Mean:+0.0%;-0.0%} [{m.Lo:+0.0%;-0.0%}, {m.Hi:+0.0%;-0.0%}] ({m.Days})") : "n/a");
+                var perFold = folds.Select(fd => ExploreDerived.ClusteredMean(rows.Where(r => fd.InEval(t.Days[r])).Select(r => (t.Days[r], (double)t.LabelValue(r, lab), t.Weights[r])))?.Mean).ToList();
+                trials.Add(new ExploreTrial { Track = "news", Config = $"t={decision} {name} horizon={h}", Metric = "meanGrossReturn", FoldValues = perFold, Pooled = all?.Mean, Rows = rows.Count });
+                json.Add(new { group = name, horizon = h, rows = rows.Count, mean = all?.Mean, lo = all?.Lo, hi = all?.Hi, days = all?.Days, folds = perFold });
+            }
+            md.AppendLine($"| {name} | {rows.Count:N0} | {string.Join(" | ", cells)} |");
+        }
+        md.AppendLine();
+        md.AppendLine("Gross of cost: penny names often cost several percent round trip, so a group needs a clear margin before it is costed.");
+        return Write("news", md, trials, json);
+    }
+
+    // ── track 6: fade leg (descriptive) ───────────────────────────────────
+
+    /// <summary>Extension from the open at 09:45 against how the day ends, per gap tier (the H13 shape, census of gapper days).</summary>
+    private (List<string>, int, string?) Fade(IReadOnlyList<string> times)
+    {
+        var decision = times.Count == 1 ? times[0] : "08:00";
+        var t = Load(decision);
+        var folds = Folds(t);
+        int isG = t.Label("IsGapper"), t50 = t.Label("Tier50"), ext = t.Label("ExtensionFromOpen0945"), below = t.Label("CloseBelowOpen"),
+            fade = t.Label("Fade"), f30 = t.Label("FadeFlag30"), symp = t.Feature(ExploreDerived.SympathyFormed);
+        var md = new StringBuilder(Header("fade leg: extension from the open at 09:45 vs how the day ends (gapper days, descriptive)", folds));
+        var json = new List<object>();
+        (string, double, double)[] buckets = [("< 10%", double.NegativeInfinity, 0.10), ("10-25%", 0.10, 0.25), ("25-50%", 0.25, 0.50), (">= 50%", 0.50, double.PositiveInfinity)];
+        md.AppendLine("| tier | extension at 09:45 | days | close below open | fade >= 30% from PM high | median close vs PM high |");
+        md.AppendLine("|---|---|---|---|---|---|");
+        foreach (var (tier, inTier) in new (string, Func<int, bool>)[]
+        {
+            ("Tier20+", r => t.LabelValue(r, isG) > 0.5f),
+            ("Tier50+", r => t50 >= 0 && t.LabelValue(r, t50) > 0.5f),
+            ("Tier20+, another gapper formed by t", r => t.LabelValue(r, isG) > 0.5f && symp >= 0 && t.Value(r, symp) >= 1),
+            ("Tier20+, alone at t", r => t.LabelValue(r, isG) > 0.5f && symp >= 0 && t.Value(r, symp) == 0),
+        })
+        {
+            foreach (var (bucket, lo, hi) in buckets)
+            {
+                var rows = Enumerable.Range(0, t.Rows).Where(r => t.IsCandidate[r] && inTier(r) && ext >= 0 && t.LabelValue(r, ext) is var e && !float.IsNaN(e) && e >= lo && e < hi).ToList();
+                if (rows.Count == 0) continue;
+                double Share(int lab) => lab < 0 ? double.NaN : (double)rows.Count(r => t.LabelValue(r, lab) > 0.5f) / Math.Max(1, rows.Count(r => !float.IsNaN(t.LabelValue(r, lab))));
+                var med = fade < 0 ? null : MedianOf(rows.Select(r => (double)t.LabelValue(r, fade)).Where(double.IsFinite).ToList());
+                md.AppendLine(string.Create(CultureInfo.InvariantCulture, $"| {tier} | {bucket} | {rows.Count:N0} | {Share(below):P1} | {Share(f30):P1} | {(med is { } m ? m.ToString("+0.0%;-0.0%", CultureInfo.InvariantCulture) : "n/a")} |"));
+                json.Add(new { tier, bucket, days = rows.Count, closeBelowOpen = Share(below), fade30 = Share(f30), medianFade = med });
+            }
+        }
+        md.AppendLine();
+        md.AppendLine("Descriptive only: no trial is logged. Gapper days are a census (candidates), so no weights.");
+        return Write("fade", md, [], json);
     }
 
     private static double? MedianOf(List<double> v)

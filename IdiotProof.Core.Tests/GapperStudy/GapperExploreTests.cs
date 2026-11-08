@@ -167,4 +167,43 @@ public class GapperExploreTests
         }
         finally { Environment.SetEnvironmentVariable("GAPPER_EXPLORE_DIR", null); }
     }
+
+    [Test]
+    public void Sympathy_CountsOtherSymbolsAlreadyUpTheSameMorning()
+    {
+        var d1 = new DateOnly(2023, 3, 1); var d2 = new DateOnly(2023, 3, 2);
+        float[] gaps = [25, 12, 30, 5, float.NaN, 22];
+        var t = new ExploreTable
+        {
+            Decision = "08:00", FeatureNames = ["GapPct"], LabelNames = [], Symbols = ["A", "B", "C", "D", "E", "F"],
+            Days = [d1, d1, d1, d1, d1, d2], IsCandidate = [true, true, true, false, false, true], Weights = [1, 1, 1, 10, 10, 1],
+            X = gaps, L = [],
+        };
+        var s = ExploreDerived.AddSympathy(t);
+        int formed = s.Feature(ExploreDerived.SympathyFormed), forming = s.Feature(ExploreDerived.SympathyForming);
+        Assert.Multiple(() =>
+        {
+            Assert.That(Enumerable.Range(0, 4).Select(r => s.Value(r, formed)), Is.EqualTo(new float[] { 1, 2, 1, 2 }), "A and C are up 20%; each counts only the other");
+            Assert.That(Enumerable.Range(0, 4).Select(r => s.Value(r, forming)), Is.EqualTo(new float[] { 2, 2, 2, 3 }));
+            Assert.That(float.IsNaN(s.Value(4, formed)), "no gap value, no count");
+            Assert.That(s.Value(5, formed), Is.EqualTo(0), "another morning is not counted");
+            Assert.That(s.Value(0, s.Feature("GapPct")), Is.EqualTo(25), "existing columns are kept");
+            Assert.That(ExploreDerived.AddSympathy(s).FeatureCount, Is.EqualTo(s.FeatureCount), "adding twice is a no-op");
+        });
+    }
+
+    [Test]
+    public void ClusteredMean_WeighsRowsAndClustersByDay()
+    {
+        var d1 = new DateOnly(2023, 3, 1); var d2 = new DateOnly(2023, 3, 2);
+        var m = ExploreDerived.ClusteredMean([(d1, 0.10, 1), (d1, 0.30, 1), (d2, -0.10, 2)])!.Value;
+        Assert.Multiple(() =>
+        {
+            Assert.That(m.Mean, Is.EqualTo(0.05).Within(1e-12), "(0.1 + 0.3 - 0.2) / 4");
+            Assert.That(m.Days, Is.EqualTo(2));
+            Assert.That(m.Lo, Is.LessThan(m.Mean));
+            Assert.That(m.Hi, Is.GreaterThan(m.Mean));
+            Assert.That(ExploreDerived.ClusteredMean([(d1, 0.1, 1)]), Is.Null, "one day has no interval");
+        });
+    }
 }

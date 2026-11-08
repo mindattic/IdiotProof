@@ -384,7 +384,7 @@ public sealed class GapperStatusOperation : IOperation<GapperStatusArgs>
 
 public sealed record GapperExploreArgs
 {
-    [Option("command", Description = "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation) or exits (when velocity runs out).", Required = true)]
+    [Option("command", Description = "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction) or fade (extension from the open vs how the day ends).", Required = true)]
     public string Command { get; init; } = "";
 
     [Option("split", Description = "Must be train: the exploratory round never reads validation or holdout.")]
