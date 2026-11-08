@@ -26,7 +26,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
     public const double FormedGapPct = 20;
 
-    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries"];
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs"];
 
     /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -70,6 +70,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             "news" => News(times),
             "fade" => Fade(times),
             "entries" => await EntriesAsync(times, ct),
+            "corobs" => Corobs(times),
             _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
         };
         return new ExploreResult(command, file, trials, Ledger.Count, lines, Math.Round(sw.Elapsed.TotalMinutes, 2));
