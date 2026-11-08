@@ -26,7 +26,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
     public const double FormedGapPct = 20;
 
-    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr"];
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import"];
 
     /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -41,6 +41,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
         ["sympathy"] = ["x.sympathy"],
         ["halts"] = ["x.halt"],
         ["short-sale constraints"] = ["x.ssr", "x.si"],
+        ["float proxy"] = ["x.float"],
     };
 
     public string CacheDir() => Environment.GetEnvironmentVariable("GAPPER_EXPLORE_DIR") is { Length: > 0 } dir
@@ -74,6 +75,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             "entries" => await EntriesAsync(times, ct),
             "corobs" => Corobs(times),
             "ssr" => await SsrAsync(times, ct),
+            "float-import" => await FloatImportAsync(ct),
             _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
         };
         return new ExploreResult(command, file, trials, Ledger.Count, lines, Math.Round(sw.Elapsed.TotalMinutes, 2));
@@ -143,7 +145,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     {
         var dir = CacheDir();
         if (!ExplorePanelFile.Exists(dir, decision)) throw new InvalidOperationException($"No explore panel for {decision} in {dir}; run `explore build --times \"{decision}\"` first.");
-        var t = AddShortSale(ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision)));
+        var t = AddFloat(AddShortSale(ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision))));
         halts ??= HaltHistory.Load(HaltsDir());
         if (halts is null) return t;
         var dt = DecisionTime.Parse(decision);
