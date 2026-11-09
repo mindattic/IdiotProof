@@ -25,6 +25,7 @@ using Microsoft.Extensions.Logging;
 //   dotnet run --project tools/GapperStudy -- test <H1 H2 ...|all> --split <train|validation|holdout> [--smoke]
 //   dotnet run --project tools/GapperStudy -- report [--skip-export]
 //   dotnet run --project tools/GapperStudy -- explore <build|visibility|models|exits|news|fade|entries|corobs|ssr|float-import|tradeflow-pull|tradeflow|regsho-pull|alarms|exit-routes|fade-short|fade-short-deep|alarm-ride> [--times "08:00,08:30"] [--force] [--from D --to D] (train only, IP-T453)
+//   dotnet run --project tools/GapperStudy -- casestudy [--from 2026-09-10 --to 2026-11-09 --top 5] [--extra "2026-11-09:CKX,GFR;2026-11-06:NWGL"] (IP-T486: recent-runner case studies on the window amendment 05 opened; refuses any date before 2026-09-10)
 //   dotnet run --project tools/GapperStudy -- status
 //   --user <guid> names the owner whose Alpaca keys are used when the host has none; --db <name> overrides the research DB name.
 
@@ -73,7 +74,7 @@ await using (var db = new AppDbContext(migrateOptions))
 
 Guid? owner = Guid.TryParse(flags.GetValueOrDefault("user"), out var explicitOwner) ? explicitOwner : null;
 var settings = root.GetRequiredService<AppSettings>();
-if (string.IsNullOrWhiteSpace(settings.AlpacaApiKeyId) && owner is null && stage is "build-universe" or "pull" or "calibrate-spread")
+if (string.IsNullOrWhiteSpace(settings.AlpacaApiKeyId) && owner is null && stage is "build-universe" or "pull" or "calibrate-spread" or "casestudy")
 {
     var resolvedOwner = await OwnerResolver.ResolveAsync(root.GetRequiredService<IDbContextFactory<AppDbContext>>(), null);
     owner = resolvedOwner.OwnerId;
@@ -131,7 +132,8 @@ try
             Parallelism = flags.ContainsKey("parallelism") ? Int(flags, "parallelism") : 4,
         }, ctx),
         "status" => await new GapperStatusOperation().ExecuteAsync(new GapperStatusArgs(), ctx),
-        _ => throw new ArgumentException($"Unknown stage '{stage}'. Use build-universe, pull, catalysts, snapshot, label, calibrate-spread, test, report, explore or status."),
+        "casestudy" => await CaseStudyCommand.RunAsync(scope.ServiceProvider, owner, flags, CancellationToken.None),
+        _ => throw new ArgumentException($"Unknown stage '{stage}'. Use build-universe, pull, catalysts, snapshot, label, calibrate-spread, test, report, explore, casestudy or status."),
     };
 }
 catch (Exception ex)

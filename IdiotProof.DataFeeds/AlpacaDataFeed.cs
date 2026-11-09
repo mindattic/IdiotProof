@@ -112,14 +112,14 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
 
     /// <summary>
     /// Bars for many symbols in one request stream (<c>/v2/stocks/bars?symbols=A,B,...</c>, paged at
-    /// <paramref name="limit"/> bars per page, <c>adjustment=raw</c>). Every bar is a
+    /// <paramref name="limit"/> bars per page, <c>adjustment=raw</c> unless <paramref name="adjustment"/> names another, e.g. <c>split</c>). Every bar is a
     /// <see cref="DetailedCandle"/> with trade count and VWAP. <paramref name="onPage"/> runs before
     /// each request so a caller can pace to the data API's rate limit. A 429 or gateway error backs
     /// off exponentially up to five attempts; any other failure throws with status and body.
     /// </summary>
     public async Task<MultiSymbolBars> GetHistoricalCandlesForSymbolsAsync(
         IReadOnlyList<string> symbols, TimeSpan candleSize, DateTime startUtc, DateTime endUtc,
-        int limit = 10000, Func<CancellationToken, Task>? onPage = null, CancellationToken ct = default)
+        int limit = 10000, Func<CancellationToken, Task>? onPage = null, CancellationToken ct = default, string adjustment = "raw")
     {
         var list = symbols.Select(s => s.Trim().ToUpperInvariant()).Where(s => s.Length > 0).Distinct().ToList();
         var bars = new Dictionary<string, List<Candle>>(StringComparer.OrdinalIgnoreCase);
@@ -131,7 +131,7 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
         var timeframe = ToAlpacaTimeframe(candleSize);
         var query = $"v2/stocks/bars?symbols={Uri.EscapeDataString(string.Join(',', list))}&timeframe={timeframe}"
                   + $"&start={Uri.EscapeDataString(startUtc.ToString("O"))}&end={Uri.EscapeDataString(endUtc.ToString("O"))}"
-                  + $"&limit={Math.Clamp(limit, 1, 10000)}&adjustment=raw";
+                  + $"&limit={Math.Clamp(limit, 1, 10000)}&adjustment={Uri.EscapeDataString(adjustment)}";
         string? pageToken = null;
         int pages = 0;
         string tierUsed = feedTier;

@@ -67,6 +67,9 @@ public sealed class HaltHistory
     private static DateTime? Et(string date, string time)
     {
         if (!DateOnly.TryParseExact(date, "MM/dd/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)) return null;
+        // the feed has padded the time since late 2026 ("06:55:00                      .000"): drop the padding and the milliseconds
+        time = string.Concat(time.Where(c => !char.IsWhiteSpace(c)));
+        if (time.IndexOf('.') is var dot and > 0) time = time[..dot];
         if (!TimeSpan.TryParseExact(time, @"hh\:mm\:ss", CultureInfo.InvariantCulture, out var t)) return null;
         return MinuteBarMath.ToUtc(d, t);
     }
