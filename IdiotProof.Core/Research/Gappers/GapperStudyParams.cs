@@ -32,6 +32,8 @@ public sealed class GapperStudyPaths
     public string RunsDir => Path.Combine(StudyDir, "runs");
     public string SampleFile(bool smoke) => Path.Combine(StudyDir, smoke ? "sample.smoke.json" : "sample.json");
     public string ProfileFile(bool smoke) => Path.Combine(DataDir, smoke ? "tod-profile.smoke.json" : "tod-profile.json");
+    /// <summary>The trade-count time-of-day profile (IP-T470), fit like the volume profile on train control days.</summary>
+    public string TradeProfileFile(bool smoke) => Path.Combine(DataDir, smoke ? "tod-trades-profile.smoke.json" : "tod-trades-profile.json");
     public string UnlockFile(GapperStudyParams p) => Path.Combine(StudyDir, p.HoldoutLock.UnlockFile);
     public string HoldoutRunFile(GapperStudyParams p) => Path.Combine(StudyDir, p.HoldoutLock.RunFile);
 

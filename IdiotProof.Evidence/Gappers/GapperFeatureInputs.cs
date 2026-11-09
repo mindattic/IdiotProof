@@ -52,6 +52,15 @@ public sealed record GapperFeatureInputs
     /// <summary>Average daily share volume over the 20 sessions before D; derived from daily bars when null.</summary>
     public double? Adv20Shares { get; init; }
 
+    /// <summary>
+    /// Average daily trade count over the 20 sessions before D (the count CUSUM's baseline, IP-T470);
+    /// derived from daily bars that carry a trade count, else from the prior days' minute bars, when null.
+    /// </summary>
+    public double? Adt20Trades { get; init; }
+
+    /// <summary>The trade-count time-of-day profile (<see cref="TimeOfDayProfile.BuildTradeCount"/>); the count CUSUM is null without it.</summary>
+    public TimeOfDayProfile? TradeProfile { get; init; }
+
     /// <summary>The symbol's own minute bars for D-1..D-5 (any subset, one list per day).</summary>
     public IReadOnlyList<IReadOnlyList<Candle>> PriorDayMinuteBars { get; init; } = [];
 

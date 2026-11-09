@@ -236,10 +236,12 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
         var daily = rawDaily.Select(b =>
         {
             var f = GapperUniverseBuilder.SplitFactor(splits, b.DateEt, u.DateEt);
-            return new Candle
+            // DetailedCandle carries the session's trade count for the explore count CUSUM's ADT20 (IP-T470); no frozen feature reads it.
+            return new DetailedCandle
             {
                 Symbol = b.Symbol, StartUtc = MinuteBarMath.ToUtc(b.DateEt, TimeSpan.Zero), EndUtc = MinuteBarMath.ToUtc(b.DateEt, TimeSpan.Zero).AddDays(1),
                 Open = b.Open * f, High = b.High * f, Low = b.Low * f, Close = b.Close * f, Volume = b.Volume / f, Note = b.Feed,
+                TradeCount = b.TradeCount, Vwap = b.Vwap * f,
             };
         }).ToList();
         var reverse = splits.Where(x => x.OldRate > x.NewRate && (u.DateEt.DayNumber - x.ExDate.DayNumber) <= p.Features.DaysSinceMaxDays)

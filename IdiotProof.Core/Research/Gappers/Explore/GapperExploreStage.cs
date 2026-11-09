@@ -26,7 +26,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
     public const double FormedGapPct = 20;
 
-    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow"];
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow", "alarms"];
 
     /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -43,6 +43,9 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
         ["short-sale constraints"] = ["x.ssr", "x.si"],
         ["float proxy"] = ["x.float"],
         ["dilution filings"] = ["x.dil"],
+        ["onset cusum"] = ["x.cusum", "x.minsSinceCusumAlarm", "x.rankCusumVol"],
+        ["cross-sectional rank"] = ["x.pmVolRatioMkt", "x.rankPmVolRatio", "x.rankPmRet"],
+        ["volume-confirmed gap"] = ["x.pmVwapRet", "x.conf", "x.pmDollarShareAbove10"],
     };
 
     public string CacheDir() => Environment.GetEnvironmentVariable("GAPPER_EXPLORE_DIR") is { Length: > 0 } dir
@@ -79,6 +82,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             "float-import" => await FloatImportAsync(ct),
             "tradeflow-pull" => await TradeFlowPullAsync(req, ct),
             "tradeflow" => await TradeFlowAsync(req, ct),
+            "alarms" => await AlarmsAsync(req, ct),
             _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
         };
         return new ExploreResult(command, file, trials, Ledger.Count, lines, Math.Round(sw.Elapsed.TotalMinutes, 2));
@@ -103,7 +107,8 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
         var profile = TimeOfDayProfile.Load(profilePath);
         var store = await s.StoreAsync(ct);
         var amendment = s.Amendment;
-        var registry = GapperSnapshotStage.Registry(p);
+        // The frozen registry plus the post-registration onset block (IP-T470); the snapshot stage itself never adds it.
+        var registry = GapperSnapshotStage.Registry(p).AddOnset(await TradeProfileAsync(store, ct));
 
         var days = (await s.StudyDaysAsync("train", req.From, req.To, ct))
             .Select(u => (U: u, Sampled: !u.IsCandidate && amendment is not null && amendment.IsSampleMember(u.Symbol, u.DateEt)))
@@ -148,7 +153,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     {
         var dir = CacheDir();
         if (!ExplorePanelFile.Exists(dir, decision)) throw new InvalidOperationException($"No explore panel for {decision} in {dir}; run `explore build --times \"{decision}\"` first.");
-        var t = AddDilution(AddFloat(AddShortSale(ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision)))), decision);
+        var t = AddDilution(AddFloat(AddShortSale(ExploreDerived.AddCrossSection(ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision))))), decision);
         halts ??= HaltHistory.Load(HaltsDir());
         if (halts is null) return t;
         var dt = DecisionTime.Parse(decision);

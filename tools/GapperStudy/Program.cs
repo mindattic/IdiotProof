@@ -24,7 +24,7 @@ using Microsoft.Extensions.Logging;
 //   dotnet run --project tools/GapperStudy -- calibrate-spread [--split train --events 500] [--force]
 //   dotnet run --project tools/GapperStudy -- test <H1 H2 ...|all> --split <train|validation|holdout> [--smoke]
 //   dotnet run --project tools/GapperStudy -- report [--skip-export]
-//   dotnet run --project tools/GapperStudy -- explore <build|visibility|models|exits|news|fade|entries|corobs|ssr|float-import|tradeflow-pull|tradeflow> [--times "08:00,08:30"] [--force] [--from D --to D] (train only, IP-T453)
+//   dotnet run --project tools/GapperStudy -- explore <build|visibility|models|exits|news|fade|entries|corobs|ssr|float-import|tradeflow-pull|tradeflow|alarms> [--times "08:00,08:30"] [--force] [--from D --to D] (train only, IP-T453)
 //   dotnet run --project tools/GapperStudy -- status
 //   --user <guid> names the owner whose Alpaca keys are used when the host has none; --db <name> overrides the research DB name.
 

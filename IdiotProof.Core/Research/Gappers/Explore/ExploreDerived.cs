@@ -73,6 +73,44 @@ public static class ExploreDerived
         };
     }
 
+    public const string PmVolRatioMkt = "x.pmVolRatioMkt";
+    public const string RankPmVolRatio = "x.rankPmVolRatio";
+    public const string RankPmRet = "x.rankPmRet";
+    public const string RankCusumVol = "x.rankCusumVol";
+
+    /// <summary>
+    /// Market-day normalisation and within-morning ranks at t (IP-T470, methods-onset.md P2):
+    /// <c>x.pmVolRatioMkt</c> = VolRatioTod over its weighted median that morning, and the weighted
+    /// percentile ranks of VolRatioTod, GapPct and <c>x.cusumVol</c> (NaN until a panel built with the
+    /// onset block carries it) across that morning's panel rows. The panel is candidates plus the
+    /// weighted population sample, so these are weighted estimates of the U(D) values; each reads only
+    /// the same decision time's values, so nothing looks ahead.
+    /// </summary>
+    public static ExploreTable AddCrossSection(ExploreTable t)
+    {
+        if (t.Feature(PmVolRatioMkt) >= 0) return t;
+        int vr = t.Feature("VolRatioTod"), gap = t.Feature("GapPct"), cusum = t.Feature("x." + IdiotProof.Evidence.Gappers.OnsetFeatureNames.CusumVol);
+        var cols = new double[4][];
+        for (int c = 0; c < cols.Length; c++) { cols[c] = new double[t.Rows]; Array.Fill(cols[c], double.NaN); }
+        foreach (var day in Enumerable.Range(0, t.Rows).GroupBy(r => t.Days[r]))
+        {
+            var rows = day.ToList();
+            var w = rows.Select(r => t.Weights[r]).ToList();
+            List<double> Col(int f) => rows.Select(r => f < 0 ? double.NaN : (double)t.Value(r, f)).ToList();
+            var volRatio = Col(vr);
+            var results = new[]
+            {
+                IdiotProof.Evidence.Gappers.CrossSectionalRank.MarketNormalised(volRatio, w),
+                IdiotProof.Evidence.Gappers.CrossSectionalRank.PercentileRanks(volRatio, w),
+                IdiotProof.Evidence.Gappers.CrossSectionalRank.PercentileRanks(Col(gap), w),
+                IdiotProof.Evidence.Gappers.CrossSectionalRank.PercentileRanks(Col(cusum), w),
+            };
+            for (int c = 0; c < results.Length; c++)
+                for (int i = 0; i < rows.Count; i++) cols[c][rows[i]] = results[c][i];
+        }
+        return AddColumns(t, [PmVolRatioMkt, RankPmVolRatio, RankPmRet, RankCusumVol], r => [cols[0][r], cols[1][r], cols[2][r], cols[3][r]]);
+    }
+
     public const string OpenWindowPauseLabel = "OpenWindowPauseMinEt";
 
     /// <summary>

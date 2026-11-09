@@ -64,14 +64,24 @@ public sealed class TimeOfDayProfile
     /// Builds a profile from whole-day minute bars: each day's cumulative fraction curve, then the
     /// per-minute median across the days in each decile. Deciles with no days get a flat uniform curve.
     /// </summary>
-    public static TimeOfDayProfile Build(IEnumerable<(int Decile, IReadOnlyList<Candle> DayBars)> days)
+    public static TimeOfDayProfile Build(IEnumerable<(int Decile, IReadOnlyList<Candle> DayBars)> days) => Build(days, b => (double)b.Volume);
+
+    /// <summary>
+    /// The trade-count profile (IP-T470): the same median cumulative-fraction curve, built from each
+    /// bar's trade count (<see cref="GapperFormationFeatures.Trades"/>) instead of its volume, so the
+    /// count CUSUM has a time-of-day expectation for prints as the volume CUSUM has for shares.
+    /// </summary>
+    public static TimeOfDayProfile BuildTradeCount(IEnumerable<(int Decile, IReadOnlyList<Candle> DayBars)> days) => Build(days, b => GapperFormationFeatures.Trades(b));
+
+    /// <summary>Builds a profile of any per-bar measure (volume, trade count) the same way.</summary>
+    public static TimeOfDayProfile Build(IEnumerable<(int Decile, IReadOnlyList<Candle> DayBars)> days, Func<Candle, double> measure)
     {
         var curves = new List<double[]>[DecileCount];
         for (int d = 0; d < DecileCount; d++) curves[d] = [];
         foreach (var (decile, bars) in days)
         {
             if (bars.Count == 0) continue;
-            var curve = DayCurve(bars);
+            var curve = DayCurve(bars, measure);
             if (curve is not null) curves[ClampDecile(decile)].Add(curve);
         }
 
@@ -97,7 +107,7 @@ public sealed class TimeOfDayProfile
         return new TimeOfDayProfile(result);
     }
 
-    private static double[]? DayCurve(IReadOnlyList<Candle> bars)
+    private static double[]? DayCurve(IReadOnlyList<Candle> bars, Func<Candle, double> measure)
     {
         var day = MinuteBarMath.SessionDate(bars[0].EndUtc);
         var start = MinuteBarMath.ToUtc(day, MinuteBarMath.SessionStartEt);
@@ -107,8 +117,9 @@ public sealed class TimeOfDayProfile
         {
             var idx = (int)Math.Round((b.EndUtc - start).TotalMinutes);
             if (idx < 1 || idx > MinutesPerDay) continue;
-            perMinute[idx] += (double)b.Volume;
-            total += (double)b.Volume;
+            var v = measure(b);
+            perMinute[idx] += v;
+            total += v;
         }
         if (total <= 0) return null;
         var curve = new double[MinutesPerDay + 1];

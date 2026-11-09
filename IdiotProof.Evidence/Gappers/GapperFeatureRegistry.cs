@@ -33,6 +33,18 @@ public sealed class GapperFeatureRegistry
 
     public bool IsPostRegistration(string name) => postRegistration.Contains(name);
 
+    /// <summary>
+    /// Adds the post-registration onset block (IP-T470): <c>cusumVol</c>, <c>cusumTrades</c>,
+    /// <c>minsSinceCusumAlarm</c> (count CUSUM against the time-of-day profiles) and the volume-confirmed
+    /// gap <c>pmVwapRet</c>, <c>conf</c>, <c>pmDollarShareAbove10</c>. Exploration only: the frozen
+    /// snapshot registry does not call this.
+    /// </summary>
+    public GapperFeatureRegistry AddOnset(TimeOfDayProfile? tradeProfile)
+    {
+        foreach (var name in OnsetFeatureNames.All) Add(new OnsetFeature(name, tradeProfile), postRegistration: true);
+        return this;
+    }
+
     /// <summary>The two trivial literature features that prove the hook: prior-day overnight return and volume ratio.</summary>
     public static GapperFeatureRegistry Default() => new GapperFeatureRegistry()
         .Add(new OvernightReturnD1Feature())
