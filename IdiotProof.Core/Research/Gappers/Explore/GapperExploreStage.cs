@@ -26,7 +26,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
     public const double FormedGapPct = 20;
 
-    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow", "alarms", "exit-routes"];
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow", "regsho-pull", "alarms", "exit-routes"];
 
     /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -41,6 +41,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
         ["sympathy"] = ["x.sympathy"],
         ["halts"] = ["x.halt"],
         ["short-sale constraints"] = ["x.ssr", "x.si"],
+        ["reg sho and short volume"] = ["x.regSho", "x.shortVol"],
         ["float proxy"] = ["x.float"],
         ["dilution filings"] = ["x.dil"],
         ["onset cusum"] = ["x.cusum", "x.minsSinceCusumAlarm", "x.rankCusumVol"],
@@ -82,6 +83,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             "float-import" => await FloatImportAsync(ct),
             "tradeflow-pull" => await TradeFlowPullAsync(req, ct),
             "tradeflow" => await TradeFlowAsync(req, ct),
+            "regsho-pull" => await RegShoPullAsync(req, ct),
             "exit-routes" => await ExitRoutesAsync(times, req, ct),
             "alarms" => await AlarmsAsync(req, ct),
             _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
@@ -154,7 +156,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     {
         var dir = CacheDir();
         if (!ExplorePanelFile.Exists(dir, decision)) throw new InvalidOperationException($"No explore panel for {decision} in {dir}; run `explore build --times \"{decision}\"` first.");
-        var t = AddDilution(AddFloat(AddShortSale(ExploreDerived.AddCrossSection(ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision))))), decision);
+        var t = AddDilution(AddFloat(AddRegSho(AddShortSale(ExploreDerived.AddCrossSection(ExploreDerived.AddSympathy(ExplorePanelFile.Read(dir, decision)))))), decision);
         halts ??= HaltHistory.Load(HaltsDir());
         if (halts is null) return t;
         var dt = DecisionTime.Parse(decision);

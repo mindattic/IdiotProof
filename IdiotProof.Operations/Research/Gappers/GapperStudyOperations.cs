@@ -386,7 +386,7 @@ public sealed class GapperStatusOperation : IOperation<GapperStatusArgs>
 
 public sealed record GapperExploreArgs
 {
-    [Option("command", Description = "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow), tradeflow (retail imbalance collapse vs the high, H17) alarms (alarm-time scoring 06:00-09:10 of count-CUSUM and rank-k onset rules vs gainers + news: hit rate, lead to +20%, false alarms per 100 mornings, per fold) or exit-routes (clock exit routes 09:15/09:20, opg limit by 09:27 with a 09:30:05 fallback, 09:31, 09:44, 09:50 with or without the LULD 09:44 exit, alone and with the drift-change and giveback overlays, plus the $1k/$5k/$25k participation capacity curve; default --times 08:30).", Required = true)]
+    [Option("command", Description = "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow), tradeflow (retail imbalance collapse vs the high, H17) regsho-pull (Nasdaq and NYSE Reg SHO threshold lists and FINRA daily short volume, 2021-10-01..2026-11-06, resumable), alarms (alarm-time scoring 06:00-09:10 of count-CUSUM and rank-k onset rules vs gainers + news: hit rate, lead to +20%, false alarms per 100 mornings, per fold) or exit-routes (clock exit routes 09:15/09:20, opg limit by 09:27 with a 09:30:05 fallback, 09:31, 09:44, 09:50 with or without the LULD 09:44 exit, alone and with the drift-change and giveback overlays, plus the $1k/$5k/$25k participation capacity curve; default --times 08:30).", Required = true)]
     public string Command { get; init; } = "";
 
     [Option("split", Description = "Must be train: the exploratory round never reads validation or holdout.")]
@@ -398,10 +398,10 @@ public sealed record GapperExploreArgs
     [Option("force", Description = "build: rebuild decision times already cached.")]
     public bool Force { get; init; }
 
-    [Option("from", Description = "build: first train day (ET, yyyy-MM-dd), for a partial build.")]
+    [Option("from", Description = "build: first train day (regsho-pull: first trading day) (ET, yyyy-MM-dd), for a partial build.")]
     public DateOnly? From { get; init; }
 
-    [Option("to", Description = "build: last train day (ET, yyyy-MM-dd), for a partial build.")]
+    [Option("to", Description = "build: last train day (regsho-pull: last trading day) (ET, yyyy-MM-dd), for a partial build.")]
     public DateOnly? To { get; init; }
 
     [Option("parallelism", Description = "build: trading days computed at once (default 4).")]
