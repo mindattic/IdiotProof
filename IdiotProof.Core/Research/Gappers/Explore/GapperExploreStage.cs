@@ -26,7 +26,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
     public const double FormedGapPct = 20;
 
-    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow", "alarms"];
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow", "alarms", "exit-routes"];
 
     /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -82,6 +82,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             "float-import" => await FloatImportAsync(ct),
             "tradeflow-pull" => await TradeFlowPullAsync(req, ct),
             "tradeflow" => await TradeFlowAsync(req, ct),
+            "exit-routes" => await ExitRoutesAsync(times, req, ct),
             "alarms" => await AlarmsAsync(req, ct),
             _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
         };
