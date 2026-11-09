@@ -88,7 +88,7 @@ public class GapperExploreTests
     {
         using var host = new GapperStudyHost();
         var stage = host.Get<GapperExploreStage>();
-        foreach (var command in new[] { "visibility", "alarms", "fade-short" })
+        foreach (var command in new[] { "visibility", "alarms", "fade-short", "fade-short-deep" })
             foreach (var split in new[] { "validation", "holdout", "smoke" })
                 Assert.ThrowsAsync<InvalidOperationException>(() => stage.RunAsync(new ExploreRequest(command, split, [], false), CancellationToken.None), $"{command} {split}");
     }
@@ -205,6 +205,21 @@ public class GapperExploreTests
             Assert.That(m.Lo, Is.LessThan(m.Mean));
             Assert.That(m.Hi, Is.GreaterThan(m.Mean));
             Assert.That(ExploreDerived.ClusteredMean([(d1, 0.1, 1)]), Is.Null, "one day has no interval");
+        });
+    }
+
+    [Test]
+    public void ShortabilityTiers_FollowThePresetThresholds()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(GapperExploreStage.ShortabilityTier(false, 50e6, 3, false), Is.EqualTo(1));
+            Assert.That(GapperExploreStage.ShortabilityTier(false, 20e6, 3, false), Is.EqualTo(2));
+            Assert.That(GapperExploreStage.ShortabilityTier(false, 50e6, 1.5, false), Is.EqualTo(2));
+            Assert.That(GapperExploreStage.ShortabilityTier(false, null, 3, false), Is.EqualTo(3), "unknown shares");
+            Assert.That(GapperExploreStage.ShortabilityTier(true, 50e6, 3, false), Is.EqualTo(3), "threshold-listed");
+            Assert.That(GapperExploreStage.ShortabilityTier(false, 50e6, 0.8, false), Is.EqualTo(3), "under $1");
+            Assert.That(GapperExploreStage.ShortabilityTier(false, 50e6, 3, true), Is.EqualTo(3), "halt in the prior 5 sessions");
         });
     }
 }
