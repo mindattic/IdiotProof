@@ -1,0 +1,18 @@
+{
+  "stage": "explore-orb-pull",
+  "startedUtc": "2026-11-09T22:43:23.7919152Z",
+  "seconds": 468.5686709,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Command": "orb-pull",
+    "ReportFile": null,
+    "Trials": 0,
+    "LedgerTotal": 5447,
+    "Lines": [
+      "open bars: 769 days planned (14 history sessions before train), 0 fetched now (0 requests), 0 still missing",
+      "minute bars: 58,492 symbol-days wanted (44,981 ORB selections and random draws, the rest hard-catalyst days), 43,169 on file before, 15,323 written now (967 requests); 58,454 with at least one bar"
+    ],
+    "Minutes": 7.81
+  }
+}

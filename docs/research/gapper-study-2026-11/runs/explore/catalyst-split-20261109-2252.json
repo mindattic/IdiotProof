@@ -1,0 +1,1383 @@
+{
+  "byClass": [
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "all trades",
+      "trades": 574,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3959731543624161
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "merger / acquisition target",
+      "trades": 4,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "PIPE / outside investment",
+      "trades": 23,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.43478260869565216
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "earnings beat",
+      "trades": 79,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.35051546391752575
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "earnings miss",
+      "trades": 17,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.15384615384615385
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "FDA / clinical",
+      "trades": 132,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.2976190476190476
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "contract / partnership",
+      "trades": 106,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.34269662921348315
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "non-binding LOI / MOU",
+      "trades": 6,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.16666666666666666
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "reverse split",
+      "trades": 3,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "offering / dilution",
+      "trades": 33,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.40476190476190477
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 1,
+      "cls": "other item (none of the classes above)",
+      "trades": 247,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.4717607973421927
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "all trades",
+      "trades": 574,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3959731543624161
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "merger / acquisition target",
+      "trades": 4,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "PIPE / outside investment",
+      "trades": 23,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.43478260869565216
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "earnings beat",
+      "trades": 79,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.35051546391752575
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "earnings miss",
+      "trades": 17,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.15384615384615385
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "FDA / clinical",
+      "trades": 132,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.2976190476190476
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "contract / partnership",
+      "trades": 106,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.34269662921348315
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "non-binding LOI / MOU",
+      "trades": 6,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.16666666666666666
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "reverse split",
+      "trades": 3,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "offering / dilution",
+      "trades": 33,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.40476190476190477
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B10% stop -8% time 15 min, sell-by 09:31",
+      "rank": 2,
+      "cls": "other item (none of the classes above)",
+      "trades": 247,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.4717607973421927
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "all trades",
+      "trades": 574,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.40671140939597317
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "merger / acquisition target",
+      "trades": 4,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "PIPE / outside investment",
+      "trades": 23,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.4782608695652174
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "earnings beat",
+      "trades": 79,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.35051546391752575
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "earnings miss",
+      "trades": 17,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.15384615384615385
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "FDA / clinical",
+      "trades": 132,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.30952380952380953
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "contract / partnership",
+      "trades": 106,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3651685393258427
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "non-binding LOI / MOU",
+      "trades": 6,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.16666666666666666
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "reverse split",
+      "trades": 3,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3333333333333333
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "offering / dilution",
+      "trades": 33,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.40476190476190477
+    },
+    {
+      "source": "alarm-ride",
+      "config": "long R4 \u002B news \u003C= 60 min entry=passive limit -1% (5 min) exit=tp \u002B8% stop -8% time 15 min, sell-by 09:28 opg (09:30 open)",
+      "rank": 3,
+      "cls": "other item (none of the classes above)",
+      "trades": 247,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.47840531561461797
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "all trades",
+      "trades": 6967,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.33178356713426854
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "merger / acquisition target",
+      "trades": 16,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "PIPE / outside investment",
+      "trades": 83,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.36633663366336633
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "earnings beat",
+      "trades": 351,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.48
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "earnings miss",
+      "trades": 153,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5396825396825397
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "FDA / clinical",
+      "trades": 116,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.23134328358208955
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "contract / partnership",
+      "trades": 176,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3463035019455253
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "non-binding LOI / MOU",
+      "trades": 8,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.375
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "reverse split",
+      "trades": 11,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.36363636363636365
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "offering / dilution",
+      "trades": 110,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.34838709677419355
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "other item (none of the classes above)",
+      "trades": 985,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.33702737940026073
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=\u003C\u002B100% | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 1,
+      "cls": "no catalyst",
+      "trades": 5178,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.32270149858242203
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "all trades",
+      "trades": 6976,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3317045818647869
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "merger / acquisition target",
+      "trades": 16,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "PIPE / outside investment",
+      "trades": 83,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.36633663366336633
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "earnings beat",
+      "trades": 351,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.48
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "earnings miss",
+      "trades": 153,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5396825396825397
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "FDA / clinical",
+      "trades": 116,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.23134328358208955
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "contract / partnership",
+      "trades": 176,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3463035019455253
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "non-binding LOI / MOU",
+      "trades": 8,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.375
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "reverse split",
+      "trades": 11,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.36363636363636365
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "offering / dilution",
+      "trades": 111,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3525641025641026
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "other item (none of the classes above)",
+      "trades": 988,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.33636955107351985
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | limit -1% (5 min) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 2,
+      "cls": "no catalyst",
+      "trades": 5183,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3226394089667038
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "all trades",
+      "trades": 10303,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3185107096650534
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "merger / acquisition target",
+      "trades": 20,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "PIPE / outside investment",
+      "trades": 113,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.36428571428571427
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "earnings beat",
+      "trades": 540,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5170940170940171
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "earnings miss",
+      "trades": 230,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5460750853242321
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "FDA / clinical",
+      "trades": 130,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.21621621621621623
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "contract / partnership",
+      "trades": 239,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.2334293948126801
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "non-binding LOI / MOU",
+      "trades": 12,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.25
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "reverse split",
+      "trades": 16,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.4375
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "offering / dilution",
+      "trades": 143,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.21888412017167383
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "other item (none of the classes above)",
+      "trades": 1382,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3477872150201162
+    },
+    {
+      "source": "watchlist",
+      "config": "all names (no watchlist) | k=20 cap=none | market (next bar open) | stop -8%, trail 35% once \u002B10%, half at \u002B20%, velocity death, out 15:55",
+      "rank": 3,
+      "cls": "no catalyst",
+      "trades": 7796,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3080607476635514
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 1,
+      "cls": "all trades",
+      "trades": 529,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.47448015122873344
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 1,
+      "cls": "merger / acquisition target",
+      "trades": 2,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 1,
+      "cls": "PIPE / outside investment",
+      "trades": 4,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 1,
+      "cls": "FDA / clinical",
+      "trades": 4,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 1,
+      "cls": "contract / partnership",
+      "trades": 3,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.6666666666666666
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 1,
+      "cls": "reverse split",
+      "trades": 32,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3125
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 1,
+      "cls": "offering / dilution",
+      "trades": 15,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.6666666666666666
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 1,
+      "cls": "other item (none of the classes above)",
+      "trades": 139,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.48201438848920863
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 1,
+      "cls": "no catalyst",
+      "trades": 342,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.4766081871345029
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -8%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 2,
+      "cls": "all trades",
+      "trades": 529,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.4102079395085066
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -8%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 2,
+      "cls": "merger / acquisition target",
+      "trades": 2,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -8%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 2,
+      "cls": "PIPE / outside investment",
+      "trades": 4,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -8%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 2,
+      "cls": "FDA / clinical",
+      "trades": 4,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -8%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 2,
+      "cls": "contract / partnership",
+      "trades": 3,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.6666666666666666
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -8%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 2,
+      "cls": "reverse split",
+      "trades": 32,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.28125
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -8%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 2,
+      "cls": "offering / dilution",
+      "trades": 15,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5333333333333333
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -8%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 2,
+      "cls": "other item (none of the classes above)",
+      "trades": 139,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.43884892086330934
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -8%, trail 25% once \u002B10%, velocity death, out 15:55 same day",
+      "rank": 2,
+      "cls": "no catalyst",
+      "trades": 342,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.40350877192982454
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, VWAP loss, out 15:55 same day",
+      "rank": 3,
+      "cls": "all trades",
+      "trades": 529,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.45935727788279773
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, VWAP loss, out 15:55 same day",
+      "rank": 3,
+      "cls": "merger / acquisition target",
+      "trades": 2,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, VWAP loss, out 15:55 same day",
+      "rank": 3,
+      "cls": "PIPE / outside investment",
+      "trades": 4,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.25
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, VWAP loss, out 15:55 same day",
+      "rank": 3,
+      "cls": "FDA / clinical",
+      "trades": 4,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, VWAP loss, out 15:55 same day",
+      "rank": 3,
+      "cls": "contract / partnership",
+      "trades": 3,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, VWAP loss, out 15:55 same day",
+      "rank": 3,
+      "cls": "reverse split",
+      "trades": 32,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.3125
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, VWAP loss, out 15:55 same day",
+      "rank": 3,
+      "cls": "offering / dilution",
+      "trades": 15,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.5333333333333333
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, VWAP loss, out 15:55 same day",
+      "rank": 3,
+      "cls": "other item (none of the classes above)",
+      "trades": 139,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.4460431654676259
+    },
+    {
+      "source": "split-days",
+      "config": "calendar D 08:00 (premarket, marketable) | stop -15%, trail 25% once \u002B10%, VWAP loss, out 15:55 same day",
+      "rank": 3,
+      "cls": "no catalyst",
+      "trades": 342,
+      "gross": {},
+      "netFrozen": {},
+      "net025": {},
+      "win": 0.4766081871345029
+    }
+  ],
+  "hardOpen": [
+    {
+      "cls": "merger / acquisition target",
+      "exit": "09:45",
+      "trades": 983,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.009527744206933622,
+        -0.004894181986831316,
+        -0.007023733609409542,
+        -0.015118403539069297
+      ],
+      "median": -0.001533189547466396,
+      "win": 0.3957273652085453
+    },
+    {
+      "cls": "merger / acquisition target",
+      "exit": "10:30",
+      "trades": 983,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.002864567354174261,
+        -0.0032066090334280876,
+        -0.017606621936591963,
+        -0.018540707603830513
+      ],
+      "median": -0.002060486660775629,
+      "win": 0.41200406917599186
+    },
+    {
+      "cls": "merger / acquisition target",
+      "exit": "15:55",
+      "trades": 983,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.010858680684710362,
+        -0.0022094034721287644,
+        -0.019030193714396425,
+        -0.025350108227623545
+      ],
+      "median": -0.0020120226291382437,
+      "win": 0.43845371312309256
+    },
+    {
+      "cls": "merger / acquisition target",
+      "exit": "next open",
+      "trades": 978,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.015997112503723866,
+        -0.0025246074294538556,
+        -0.009577803146302858,
+        -0.03421737999574991
+      ],
+      "median": -0.0023257961533959537,
+      "win": 0.43558282208588955
+    },
+    {
+      "cls": "merger / acquisition target",
+      "exit": "D\u002B2 close",
+      "trades": 975,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.05267081938192091,
+        0.0019101521461632677,
+        -0.029853413456786135,
+        -0.03209615458746105
+      ],
+      "median": -0.0009990238414763208,
+      "win": 0.4574358974358974
+    },
+    {
+      "cls": "PIPE / outside investment",
+      "exit": "09:45",
+      "trades": 3061,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.009540161689407946,
+        -0.010767317352379248,
+        -0.006737116147495228,
+        -0.008184072711159536
+      ],
+      "median": -0.0011001351720537622,
+      "win": 0.3992159425024502
+    },
+    {
+      "cls": "PIPE / outside investment",
+      "exit": "10:30",
+      "trades": 3061,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.010955674689714501,
+        -0.012628731032977238,
+        -0.007802875170245447,
+        -0.013593392238943913
+      ],
+      "median": -0.003011815688189312,
+      "win": 0.40313622999019927
+    },
+    {
+      "cls": "PIPE / outside investment",
+      "exit": "15:55",
+      "trades": 3061,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.018474920360769097,
+        -0.014164063745963674,
+        -0.0021842064148426656,
+        -0.014671928772998208
+      ],
+      "median": -0.004385945780507994,
+      "win": 0.4152237830774257
+    },
+    {
+      "cls": "PIPE / outside investment",
+      "exit": "next open",
+      "trades": 3058,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.021068480344801032,
+        -0.011936703981395208,
+        -0.0011253898774978722,
+        0.14009853901763836
+      ],
+      "median": -0.00295838709584062,
+      "win": 0.4303466317854807
+    },
+    {
+      "cls": "PIPE / outside investment",
+      "exit": "D\u002B2 close",
+      "trades": 3054,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.036834260853090044,
+        -0.023379673879025033,
+        -0.005191412383181071,
+        0.0783498762662267
+      ],
+      "median": -0.014070361237592144,
+      "win": 0.3948919449901768
+    },
+    {
+      "cls": "earnings beat",
+      "exit": "09:45",
+      "trades": 6661,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.0054473547018103535,
+        -0.0013607077728011211,
+        8.655894248459611E-05,
+        -0.001858443706729291
+      ],
+      "median": -0.0005000114440918413,
+      "win": 0.46944903167692537
+    },
+    {
+      "cls": "earnings beat",
+      "exit": "10:30",
+      "trades": 6661,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        0.0007035050002939625,
+        0.0010000923301424292,
+        -0.002125922871257234,
+        -0.0027235978690520876
+      ],
+      "median": 0,
+      "win": 0.4883651103437922
+    },
+    {
+      "cls": "earnings beat",
+      "exit": "15:55",
+      "trades": 6661,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        0.0011614358532422366,
+        0.0019949826812956347,
+        -0.0014092492723798433,
+        -0.0053868082842835055
+      ],
+      "median": 0,
+      "win": 0.4888154931691938
+    },
+    {
+      "cls": "earnings beat",
+      "exit": "next open",
+      "trades": 6608,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        0.0032514906592760384,
+        0.0056908515349501565,
+        0.00392890680290465,
+        -0.0028651664946444735
+      ],
+      "median": 0.0035036219854258643,
+      "win": 0.5087772397094431
+    },
+    {
+      "cls": "earnings beat",
+      "exit": "D\u002B2 close",
+      "trades": 6592,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        0.016320245883025476,
+        0.003157012074569919,
+        0.007947139776355461,
+        0.0012582527988309535
+      ],
+      "median": 0.0010761780596524329,
+      "win": 0.4965109223300971
+    },
+    {
+      "cls": "FDA / clinical",
+      "exit": "09:45",
+      "trades": 4186,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.009544000754694708,
+        -0.01238162176191963,
+        -0.010263135246893528,
+        -0.013106079498738701
+      ],
+      "median": -0.0028490232646799507,
+      "win": 0.4128045867176302
+    },
+    {
+      "cls": "FDA / clinical",
+      "exit": "10:30",
+      "trades": 4186,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.013145365671136139,
+        -0.015350270176491779,
+        -0.0131667824975091,
+        -0.013802344711524906
+      ],
+      "median": -0.006294441758958935,
+      "win": 0.4082656473960822
+    },
+    {
+      "cls": "FDA / clinical",
+      "exit": "15:55",
+      "trades": 4186,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.01303905393850581,
+        -0.00853675937215021,
+        -0.006081418567564336,
+        -0.01681937391371947
+      ],
+      "median": -0.006313784585556426,
+      "win": 0.4350215002388915
+    },
+    {
+      "cls": "FDA / clinical",
+      "exit": "next open",
+      "trades": 4176,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.014244215627122558,
+        -0.008309656107612404,
+        -0.009301615268617594,
+        -0.01823141777883664
+      ],
+      "median": -0.005784682992481638,
+      "win": 0.4410919540229885
+    },
+    {
+      "cls": "FDA / clinical",
+      "exit": "D\u002B2 close",
+      "trades": 4170,
+      "gross": {},
+      "netRth": {},
+      "netFrozen": {},
+      "perFold": [
+        -0.012069245942815537,
+        -0.017287173615370872,
+        0.012211085815195834,
+        -0.013778770949047999
+      ],
+      "median": -0.012756340658778176,
+      "win": 0.43764988009592326
+    }
+  ],
+  "hardEvents": 14820
+}
