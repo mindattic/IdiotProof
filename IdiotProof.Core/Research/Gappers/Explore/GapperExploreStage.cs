@@ -170,20 +170,35 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
         ? dir
         : Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(CacheDir().TrimEnd('\\', '/'))!)!, "halts");
 
-    /// <summary>Rows with a defined target, optionally only mornings still forming (GapPct below the formed level at t).</summary>
-    public static List<int> Scorable(ExploreTable t, bool formingOnly)
+    /// <summary>
+    /// Rows with a defined target, optionally only mornings still forming at t. On a same-day decision a morning has
+    /// formed once its high so far reached the formed level, not only its last close: Reach20By0945 counts a touch
+    /// before t too, so a name that spiked past +20% and pulled back was a labelled positive the panel could read off
+    /// DistToPmHighPct (IP-T474; it drove late-morning AUC to 1.000). The high so far is recovered from the close-based
+    /// gap and the distance to the session high, both from bars ending by t.
+    /// </summary>
+    public static List<int> Scorable(ExploreTable t, bool formingOnly, bool sameDay = true)
     {
         var y = t.Binary(Target);
         int gap = t.Feature("GapPct");
+        int dist = t.Feature("DistToPmHighPct");
         var rows = new List<int>();
         for (int r = 0; r < t.Rows; r++)
         {
             if (y[r] is null || t.Weights[r] <= 0) continue;
-            if (formingOnly && gap >= 0 && t.Value(r, gap) is var g && !float.IsNaN(g) && g >= FormedGapPct) continue;
+            if (formingOnly && gap >= 0 && t.Value(r, gap) is var g && !float.IsNaN(g))
+            {
+                if (g >= FormedGapPct) continue;
+                if (sameDay && HighSoFarGapPct(g, dist >= 0 ? t.Value(r, dist) : float.NaN) >= FormedGapPct) continue;
+            }
             rows.Add(r);
         }
         return rows;
     }
+
+    /// <summary>Gap of the session high so far over the prior close (%), from the close gap and the % distance below that high.</summary>
+    public static double HighSoFarGapPct(double gapPct, double distToHighPct)
+        => double.IsNaN(distToHighPct) || distToHighPct >= 100 ? gapPct : ((1 + gapPct / 100) / (1 - distToHighPct / 100) - 1) * 100;
 
     public delegate double[] Learner(ExploreTable t, int[] featureIdx, List<int> fit, List<int> eval);
 
@@ -358,7 +373,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
                 md.AppendLine("|---|---|---|---|---|---|---|---|---|");
                 headed = true;
             }
-            var rows = Scorable(t, formingOnly: true);
+            var rows = Scorable(t, formingOnly: true, sameDay: DecisionTime.Parse(decision).DayOffset == 0);
             var all = AllFeatures(t);
             var bench = ScoreFolds(t, rows, folds, (_, eval) => Benchmark(t, eval));
             var screen = ScoreFolds(t, rows, folds, (_, eval) => ScreenBenchmark(t, eval));
