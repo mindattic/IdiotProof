@@ -55,6 +55,9 @@ public sealed class GapperAmendment
     public PopulationSampleSpec PopulationSample { get; init; } = new();
     public List<AmendedHypothesis> Hypotheses { get; init; } = [];
 
+    /// <summary>Amendment 04's train numbers from the exploration, which the train run only reproduces (null for other amendments).</summary>
+    public JsonElement? TrainReference { get; init; }
+
     [JsonIgnore] public string Sha256 { get; private set; } = "";
 
     /// <summary>The integer weight of a sample row (1/rate).</summary>

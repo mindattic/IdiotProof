@@ -22,19 +22,21 @@ namespace IdiotProof.Core.Research.Gappers.Explore;
 /// </summary>
 public sealed partial class GapperExploreStage
 {
-    public static readonly TimeSpan AlarmWindowStartEt = new(6, 0, 0);
-    public static readonly TimeSpan AlarmWindowEndEt = new(9, 10, 0);
+    // The sweep itself (window, floors, drifts, scores, rank-k pass logic, outcomes) lives in the shared,
+    // split-agnostic AlarmSweep / GapperAlarmData so amendment 04's confirmatory test reads it identically.
+    public static readonly TimeSpan AlarmWindowStartEt = AlarmSweep.WindowStartEt;
+    public static readonly TimeSpan AlarmWindowEndEt = AlarmSweep.WindowEndEt;
 
     /// <summary>The protocol's premarket dollar-volume floor at the alarm minute.</summary>
-    public const double AlarmMinPmDollarVolume = 50_000;
+    public const double AlarmMinPmDollarVolume = AlarmSweep.MinPmDollarVolume;
 
     /// <summary>conf(t) floor of the rank rules: most of the gap has actually traded through.</summary>
-    public const double AlarmMinConf = 0.5;
+    public const double AlarmMinConf = AlarmSweep.MinConf;
 
     /// <summary>CUSUM drift grid k: detect a sustained 1.5x, 2x or 3x over the time-of-day expectation.</summary>
-    public static readonly double[] AlarmDrifts = [Math.Log(1.5), Math.Log(2), Math.Log(3)];
+    public static readonly double[] AlarmDrifts = AlarmSweep.Drifts;
     private static readonly string[] AlarmDriftLabels = ["ln1.5", "ln2", "ln3"];
-    private const int DefaultDriftIndex = 1;
+    private const int DefaultDriftIndex = AlarmSweep.DefaultDriftIndex;
 
     /// <summary>Fixed CUSUM thresholds h, beside the per-fold calibrated ones.</summary>
     public static readonly double[] AlarmThresholds = [3, 5, 8, 12];
@@ -50,35 +52,13 @@ public sealed partial class GapperExploreStage
     public static readonly double[] AlarmGapHi = [0.10, 0.15];
 
     /// <summary>Fresh news for B3: an item published within this many minutes of t.</summary>
-    public const double AlarmFreshNewsMinutes = 60;
+    public const double AlarmFreshNewsMinutes = AlarmSweep.FreshNewsMinutes;
 
     private enum AlarmSeries { Volume, Trades, Either }
-    private enum AlarmScore { Composite, CusumVol, GainersNews }
 
     /// <summary>One alarm rule. Family: cusum (CUSUM alone), rank (rank-k rule), benchmark (B3).</summary>
     private sealed record AlarmConfig(string Name, string Family, AlarmSeries Series, int Drift, double? H, int CalTarget,
-        AlarmScore Score, int K, double GapLo, double GapHi, bool Gate, bool NeedConf, string? Pair);
-
-    /// <summary>One population morning, the window minutes only (index 0 = the bar ending 06:00).</summary>
-    private sealed class AlarmRow
-    {
-        public required DateOnly Day { get; init; }
-        public required double Weight { get; init; }
-        public required bool Sampled { get; init; }
-        public required bool Reach20 { get; init; }
-        /// <summary>Window-relative minute of the first +20% / +10% touch (bar high), int.MaxValue when none by the reach cut-off.</summary>
-        public required int First20 { get; init; }
-        public required int First10 { get; init; }
-        public required float[]?[] SVol { get; init; }
-        public required float[]?[] STr { get; init; }
-        public required float[] MaxSVol { get; init; }
-        public required float[] MaxSTr { get; init; }
-        public required float[] PmRet { get; init; }
-        public required float[] Conf { get; init; }
-        public required float[] CumDollar { get; init; }
-        public required float[] VolRatio { get; init; }
-        public bool[]? News { get; init; }
-    }
+        AlarmScoreKind Score, int K, double GapLo, double GapHi, bool Gate, bool NeedConf, string? Pair);
 
     private sealed class AlarmTally(int folds)
     {
@@ -128,19 +108,19 @@ public sealed partial class GapperExploreStage
                 for (int c = 0; c < AlarmCalibrationMornings.Length; c++)
                     list.Add(new($"cusum {series.ToString().ToLowerInvariant()} k={AlarmDriftLabels[d]} h=cal 1/{AlarmCalibrationMornings[c]}", "cusum", series, d, null, c, default, 0, 0, 0, false, false, Natural(10)));
             }
-        foreach (var score in new[] { AlarmScore.Composite, AlarmScore.CusumVol })
+        foreach (var score in new[] { AlarmScoreKind.Composite, AlarmScoreKind.CusumVol })
             foreach (var k in AlarmRankKs)
                 foreach (var lo in AlarmGapLo)
                     foreach (var hi in AlarmGapHi)
                         foreach (var gate in new[] { false, true })
-                            list.Add(new($"rank {(score == AlarmScore.Composite ? "composite" : "cusumVol")} top{k}, gap [{Pct(lo)},{Pct(hi)}), $50k, conf>=0.5{(gate ? ", cusum gate cal 1/20" : "")}",
+                            list.Add(new($"rank {(score == AlarmScoreKind.Composite ? "composite" : "cusumVol")} top{k}, gap [{Pct(lo)},{Pct(hi)}), $50k, conf>=0.5{(gate ? ", cusum gate cal 1/20" : "")}",
                                 "rank", AlarmSeries.Either, DefaultDriftIndex, null, gate ? 0 : -1, score, k, lo, hi, gate, true, Matched(k, lo, hi)));
         foreach (var k in AlarmRankKs)
         {
             foreach (var lo in AlarmGapLo)
                 foreach (var hi in AlarmGapHi)
-                    list.Add(new(Matched(k, lo, hi), "benchmark", AlarmSeries.Either, DefaultDriftIndex, null, -1, AlarmScore.GainersNews, k, lo, hi, false, false, null));
-            list.Add(new(Natural(k), "benchmark", AlarmSeries.Either, DefaultDriftIndex, null, -1, AlarmScore.GainersNews, k, double.NegativeInfinity, FormedGapPct / 100, false, false, null));
+                    list.Add(new(Matched(k, lo, hi), "benchmark", AlarmSeries.Either, DefaultDriftIndex, null, -1, AlarmScoreKind.GainersNews, k, lo, hi, false, false, null));
+            list.Add(new(Natural(k), "benchmark", AlarmSeries.Either, DefaultDriftIndex, null, -1, AlarmScoreKind.GainersNews, k, double.NegativeInfinity, FormedGapPct / 100, false, false, null));
         }
         return list;
     }
@@ -183,34 +163,16 @@ public sealed partial class GapperExploreStage
             var news = new Dictionary<string, List<CatalystObservation>>(StringComparer.Ordinal);
             await using (var db = await s.Db.CreateDbContextAsync(ct))
             {
-                var from = day.AddDays(-40);
-                adt = (await db.GapperStudyDailyBars.AsNoTracking()
-                        .Where(b => symbols.Contains(b.Symbol) && b.DateEt >= from && b.DateEt < day && b.TradeCount > 0)
-                        .Select(b => new { b.Symbol, b.DateEt, b.TradeCount }).ToListAsync(ct))
-                    .GroupBy(b => b.Symbol).ToDictionary(g => g.Key, g => g.OrderBy(b => b.DateEt).TakeLast(20).Average(b => (double)b.TradeCount), StringComparer.Ordinal);
-                if (fold >= 0)
-                {
-                    var cFrom = MinuteBarMath.ToUtc(day, new TimeSpan(2, 0, 0));
-                    var cTo = MinuteBarMath.ToUtc(day, AlarmWindowEndEt);
-                    var items = await (from x in db.CatalystEventSymbols.AsNoTracking()
-                                       where symbols.Contains(x.Symbol)
-                                       join e in db.CatalystEvents.AsNoTracking() on x.EventId equals e.Id
-                                       where e.PublishedUtc >= cFrom && e.PublishedUtc <= cTo
-                                       select new { x.Symbol, e.PublishedUtc, e.PreClass, e.Direction, e.SourceTier, e.CatalystScore, e.StampKind }).ToListAsync(ct);
-                    foreach (var it in items)
-                    {
-                        if (!news.TryGetValue(it.Symbol, out var l)) news[it.Symbol] = l = [];
-                        l.Add(new CatalystObservation(it.PublishedUtc, it.PreClass, it.Direction, it.SourceTier, it.CatalystScore, CatalystStampKind.IsUpperBound(it.StampKind)));
-                    }
-                }
+                adt = await GapperAlarmData.AdtAsync(db, symbols, day, ct);
+                if (fold >= 0) news = await GapperAlarmData.NewsAsync(db, symbols, day, ct);
             }
 
-            var computed = new AlarmRow?[rows.Count];
+            var computed = new AlarmMorning?[rows.Count];
             Parallel.For(0, rows.Count, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, req.Parallelism), CancellationToken = ct }, i =>
             {
                 var (u, sampled) = rows[i];
                 double weight = sampled ? amendment!.SampleWeight : 1;
-                computed[i] = AlarmRowOf(u, weight, sampled, store.ReadDay(u.Symbol, u.DateEt), adt.TryGetValue(u.Symbol, out var a) ? a : null,
+                computed[i] = GapperAlarmData.MorningOf(u, weight, sampled, store.ReadDay(u.Symbol, u.DateEt), adt.TryGetValue(u.Symbol, out var a) ? a : null,
                     fold >= 0 ? news.GetValueOrDefault(u.Symbol) ?? [] : null, profile, tradeProfile, reachEt, p.Labels.Reach20.Threshold);
             });
             var dayRows = computed.Where(r => r is not null).Select(r => r!).ToList();
@@ -226,69 +188,6 @@ public sealed partial class GapperExploreStage
             s.Logger.LogInformation("[{Now}] explore alarms: {Day} done ({Rows} rows, {Done} so far)", GapperStudyServices.Et(s.UtcNow), day, dayRows.Count, processed);
         }
         return AlarmReport(configs, tallies, folds, foldDays, calibrated, tradeProfile is not null);
-    }
-
-    private static AlarmRow? AlarmRowOf(GapperStudyUniverseDay u, double weight, bool sampled, IReadOnlyList<Candle> bars, double? adt, List<CatalystObservation>? news,
-        TimeOfDayProfile profile, TimeOfDayProfile? tradeProfile, TimeSpan reachEt, double reachThreshold)
-    {
-        if (u.AdjPrevClose <= 0 || bars.Count == 0) return null;
-        var day = u.DateEt;
-        var start = MinuteBarMath.ToUtc(day, MinuteBarMath.SessionStartEt);
-        var reachBy = MinuteBarMath.ToUtc(day, reachEt);
-        int i0 = OnsetSeries.IndexOf(AlarmWindowStartEt), i1 = OnsetSeries.IndexOf(AlarmWindowEndEt), w = i1 - i0 + 1;
-
-        // First touches, as the labeler defines Reach20By0945 (bar highs of bars ending by the cut-off).
-        bool any = false;
-        int first20 = int.MaxValue, first10 = int.MaxValue;
-        double prev = (double)u.AdjPrevClose;
-        foreach (var b in bars)
-        {
-            if (b.StartUtc < start || b.EndUtc > reachBy) continue;
-            any = true;
-            int idx = (int)Math.Round((b.EndUtc - start).TotalMinutes) - 1 - i0;
-            double high = (double)b.High;
-            if (high / prev - 1 >= reachThreshold && idx < first20) first20 = idx;
-            if (high / prev - 1 >= 0.10 && idx < first10) first10 = idx;
-        }
-        if (!any) return null;
-
-        var series = OnsetTrack.Compute(new GapperFeatureInputs
-        {
-            Symbol = u.Symbol, DateEt = day, DecisionUtc = MinuteBarMath.ToUtc(day, AlarmWindowEndEt), MinuteBars = bars, PriorClose = u.AdjPrevClose,
-            Profile = profile, AdvDecile = u.AdvDecile, Adv20Shares = (double)u.Adv20Shares, Adt20Trades = adt, TradeProfile = tradeProfile,
-        });
-        if (series.Minutes <= i1) return null;
-        float[] Window(double[] v) { var r = new float[w]; for (int i = 0; i < w; i++) r[i] = (float)v[i0 + i]; return r; }
-        var sVol = new float[]?[AlarmDrifts.Length];
-        var sTr = new float[]?[AlarmDrifts.Length];
-        var maxVol = new float[AlarmDrifts.Length];
-        var maxTr = new float[AlarmDrifts.Length];
-        for (int d = 0; d < AlarmDrifts.Length; d++)
-        {
-            var pv = series.CusumVolume(AlarmDrifts[d]);
-            var pt = series.CusumTrades(AlarmDrifts[d]);
-            sVol[d] = pv is null ? null : Window(pv);
-            sTr[d] = pt is null ? null : Window(pt);
-            maxVol[d] = sVol[d] is { } a ? a.Max() : float.NaN;
-            maxTr[d] = sTr[d] is { } b ? b.Max() : float.NaN;
-        }
-        bool[]? fresh = null;
-        if (news is not null)
-        {
-            fresh = new bool[w];
-            if (news.Count > 0)
-                for (int i = 0; i < w; i++)
-                {
-                    var t = start.AddMinutes(OnsetSeries.EndMinute(i0 + i));
-                    fresh[i] = GapperFormationFeatures.LatestCatalyst(news, t) is { } c && (t - c.PublishedUtc).TotalMinutes <= AlarmFreshNewsMinutes;
-                }
-        }
-        return new AlarmRow
-        {
-            Day = day, Weight = weight, Sampled = sampled, Reach20 = first20 != int.MaxValue, First20 = first20, First10 = first10,
-            SVol = sVol, STr = sTr, MaxSVol = maxVol, MaxSTr = maxTr,
-            PmRet = Window(series.PmRet), Conf = Window(series.Conf), CumDollar = Window(series.CumDollar), VolRatio = Window(series.VolRatioTod), News = fresh,
-        };
     }
 
     /// <summary>
@@ -312,37 +211,12 @@ public sealed partial class GapperExploreStage
         return h;
     }
 
-    private static void EvaluateDay(List<AlarmRow> rows, List<AlarmConfig> configs, AlarmTally[] tallies, int fold, double?[,,] h)
+    private static void EvaluateDay(List<AlarmMorning> rows, List<AlarmConfig> configs, AlarmTally[] tallies, int fold, double?[,,] h)
     {
         int w = rows[0].PmRet.Length, n = rows.Count;
-        var weights = rows.Select(r => r.Weight).ToList();
 
         // Scores per minute; rows sorted by each score, best first (NaN scores left out).
-        var scores = new Dictionary<AlarmScore, double[][]>
-        {
-            [AlarmScore.Composite] = new double[w][], [AlarmScore.CusumVol] = new double[w][], [AlarmScore.GainersNews] = new double[w][],
-        };
-        var sorted = new Dictionary<AlarmScore, int[][]> { [AlarmScore.Composite] = new int[w][], [AlarmScore.CusumVol] = new int[w][], [AlarmScore.GainersNews] = new int[w][] };
-        for (int i = 0; i < w; i++)
-        {
-            var volRank = CrossSectionalRank.PercentileRanks(rows.Select(r => (double)r.VolRatio[i]).ToList(), weights);
-            var retRank = CrossSectionalRank.PercentileRanks(rows.Select(r => (double)r.PmRet[i]).ToList(), weights);
-            var cusum = rows.Select(r => r.SVol[DefaultDriftIndex] is { } s ? (double)s[i] : double.NaN).ToList();
-            var cusumRank = CrossSectionalRank.PercentileRanks(cusum, weights);
-            var comp = new double[n]; var gn = new double[n];
-            for (int r = 0; r < n; r++)
-            {
-                double sum = 0; int cnt = 0;
-                foreach (var v in new[] { volRank[r], retRank[r], cusumRank[r] }) if (double.IsFinite(v)) { sum += v; cnt++; }
-                comp[r] = cnt > 0 ? sum / cnt : double.NaN;
-                gn[r] = float.IsNaN(rows[r].PmRet[i]) ? double.NaN : (rows[r].News?[i] == true ? 1e6 : 0) + rows[r].PmRet[i];
-            }
-            scores[AlarmScore.Composite][i] = comp;
-            scores[AlarmScore.CusumVol][i] = cusum.ToArray();
-            scores[AlarmScore.GainersNews][i] = gn;
-            foreach (var (key, v) in scores)
-                sorted[key][i] = Enumerable.Range(0, n).Where(r => double.IsFinite(v[i][r])).OrderByDescending(r => v[i][r]).ThenBy(r => r).ToArray();
-        }
+        var scores = AlarmSweep.Scores(rows);
 
         for (int c = 0; c < configs.Count; c++)
         {
@@ -368,41 +242,28 @@ public sealed partial class GapperExploreStage
             {
                 double? gv = cfg.Gate ? h[0, DefaultDriftIndex, 0] : null, gt = cfg.Gate ? h[1, DefaultDriftIndex, 0] : null;
                 if (cfg.Gate && gv is null && gt is null) { tally.Missing[fold] = true; continue; }
-                for (int i = 0; i < w; i++)
-                {
-                    double cum = 0;
-                    foreach (var r in sorted[cfg.Score][i])
-                    {
-                        var row = rows[r];
-                        // Ranked among the morning's names not yet alarmed and still forming (below the rule's gap cap).
-                        if (alarm[r] >= 0 || !(row.PmRet[i] < cfg.GapHi)) continue;
-                        if (1 + cum > cfg.K) break;
-                        bool pass = row.PmRet[i] >= cfg.GapLo && row.CumDollar[i] >= AlarmMinPmDollarVolume
-                            && (!cfg.NeedConf || row.Conf[i] >= AlarmMinConf)
-                            && (!cfg.Gate || (gv is not null && row.SVol[DefaultDriftIndex] is { } sv && sv[i] >= gv) || (gt is not null && row.STr[DefaultDriftIndex] is { } st && st[i] >= gt));
-                        cum += row.Weight;
-                        if (pass) alarm[r] = i;
-                    }
-                }
+                Func<AlarmMorning, int, bool>? gate = cfg.Gate
+                    ? (row, i) => (gv is not null && row.SVol[DefaultDriftIndex] is { } sv && sv[i] >= gv) || (gt is not null && row.STr[DefaultDriftIndex] is { } st && st[i] >= gt)
+                    : null;
+                alarm = AlarmSweep.RankAlarms(rows, scores.Sorted(cfg.Score), new AlarmRankRule(cfg.Score, cfg.K, cfg.GapLo, cfg.GapHi, cfg.NeedConf), gate);
             }
 
             for (int r = 0; r < n; r++)
             {
                 var row = rows[r];
                 tally.Pop[fold] += row.Weight;
-                bool forming = row.Reach20 && row.First20 > 0;
-                if (forming) tally.Gappers[fold] += row.Weight;
-                int a = alarm[r];
-                if (a < 0) continue;
+                if (row.Forming) tally.Gappers[fold] += row.Weight;
+                var o = AlarmSweep.Outcome(row, alarm[r]);
+                if (!o.Alarmed) continue;
                 tally.Alarms[fold] += row.Weight;
-                if (!row.Reach20) { tally.False[fold] += row.Weight; continue; }
-                if (forming && a < row.First20)
+                if (o.False) { tally.False[fold] += row.Weight; continue; }
+                if (o.Hit)
                 {
                     tally.Hits[fold] += row.Weight;
-                    tally.Lead20.Add(row.First20 - a);
-                    tally.Lead20ByFold[fold].Add(row.First20 - a);
-                    if (row.First10 > a && row.First10 != int.MaxValue) tally.Lead10.Add(row.First10 - a);
-                    tally.RetAtAlarm.Add(row.PmRet[a]);
+                    tally.Lead20.Add(o.Lead20);
+                    tally.Lead20ByFold[fold].Add(o.Lead20);
+                    if (o.Lead10 is { } l10) tally.Lead10.Add(l10);
+                    tally.RetAtAlarm.Add(o.PmRetAtAlarm);
                 }
             }
         }

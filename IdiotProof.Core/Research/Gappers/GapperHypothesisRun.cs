@@ -156,7 +156,9 @@ public static class HypothesisCorrections
         foreach (var amendment in runs.Where(r => r.Inputs.AmendmentId is not null).GroupBy(r => r.Inputs.AmendmentId!))
         {
             var amended = amendment.ToList();
-            var holmIds = amended.Where(r => r.Inputs.AmendsHypothesis is { } b && p.Statistics.HolmOverPrimariesWithPValue.Contains(b, StringComparer.OrdinalIgnoreCase)).Select(r => r.Id).ToList();
+            var holmIds = amended.Where(r => r.Inputs.AmendsHypothesis is { } b && p.Statistics.HolmOverPrimariesWithPValue.Contains(b, StringComparer.OrdinalIgnoreCase)).Select(r => r.Id)
+                // Amendment 04: Holm over its own primary (H25), the alarm comparison.
+                .Concat(amended.Where(r => r.Primary && r.Test.Equals(AlarmHitTest, StringComparison.Ordinal)).Select(r => r.Id)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             Apply(amended, p, scope + $"; amendment {amendment.Key} corrected as its own set", holmIds);
         }
     }
@@ -168,6 +170,12 @@ public static class HypothesisCorrections
         || run.Test.Equals(NewsRideGridTest, StringComparison.Ordinal);
 
     public const string NewsRideGridTest = "news-ride-grid";
+
+    /// <summary>Amendment 04's H25: the R4 alarm's hit rate and false alarms against the gainers + news benchmark B4.</summary>
+    public const string AlarmHitTest = "alarm-hit-vs-benchmark";
+
+    /// <summary>Amendment 04's H26: R4's median lead from the alarm to the first +20% touch.</summary>
+    public const string AlarmLeadTest = "alarm-lead-time";
 
     public static void Apply(IReadOnlyList<HypothesisRun> runs, GapperStudyParams p, string scope, IReadOnlyCollection<string>? holmIds = null)
     {

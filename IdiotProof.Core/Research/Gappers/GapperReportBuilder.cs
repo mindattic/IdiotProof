@@ -73,6 +73,7 @@ public static class GapperReportBuilder
         Families(sb, m, runs);
         Amendment(sb, m, runs);
         NewQuestions(sb, m, runs);
+        AlarmAmendment(sb, m, runs);
         Gate(sb, m, runs);
         ExitTiming(sb, m, runs);
         WhatThisSays(sb, m, runs);
@@ -248,7 +249,7 @@ public static class GapperReportBuilder
 
     private static void NewQuestions(StringBuilder sb, GapperReportModel m, List<HypothesisRun> runs)
     {
-        foreach (var a in m.Amendments.Where(x => x.Hypotheses.Any(h => string.IsNullOrEmpty(h.BasedOn))))
+        foreach (var a in m.Amendments.Where(x => x.Hypotheses.Any(h => string.IsNullOrEmpty(h.BasedOn)) && !IsAlarmAmendment(x)))
         {
             sb.AppendLine($"## Amendment {a.Id}: new questions ({a.Ticket})");
             sb.AppendLine();
@@ -286,6 +287,75 @@ public static class GapperReportBuilder
             }
             sb.AppendLine();
         }
+    }
+
+    private static bool IsAlarmAmendment(GapperAmendment a) =>
+        a.Hypotheses.Any(h => h.Test is HypothesisCorrections.AlarmHitTest or HypothesisCorrections.AlarmLeadTest);
+
+    /// <summary>Amendment 04 (IP-T475): R4 and B4 side by side per split (hit rate, FA/100, alarms/day, lead), then the H25/H26 verdicts.</summary>
+    private static void AlarmAmendment(StringBuilder sb, GapperReportModel m, List<HypothesisRun> runs)
+    {
+        foreach (var a in m.Amendments.Where(IsAlarmAmendment))
+        {
+            sb.AppendLine($"## Amendment {a.Id}: detection alarm R4 against gainers + news B4 ({a.Ticket})");
+            sb.AppendLine();
+            sb.AppendLine($"Registered {Utc(a.RegisteredUtc)} before any {a.Id} result on validation or holdout ([`amendment-{a.Id[1..]}.md`]({m.StudyDirName}/amendment-{a.Id[1..]}.md), sha256 `{Short(a.Sha256, 12)}`), " +
+                "corrected as its own set (Holm on H25, its only primary), on amendment 01's weighted population. Every population morning is swept minute by minute 06:00-09:10 ET " +
+                "(bars ending at or before each minute; the frozen train time-of-day profile; nothing fitted on the split) and each rule's first alarm is kept. " +
+                $"**R4** `{GapperAlarmData.R4Name}`; **B4** `{GapperAlarmData.B4Name}`. Hit rate: weighted share of mornings that reach +20% by 09:45 and were still below +20% at 06:00, alarmed before the first +20% touch; " +
+                "FA/100: weighted alarms on mornings that do not reach +20%, per 100 weighted scorable mornings; alarms/day: weighted alarms on every population row per day; lead: weighted median minutes from the alarm to the first +20% (IQR unweighted). " +
+                "Detection only: no trading rule is registered, and the train run only checks the code reproduces the exploration.");
+            sb.AppendLine();
+            if (a.TrainReference is { ValueKind: JsonValueKind.Object } tr)
+            {
+                string Ref(string rule) => tr.TryGetProperty(rule, out var r)
+                    ? $"{rule} {(r.TryGetProperty("hitRate", out var hr) ? hr.GetDouble().ToString("0.0%", CultureInfo.InvariantCulture) : "n/a")} / {(r.TryGetProperty("faPer100", out var fa) ? fa.GetDouble().ToString("0.00", CultureInfo.InvariantCulture) : "n/a")} / lead {(r.TryGetProperty("medianLeadMin", out var ld) ? ld.GetDouble().ToString("0", CultureInfo.InvariantCulture) : "n/a")} min"
+                    : $"{rule} n/a";
+                sb.AppendLine($"Exploration reference on train (mean of four folds' evaluation windows; hit rate / FA/100 / lead): {Ref("R4")}; {Ref("B4")}.");
+                sb.AppendLine();
+            }
+            var h25 = runs.Where(r => r.Inputs.AmendmentId == a.Id && r.Test == HypothesisCorrections.AlarmHitTest).OrderBy(r => Array.IndexOf(Splits, r.Split)).ToList();
+            if (h25.Count > 0)
+            {
+                sb.AppendLine("| split | rule | hit rate | FA/100 scorable (all rows) | alarms/day | median lead min [IQR] | hits / false alarms (rows) | gap at alarm (median) |");
+                sb.AppendLine("|---|---|---|---|---|---|---|---|");
+                foreach (var r in h25)
+                {
+                    var part = r.Parts.FirstOrDefault(p => p.Name == "hitRateDifference") ?? r.Parts.FirstOrDefault();
+                    if (part is null) continue;
+                    foreach (var (key, label) in new[] { ("r4", "R4"), ("b4", "B4") })
+                        sb.AppendLine($"| {r.Split} | {label} | {Pct1(Stat(part, key + "HitRate"))} | {F2(Stat(part, key + "FaPer100"))} ({F2(Stat(part, key + "FaPer100AllRows"))}) | {F1(Stat(part, key + "AlarmsPerDay"))} | " +
+                            $"{F1(Stat(part, key + "MedianLead"))} [{F1(Stat(part, key + "LeadQ1"))}, {F1(Stat(part, key + "LeadQ3"))}] | {Stat(part, key + "HitRows") ?? "n/a"} / {Stat(part, key + "FalseRows") ?? "n/a"} | {Pct1(Stat(part, key + "PmRetAtAlarmMedian"))} |");
+                    var fa = r.Parts.FirstOrDefault(p => p.Name == "faPer100Difference");
+                    sb.AppendLine($"| {r.Split} | R4 - B4 | {(part.Effect is { } e ? (e * 100).ToString("+0.0;-0.0", CultureInfo.InvariantCulture) + " pt" : "n/a")} [{Pt(part.CiLow)}, {Pt(part.CiHigh)}] | " +
+                        $"{(fa?.Effect is { } f ? f.ToString("+0.00;-0.00", CultureInfo.InvariantCulture) : "n/a")} [{F2(fa?.CiLow)}, {F2(fa?.CiHigh)}] | | | | |");
+                }
+                sb.AppendLine();
+                foreach (var r in h25)
+                    if (r.Parts.FirstOrDefault() is { } p0)
+                        sb.AppendLine($"- {r.Split}: {Stat(p0, "days")} days, {Stat(p0, "rows")} mornings ({Stat(p0, "candidateRows")} candidate, {Stat(p0, "sampleRows")} sample), {Stat(p0, "scorableRows")} scorable, {Stat(p0, "formingRows")} forming.");
+                sb.AppendLine();
+            }
+            sb.AppendLine("| hypothesis | split | n (days) | effect vs minimum | corrected statistic | verdict |");
+            sb.AppendLine("|---|---|---|---|---|---|");
+            foreach (var h in a.Hypotheses)
+            {
+                var own = runs.Where(r => r.Id.Equals(h.Id, StringComparison.OrdinalIgnoreCase)).OrderBy(r => Array.IndexOf(Splits, r.Split)).ToList();
+                if (own.Count == 0) { sb.AppendLine($"| {h.Id}{(h.Primary ? "" : " (secondary)")} | — | — | — | — | not run |"); continue; }
+                foreach (var r in own)
+                {
+                    foreach (var part in r.Parts)
+                        sb.AppendLine($"| {h.Id}{(h.Primary ? "" : " (secondary)")} · {part.Name} | {r.Split} | {part.N:N0} ({part.Days:N0}) | {Effect(part)} | {Corrected(r, part, m.Params)} | **{part.Verdict}** |");
+                    sb.AppendLine($"| {h.Id} overall | {r.Split} | | | | **{r.Verdict}** |");
+                }
+            }
+            sb.AppendLine();
+        }
+
+        static string Pct1(object? v) => v is double d && !double.IsNaN(d) ? d.ToString("0.0%", CultureInfo.InvariantCulture) : "n/a";
+        static string F1(object? v) => v is double d && !double.IsNaN(d) ? d.ToString("0.0", CultureInfo.InvariantCulture) : "n/a";
+        static string F2(object? v) => v is double d && !double.IsNaN(d) ? d.ToString("0.00", CultureInfo.InvariantCulture) : "n/a";
+        static string Pt(double? v) => v is { } d && !double.IsNaN(d) ? (d * 100).ToString("+0.0;-0.0", CultureInfo.InvariantCulture) : "n/a";
     }
 
     private static string Effect(HypothesisPart part)
