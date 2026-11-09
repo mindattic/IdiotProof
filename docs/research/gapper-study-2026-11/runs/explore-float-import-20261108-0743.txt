@@ -1,0 +1,12 @@
+stage: explore-float-import
+started: 2026-11-08 02:43:23 ET
+seconds: 78
+status: Ok
+message: 
+
+command:        float-import
+report:         D:\IdiotProofData\sec-companyfacts\shares-outstanding.csv
+trials logged:  0
+ledger total:   0
+minutes:        1.31
+20,559 filers read, 15,407 with shares outstanding, 381,562 facts -> D:\IdiotProofData\sec-companyfacts\shares-outstanding.csv; 5,435 symbols mapped to a CIK -> D:\IdiotProofData\gapper-study\explore\cikmap.csv

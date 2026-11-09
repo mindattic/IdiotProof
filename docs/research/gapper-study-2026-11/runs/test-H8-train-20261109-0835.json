@@ -1,0 +1,74 @@
+{
+  "id": "H8",
+  "family": "F5",
+  "primary": true,
+  "test": "group-diff",
+  "claim": "At least one Form 4 open-market purchase in [D-30, D-1 16:00] raises the probability of a Tier20 gapper day on D.",
+  "feature": "form4BuysD30 \u003E= 1",
+  "label": "isTier20Gapper",
+  "decisionTime": "D-1 16:00",
+  "minEffect": {
+    "lift": 1.5
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 1549033,
+    "days": 755,
+    "firstDate": "2021-11-01",
+    "lastDate": "2024-10-31",
+    "population": "CIK-mapped members of U(D)",
+    "featureColumns": [
+      "form4BuysD30 \u003E= 1",
+      "cikCoverage=0.886"
+    ],
+    "labelColumns": [
+      "IsGapper (Tier20)"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "lift",
+      "effectName": "rate ratio treated/control",
+      "effect": 0.730652852994298,
+      "minEffect": 1.5,
+      "direction": "AtLeast",
+      "meetsMinimum": false,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.00029997000299970003,
+      "holmP": 0.0015998400159984002,
+      "ciLow": 0.6573120461262918,
+      "ciHigh": 0.808463626028656,
+      "n": 1549033,
+      "days": 755,
+      "verdict": "refuted",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 0.731 vs 1.5 (AtLeast), q 3.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+      ],
+      "statistic": {
+        "bootstrapDraws": 10000,
+        "treatedN": 118362,
+        "controlN": 1430671,
+        "ciLevel": 0.95,
+        "treatedRate": 0.0032358358256872983,
+        "controlRate": 0.004428691152613005,
+        "proportionDifference": -0.0011928553269257066,
+        "pRule": "day-clustered bootstrap of the proportion difference"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "refuted",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 156.2,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H8-train-20261109-0835.json",
+  "holmInputP": 0.00019998000199980003
+}

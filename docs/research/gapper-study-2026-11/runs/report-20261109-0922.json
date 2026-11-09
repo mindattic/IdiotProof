@@ -1,0 +1,34 @@
+{
+  "stage": "report",
+  "startedUtc": "2026-11-09T09:22:51.971879Z",
+  "seconds": 395.3716542,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "ReportFile": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11.md",
+    "RunsUsed": 56,
+    "HoldoutRunsWithheld": 0,
+    "PostHocHypotheses": 0,
+    "Exports": [
+      {
+        "Name": "events.csv",
+        "Rows": 16734,
+        "Sha256": "87caeadba934b0fe71fc6a43dbaec2013bb29d45577a268a45447353f176aa64",
+        "Bytes": 2097953
+      },
+      {
+        "Name": "snapshots.csv",
+        "Rows": 2853795,
+        "Sha256": "b459f58fd8ced5a287c4736d8f5d50afa3cb96ef37614d5464606cc8261e9d9a",
+        "Bytes": 1646393346
+      },
+      {
+        "Name": "labels.csv",
+        "Rows": 2853795,
+        "Sha256": "308410b713a21cf77535690e9b3d5b2fba2bf5bfc4183f8f1ca6b38220ef454e",
+        "Bytes": 821374208
+      }
+    ],
+    "Minutes": 6.59
+  }
+}

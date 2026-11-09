@@ -1,0 +1,222 @@
+{
+  "id": "H11p",
+  "family": "F1",
+  "primary": true,
+  "test": "auc-delong",
+  "claim": "The H11 feature detector beats the catalyst-latency benchmark by at least 0.05 AUC for reach20By0945 over the population.",
+  "feature": "08:00 core feature set (logistic, fit on train) vs benchmark indicator pubToTMinutes \u003C= 60",
+  "label": "reach20By0945",
+  "decisionTime": "08:00",
+  "minEffect": {
+    "aucDifference": 0.05
+  },
+  "split": "validation",
+  "smoke": false,
+  "inputs": {
+    "n": 107669,
+    "days": 249,
+    "firstDate": "2024-11-04",
+    "lastDate": "2025-10-31",
+    "population": "population at 08:00: 50,904 candidate days (weight 1) and 56,765 population-sample days (weight 10)",
+    "featureColumns": [
+      "GapPct",
+      "LogPmCumVol",
+      "VolRatioTod",
+      "OwnProfileRatio",
+      "Velocity1m",
+      "Velocity3m",
+      "Velocity5m",
+      "Velocity15m",
+      "Acceleration",
+      "VolumeRoc",
+      "TradesProxy",
+      "TradesRoc",
+      "SpreadProxy",
+      "DistToPmHighPct",
+      "MinsSinceFirstAbnormal",
+      "AbnormalReturnD1",
+      "AbnormalReturnD2",
+      "AbnormalReturnD3",
+      "AbnormalReturnD4",
+      "AbnormalReturnD5",
+      "VolumeRatioD1",
+      "VolumeRatioD2",
+      "VolumeRatioD3",
+      "VolumeRatioD4",
+      "VolumeRatioD5",
+      "DaysSinceReverseSplit",
+      "DaysSince424B",
+      "DaysSinceS1",
+      "benchmark: pubToTMinutes \u003C= 60"
+    ],
+    "labelColumns": [
+      "Reach20By0945"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": [],
+    "amendmentId": "A01",
+    "amendmentSha256": "557b34e2502ba5943cdb966adb4784b688a0058f606b6830fc6769ac129b55cb",
+    "amendsHypothesis": "H11"
+  },
+  "parts": [
+    {
+      "name": "aucDifference",
+      "effectName": "aucDifference",
+      "effect": 0.35388289290388075,
+      "minEffect": 0.05,
+      "direction": "AtLeast",
+      "meetsMinimum": true,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.00019998000199980003,
+      "holmP": 0.0007999200079992001,
+      "ciLow": 0.3429220817299503,
+      "ciHigh": 0.36459550636769467,
+      "n": 107669,
+      "days": 249,
+      "verdict": "supported",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 0.354 vs 0.05 (AtLeast), q 2.0e-4 vs 0.05, Holm p 8.0e-4 vs 0.05"
+      ],
+      "statistic": {
+        "candidateRows": 50904,
+        "sampleRows": 56765,
+        "populationWeight": 618554,
+        "aucDetector": 0.9119351985015995,
+        "aucBenchmark": 0.5580523055977188,
+        "positives": 5842,
+        "benchmarkPositiveWeightedShare": 0.011007931401300452,
+        "fitOn": "train",
+        "trainRows": 253115,
+        "epochs": 500,
+        "trainLogLoss": 0.03384962526160571,
+        "weights": [
+          {
+            "feature": "GapPct",
+            "weight": 0.332632
+          },
+          {
+            "feature": "LogPmCumVol",
+            "weight": 0.13916
+          },
+          {
+            "feature": "VolRatioTod",
+            "weight": 0.069226
+          },
+          {
+            "feature": "OwnProfileRatio",
+            "weight": 0.055454
+          },
+          {
+            "feature": "Velocity1m",
+            "weight": 0.005847
+          },
+          {
+            "feature": "Velocity3m",
+            "weight": 0.015721
+          },
+          {
+            "feature": "Velocity5m",
+            "weight": 0.013188
+          },
+          {
+            "feature": "Velocity15m",
+            "weight": 0.027208
+          },
+          {
+            "feature": "Acceleration",
+            "weight": 0.003794
+          },
+          {
+            "feature": "VolumeRoc",
+            "weight": 0.00081
+          },
+          {
+            "feature": "TradesProxy",
+            "weight": 0.120475
+          },
+          {
+            "feature": "TradesRoc",
+            "weight": 0.011677
+          },
+          {
+            "feature": "SpreadProxy",
+            "weight": 0.091254
+          },
+          {
+            "feature": "DistToPmHighPct",
+            "weight": 0.406965
+          },
+          {
+            "feature": "MinsSinceFirstAbnormal",
+            "weight": -0.027732
+          },
+          {
+            "feature": "AbnormalReturnD1",
+            "weight": 0.016722
+          },
+          {
+            "feature": "AbnormalReturnD2",
+            "weight": 0.004599
+          },
+          {
+            "feature": "AbnormalReturnD3",
+            "weight": 0.000249
+          },
+          {
+            "feature": "AbnormalReturnD4",
+            "weight": -0.007592
+          },
+          {
+            "feature": "AbnormalReturnD5",
+            "weight": -0.007559
+          },
+          {
+            "feature": "VolumeRatioD1",
+            "weight": -0.001366
+          },
+          {
+            "feature": "VolumeRatioD2",
+            "weight": 0.003069
+          },
+          {
+            "feature": "VolumeRatioD3",
+            "weight": 0.007052
+          },
+          {
+            "feature": "VolumeRatioD4",
+            "weight": 0.004709
+          },
+          {
+            "feature": "VolumeRatioD5",
+            "weight": 0.007504
+          },
+          {
+            "feature": "DaysSinceReverseSplit",
+            "weight": -0.005555
+          },
+          {
+            "feature": "DaysSince424B",
+            "weight": -0.01955
+          },
+          {
+            "feature": "DaysSinceS1",
+            "weight": -0.009502
+          }
+        ],
+        "bootstrap": "day-block resampling of weighted AUC(detector) - weighted AUC(benchmark)"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "supported",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A01 corrected as its own set",
+  "computedUtc": "2026-11-09T08:57:37.3581571Z",
+  "seconds": 47.5,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H11p-validation-20261109-0857.json",
+  "holmInputP": 0.00019998000199980003
+}

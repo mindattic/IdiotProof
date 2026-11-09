@@ -1,0 +1,102 @@
+{
+  "id": "H10",
+  "family": "F5",
+  "primary": true,
+  "test": "group-diff",
+  "claim": "A 424B filing within the prior 10 days raises Tier20 probability on candidate days and makes fwdClose_16:00 (entry 09:30) negative on gapper days.",
+  "feature": "daysSince424B \u003C= 10",
+  "label": "isTier20Gapper; fwdClose_16:00",
+  "decisionTime": "09:30",
+  "minEffect": {
+    "lift": 1.5,
+    "fwdCloseMeanBelowPct": 0.0
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 105964,
+    "days": 755,
+    "firstDate": "2021-11-01",
+    "lastDate": "2024-10-31",
+    "population": "candidate days at 09:30 (part 1) and Tier20 gapper days (part 2)",
+    "featureColumns": [
+      "daysSince424B \u003C= 10"
+    ],
+    "labelColumns": [
+      "IsGapper (Tier20)",
+      "FwdClose1600 x 100"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "lift",
+      "effectName": "rate ratio treated/control",
+      "effect": 1.4482357920106737,
+      "minEffect": 1.5,
+      "direction": "AtLeast",
+      "meetsMinimum": false,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.00029997000299970003,
+      "holmP": 0.0053994600539946005,
+      "ciLow": 1.3180169028067072,
+      "ciHigh": 1.5859210299837563,
+      "n": 105964,
+      "days": 755,
+      "verdict": "undecided",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 1.448 vs 1.5 (AtLeast), q 3.0e-4 vs 0.05, Holm p 0.005 vs 0.05"
+      ],
+      "statistic": {
+        "bootstrapDraws": 10000,
+        "treatedN": 5014,
+        "controlN": 100950,
+        "ciLevel": 0.95,
+        "treatedRate": 0.09174311926605505,
+        "controlRate": 0.06334819217434373,
+        "proportionDifference": 0.02839492709171132,
+        "pRule": "day-clustered bootstrap of the proportion difference"
+      },
+      "hasInterval": true
+    },
+    {
+      "name": "fwdCloseMeanBelowPct",
+      "effectName": "mean fwdClose_16:00 (pct) on gapper days with the filing",
+      "effect": 3.4562201829732815,
+      "minEffect": 0,
+      "direction": "AtMost",
+      "meetsMinimum": false,
+      "rawP": 0.0017998200179982,
+      "familyQ": 0.0017998200179982,
+      "holmP": 0.0053994600539946005,
+      "ciLow": 1.2566894560034916,
+      "ciHigh": 5.621102458596423,
+      "n": 460,
+      "days": 331,
+      "verdict": "refuted",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 3.456 vs 0 (AtMost), q 0.002 vs 0.05, Holm p 0.005 vs 0.05"
+      ],
+      "statistic": {
+        "bootstrapDraws": 10000,
+        "treatedN": 460,
+        "controlN": 0,
+        "ciLevel": 0.95
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "refuted",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 11,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H10-train-20261109-0835.json",
+  "holmInputP": 0.0017998200179982
+}

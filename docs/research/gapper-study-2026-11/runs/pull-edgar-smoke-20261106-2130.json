@@ -1,0 +1,17 @@
+{
+  "stage": "pull-edgar-smoke",
+  "startedUtc": "2026-11-06T21:30:56.7054409Z",
+  "seconds": 2.5651015,
+  "status": "Ok",
+  "Message": null,
+  "data": [
+    {
+      "Tier": "edgar",
+      "Rows": 10,
+      "Calls": 1,
+      "Minutes": 0.04,
+      "CoveragePct": null,
+      "Note": "1 quarter files, 0 header fetches, 0 acceptance times"
+    }
+  ]
+}

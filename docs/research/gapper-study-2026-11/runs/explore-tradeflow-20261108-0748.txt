@@ -1,0 +1,28 @@
+stage: explore-tradeflow
+started: 2026-11-08 02:48:53 ET
+seconds: 1
+status: Ok
+message: 
+
+command:        tradeflow
+report:         D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\explore\tradeflow-20261108-0748.md
+trials logged:  0
+ledger total:   0
+minutes:        0.01
+# Explore: trade flow around the high (H17 footprint, train gapper mornings, descriptive)
+
+Mornings with trade flow: 28; no bars or prints: 0; imbalance never collapsed 08:30-10:30: 0; collapsed: 28.
+
+| measure | value |
+|---|---|
+| median minutes from collapse to the high (positive = collapse first) | 17.0 |
+| collapse 0-15 min before the high | 10.7 % |
+| collapse after the high | 39.3 % |
+| median close at the collapse as a share of the high | 85.4 % |
+| odd-lot share, 15 min before / after the high | 4.3 % / 3.8 % |
+| off-exchange share, before / after | 59.9 % / 55.8 % |
+| retail imbalance, before / after | +0.19 / +0.03 |
+
+Sub-penny signing (BJZZ 2021) is coarse (Barber et al. 2024); read the imbalance as a direction, not a size. No trial is logged: descriptive.
+
+Trials logged: 0 (ids none); ledger total 0.

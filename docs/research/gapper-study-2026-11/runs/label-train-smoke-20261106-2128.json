@@ -1,0 +1,15 @@
+{
+  "stage": "label-train-smoke",
+  "startedUtc": "2026-11-06T21:28:34.9955898Z",
+  "seconds": 0.8166827,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Split": "smoke",
+    "SymbolDays": 2,
+    "Rows": 26,
+    "WithEntry": 26,
+    "HoldoutNote": null,
+    "Minutes": 0.01
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "id": "H19",
+  "family": "F3",
+  "primary": true,
+  "test": "prepub-drift",
+  "claim": "On Tier20 gapper days whose first news item publishes between 04:30 and 09:15 ET, the median share of the hour\u0027s move that happens before publication is at most 0.25: the move mostly follows the headline rather than leading it.",
+  "minEffect": {
+    "medianPreShareAtMost": 0.25
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 1440,
+    "days": 589,
+    "firstDate": "2022-01-05",
+    "lastDate": "2024-10-31",
+    "population": "Tier20 gapper days whose first realtime news item published between 04:30 and 09:15 ET",
+    "featureColumns": [
+      "return over the 30 minutes before publication"
+    ],
+    "labelColumns": [
+      "highest high in the 30 minutes after publication"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": [],
+    "amendmentId": "A02",
+    "amendmentSha256": "c481f9272b9bd38f299cef76eafc744a0af1bceb0b02849590aff2090f2f4b81"
+  },
+  "parts": [
+    {
+      "name": "medianPreShare",
+      "effectName": "median share of the hour\u0027s move before publication",
+      "effect": 0.31143274571791013,
+      "minEffect": 0.25,
+      "direction": "AtMost",
+      "meetsMinimum": false,
+      "ciLow": 0.26654968535197027,
+      "ciHigh": 0.35337071326118136,
+      "n": 1440,
+      "days": 589,
+      "verdict": "refuted",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: interval [0.267, 0.353] against 0.25 (AtMost); descriptive, no p"
+      ],
+      "statistic": {
+        "bootstrapDraws": 10000,
+        "treatedN": 1440,
+        "controlN": 0,
+        "ciLevel": 0.95,
+        "medianPrePct": 2.0964370824706022,
+        "medianPostPct": 4.2141928817636565,
+        "shareWithPreAbove5Pct": 0.36666666666666664,
+        "window": "30 minutes before and after publication"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "refuted",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 3 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A02 corrected as its own set",
+  "computedUtc": "2026-11-09T08:59:29.7221677Z",
+  "seconds": 10.6,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H19-train-20261109-0859.json"
+}

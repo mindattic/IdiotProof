@@ -1,0 +1,78 @@
+{
+  "id": "H9p",
+  "family": "F1",
+  "primary": true,
+  "test": "bucket-lift",
+  "claim": "v_3 above 1%/min and pmVolRatio above 5 at 09:00 predict fwdMax_09:45 \u003E= 10% with lift at least 2 over the population base rate.",
+  "feature": "v_3 \u003E 1.0 AND pmVolRatio \u003E 5",
+  "label": "fwdMax_09:45 \u003E= 0.10",
+  "decisionTime": "09:00",
+  "minEffect": {
+    "lift": 2.0
+  },
+  "split": "validation",
+  "smoke": false,
+  "inputs": {
+    "n": 107518,
+    "days": 249,
+    "firstDate": "2024-11-04",
+    "lastDate": "2025-10-31",
+    "population": "population at 09:00: 50,820 candidate days (weight 1) and 56,698 population-sample days (weight 10)",
+    "featureColumns": [
+      "v_3 \u003E 1",
+      "pmVolRatio \u003E 5"
+    ],
+    "labelColumns": [
+      "FwdMax0945 \u003E= 0.1"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": [],
+    "amendmentId": "A01",
+    "amendmentSha256": "557b34e2502ba5943cdb966adb4784b688a0058f606b6830fc6769ac129b55cb",
+    "amendsHypothesis": "H9"
+  },
+  "parts": [
+    {
+      "name": "lift",
+      "effectName": "lift",
+      "effect": 11.618560996215583,
+      "minEffect": 2,
+      "direction": "AtLeast",
+      "meetsMinimum": true,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.00019998000199980003,
+      "holmP": 0.0007999200079992001,
+      "ciLow": 8.772806139633687,
+      "ciHigh": 15.083318423092981,
+      "n": 605,
+      "days": 226,
+      "verdict": "supported",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 11.619 vs 2 (AtLeast), q 2.0e-4 vs 0.05, Holm p 8.0e-4 vs 0.05"
+      ],
+      "statistic": {
+        "candidateRows": 50820,
+        "sampleRows": 56698,
+        "populationWeight": 617800,
+        "groupRate": 0.12818405916187345,
+        "baseRate": 0.01103269666558757,
+        "groupWeight": 1217,
+        "trainRows": 107518,
+        "edgesFitOn": "none (pass flag)",
+        "pRule": "day-clustered bootstrap of the weighted group rate minus the weighted base rate"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "supported",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A01 corrected as its own set",
+  "computedUtc": "2026-11-09T08:57:37.3581571Z",
+  "seconds": 4.2,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H9p-validation-20261109-0857.json",
+  "holmInputP": 0.00019998000199980003
+}

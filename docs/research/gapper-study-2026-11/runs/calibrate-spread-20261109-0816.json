@@ -1,0 +1,18 @@
+{
+  "stage": "calibrate-spread",
+  "startedUtc": "2026-11-09T08:16:22.8880677Z",
+  "seconds": 155.7400565,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Multiplier": 9.39340522666859,
+    "Statistic": "median",
+    "EventsRequested": 500,
+    "EventsSampled": 500,
+    "EventsUsed": 339,
+    "QuoteCalls": 499,
+    "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\data\\spread-multiplier.json",
+    "Note": "1 without a Corwin-Schultz estimate, 160 without quotes",
+    "Minutes": 2.59
+  }
+}

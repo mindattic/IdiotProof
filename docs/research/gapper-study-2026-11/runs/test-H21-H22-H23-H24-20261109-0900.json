@@ -1,0 +1,461 @@
+{
+  "stage": "test-H21-H22-H23-H24",
+  "startedUtc": "2026-11-09T09:00:32.5116233Z",
+  "seconds": 515.1797584,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Split": "train",
+    "Runs": [
+      {
+        "Id": "H21",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "corobs-auc",
+        "Claim": "The Corobs look-alike score alone beats the catalyst-latency benchmark by at least 0.05 weighted AUC for reach20By0945 over the population (the H11p bar, with Corobs in place of the logistic detector).",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "aucDifference": 0.05
+        },
+        "Split": "train",
+        "Smoke": false,
+        "Inputs": {
+          "N": 0,
+          "Days": 0,
+          "FirstDate": null,
+          "LastDate": null,
+          "Population": "",
+          "FeatureColumns": [],
+          "LabelColumns": [],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A03",
+          "AmendmentSha256": "f09f5e28324e07da837bd42b33950f679d1237814bd52661e1c3fc87b58bdd8c",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "split",
+            "EffectName": "",
+            "Effect": null,
+            "MinEffect": null,
+            "Direction": "AtLeast",
+            "MeetsMinimum": null,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": null,
+            "CiHigh": null,
+            "N": 0,
+            "Days": 0,
+            "Verdict": "void",
+            "VerdictFixed": true,
+            "Reasons": [
+              "amendment A03 allows H21 on validation, holdout only"
+            ],
+            "Statistic": {},
+            "HasInterval": false
+          }
+        ],
+        "Verdict": "void",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 4 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A03 corrected as its own set",
+        "ComputedUtc": "2026-11-09T09:09:07.633292Z",
+        "Seconds": 0.1,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H21-train-20261109-0909.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H22",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "corobs-plugin-auc",
+        "Claim": "Plugging the Corobs score into the logistic detector (the combined model) raises weighted AUC for reach20By0945 by at least 0.01 over the logistic detector alone.",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "aucDifference": 0.01
+        },
+        "Split": "train",
+        "Smoke": false,
+        "Inputs": {
+          "N": 0,
+          "Days": 0,
+          "FirstDate": null,
+          "LastDate": null,
+          "Population": "",
+          "FeatureColumns": [],
+          "LabelColumns": [],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A03",
+          "AmendmentSha256": "f09f5e28324e07da837bd42b33950f679d1237814bd52661e1c3fc87b58bdd8c",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "split",
+            "EffectName": "",
+            "Effect": null,
+            "MinEffect": null,
+            "Direction": "AtLeast",
+            "MeetsMinimum": null,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": null,
+            "CiHigh": null,
+            "N": 0,
+            "Days": 0,
+            "Verdict": "void",
+            "VerdictFixed": true,
+            "Reasons": [
+              "amendment A03 allows H22 on validation, holdout only"
+            ],
+            "Statistic": {},
+            "HasInterval": false
+          }
+        ],
+        "Verdict": "void",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 4 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A03 corrected as its own set",
+        "ComputedUtc": "2026-11-09T09:09:07.633292Z",
+        "Seconds": 0,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H22-train-20261109-0909.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H23",
+        "Family": "F1",
+        "Primary": false,
+        "Test": "corobs-vs-logistic-auc",
+        "Claim": "Head to head: the Corobs score alone has a weighted AUC for reach20By0945 at least as high as the logistic detector alone.",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "aucDifference": 0.0
+        },
+        "Split": "train",
+        "Smoke": false,
+        "Inputs": {
+          "N": 0,
+          "Days": 0,
+          "FirstDate": null,
+          "LastDate": null,
+          "Population": "",
+          "FeatureColumns": [],
+          "LabelColumns": [],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A03",
+          "AmendmentSha256": "f09f5e28324e07da837bd42b33950f679d1237814bd52661e1c3fc87b58bdd8c",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "split",
+            "EffectName": "",
+            "Effect": null,
+            "MinEffect": null,
+            "Direction": "AtLeast",
+            "MeetsMinimum": null,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": null,
+            "CiHigh": null,
+            "N": 0,
+            "Days": 0,
+            "Verdict": "void",
+            "VerdictFixed": true,
+            "Reasons": [
+              "amendment A03 allows H23 on validation, holdout only"
+            ],
+            "Statistic": {},
+            "HasInterval": false
+          }
+        ],
+        "Verdict": "void",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 4 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A03 corrected as its own set",
+        "ComputedUtc": "2026-11-09T09:09:07.633292Z",
+        "Seconds": 0,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H23-train-20261109-0909.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H24",
+        "Family": "F1",
+        "Primary": false,
+        "Test": "corobs-novelty-lift",
+        "Claim": "The top decile of the novelty score (rows least like anything in training) has precision for reach20By0945 at least 2x the weighted base rate.",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "precisionOverBaseRate": 2.0
+        },
+        "Split": "train",
+        "Smoke": false,
+        "Inputs": {
+          "N": 253115,
+          "Days": 755,
+          "FirstDate": "2021-11-01",
+          "LastDate": "2024-10-31",
+          "Population": "population at 08:00: 103,044 candidate days (weight 1) and 150,071 population-sample days (weight 10)",
+          "FeatureColumns": [
+            "GapPct (Corobs ply, 8 dims)",
+            "LogPmCumVol (Corobs ply, 8 dims)",
+            "VolRatioTod (Corobs ply, 8 dims)",
+            "OwnProfileRatio (Corobs ply, 8 dims)",
+            "Velocity1m (Corobs ply, 8 dims)",
+            "Velocity3m (Corobs ply, 8 dims)",
+            "Velocity5m (Corobs ply, 8 dims)",
+            "Velocity15m (Corobs ply, 8 dims)",
+            "Acceleration (Corobs ply, 8 dims)",
+            "VolumeRoc (Corobs ply, 8 dims)",
+            "TradesProxy (Corobs ply, 8 dims)",
+            "TradesRoc (Corobs ply, 8 dims)",
+            "SpreadProxy (Corobs ply, 8 dims)",
+            "DistToPmHighPct (Corobs ply, 8 dims)",
+            "MinsSinceFirstAbnormal (Corobs ply, 8 dims)",
+            "AbnormalReturnD1 (Corobs ply, 8 dims)",
+            "AbnormalReturnD2 (Corobs ply, 8 dims)",
+            "AbnormalReturnD3 (Corobs ply, 8 dims)",
+            "AbnormalReturnD4 (Corobs ply, 8 dims)",
+            "AbnormalReturnD5 (Corobs ply, 8 dims)",
+            "VolumeRatioD1 (Corobs ply, 8 dims)",
+            "VolumeRatioD2 (Corobs ply, 8 dims)",
+            "VolumeRatioD3 (Corobs ply, 8 dims)",
+            "VolumeRatioD4 (Corobs ply, 8 dims)",
+            "VolumeRatioD5 (Corobs ply, 8 dims)",
+            "DaysSinceReverseSplit (Corobs ply, 8 dims)",
+            "DaysSince424B (Corobs ply, 8 dims)",
+            "DaysSinceS1 (Corobs ply, 8 dims)",
+            "novelty (top decile, weighted train edge)"
+          ],
+          "LabelColumns": [
+            "Reach20By0945"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A03",
+          "AmendmentSha256": "f09f5e28324e07da837bd42b33950f679d1237814bd52661e1c3fc87b58bdd8c",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "precisionOverBaseRate",
+            "EffectName": "precisionOverBaseRate",
+            "Effect": 7.961500784922503,
+            "MinEffect": 2,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00019998000199980003,
+            "HolmP": null,
+            "CiLow": 7.746464102626869,
+            "CiHigh": 8.175971019415094,
+            "N": 46248,
+            "Days": 755,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 7.962 vs 2 (AtLeast), q 2.0e-4 vs 0.05"
+            ],
+            "Statistic": {
+              "candidateRows": 103044,
+              "sampleRows": 150071,
+              "populationWeight": 1603754,
+              "groupRate": 0.04572608001596328,
+              "baseRate": 0.005743399548808608,
+              "groupWeight": 160368,
+              "noveltyEdge": 1.544063962394069,
+              "aucBenchmark": 0.5711448229875615,
+              "aucLogistic": 0.9042608896616378,
+              "aucCorobs": 0.9334611782278232,
+              "aucCombined": 0.9354756489841386,
+              "fitOn": "this split (training rows scored leave-one-day-out; logistic in-sample)",
+              "trainRows": 253115,
+              "dimensions": 224,
+              "k": 100,
+              "priorWeight": 10,
+              "trainBaseRate": 0.005743399548808608,
+              "logitCorobsCoefficient": 0.172435,
+              "scoringSeconds": 506.4,
+              "ranges": [
+                {
+                  "feature": "GapPct",
+                  "low": -9.63265306122449,
+                  "high": 10.594315245478036
+                },
+                {
+                  "feature": "LogPmCumVol",
+                  "low": 0,
+                  "high": 12.403159654524602
+                },
+                {
+                  "feature": "VolRatioTod",
+                  "low": 0,
+                  "high": 204.66348846860248
+                },
+                {
+                  "feature": "OwnProfileRatio",
+                  "low": 0,
+                  "high": 82.82744092919184
+                },
+                {
+                  "feature": "Velocity1m",
+                  "low": -0.4524886877828055,
+                  "high": 0.48465266558966075
+                },
+                {
+                  "feature": "Velocity3m",
+                  "low": -0.4138449962377728,
+                  "high": 0.3875968992248062
+                },
+                {
+                  "feature": "Velocity5m",
+                  "low": -0.3389830508474576,
+                  "high": 0.33333333333333337
+                },
+                {
+                  "feature": "Velocity15m",
+                  "low": -0.20072341943043456,
+                  "high": 0.20240963855421687
+                },
+                {
+                  "feature": "Acceleration",
+                  "low": -0.6776822404088539,
+                  "high": 0.6564614149753468
+                },
+                {
+                  "feature": "VolumeRoc",
+                  "low": 0,
+                  "high": 32.18
+                },
+                {
+                  "feature": "TradesProxy",
+                  "low": 0,
+                  "high": 86
+                },
+                {
+                  "feature": "TradesRoc",
+                  "low": -1,
+                  "high": 12
+                },
+                {
+                  "feature": "SpreadProxy",
+                  "low": 0,
+                  "high": 0.002481065470181216
+                },
+                {
+                  "feature": "DistToPmHighPct",
+                  "low": 0,
+                  "high": 14.101646385110952
+                },
+                {
+                  "feature": "MinsSinceFirstAbnormal",
+                  "low": 0,
+                  "high": 222
+                },
+                {
+                  "feature": "AbnormalReturnD1",
+                  "low": -13.54295555649314,
+                  "high": 14.58927479222228
+                },
+                {
+                  "feature": "AbnormalReturnD2",
+                  "low": -13.70053019380073,
+                  "high": 14.638866209883528
+                },
+                {
+                  "feature": "AbnormalReturnD3",
+                  "low": -13.735797951143175,
+                  "high": 14.618998540357062
+                },
+                {
+                  "feature": "AbnormalReturnD4",
+                  "low": -13.6628092758828,
+                  "high": 14.909844664736685
+                },
+                {
+                  "feature": "AbnormalReturnD5",
+                  "low": -13.798936695516808,
+                  "high": 14.979322010537762
+                },
+                {
+                  "feature": "VolumeRatioD1",
+                  "low": 0.04060087730437298,
+                  "high": 6.263689952561429
+                },
+                {
+                  "feature": "VolumeRatioD2",
+                  "low": 0.04300532530654082,
+                  "high": 6.652401214908882
+                },
+                {
+                  "feature": "VolumeRatioD3",
+                  "low": 0.04358255726247583,
+                  "high": 6.750628024830499
+                },
+                {
+                  "feature": "VolumeRatioD4",
+                  "low": 0.04415305152627382,
+                  "high": 6.8315267202406105
+                },
+                {
+                  "feature": "VolumeRatioD5",
+                  "low": 0.04510713219113306,
+                  "high": 6.794762526634133
+                },
+                {
+                  "feature": "DaysSinceReverseSplit",
+                  "low": 27,
+                  "high": 361
+                },
+                {
+                  "feature": "DaysSince424B",
+                  "low": 1,
+                  "high": 362
+                },
+                {
+                  "feature": "DaysSinceS1",
+                  "low": 4,
+                  "high": 365
+                }
+              ],
+              "pRule": "day-clustered bootstrap of the weighted group rate minus the weighted base rate"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 4 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A03 corrected as its own set",
+        "ComputedUtc": "2026-11-09T09:09:07.633292Z",
+        "Seconds": 514.9,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H24-train-20261109-0909.json",
+        "HolmInputP": 0.00019998000199980003
+      }
+    ],
+    "HoldoutNote": null,
+    "Minutes": 8.59
+  }
+}

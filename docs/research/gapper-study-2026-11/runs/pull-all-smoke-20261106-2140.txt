@@ -1,0 +1,13 @@
+stage: pull-all-smoke
+started: 2026-11-06 16:40:02 ET
+seconds: 5
+status: Ok
+message: 
+
+tier    rows  calls  minutes  coverage  note
+------  ----  -----  -------  --------  ------------------------------------------------------------------
+splits     0      1     0.02    100.0%  2 symbols pulled, 0 already covered
+bars       8      8     0.05    100.0%  0 gapper events, 0 controls assigned, SIP share 100.0%
+news       4      1     0.01    100.0%  4 items seen, 4 new rows, 0 windows already covered
+cik        2      1     0.01    100.0%  2 company_tickers, 0 Form 4, 0 name match; candidate coverage 100%
+edgar     10      1     0.01         -  1 quarter files, 0 header fetches, 0 acceptance times

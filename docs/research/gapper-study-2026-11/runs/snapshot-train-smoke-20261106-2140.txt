@@ -1,0 +1,12 @@
+stage: snapshot-train-smoke
+started: 2026-11-06 16:40:35 ET
+seconds: 2
+status: Ok
+message: 
+
+split:          smoke
+symbol-days:    2
+snapshot rows:  26 (24 with VolRatioTod)
+profile:        fit on 2 days → D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\data\tod-profile.smoke.json
+holdout:        not a holdout run
+minutes:        0.03

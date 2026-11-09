@@ -1,0 +1,64 @@
+{
+  "id": "H17",
+  "family": "F3",
+  "primary": false,
+  "test": "wilson-ci",
+  "claim": "A collapse in the 5-minute trade-count rate (tradesRoc \u003C= -0.5) occurs within the 5 minutes before the full-session high more often than within a random 5-minute window of the same session.",
+  "feature": "tradesRoc \u003C= -0.5",
+  "label": "hodTime",
+  "minEffect": {
+    "ratioOverUnconditional": 1.5
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 6855,
+    "days": 753,
+    "firstDate": "2021-11-01",
+    "lastDate": "2024-10-31",
+    "population": "Tier20 gapper days with minute bars",
+    "featureColumns": [
+      "tradesRoc \u003C= -0.5 (5-minute trade count rate)"
+    ],
+    "labelColumns": [
+      "HodTimeEt"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "ratioOverUnconditional",
+      "effectName": "ratioOverUnconditional",
+      "effect": 0.545845542671815,
+      "minEffect": 1.5,
+      "direction": "AtLeast",
+      "meetsMinimum": false,
+      "ciLow": 0.5202488606319272,
+      "ciHigh": 0.5723808477532788,
+      "n": 6855,
+      "days": 753,
+      "verdict": "refuted",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: interval [0.520, 0.572] against 1.5 (AtLeast); descriptive, no p"
+      ],
+      "statistic": {
+        "conditionalShare": 0.19722830051057622,
+        "unconditionalShare": 0.3613262087754339,
+        "windows": 968294,
+        "interval": "Wilson on the conditional share, divided by the unconditional share"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "refuted",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 19.8,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H17-train-20261109-0835.json"
+}

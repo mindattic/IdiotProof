@@ -1,0 +1,54 @@
+{
+  "id": "H1",
+  "family": "F1",
+  "primary": true,
+  "test": "bucket-lift",
+  "claim": "The top quintile of pmVolRatio at 08:00 has precision for reach20By0945 at least 3x the base rate among candidate days.",
+  "feature": "pmVolRatio",
+  "label": "reach20By0945",
+  "decisionTime": "08:00",
+  "minEffect": {
+    "precisionOverBaseRate": 3.0
+  },
+  "split": "smoke",
+  "smoke": true,
+  "inputs": {
+    "n": 0,
+    "days": 0,
+    "population": "candidate days with a bar by 08:00",
+    "featureColumns": [
+      "VolRatioTod"
+    ],
+    "labelColumns": [
+      "Reach20By0945"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "f8036260817d5082b89485892cab4f62cf8a0590",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "precisionOverBaseRate",
+      "effectName": "precisionOverBaseRate",
+      "minEffect": 3,
+      "direction": "AtLeast",
+      "n": 0,
+      "days": 0,
+      "verdict": "void",
+      "verdictFixed": false,
+      "reasons": [
+        "0 rows in the tested bucket (minBucketN 50) or no base rate"
+      ],
+      "statistic": {},
+      "hasInterval": false
+    }
+  ],
+  "verdict": "void",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 2 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-06T22:47:45.3531146Z",
+  "seconds": 0.1,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H1-smoke-20261106-2247.json"
+}

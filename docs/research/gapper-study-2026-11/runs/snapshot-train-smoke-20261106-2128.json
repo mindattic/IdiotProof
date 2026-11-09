@@ -1,0 +1,18 @@
+{
+  "stage": "snapshot-train-smoke",
+  "startedUtc": "2026-11-06T21:28:24.8971679Z",
+  "seconds": 1.8597591,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Split": "smoke",
+    "SymbolDays": 2,
+    "Rows": 26,
+    "WithProfile": 24,
+    "ProfileFile": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\data\\tod-profile.smoke.json",
+    "ProfileBuilt": true,
+    "ProfileDays": 2,
+    "HoldoutNote": null,
+    "Minutes": 0.03
+  }
+}

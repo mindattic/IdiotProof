@@ -1,0 +1,49 @@
+{
+  "stage": "pull-all-smoke",
+  "startedUtc": "2026-11-06T21:27:37.781627Z",
+  "seconds": 5.3658317,
+  "status": "Ok",
+  "Message": null,
+  "data": [
+    {
+      "Tier": "splits",
+      "Rows": 0,
+      "Calls": 1,
+      "Minutes": 0.01,
+      "CoveragePct": 100,
+      "Note": "2 symbols pulled, 0 already covered"
+    },
+    {
+      "Tier": "bars",
+      "Rows": 8,
+      "Calls": 8,
+      "Minutes": 0.04,
+      "CoveragePct": 100,
+      "Note": "0 gapper events, 0 controls assigned, SIP share 100.0%"
+    },
+    {
+      "Tier": "news",
+      "Rows": 4,
+      "Calls": 1,
+      "Minutes": 0,
+      "CoveragePct": 100,
+      "Note": "4 items seen, 4 new rows, 0 windows already covered"
+    },
+    {
+      "Tier": "cik",
+      "Rows": 2,
+      "Calls": 1,
+      "Minutes": 0.01,
+      "CoveragePct": 100,
+      "Note": "2 company_tickers, 0 Form 4, 0 name match; candidate coverage 100%"
+    },
+    {
+      "Tier": "edgar",
+      "Rows": 0,
+      "Calls": 1,
+      "Minutes": 0.02,
+      "CoveragePct": null,
+      "Note": "1 quarter files, 0 header fetches, 0 acceptance times"
+    }
+  ]
+}

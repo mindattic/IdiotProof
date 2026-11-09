@@ -1,0 +1,71 @@
+{
+  "id": "H3",
+  "family": "F2",
+  "primary": true,
+  "test": "proportion-diff-clustered",
+  "claim": "No-catalyst Tier20 gappers fade (close at or below pmHigh - 30%) more often than catalyst gappers.",
+  "feature": "hasCatalyst = false vs true",
+  "label": "fadeFlag30",
+  "decisionTime": "09:30",
+  "minEffect": {
+    "proportionDifferencePp": 10.0
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 6657,
+    "days": 753,
+    "firstDate": "2021-11-01",
+    "lastDate": "2024-10-31",
+    "population": "Tier20 gapper days at 09:30",
+    "featureColumns": [
+      "hasCatalyst (item within 24h)"
+    ],
+    "labelColumns": [
+      "FadeFlag30"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "proportionDifferencePp",
+      "effectName": "proportionDifferencePp",
+      "effect": -4.66112709638673,
+      "minEffect": 10,
+      "direction": "AtLeast",
+      "meetsMinimum": false,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.00039996000399960006,
+      "holmP": 0.0015998400159984002,
+      "ciLow": -6.107626687762855,
+      "ciHigh": -3.213598404268117,
+      "n": 6657,
+      "days": 753,
+      "verdict": "refuted",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect -4.661 vs 10 (AtLeast), q 4.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+      ],
+      "statistic": {
+        "bootstrapDraws": 10000,
+        "treatedN": 2721,
+        "controlN": 3936,
+        "ciLevel": 0.95,
+        "fadeRateNoCatalyst": 0.07533994854832782,
+        "fadeRateCatalyst": 0.12195121951219512
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "refuted",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 4.1,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H3-train-20261109-0835.json",
+  "holmInputP": 0.00019998000199980003
+}

@@ -1,0 +1,25 @@
+{
+  "stage": "build-universe",
+  "startedUtc": "2026-11-06T21:50:28.6650925Z",
+  "seconds": 4845.1522357,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "KeySource": "host AppSettings",
+    "Assets": 32439,
+    "DailyBarCalls": 8941,
+    "DailyBarsInserted": 12040511,
+    "SplitCalls": 649,
+    "SplitsInserted": 2635,
+    "Symbols": 13646,
+    "ReusedTickerSymbols": 125,
+    "UniverseDays": 3026687,
+    "Candidates": 213915,
+    "ExcludedByReason": {
+      "split-window": 22091,
+      "unexplained-move": 16133
+    },
+    "Minutes": 80.75,
+    "SampleFile": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\sample.json"
+  }
+}

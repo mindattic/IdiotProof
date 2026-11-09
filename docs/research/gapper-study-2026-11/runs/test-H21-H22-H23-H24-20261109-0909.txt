@@ -1,0 +1,20 @@
+stage: test-H21-H22-H23-H24
+started: 2026-11-09 04:09:08 ET
+seconds: 822
+status: Ok
+message: 
+
+hypothesis  part                        n  days  effect    min       p       q  holm  verdict
+----------  ---------------------  ------  ----  ------  -----  ------  ------  ----  ---------
+H21         aucDifference          107669   249   0.377  0.050  2.0e-4  2.0e-4   n/a  supported
+H22         aucDifference          107669   249   0.026  0.010  2.0e-4  2.0e-4   n/a  supported
+H23         aucDifference          107669   249   0.023  0.000  2.0e-4  2.0e-4   n/a  supported
+H24         precisionOverBaseRate   30951   249   5.054  2.000  2.0e-4  2.0e-4   n/a  supported
+split:    validation
+runs:     H21=supported, H22=supported, H23=supported, H24=supported
+files:    D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H21-validation-20261109-0922.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H22-validation-20261109-0922.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H23-validation-20261109-0922.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H24-validation-20261109-0922.json
+holdout:  not a holdout run
+minutes:  13.70

@@ -1,0 +1,517 @@
+{
+  "id": "H18",
+  "family": "F4",
+  "primary": true,
+  "test": "news-ride-grid",
+  "claim": "Buying the first premarket news item second-hand and exiting on the frozen exit ladder nets at least \u002B1.0%/trade after the frozen cost model over the population, on a grid of 24 configurations.",
+  "minEffect": {
+    "meanNetPctPerTrade": 1.0,
+    "clusteredLowerBoundAbove": 0.0,
+    "minTrades": 150,
+    "minDays": 40
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 261809,
+    "days": 755,
+    "firstDate": "2021-11-01",
+    "lastDate": "2024-10-31",
+    "population": "population days: 105,964 candidate days (weight 1) and 155,845 population-sample days (weight 10); 27,949 with a first realtime news item in (prior close, 09:20]",
+    "featureColumns": [
+      "first realtime news item",
+      "pre-classifier direction",
+      "close before the trigger vs the adjusted prior close"
+    ],
+    "labelColumns": [
+      "weighted net return per trade after the frozen cost model"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": [],
+    "amendmentId": "A02",
+    "amendmentSha256": "c481f9272b9bd38f299cef76eafc744a0af1bceb0b02849590aff2090f2f4b81"
+  },
+  "parts": [
+    {
+      "name": "meanNetPctPerTrade",
+      "effectName": "meanNetPctPerTrade",
+      "effect": -3.294459633963859,
+      "minEffect": 1,
+      "direction": "AtLeast",
+      "meetsMinimum": false,
+      "rawP": 1,
+      "familyQ": 1,
+      "ciLow": -4.1608891234707235,
+      "ciHigh": -2.434263651308207,
+      "n": 362,
+      "days": 268,
+      "verdict": "refuted",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: SPA p 1.000 vs 0.05, DSR 9.8e-14 vs 0.95, worth-trading False"
+      ],
+      "statistic": {
+        "candidateRows": 105964,
+        "sampleRows": 155845,
+        "populationWeight": 1664414,
+        "newsDays": 27949,
+        "newsDaysBullish": 1017,
+        "distinctEntries": 32456,
+        "meanRoundTripCost": 0.04630155214070792,
+        "spreadMultiplier": 9.39340522666859,
+        "spreadMultiplierSource": "spread-multiplier.json",
+        "exitLadder": "stop 10%, VWAP loss on, velocity death 3m, sell-by per configuration",
+        "configs": [
+          {
+            "label": "latency1m news=any confirm=none sellBy09:15",
+            "trades": 22493,
+            "days": 711,
+            "meanNetPct": -4.170034820384377,
+            "lowerBoundPct": -4.403722819295111,
+            "sharpe": -0.40006138324488655,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 0,
+            "exits": {
+              "vwap-loss": 9299,
+              "stop": 793,
+              "sell-by": 6396,
+              "velocity-death": 6005
+            }
+          },
+          {
+            "label": "latency1m news=any confirm=none sellBy09:28",
+            "trades": 23181,
+            "days": 711,
+            "meanNetPct": -4.1848977478629115,
+            "lowerBoundPct": -4.408551494436344,
+            "sharpe": -0.40475032077118683,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 0,
+            "exits": {
+              "vwap-loss": 10076,
+              "stop": 818,
+              "sell-by": 5853,
+              "velocity-death": 6434
+            }
+          },
+          {
+            "label": "latency1m news=any confirm=none sellBy09:45",
+            "trades": 23181,
+            "days": 711,
+            "meanNetPct": -4.215428851090022,
+            "lowerBoundPct": -4.441645668050323,
+            "sharpe": -0.4039223354446711,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 0,
+            "exits": {
+              "vwap-loss": 12755,
+              "stop": 1063,
+              "velocity-death": 8044,
+              "sell-by": 1319
+            }
+          },
+          {
+            "label": "latency1m news=any confirm=up5 sellBy09:15",
+            "trades": 4820,
+            "days": 705,
+            "meanNetPct": -6.744184993689509,
+            "lowerBoundPct": -7.389769462979485,
+            "sharpe": -0.5119463670926769,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 5.42491270546009E-115,
+            "exits": {
+              "sell-by": 676,
+              "velocity-death": 1944,
+              "vwap-loss": 1844,
+              "stop": 356
+            }
+          },
+          {
+            "label": "latency1m news=any confirm=up5 sellBy09:28",
+            "trades": 4968,
+            "days": 705,
+            "meanNetPct": -6.8280102272617595,
+            "lowerBoundPct": -7.456142046674148,
+            "sharpe": -0.5102556464485609,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 7.67053525723973E-101,
+            "exits": {
+              "sell-by": 541,
+              "velocity-death": 2074,
+              "vwap-loss": 1990,
+              "stop": 363
+            }
+          },
+          {
+            "label": "latency1m news=any confirm=up5 sellBy09:45",
+            "trades": 4968,
+            "days": 705,
+            "meanNetPct": -6.892627549414662,
+            "lowerBoundPct": -7.534144426664385,
+            "sharpe": -0.5106352024731565,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 8.343295074847513E-105,
+            "exits": {
+              "vwap-loss": 2215,
+              "velocity-death": 2255,
+              "stop": 381,
+              "sell-by": 117
+            }
+          },
+          {
+            "label": "latency1m news=bullish confirm=none sellBy09:15",
+            "trades": 887,
+            "days": 431,
+            "meanNetPct": -3.6108800904357228,
+            "lowerBoundPct": -4.3341790502784,
+            "sharpe": -0.45474093679815175,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 8.221342757235882E-15,
+            "exits": {
+              "vwap-loss": 335,
+              "velocity-death": 309,
+              "sell-by": 196,
+              "stop": 47
+            }
+          },
+          {
+            "label": "latency1m news=bullish confirm=none sellBy09:28",
+            "trades": 911,
+            "days": 442,
+            "meanNetPct": -3.728877193965892,
+            "lowerBoundPct": -4.441755160958451,
+            "sharpe": -0.47218791121533754,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 4.41036796862194E-15,
+            "exits": {
+              "vwap-loss": 360,
+              "velocity-death": 328,
+              "sell-by": 174,
+              "stop": 49
+            }
+          },
+          {
+            "label": "latency1m news=bullish confirm=none sellBy09:45",
+            "trades": 911,
+            "days": 442,
+            "meanNetPct": -3.7958085704706934,
+            "lowerBoundPct": -4.490922870944771,
+            "sharpe": -0.48035926800760914,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 5.318957647260249E-15,
+            "exits": {
+              "vwap-loss": 444,
+              "velocity-death": 368,
+              "sell-by": 45,
+              "stop": 54
+            }
+          },
+          {
+            "label": "latency1m news=bullish confirm=up5 sellBy09:15",
+            "trades": 349,
+            "days": 259,
+            "meanNetPct": -3.7151354610312937,
+            "lowerBoundPct": -4.818485722570322,
+            "sharpe": -0.3603285425842653,
+            "naiveP": 0.9999999999632033,
+            "q": 1,
+            "dsr": 7.285890287086302E-08,
+            "exits": {
+              "velocity-death": 146,
+              "vwap-loss": 139,
+              "stop": 35,
+              "sell-by": 29
+            }
+          },
+          {
+            "label": "latency1m news=bullish confirm=up5 sellBy09:28",
+            "trades": 357,
+            "days": 265,
+            "meanNetPct": -3.723682956298101,
+            "lowerBoundPct": -4.829210966962238,
+            "sharpe": -0.36427697452906066,
+            "naiveP": 0.9999999999858908,
+            "q": 1,
+            "dsr": 6.536725118188928E-08,
+            "exits": {
+              "velocity-death": 155,
+              "vwap-loss": 145,
+              "stop": 36,
+              "sell-by": 21
+            }
+          },
+          {
+            "label": "latency1m news=bullish confirm=up5 sellBy09:45",
+            "trades": 357,
+            "days": 265,
+            "meanNetPct": -3.788491762931829,
+            "lowerBoundPct": -4.902960719719673,
+            "sharpe": -0.3702479353633712,
+            "naiveP": 0.9999999999930048,
+            "q": 1,
+            "dsr": 7.430689584768492E-08,
+            "exits": {
+              "velocity-death": 158,
+              "vwap-loss": 156,
+              "stop": 36,
+              "sell-by": 7
+            }
+          },
+          {
+            "label": "latency5m news=any confirm=none sellBy09:15",
+            "trades": 22203,
+            "days": 711,
+            "meanNetPct": -4.22433058160917,
+            "lowerBoundPct": -4.450965741894998,
+            "sharpe": -0.40969581448239306,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 0,
+            "exits": {
+              "vwap-loss": 9036,
+              "velocity-death": 6159,
+              "sell-by": 6376,
+              "stop": 632
+            }
+          },
+          {
+            "label": "latency5m news=any confirm=none sellBy09:28",
+            "trades": 23019,
+            "days": 711,
+            "meanNetPct": -4.23390080592494,
+            "lowerBoundPct": -4.452910869648344,
+            "sharpe": -0.41487807168077456,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 0,
+            "exits": {
+              "vwap-loss": 9817,
+              "velocity-death": 6613,
+              "sell-by": 5934,
+              "stop": 655
+            }
+          },
+          {
+            "label": "latency5m news=any confirm=none sellBy09:45",
+            "trades": 23019,
+            "days": 711,
+            "meanNetPct": -4.269092394106288,
+            "lowerBoundPct": -4.490679784536834,
+            "sharpe": -0.4142832693854193,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 0,
+            "exits": {
+              "vwap-loss": 12520,
+              "velocity-death": 8267,
+              "sell-by": 1332,
+              "stop": 900
+            }
+          },
+          {
+            "label": "latency5m news=any confirm=up5 sellBy09:15",
+            "trades": 4964,
+            "days": 708,
+            "meanNetPct": -6.133554138830487,
+            "lowerBoundPct": -6.702751171693309,
+            "sharpe": -0.5440802353566391,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 0,
+            "exits": {
+              "sell-by": 701,
+              "velocity-death": 2167,
+              "vwap-loss": 1846,
+              "stop": 250
+            }
+          },
+          {
+            "label": "latency5m news=any confirm=up5 sellBy09:28",
+            "trades": 5165,
+            "days": 708,
+            "meanNetPct": -6.231916875196666,
+            "lowerBoundPct": -6.79089365617674,
+            "sharpe": -0.5381735044505074,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 1.0550437253636418E-142,
+            "exits": {
+              "sell-by": 602,
+              "velocity-death": 2308,
+              "vwap-loss": 2000,
+              "stop": 255
+            }
+          },
+          {
+            "label": "latency5m news=any confirm=up5 sellBy09:45",
+            "trades": 5165,
+            "days": 708,
+            "meanNetPct": -6.298562969451855,
+            "lowerBoundPct": -6.855541347731146,
+            "sharpe": -0.540402514580532,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 2.858308824060372E-149,
+            "exits": {
+              "vwap-loss": 2244,
+              "velocity-death": 2528,
+              "stop": 273,
+              "sell-by": 120
+            }
+          },
+          {
+            "label": "latency5m news=bullish confirm=none sellBy09:15",
+            "trades": 880,
+            "days": 429,
+            "meanNetPct": -3.620097731860366,
+            "lowerBoundPct": -4.347273795495727,
+            "sharpe": -0.5233930703132137,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 1.2586606920419312E-23,
+            "exits": {
+              "vwap-loss": 307,
+              "velocity-death": 331,
+              "sell-by": 209,
+              "stop": 33
+            }
+          },
+          {
+            "label": "latency5m news=bullish confirm=none sellBy09:28",
+            "trades": 905,
+            "days": 439,
+            "meanNetPct": -3.727975866423942,
+            "lowerBoundPct": -4.44750196830065,
+            "sharpe": -0.5409625209746999,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 8.843946077035365E-25,
+            "exits": {
+              "vwap-loss": 330,
+              "velocity-death": 355,
+              "sell-by": 186,
+              "stop": 34
+            }
+          },
+          {
+            "label": "latency5m news=bullish confirm=none sellBy09:45",
+            "trades": 905,
+            "days": 439,
+            "meanNetPct": -3.8164930762478546,
+            "lowerBoundPct": -4.513806661387318,
+            "sharpe": -0.5521258253225599,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 6.863112776398485E-25,
+            "exits": {
+              "vwap-loss": 418,
+              "velocity-death": 399,
+              "sell-by": 49,
+              "stop": 39
+            }
+          },
+          {
+            "label": "latency5m news=bullish confirm=up5 sellBy09:15",
+            "trades": 362,
+            "days": 268,
+            "meanNetPct": -3.294459633963859,
+            "lowerBoundPct": -4.1608891234707235,
+            "sharpe": -0.5228781720818679,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 9.834232277760319E-14,
+            "exits": {
+              "velocity-death": 177,
+              "vwap-loss": 128,
+              "sell-by": 36,
+              "stop": 21
+            }
+          },
+          {
+            "label": "latency5m news=bullish confirm=up5 sellBy09:28",
+            "trades": 368,
+            "days": 272,
+            "meanNetPct": -3.3929451617768045,
+            "lowerBoundPct": -4.241580844228706,
+            "sharpe": -0.5291861852329989,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 9.127156750933463E-15,
+            "exits": {
+              "velocity-death": 187,
+              "vwap-loss": 135,
+              "sell-by": 25,
+              "stop": 21
+            }
+          },
+          {
+            "label": "latency5m news=bullish confirm=up5 sellBy09:45",
+            "trades": 368,
+            "days": 272,
+            "meanNetPct": -3.355685571424634,
+            "lowerBoundPct": -4.214361809058357,
+            "sharpe": -0.5233543199253624,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 9.811637883947884E-15,
+            "exits": {
+              "velocity-death": 192,
+              "vwap-loss": 148,
+              "sell-by": 7,
+              "stop": 21
+            }
+          }
+        ],
+        "configCount": 24,
+        "cells": 261809,
+        "selection": "highest weighted day-clustered lower bound on this split among configs with enough unweighted trades",
+        "whiteP": 1,
+        "spaP": 1,
+        "spaBestConfig": "latency5m news=bullish confirm=up5 sellBy09:15",
+        "spaResamples": 1000,
+        "spaSeries": "per-day weighted mean net return per population cell (zero where the configuration did not trade)",
+        "dsrLength": "unweighted trade count",
+        "selectedConfig": "latency5m news=bullish confirm=up5 sellBy09:15",
+        "selectedTrades": 362,
+        "selectedSampleTrades": 16,
+        "selectedWeightedTrades": 506,
+        "selectedDays": 268,
+        "selectedLowerBoundPct": -4.1608891234707235,
+        "dsr": 9.834232277760319E-14,
+        "selectedQ": 1,
+        "selectedExits": {
+          "velocity-death": 177,
+          "vwap-loss": 128,
+          "sell-by": 36,
+          "stop": 21
+        },
+        "worthTrading": {
+          "minTrades": 150,
+          "minDays": 40,
+          "lowerBoundAbove": 0,
+          "meanNetPctPerTrade": 1
+        }
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "refuted",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 3 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A02 corrected as its own set",
+  "computedUtc": "2026-11-09T08:59:29.7221677Z",
+  "seconds": 91.8,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H18-train-20261109-0859.json",
+  "holmInputP": 1
+}

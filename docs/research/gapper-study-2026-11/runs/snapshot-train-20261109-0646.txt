@@ -1,0 +1,12 @@
+stage: snapshot-train
+started: 2026-11-09 01:46:19 ET
+seconds: 2953
+status: Ok
+message: 
+
+split:          train
+symbol-days:    267976
+snapshot rows:  1932118 (1424734 with VolRatioTod)
+profile:        fit on 6812 days → D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\data\tod-profile.json
+holdout:        not a holdout run
+minutes:        49.22

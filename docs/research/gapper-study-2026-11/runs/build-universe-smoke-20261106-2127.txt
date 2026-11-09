@@ -1,0 +1,16 @@
+stage: build-universe-smoke
+started: 2026-11-06 16:27:24 ET
+seconds: 3
+status: Ok
+message: 
+
+keys:               host AppSettings
+assets:             3
+daily bars:         132 rows inserted in 1 calls
+splits:             0 rows inserted in 1 calls
+symbols with bars:  3 (0 bracket a >90-session gap)
+universe days:      6
+candidates:         2
+excluded:           
+minutes:            0.04
+sample:             D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\sample.smoke.json

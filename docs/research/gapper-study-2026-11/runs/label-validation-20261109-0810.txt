@@ -1,0 +1,11 @@
+stage: label-validation
+started: 2026-11-09 03:10:27 ET
+seconds: 354
+status: Ok
+message: 
+
+split:        validation
+symbol-days:  115639
+label rows:   921677 (919076 with an entry bar)
+holdout:      not a holdout run
+minutes:      5.90

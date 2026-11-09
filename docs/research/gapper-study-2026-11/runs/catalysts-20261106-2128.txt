@@ -1,0 +1,10 @@
+stage: catalysts
+started: 2026-11-06 16:28:14 ET
+seconds: 1
+status: Ok
+message: 
+
+backfilled rows:  4
+re-classified:    0
+LLM classified:   0 (budget 0; 4 still unclassified)
+minutes:          0.01

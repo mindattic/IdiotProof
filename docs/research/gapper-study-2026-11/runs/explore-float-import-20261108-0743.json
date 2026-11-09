@@ -1,0 +1,17 @@
+{
+  "stage": "explore-float-import",
+  "startedUtc": "2026-11-08T07:43:23.1392018Z",
+  "seconds": 78.4380514,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Command": "float-import",
+    "ReportFile": "D:\\IdiotProofData\\sec-companyfacts\\shares-outstanding.csv",
+    "Trials": 0,
+    "LedgerTotal": 0,
+    "Lines": [
+      "20,559 filers read, 15,407 with shares outstanding, 381,562 facts -\u003E D:\\IdiotProofData\\sec-companyfacts\\shares-outstanding.csv; 5,435 symbols mapped to a CIK -\u003E D:\\IdiotProofData\\gapper-study\\explore\\cikmap.csv"
+    ],
+    "Minutes": 1.31
+  }
+}

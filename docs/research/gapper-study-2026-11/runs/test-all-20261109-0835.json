@@ -1,0 +1,4542 @@
+{
+  "stage": "test-all",
+  "startedUtc": "2026-11-09T08:35:16.0417302Z",
+  "seconds": 1341.3862579,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Split": "validation",
+    "Runs": [
+      {
+        "Id": "H1",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "bucket-lift",
+        "Claim": "The top quintile of pmVolRatio at 08:00 has precision for reach20By0945 at least 3x the base rate among candidate days.",
+        "Feature": "pmVolRatio",
+        "Label": "reach20By0945",
+        "DecisionTime": "08:00",
+        "MinEffect": {
+          "precisionOverBaseRate": 3.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 15928,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "candidate days with a bar by 08:00",
+          "FeatureColumns": [
+            "VolRatioTod"
+          ],
+          "LabelColumns": [
+            "Reach20By0945"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "precisionOverBaseRate",
+            "EffectName": "precisionOverBaseRate",
+            "Effect": 2.435120254875663,
+            "MinEffect": 3,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.0001999800019998,
+            "HolmP": 0.0017998200179982003,
+            "CiLow": 2.3332915436749984,
+            "CiHigh": 2.539169526315199,
+            "N": 4387,
+            "Days": 249,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 2.435 vs 3 (AtLeast), q 2.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+            ],
+            "Statistic": {
+              "bucketRate": 0.3286984271711876,
+              "baseRate": 0.1349824208940231,
+              "trainBucketRate": 0.3149317579955184,
+              "trainBaseRate": 0.10044433573845339,
+              "binomialP": 3.0120259402192923E-235,
+              "dayClusteredP": 0.00019998000199980003,
+              "qWithinFeatureBuckets": 0.0001999800019998,
+              "bins": 5,
+              "trainSamples": 24531,
+              "splitSamples": 15928,
+              "edgesFitOn": "train"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 11.8,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H1-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H2",
+        "Family": "F2",
+        "Primary": true,
+        "Test": "event-study-bmp",
+        "Claim": "Gappers with an Fda, ContractAward or MA catalyst in [t-24h, t] continue after 10:30 (fwdClose_16:00 minus fwdClose_10:30 at t=09:30) more than no-catalyst gappers.",
+        "Feature": "catalystType in {Fda, ContractAward, MA} vs hasCatalyst = false",
+        "Label": "fwdClose_16:00 - fwdClose_10:30",
+        "DecisionTime": "09:30",
+        "MinEffect": {
+          "meanDifferencePct": 2.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 3051,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "Tier20 gapper days at 09:30 with a group",
+          "FeatureColumns": [
+            "catalystType in {Fda, ContractAward, MA} vs hasCatalyst = false"
+          ],
+          "LabelColumns": [
+            "(FwdClose1600 - FwdClose1030) x 100"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "meanDifferencePct",
+            "EffectName": "meanDifferencePct",
+            "Effect": -2.252108218917717,
+            "MinEffect": 2,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": 0.01998001998001998,
+            "FamilyQ": 0.01998001998001998,
+            "HolmP": 0.05159484051594841,
+            "CiLow": -4.2038877483923525,
+            "CiHigh": -0.3591367640407774,
+            "N": 3051,
+            "Days": 249,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect -2.252 vs 2 (AtLeast), q 0.020 vs 0.05, Holm p 0.052 vs 0.05"
+            ],
+            "Statistic": {
+              "meanTreated": -2.2115740977047214,
+              "meanControl": 0.04053412121299578,
+              "bmpT": -2.801723025926943,
+              "bmpP": 0.005360499109442686,
+              "placeboP": 0.01998001998001998,
+              "placeboDraws": 1000,
+              "daysWithBothGroups": 164,
+              "treatedN": 286,
+              "controlN": 2765,
+              "rawPRule": "max(BMP p, placebo p)"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 3,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H2-validation-20261109-0857.json",
+        "HolmInputP": 0.01998001998001998
+      },
+      {
+        "Id": "H3",
+        "Family": "F2",
+        "Primary": true,
+        "Test": "proportion-diff-clustered",
+        "Claim": "No-catalyst Tier20 gappers fade (close at or below pmHigh - 30%) more often than catalyst gappers.",
+        "Feature": "hasCatalyst = false vs true",
+        "Label": "fadeFlag30",
+        "DecisionTime": "09:30",
+        "MinEffect": {
+          "proportionDifferencePp": 10.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 5592,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "Tier20 gapper days at 09:30",
+          "FeatureColumns": [
+            "hasCatalyst (item within 24h)"
+          ],
+          "LabelColumns": [
+            "FadeFlag30"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "proportionDifferencePp",
+            "EffectName": "proportionDifferencePp",
+            "Effect": -11.443066465804373,
+            "MinEffect": 10,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00039996000399960006,
+            "HolmP": 0.0017998200179982003,
+            "CiLow": -13.50633711914477,
+            "CiHigh": -9.433662432212845,
+            "N": 5592,
+            "Days": 249,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect -11.443 vs 10 (AtLeast), q 4.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+            ],
+            "Statistic": {
+              "bootstrapDraws": 10000,
+              "treatedN": 2693,
+              "controlN": 2899,
+              "ciLevel": 0.95,
+              "fadeRateNoCatalyst": 0.1032305978462681,
+              "fadeRateCatalyst": 0.21766126250431184
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 2.9,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H3-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H4",
+        "Family": "F3",
+        "Primary": true,
+        "Test": "wilson-ci",
+        "Claim": "At least 60% of Tier50 gapper days print the RTH high of day before 09:46.",
+        "Feature": null,
+        "Label": "hodTimeRth \u003C 09:46",
+        "DecisionTime": null,
+        "MinEffect": {
+          "proportionAtLeast": 0.60
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 1685,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "Tier50 gapper days",
+          "FeatureColumns": [],
+          "LabelColumns": [
+            "HodTimeRthEt \u003C 09:46"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "proportionAtLeast",
+            "EffectName": "proportion",
+            "Effect": 0.40059347181008903,
+            "MinEffect": 0.6,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": 0.3774480804303068,
+            "CiHigh": 0.42419108570966463,
+            "N": 1685,
+            "Days": 0,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: interval [0.377, 0.424] against 0.6 (AtLeast); descriptive, no p"
+            ],
+            "Statistic": {
+              "successes": 675,
+              "ciLevel": 0.95,
+              "interval": "Wilson"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 2.7,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H4-validation-20261109-0857.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H5",
+        "Family": "F3",
+        "Primary": true,
+        "Test": "quantile-ci",
+        "Claim": "Among Tier20 gappers with a velocity death, the median deathToHodMin lies in [-2, \u002B5] minutes, and fewer than 25% of full-session highs fall in the 09:30-09:31 bucket.",
+        "Feature": "velocityDeathTime",
+        "Label": "deathToHodMin; hodBucket = 09:30-09:31",
+        "DecisionTime": null,
+        "MinEffect": {
+          "medianWithin": [
+            -2,
+            5
+          ],
+          "bucketShareBelow": 0.25
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 5669,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "Tier20 gapper days with a velocity death",
+          "FeatureColumns": [
+            "VelocityDeathTimeEt"
+          ],
+          "LabelColumns": [
+            "DeathToHodMin",
+            "HodBucket"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "medianDeathToHodMin",
+            "EffectName": "medianDeathToHodMin",
+            "Effect": 35,
+            "MinEffect": -2,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": 31,
+            "CiHigh": 38,
+            "N": 5669,
+            "Days": 249,
+            "Verdict": "refuted",
+            "VerdictFixed": true,
+            "Reasons": [
+              "verdict: bootstrap interval [31.000, 38.000] against [-2, 5]; descriptive, no p"
+            ],
+            "Statistic": {
+              "bootstrapDraws": 10000,
+              "treatedN": 5669,
+              "controlN": 0,
+              "ciLevel": 0.95,
+              "range": [
+                -2,
+                5
+              ]
+            },
+            "HasInterval": true
+          },
+          {
+            "Name": "bucketShareBelow",
+            "EffectName": "share of HOD in 09:30-09:31",
+            "Effect": 0.01499382607161757,
+            "MinEffect": 0.25,
+            "Direction": "AtMost",
+            "MeetsMinimum": true,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": 0.012142798992881645,
+            "CiHigh": 0.018501713098740023,
+            "N": 5669,
+            "Days": 0,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: interval [0.012, 0.019] against 0.25 (AtMost); descriptive, no p"
+            ],
+            "Statistic": {
+              "successes": 85,
+              "ciLevel": 0.95,
+              "interval": "Wilson",
+              "bucket": "09:30-09:31"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 5.4,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H5-validation-20261109-0857.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H6",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "bucket-lift",
+        "Claim": "D-1 abnormal volume at least 3x ADV20 at least doubles the probability of a Tier20 gapper day on D among universe members.",
+        "Feature": "abnVol_1 \u003E= 3",
+        "Label": "isTier20Gapper",
+        "DecisionTime": "D-1 16:00",
+        "MinEffect": {
+          "lift": 2.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 625822,
+          "Days": 248,
+          "FirstDate": "2024-11-05",
+          "LastDate": "2025-10-31",
+          "Population": "U(D) members present in U(D-1)",
+          "FeatureColumns": [
+            "abnVol_1 = volume(D-1)/ADV20(D-1)"
+          ],
+          "LabelColumns": [
+            "IsGapper (Tier20)"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "lift",
+            "EffectName": "lift",
+            "Effect": 6.446574838040897,
+            "MinEffect": 2,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.0001999800019998,
+            "HolmP": 0.0017998200179982003,
+            "CiLow": 6.07672409383115,
+            "CiHigh": 6.8375743442538885,
+            "N": 19290,
+            "Days": 248,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 6.447 vs 2 (AtLeast), q 2.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+            ],
+            "Statistic": {
+              "bucketRate": 0.05412130637636081,
+              "baseRate": 0.008395358424599967,
+              "trainBucketRate": 0.02630545740086376,
+              "trainBaseRate": 0.003907380872422887,
+              "binomialP": 0,
+              "dayClusteredP": 0.00019998000199980003,
+              "qWithinFeatureBuckets": 0.00019998000199980003,
+              "bins": 2,
+              "trainSamples": 1640741,
+              "splitSamples": 625822,
+              "edgesFitOn": "train"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 7,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H6-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H7",
+        "Family": "F5",
+        "Primary": true,
+        "Test": "group-diff",
+        "Claim": "A reverse split within the prior 30 days lowers fwdClose_10:30 (entry at 09:30) and raises fade among Tier20 gappers.",
+        "Feature": "daysSinceReverseSplit \u003C= 30",
+        "Label": "fwdClose_10:30; fade",
+        "DecisionTime": "09:30",
+        "MinEffect": {
+          "fwdCloseDifferencePct": -2.0,
+          "fadeDifferencePct": -5.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 5679,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "Tier20 gapper days at 09:30",
+          "FeatureColumns": [
+            "daysSinceReverseSplit \u003C= 30"
+          ],
+          "LabelColumns": [
+            "FwdClose1030 x 100",
+            "Fade x 100"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "fwdCloseDifferencePct",
+            "EffectName": "fwdClose_10:30 difference (pct)",
+            "Effect": null,
+            "MinEffect": -2,
+            "Direction": "AtMost",
+            "MeetsMinimum": null,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": null,
+            "CiHigh": null,
+            "N": 5679,
+            "Days": 249,
+            "Verdict": "void",
+            "VerdictFixed": true,
+            "Reasons": [
+              "33 rows in the tested group / 5646 in the control group, fewer than minBucketN 50"
+            ],
+            "Statistic": {},
+            "HasInterval": false
+          },
+          {
+            "Name": "fadeDifferencePct",
+            "EffectName": "fade difference (pct)",
+            "Effect": null,
+            "MinEffect": -5,
+            "Direction": "AtMost",
+            "MeetsMinimum": null,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": null,
+            "CiHigh": null,
+            "N": 5592,
+            "Days": 249,
+            "Verdict": "void",
+            "VerdictFixed": true,
+            "Reasons": [
+              "33 rows in the tested group / 5559 in the control group, fewer than minBucketN 50"
+            ],
+            "Statistic": {},
+            "HasInterval": false
+          }
+        ],
+        "Verdict": "void",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 2.4,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H7-validation-20261109-0857.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H8",
+        "Family": "F5",
+        "Primary": true,
+        "Test": "group-diff",
+        "Claim": "At least one Form 4 open-market purchase in [D-30, D-1 16:00] raises the probability of a Tier20 gapper day on D.",
+        "Feature": "form4BuysD30 \u003E= 1",
+        "Label": "isTier20Gapper",
+        "DecisionTime": "D-1 16:00",
+        "MinEffect": {
+          "lift": 1.5
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 590326,
+          "Days": 250,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "CIK-mapped members of U(D)",
+          "FeatureColumns": [
+            "form4BuysD30 \u003E= 1",
+            "cikCoverage=0.900"
+          ],
+          "LabelColumns": [
+            "IsGapper (Tier20)"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "lift",
+            "EffectName": "rate ratio treated/control",
+            "Effect": 0.6792384459397013,
+            "MinEffect": 1.5,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00029997000299970003,
+            "HolmP": 0.0017998200179982003,
+            "CiLow": 0.5934695294806217,
+            "CiHigh": 0.765208683184608,
+            "N": 590326,
+            "Days": 250,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 0.679 vs 1.5 (AtLeast), q 3.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+            ],
+            "Statistic": {
+              "bootstrapDraws": 10000,
+              "treatedN": 39125,
+              "controlN": 551201,
+              "ciLevel": 0.95,
+              "treatedRate": 0.006517571884984026,
+              "controlRate": 0.009595410748529121,
+              "proportionDifference": -0.003077838863545095,
+              "pRule": "day-clustered bootstrap of the proportion difference"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 53.4,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H8-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H9",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "bucket-lift",
+        "Claim": "v_3 above 1%/min and pmVolRatio above 5 at 09:00 predict fwdMax_09:45 \u003E= 10% with lift at least 2 over the candidate-day base rate.",
+        "Feature": "v_3 \u003E 1.0 AND pmVolRatio \u003E 5",
+        "Label": "fwdMax_09:45 \u003E= 0.10",
+        "DecisionTime": "09:00",
+        "MinEffect": {
+          "lift": 2.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 50820,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "candidate days at 09:00",
+          "FeatureColumns": [
+            "v_3 \u003E 1",
+            "pmVolRatio \u003E 5"
+          ],
+          "LabelColumns": [
+            "FwdMax0945 \u003E= 0.1"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "lift",
+            "EffectName": "lift",
+            "Effect": 2.2515569883036,
+            "MinEffect": 2,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.0001999800019998,
+            "HolmP": 0.0017998200179982003,
+            "CiLow": 1.9264526533119914,
+            "CiHigh": 2.6128342347321394,
+            "N": 537,
+            "Days": 218,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 2.252 vs 2 (AtLeast), q 2.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+            ],
+            "Statistic": {
+              "bucketRate": 0.2346368715083799,
+              "baseRate": 0.10421094057457694,
+              "trainBucketRate": 0.28625,
+              "trainBaseRate": 0.07984095968580789,
+              "binomialP": 6.1270273969669475E-18,
+              "dayClusteredP": 0.00019998000199980003,
+              "qWithinFeatureBuckets": 0.00039996000399960006,
+              "bins": 2,
+              "trainSamples": 102867,
+              "splitSamples": 50820,
+              "edgesFitOn": "train"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 9.6,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H9-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H10",
+        "Family": "F5",
+        "Primary": true,
+        "Test": "group-diff",
+        "Claim": "A 424B filing within the prior 10 days raises Tier20 probability on candidate days and makes fwdClose_16:00 (entry 09:30) negative on gapper days.",
+        "Feature": "daysSince424B \u003C= 10",
+        "Label": "isTier20Gapper; fwdClose_16:00",
+        "DecisionTime": "09:30",
+        "MinEffect": {
+          "lift": 1.5,
+          "fwdCloseMeanBelowPct": 0.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 51797,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "candidate days at 09:30 (part 1) and Tier20 gapper days (part 2)",
+          "FeatureColumns": [
+            "daysSince424B \u003C= 10"
+          ],
+          "LabelColumns": [
+            "IsGapper (Tier20)",
+            "FwdClose1600 x 100"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "lift",
+            "EffectName": "rate ratio treated/control",
+            "Effect": 1.7255957817669942,
+            "MinEffect": 1.5,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00029997000299970003,
+            "HolmP": 0.05159484051594841,
+            "CiLow": 1.5692551342687628,
+            "CiHigh": 1.889549461853032,
+            "N": 51797,
+            "Days": 249,
+            "Verdict": "undecided",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 1.726 vs 1.5 (AtLeast), q 3.0e-4 vs 0.05, Holm p 0.052 vs 0.05"
+            ],
+            "Statistic": {
+              "bootstrapDraws": 10000,
+              "treatedN": 2733,
+              "controlN": 49064,
+              "ciLevel": 0.95,
+              "treatedRate": 0.18221734357848518,
+              "controlRate": 0.10559677156367193,
+              "proportionDifference": 0.07662057201481325,
+              "pRule": "day-clustered bootstrap of the proportion difference"
+            },
+            "HasInterval": true
+          },
+          {
+            "Name": "fwdCloseMeanBelowPct",
+            "EffectName": "mean fwdClose_16:00 (pct) on gapper days with the filing",
+            "Effect": 2.4054212957274888,
+            "MinEffect": 0,
+            "Direction": "AtMost",
+            "MeetsMinimum": false,
+            "RawP": 0.017198280171982803,
+            "FamilyQ": 0.017198280171982803,
+            "HolmP": 0.05159484051594841,
+            "CiLow": 0.42480338598202566,
+            "CiHigh": 4.41459120667216,
+            "N": 498,
+            "Days": 201,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 2.405 vs 0 (AtMost), q 0.017 vs 0.05, Holm p 0.052 vs 0.05"
+            ],
+            "Statistic": {
+              "bootstrapDraws": 10000,
+              "treatedN": 498,
+              "controlN": 0,
+              "ciLevel": 0.95
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 5.6,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H10-validation-20261109-0857.json",
+        "HolmInputP": 0.017198280171982803
+      },
+      {
+        "Id": "H11",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "auc-delong",
+        "Claim": "A feature detector on the 08:00 snapshot beats the catalyst-latency benchmark (a news item or 8-K with pubToTMinutes \u003C= 60 exists at 08:00) by at least 0.05 AUC for reach20By0945 on validation.",
+        "Feature": "08:00 core feature set (logistic, fit on train) vs benchmark indicator pubToTMinutes \u003C= 60",
+        "Label": "reach20By0945",
+        "DecisionTime": "08:00",
+        "MinEffect": {
+          "aucDifference": 0.05
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 50904,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "candidate days at 08:00",
+          "FeatureColumns": [
+            "GapPct",
+            "LogPmCumVol",
+            "VolRatioTod",
+            "OwnProfileRatio",
+            "Velocity1m",
+            "Velocity3m",
+            "Velocity5m",
+            "Velocity15m",
+            "Acceleration",
+            "VolumeRoc",
+            "TradesProxy",
+            "TradesRoc",
+            "SpreadProxy",
+            "DistToPmHighPct",
+            "MinsSinceFirstAbnormal",
+            "AbnormalReturnD1",
+            "AbnormalReturnD2",
+            "AbnormalReturnD3",
+            "AbnormalReturnD4",
+            "AbnormalReturnD5",
+            "VolumeRatioD1",
+            "VolumeRatioD2",
+            "VolumeRatioD3",
+            "VolumeRatioD4",
+            "VolumeRatioD5",
+            "DaysSinceReverseSplit",
+            "DaysSince424B",
+            "DaysSinceS1",
+            "benchmark: pubToTMinutes \u003C= 60"
+          ],
+          "LabelColumns": [
+            "Reach20By0945"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "aucDifference",
+            "EffectName": "aucDifference",
+            "Effect": 0.32180128724553714,
+            "MinEffect": 0.05,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.0001999800019998,
+            "HolmP": 0.0017998200179982003,
+            "CiLow": 0.3130374209277996,
+            "CiHigh": 0.33031498728284436,
+            "N": 50904,
+            "Days": 249,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 0.322 vs 0.05 (AtLeast), q 2.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+            ],
+            "Statistic": {
+              "aucDetector": 0.8704161080950984,
+              "aucBenchmark": 0.5486148208495613,
+              "positives": 5721,
+              "benchmarkPositiveShare": 0.043395410969668397,
+              "fitOn": "train",
+              "trainRows": 103044,
+              "epochs": 500,
+              "trainLogLoss": 0.14537883538456597,
+              "weights": [
+                {
+                  "feature": "GapPct",
+                  "weight": 1.114477
+                },
+                {
+                  "feature": "LogPmCumVol",
+                  "weight": 0.607844
+                },
+                {
+                  "feature": "VolRatioTod",
+                  "weight": 0.126795
+                },
+                {
+                  "feature": "OwnProfileRatio",
+                  "weight": 0.125014
+                },
+                {
+                  "feature": "Velocity1m",
+                  "weight": 0.011296
+                },
+                {
+                  "feature": "Velocity3m",
+                  "weight": 0.021557
+                },
+                {
+                  "feature": "Velocity5m",
+                  "weight": 0.041487
+                },
+                {
+                  "feature": "Velocity15m",
+                  "weight": 0.064176
+                },
+                {
+                  "feature": "Acceleration",
+                  "weight": -0.007813
+                },
+                {
+                  "feature": "VolumeRoc",
+                  "weight": 2.8E-05
+                },
+                {
+                  "feature": "TradesProxy",
+                  "weight": 0.307271
+                },
+                {
+                  "feature": "TradesRoc",
+                  "weight": 0.027357
+                },
+                {
+                  "feature": "SpreadProxy",
+                  "weight": 0.175394
+                },
+                {
+                  "feature": "DistToPmHighPct",
+                  "weight": 0.852969
+                },
+                {
+                  "feature": "MinsSinceFirstAbnormal",
+                  "weight": -0.143459
+                },
+                {
+                  "feature": "AbnormalReturnD1",
+                  "weight": 0.02816
+                },
+                {
+                  "feature": "AbnormalReturnD2",
+                  "weight": 0.017917
+                },
+                {
+                  "feature": "AbnormalReturnD3",
+                  "weight": -3.2E-05
+                },
+                {
+                  "feature": "AbnormalReturnD4",
+                  "weight": -0.006735
+                },
+                {
+                  "feature": "AbnormalReturnD5",
+                  "weight": -0.021325
+                },
+                {
+                  "feature": "VolumeRatioD1",
+                  "weight": 0.002661
+                },
+                {
+                  "feature": "VolumeRatioD2",
+                  "weight": 0.01648
+                },
+                {
+                  "feature": "VolumeRatioD3",
+                  "weight": 0.014437
+                },
+                {
+                  "feature": "VolumeRatioD4",
+                  "weight": 0.010305
+                },
+                {
+                  "feature": "VolumeRatioD5",
+                  "weight": 0.024243
+                },
+                {
+                  "feature": "DaysSinceReverseSplit",
+                  "weight": -0.021872
+                },
+                {
+                  "feature": "DaysSince424B",
+                  "weight": -0.046525
+                },
+                {
+                  "feature": "DaysSinceS1",
+                  "weight": -0.040338
+                }
+              ],
+              "bootstrap": "day-block resampling of AUC(detector) - AUC(benchmark)"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 158.2,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H11-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H12",
+        "Family": "F4",
+        "Primary": true,
+        "Test": "search-grid-spa",
+        "Claim": "A rule built from H1/H9 (enter at the next-bar open after a pass at 08:30; exit on velocity death, VWAP loss, 09:28 sell-by, or stop) nets at least \u002B1.0%/trade after the frozen cost model on a grid of at most 24 configurations.",
+        "Feature": "pmVolRatio and v_3 at 08:30",
+        "Label": "net return per trade",
+        "DecisionTime": "08:30",
+        "MinEffect": {
+          "meanNetPctPerTrade": 1.0,
+          "clusteredLowerBoundAbove": 0.0,
+          "minTrades": 150,
+          "minDays": 40
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 51797,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "candidate days at 08:30",
+          "FeatureColumns": [
+            "VolRatioTod",
+            "Velocity3m",
+            "PmCumVol",
+            "csSpreadPrior",
+            "sigma20"
+          ],
+          "LabelColumns": [
+            "net return per trade after the frozen cost model"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "meanNetPctPerTrade",
+            "EffectName": "meanNetPctPerTrade",
+            "Effect": -3.4528332803185964,
+            "MinEffect": 1,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": 1,
+            "FamilyQ": 1,
+            "HolmP": 1,
+            "CiLow": -3.750229587859854,
+            "CiHigh": -3.1494577501764796,
+            "N": 1254,
+            "Days": 248,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: SPA p 1.000 vs 0.05, DSR 8.5e-36 vs 0.95, worth-trading False"
+            ],
+            "Statistic": {
+              "configs": [
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 1460,
+                  "Days": 248,
+                  "MeanNetPct": -3.7958681211570027,
+                  "LowerBoundPct": -4.102427430548055,
+                  "Sharpe": -0.6242877795154784,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.4086506671791475E-24,
+                  "Exits": {
+                    "velocity-death": 679,
+                    "vwap-loss": 422,
+                    "stop": 203,
+                    "sell-by": 156
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 1460,
+                  "Days": 248,
+                  "MeanNetPct": -3.8496665381809123,
+                  "LowerBoundPct": -4.139590386362708,
+                  "Sharpe": -0.6714066153275272,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.4737416215268944E-33,
+                  "Exits": {
+                    "velocity-death": 946,
+                    "stop": 243,
+                    "sell-by": 271
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 1460,
+                  "Days": 248,
+                  "MeanNetPct": -3.8035346109394093,
+                  "LowerBoundPct": -4.118014548038541,
+                  "Sharpe": -0.6100214991462205,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.3473131212121903E-26,
+                  "Exits": {
+                    "velocity-death": 777,
+                    "vwap-loss": 478,
+                    "sell-by": 158,
+                    "stop": 47
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 1460,
+                  "Days": 248,
+                  "MeanNetPct": -3.8498437284746654,
+                  "LowerBoundPct": -4.155496430218004,
+                  "Sharpe": -0.6511622618427725,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.3305504850787983E-37,
+                  "Exits": {
+                    "velocity-death": 1109,
+                    "sell-by": 290,
+                    "stop": 61
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 530,
+                  "Days": 224,
+                  "MeanNetPct": -4.694590829221508,
+                  "LowerBoundPct": -5.288422793081654,
+                  "Sharpe": -0.7029967462828184,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.2740115927337273E-13,
+                  "Exits": {
+                    "velocity-death": 227,
+                    "vwap-loss": 127,
+                    "stop": 121,
+                    "sell-by": 55
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 530,
+                  "Days": 224,
+                  "MeanNetPct": -4.719691517079906,
+                  "LowerBoundPct": -5.3197051455470925,
+                  "Sharpe": -0.7023972497809255,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 7.475514598822136E-14,
+                  "Exits": {
+                    "velocity-death": 318,
+                    "stop": 136,
+                    "sell-by": 76
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 530,
+                  "Days": 224,
+                  "MeanNetPct": -4.802035562085662,
+                  "LowerBoundPct": -5.418808080259848,
+                  "Sharpe": -0.6962193783694349,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.625394956177188E-15,
+                  "Exits": {
+                    "velocity-death": 277,
+                    "vwap-loss": 162,
+                    "sell-by": 57,
+                    "stop": 34
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 530,
+                  "Days": 224,
+                  "MeanNetPct": -4.748650586584069,
+                  "LowerBoundPct": -5.359293993425933,
+                  "Sharpe": -0.6850628085188695,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 2.017569127316807E-15,
+                  "Exits": {
+                    "velocity-death": 402,
+                    "sell-by": 87,
+                    "stop": 41
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 1391,
+                  "Days": 248,
+                  "MeanNetPct": -3.649957709845081,
+                  "LowerBoundPct": -3.9519222319301712,
+                  "Sharpe": -0.6056683315839216,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 5.351281672774792E-22,
+                  "Exits": {
+                    "velocity-death": 660,
+                    "vwap-loss": 389,
+                    "stop": 200,
+                    "sell-by": 142
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 1391,
+                  "Days": 248,
+                  "MeanNetPct": -3.7130601190838735,
+                  "LowerBoundPct": -3.994151318243243,
+                  "Sharpe": -0.6563192249287256,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.4419613117940453E-29,
+                  "Exits": {
+                    "velocity-death": 906,
+                    "stop": 239,
+                    "sell-by": 246
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 1391,
+                  "Days": 248,
+                  "MeanNetPct": -3.661458131200122,
+                  "LowerBoundPct": -3.9735748392539185,
+                  "Sharpe": -0.590918904070257,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 5.402609810127073E-24,
+                  "Exits": {
+                    "velocity-death": 758,
+                    "vwap-loss": 442,
+                    "sell-by": 144,
+                    "stop": 47
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 1391,
+                  "Days": 248,
+                  "MeanNetPct": -3.714568966635762,
+                  "LowerBoundPct": -4.012787673511206,
+                  "Sharpe": -0.6346192832452872,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.6791246623575304E-33,
+                  "Exits": {
+                    "velocity-death": 1067,
+                    "sell-by": 263,
+                    "stop": 61
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 508,
+                  "Days": 223,
+                  "MeanNetPct": -4.63626199706418,
+                  "LowerBoundPct": -5.25412409897008,
+                  "Sharpe": -0.6864708157330971,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 2.78251641211034E-13,
+                  "Exits": {
+                    "velocity-death": 217,
+                    "vwap-loss": 118,
+                    "stop": 120,
+                    "sell-by": 53
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 508,
+                  "Days": 223,
+                  "MeanNetPct": -4.6752153968567,
+                  "LowerBoundPct": -5.294627740517878,
+                  "Sharpe": -0.6886019032566145,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.8957587334836965E-13,
+                  "Exits": {
+                    "velocity-death": 302,
+                    "stop": 134,
+                    "sell-by": 72
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 508,
+                  "Days": 223,
+                  "MeanNetPct": -4.755735176364706,
+                  "LowerBoundPct": -5.386515798135535,
+                  "Sharpe": -0.6805495284319765,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 7.319308621698361E-15,
+                  "Exits": {
+                    "velocity-death": 267,
+                    "vwap-loss": 152,
+                    "sell-by": 55,
+                    "stop": 34
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 508,
+                  "Days": 223,
+                  "MeanNetPct": -4.7121346360375505,
+                  "LowerBoundPct": -5.3423011774029385,
+                  "Sharpe": -0.6715261242824976,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 4.6727915878347224E-15,
+                  "Exits": {
+                    "velocity-death": 385,
+                    "sell-by": 82,
+                    "stop": 41
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 1254,
+                  "Days": 248,
+                  "MeanNetPct": -3.3738940082560727,
+                  "LowerBoundPct": -3.6687615563627123,
+                  "Sharpe": -0.6100746632866442,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 4.558284830341498E-18,
+                  "Exits": {
+                    "velocity-death": 615,
+                    "vwap-loss": 340,
+                    "stop": 193,
+                    "sell-by": 106
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 1254,
+                  "Days": 248,
+                  "MeanNetPct": -3.4520716410189625,
+                  "LowerBoundPct": -3.7307481802071427,
+                  "Sharpe": -0.6783845107825232,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 4.908969384132193E-32,
+                  "Exits": {
+                    "velocity-death": 837,
+                    "stop": 230,
+                    "sell-by": 187
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 1254,
+                  "Days": 248,
+                  "MeanNetPct": -3.3802574146274202,
+                  "LowerBoundPct": -3.690037648518407,
+                  "Sharpe": -0.59063908998888,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 7.888648637980675E-20,
+                  "Exits": {
+                    "velocity-death": 712,
+                    "vwap-loss": 389,
+                    "sell-by": 108,
+                    "stop": 45
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 1254,
+                  "Days": 248,
+                  "MeanNetPct": -3.4528332803185964,
+                  "LowerBoundPct": -3.750229587859854,
+                  "Sharpe": -0.6486862900624899,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 8.514352444244025E-36,
+                  "Exits": {
+                    "velocity-death": 993,
+                    "sell-by": 202,
+                    "stop": 59
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 458,
+                  "Days": 216,
+                  "MeanNetPct": -4.266485025364516,
+                  "LowerBoundPct": -4.733892767841697,
+                  "Sharpe": -0.7868063471959951,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.4873994108427055E-14,
+                  "Exits": {
+                    "velocity-death": 198,
+                    "vwap-loss": 104,
+                    "stop": 118,
+                    "sell-by": 38
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 458,
+                  "Days": 216,
+                  "MeanNetPct": -4.307838646089983,
+                  "LowerBoundPct": -4.787006964459087,
+                  "Sharpe": -0.7874883413860903,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 9.959378275539827E-15,
+                  "Exits": {
+                    "velocity-death": 274,
+                    "stop": 131,
+                    "sell-by": 53
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 458,
+                  "Days": 216,
+                  "MeanNetPct": -4.400958442761826,
+                  "LowerBoundPct": -4.896744543302205,
+                  "Sharpe": -0.7648559872810302,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 8.896122546657418E-17,
+                  "Exits": {
+                    "velocity-death": 248,
+                    "vwap-loss": 136,
+                    "sell-by": 40,
+                    "stop": 34
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 458,
+                  "Days": 216,
+                  "MeanNetPct": -4.368312017293362,
+                  "LowerBoundPct": -4.87250502190891,
+                  "Sharpe": -0.7525168384143797,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 5.702339801286618E-17,
+                  "Exits": {
+                    "velocity-death": 356,
+                    "sell-by": 61,
+                    "stop": 41
+                  }
+                }
+              ],
+              "configCount": 24,
+              "cells": 51797,
+              "cellsPassingLoosest": 1460,
+              "meanRoundTripCost": 0.034131492683872146,
+              "spreadMultiplier": 9.39340522666859,
+              "spreadMultiplierSource": "spread-multiplier.json",
+              "selection": "carried from the latest train run",
+              "whiteP": 1,
+              "spaP": 1,
+              "spaBestConfig": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop5% sellBy09:28 vwapon",
+              "spaResamples": 1000,
+              "selectedConfig": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+              "selectedTrades": 1254,
+              "selectedDays": 248,
+              "selectedLowerBoundPct": -3.750229587859854,
+              "dsr": 8.514352444244025E-36,
+              "selectedQ": 1,
+              "selectedExits": {
+                "velocity-death": 993,
+                "sell-by": 202,
+                "stop": 59
+              },
+              "worthTrading": {
+                "minTrades": 150,
+                "minDays": 40,
+                "lowerBoundAbove": 0,
+                "meanNetPctPerTrade": 1
+              }
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 15.1,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H12-validation-20261109-0857.json",
+        "HolmInputP": 1
+      },
+      {
+        "Id": "H13",
+        "Family": "F3",
+        "Primary": false,
+        "Test": "wilson-ci",
+        "Claim": "Tier20 gappers whose extension from the 09:30 open at 09:45 is below 10% close below the open at least 85% of the time.",
+        "Feature": "ext0945 \u003C 0.10",
+        "Label": "closeBelowOpen",
+        "DecisionTime": "09:45",
+        "MinEffect": {
+          "proportionAtLeast": 0.85
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 3674,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "Tier20 gapper days with ext0945 \u003C 0.1",
+          "FeatureColumns": [
+            "ExtensionFromOpen0945"
+          ],
+          "LabelColumns": [
+            "CloseBelowOpen"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "proportionAtLeast",
+            "EffectName": "proportion",
+            "Effect": 0.4869352204681546,
+            "MinEffect": 0.85,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": 0.4707951137156564,
+            "CiHigh": 0.5031026192131014,
+            "N": 3674,
+            "Days": 0,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: interval [0.471, 0.503] against 0.85 (AtLeast); descriptive, no p"
+            ],
+            "Statistic": {
+              "successes": 1789,
+              "ciLevel": 0.95,
+              "interval": "Wilson"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 2.5,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H13-validation-20261109-0857.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H14",
+        "Family": "F4",
+        "Primary": false,
+        "Test": "group-diff",
+        "Claim": "On Tier50 gapper days, selling at the 09:30 open beats selling at 09:15 net of cost (paired per event).",
+        "Feature": null,
+        "Label": "sell price at 09:30 open minus sell price at 09:15 close, net of the frozen cost at each time",
+        "DecisionTime": "09:15",
+        "MinEffect": {
+          "meanPairedDifferencePct": 0.5
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 1676,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "Tier50 gapper days with a 09:15 close and a 09:30 open",
+          "FeatureColumns": [
+            "csSpreadPrior",
+            "PmCumVol at 09:15 and 09:30",
+            "sigma20"
+          ],
+          "LabelColumns": [
+            "09:30 open vs 09:15 close, net of the frozen per-side cost, pct of the 09:15 close"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "meanPairedDifferencePct",
+            "EffectName": "meanPairedDifferencePct",
+            "Effect": 0.3510687937859268,
+            "MinEffect": 0.5,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": 0.037396260373962605,
+            "FamilyQ": 0.07479252074792521,
+            "HolmP": null,
+            "CiLow": 0.023374072382892356,
+            "CiHigh": 0.6990016606346382,
+            "N": 1676,
+            "Days": 249,
+            "Verdict": "undecided",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 0.351 vs 0.5 (AtLeast), q 0.075 vs 0.05"
+            ],
+            "Statistic": {
+              "bootstrapDraws": 10000,
+              "treatedN": 1676,
+              "controlN": 0,
+              "ciLevel": 0.95,
+              "spreadMultiplier": 9.39340522666859,
+              "spreadMultiplierSource": "spread-multiplier.json",
+              "meanPerSideCostBothLegs": 0.024023953736867328
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "undecided",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 8,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H14-validation-20261109-0857.json",
+        "HolmInputP": 0.037396260373962605
+      },
+      {
+        "Id": "H15",
+        "Family": "F1",
+        "Primary": false,
+        "Test": "bucket-lift",
+        "Claim": "Being in the top 20 of U(D-1) by daily return on D-1 raises the probability of a Tier20 gapper day on D.",
+        "Feature": "priorDayTopMoverRank \u003C= 20",
+        "Label": "isTier20Gapper",
+        "DecisionTime": "D-1 16:00",
+        "MinEffect": {
+          "lift": 1.5
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 633071,
+          "Days": 247,
+          "FirstDate": "2024-11-05",
+          "LastDate": "2025-10-31",
+          "Population": "U(D) members ranked among U(D-1)",
+          "FeatureColumns": [
+            "priorDayTopMoverRank \u003C= 20"
+          ],
+          "LabelColumns": [
+            "IsGapper (Tier20)"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "lift",
+            "EffectName": "lift",
+            "Effect": 15.40573529454129,
+            "MinEffect": 1.5,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.0001999800019998,
+            "HolmP": null,
+            "CiLow": 14.331744531466033,
+            "CiHigh": 16.54670176393236,
+            "N": 4706,
+            "Days": 247,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 15.406 vs 1.5 (AtLeast), q 2.0e-4 vs 0.05"
+            ],
+            "Statistic": {
+              "bucketRate": 0.1364215894602635,
+              "baseRate": 0.008855246883840833,
+              "trainBucketRate": 0.07010280825225972,
+              "trainBaseRate": 0.004108798587293076,
+              "binomialP": 0,
+              "dayClusteredP": 0.00019998000199980003,
+              "qWithinFeatureBuckets": 0.00019998000199980003,
+              "bins": 2,
+              "trainSamples": 1667154,
+              "splitSamples": 633071,
+              "edgesFitOn": "train"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 61,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H15-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H16",
+        "Family": "F2",
+        "Primary": false,
+        "Test": "event-study-bmp",
+        "Claim": "Gappers whose latest catalyst is promotional (deterministic CatalystPreClassifier class PromoPr, or source tier promotional) reverse by 16:00 (negative fwdClose_16:00 at 09:30) while wire-sourced non-promotional catalysts continue.",
+        "Feature": "catalystPreClass = PromoPr OR sourceTier = promotional, vs sourceTier = wire AND preClass != PromoPr",
+        "Label": "fwdClose_16:00",
+        "DecisionTime": "09:30",
+        "MinEffect": {
+          "meanDifferencePct": 3.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 2914,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "Tier20 gapper days at 09:30 with a group",
+          "FeatureColumns": [
+            "catalystPreClass = PromoPr OR sourceTier = promotional, vs sourceTier = wire AND preClass != PromoPr"
+          ],
+          "LabelColumns": [
+            "FwdClose1600 x 100"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "meanDifferencePct",
+            "EffectName": "meanDifferencePct",
+            "Effect": null,
+            "MinEffect": 3,
+            "Direction": "AtLeast",
+            "MeetsMinimum": null,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": null,
+            "CiHigh": null,
+            "N": 2914,
+            "Days": 249,
+            "Verdict": "void",
+            "VerdictFixed": true,
+            "Reasons": [
+              "2 treated / 2912 control events, fewer than minBucketN 50"
+            ],
+            "Statistic": {},
+            "HasInterval": false
+          }
+        ],
+        "Verdict": "void",
+        "Reasons": [
+          "promotional = CatalystPreClass PromoPr (params promotionalSources is empty); control = every other catalyst inside the lookback, source tier not distinguished on snapshot rows"
+        ],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 2.9,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H16-validation-20261109-0857.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H17",
+        "Family": "F3",
+        "Primary": false,
+        "Test": "wilson-ci",
+        "Claim": "A collapse in the 5-minute trade-count rate (tradesRoc \u003C= -0.5) occurs within the 5 minutes before the full-session high more often than within a random 5-minute window of the same session.",
+        "Feature": "tradesRoc \u003C= -0.5",
+        "Label": "hodTime",
+        "DecisionTime": null,
+        "MinEffect": {
+          "ratioOverUnconditional": 1.5
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 5679,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "Tier20 gapper days with minute bars",
+          "FeatureColumns": [
+            "tradesRoc \u003C= -0.5 (5-minute trade count rate)"
+          ],
+          "LabelColumns": [
+            "HodTimeEt"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": null,
+          "AmendmentSha256": null,
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "ratioOverUnconditional",
+            "EffectName": "ratioOverUnconditional",
+            "Effect": 0.5592412966220662,
+            "MinEffect": 1.5,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": 0.5315488608202085,
+            "CiHigh": 0.5879787149366835,
+            "N": 5679,
+            "Days": 249,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: interval [0.532, 0.588] against 1.5 (AtLeast); descriptive, no p"
+            ],
+            "Statistic": {
+              "conditionalShare": 0.20989610846980103,
+              "unconditionalShare": 0.3753229772865795,
+              "windows": 802301,
+              "interval": "Wilson on the conditional share, divided by the unconditional share"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 15.8,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H17-validation-20261109-0857.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H1p",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "bucket-lift",
+        "Claim": "The top quintile of pmVolRatio at 08:00 has precision for reach20By0945 at least 3x the base rate over the population of U(D) members with premarket volume by 08:00.",
+        "Feature": "pmVolRatio",
+        "Label": "reach20By0945",
+        "DecisionTime": "08:00",
+        "MinEffect": {
+          "precisionOverBaseRate": 3.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 29856,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "population with premarket volume by 08:00: 15,928 candidate days (weight 1) and 13,928 population-sample days (weight 10)",
+          "FeatureColumns": [
+            "VolRatioTod (top quintile, weighted train edges)"
+          ],
+          "LabelColumns": [
+            "Reach20By0945"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A01",
+          "AmendmentSha256": "557b34e2502ba5943cdb966adb4784b688a0058f606b6830fc6769ac129b55cb",
+          "AmendsHypothesis": "H1"
+        },
+        "Parts": [
+          {
+            "Name": "precisionOverBaseRate",
+            "EffectName": "precisionOverBaseRate",
+            "Effect": 2.8698042201676937,
+            "MinEffect": 3,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00019998000199980003,
+            "HolmP": 0.0007999200079992001,
+            "CiLow": 2.769002780200052,
+            "CiHigh": 2.978543659990224,
+            "N": 12478,
+            "Days": 249,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 2.870 vs 3 (AtLeast), q 2.0e-4 vs 0.05, Holm p 8.0e-4 vs 0.05"
+            ],
+            "Statistic": {
+              "candidateRows": 15928,
+              "sampleRows": 13928,
+              "populationWeight": 155208,
+              "groupRate": 0.04604023315948635,
+              "baseRate": 0.016042987474872428,
+              "groupWeight": 45634,
+              "trainRows": 51223,
+              "edgesFitOn": "train",
+              "pRule": "day-clustered bootstrap of the weighted group rate minus the weighted base rate"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A01 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 10.8,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H1p-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H9p",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "bucket-lift",
+        "Claim": "v_3 above 1%/min and pmVolRatio above 5 at 09:00 predict fwdMax_09:45 \u003E= 10% with lift at least 2 over the population base rate.",
+        "Feature": "v_3 \u003E 1.0 AND pmVolRatio \u003E 5",
+        "Label": "fwdMax_09:45 \u003E= 0.10",
+        "DecisionTime": "09:00",
+        "MinEffect": {
+          "lift": 2.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 107518,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "population at 09:00: 50,820 candidate days (weight 1) and 56,698 population-sample days (weight 10)",
+          "FeatureColumns": [
+            "v_3 \u003E 1",
+            "pmVolRatio \u003E 5"
+          ],
+          "LabelColumns": [
+            "FwdMax0945 \u003E= 0.1"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A01",
+          "AmendmentSha256": "557b34e2502ba5943cdb966adb4784b688a0058f606b6830fc6769ac129b55cb",
+          "AmendsHypothesis": "H9"
+        },
+        "Parts": [
+          {
+            "Name": "lift",
+            "EffectName": "lift",
+            "Effect": 11.618560996215583,
+            "MinEffect": 2,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00019998000199980003,
+            "HolmP": 0.0007999200079992001,
+            "CiLow": 8.772806139633687,
+            "CiHigh": 15.083318423092981,
+            "N": 605,
+            "Days": 226,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 11.619 vs 2 (AtLeast), q 2.0e-4 vs 0.05, Holm p 8.0e-4 vs 0.05"
+            ],
+            "Statistic": {
+              "candidateRows": 50820,
+              "sampleRows": 56698,
+              "populationWeight": 617800,
+              "groupRate": 0.12818405916187345,
+              "baseRate": 0.01103269666558757,
+              "groupWeight": 1217,
+              "trainRows": 107518,
+              "edgesFitOn": "none (pass flag)",
+              "pRule": "day-clustered bootstrap of the weighted group rate minus the weighted base rate"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A01 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 4.2,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H9p-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H11p",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "auc-delong",
+        "Claim": "The H11 feature detector beats the catalyst-latency benchmark by at least 0.05 AUC for reach20By0945 over the population.",
+        "Feature": "08:00 core feature set (logistic, fit on train) vs benchmark indicator pubToTMinutes \u003C= 60",
+        "Label": "reach20By0945",
+        "DecisionTime": "08:00",
+        "MinEffect": {
+          "aucDifference": 0.05
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 107669,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "population at 08:00: 50,904 candidate days (weight 1) and 56,765 population-sample days (weight 10)",
+          "FeatureColumns": [
+            "GapPct",
+            "LogPmCumVol",
+            "VolRatioTod",
+            "OwnProfileRatio",
+            "Velocity1m",
+            "Velocity3m",
+            "Velocity5m",
+            "Velocity15m",
+            "Acceleration",
+            "VolumeRoc",
+            "TradesProxy",
+            "TradesRoc",
+            "SpreadProxy",
+            "DistToPmHighPct",
+            "MinsSinceFirstAbnormal",
+            "AbnormalReturnD1",
+            "AbnormalReturnD2",
+            "AbnormalReturnD3",
+            "AbnormalReturnD4",
+            "AbnormalReturnD5",
+            "VolumeRatioD1",
+            "VolumeRatioD2",
+            "VolumeRatioD3",
+            "VolumeRatioD4",
+            "VolumeRatioD5",
+            "DaysSinceReverseSplit",
+            "DaysSince424B",
+            "DaysSinceS1",
+            "benchmark: pubToTMinutes \u003C= 60"
+          ],
+          "LabelColumns": [
+            "Reach20By0945"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A01",
+          "AmendmentSha256": "557b34e2502ba5943cdb966adb4784b688a0058f606b6830fc6769ac129b55cb",
+          "AmendsHypothesis": "H11"
+        },
+        "Parts": [
+          {
+            "Name": "aucDifference",
+            "EffectName": "aucDifference",
+            "Effect": 0.35388289290388075,
+            "MinEffect": 0.05,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00019998000199980003,
+            "HolmP": 0.0007999200079992001,
+            "CiLow": 0.3429220817299503,
+            "CiHigh": 0.36459550636769467,
+            "N": 107669,
+            "Days": 249,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 0.354 vs 0.05 (AtLeast), q 2.0e-4 vs 0.05, Holm p 8.0e-4 vs 0.05"
+            ],
+            "Statistic": {
+              "candidateRows": 50904,
+              "sampleRows": 56765,
+              "populationWeight": 618554,
+              "aucDetector": 0.9119351985015995,
+              "aucBenchmark": 0.5580523055977188,
+              "positives": 5842,
+              "benchmarkPositiveWeightedShare": 0.011007931401300452,
+              "fitOn": "train",
+              "trainRows": 253115,
+              "epochs": 500,
+              "trainLogLoss": 0.03384962526160571,
+              "weights": [
+                {
+                  "feature": "GapPct",
+                  "weight": 0.332632
+                },
+                {
+                  "feature": "LogPmCumVol",
+                  "weight": 0.13916
+                },
+                {
+                  "feature": "VolRatioTod",
+                  "weight": 0.069226
+                },
+                {
+                  "feature": "OwnProfileRatio",
+                  "weight": 0.055454
+                },
+                {
+                  "feature": "Velocity1m",
+                  "weight": 0.005847
+                },
+                {
+                  "feature": "Velocity3m",
+                  "weight": 0.015721
+                },
+                {
+                  "feature": "Velocity5m",
+                  "weight": 0.013188
+                },
+                {
+                  "feature": "Velocity15m",
+                  "weight": 0.027208
+                },
+                {
+                  "feature": "Acceleration",
+                  "weight": 0.003794
+                },
+                {
+                  "feature": "VolumeRoc",
+                  "weight": 0.00081
+                },
+                {
+                  "feature": "TradesProxy",
+                  "weight": 0.120475
+                },
+                {
+                  "feature": "TradesRoc",
+                  "weight": 0.011677
+                },
+                {
+                  "feature": "SpreadProxy",
+                  "weight": 0.091254
+                },
+                {
+                  "feature": "DistToPmHighPct",
+                  "weight": 0.406965
+                },
+                {
+                  "feature": "MinsSinceFirstAbnormal",
+                  "weight": -0.027732
+                },
+                {
+                  "feature": "AbnormalReturnD1",
+                  "weight": 0.016722
+                },
+                {
+                  "feature": "AbnormalReturnD2",
+                  "weight": 0.004599
+                },
+                {
+                  "feature": "AbnormalReturnD3",
+                  "weight": 0.000249
+                },
+                {
+                  "feature": "AbnormalReturnD4",
+                  "weight": -0.007592
+                },
+                {
+                  "feature": "AbnormalReturnD5",
+                  "weight": -0.007559
+                },
+                {
+                  "feature": "VolumeRatioD1",
+                  "weight": -0.001366
+                },
+                {
+                  "feature": "VolumeRatioD2",
+                  "weight": 0.003069
+                },
+                {
+                  "feature": "VolumeRatioD3",
+                  "weight": 0.007052
+                },
+                {
+                  "feature": "VolumeRatioD4",
+                  "weight": 0.004709
+                },
+                {
+                  "feature": "VolumeRatioD5",
+                  "weight": 0.007504
+                },
+                {
+                  "feature": "DaysSinceReverseSplit",
+                  "weight": -0.005555
+                },
+                {
+                  "feature": "DaysSince424B",
+                  "weight": -0.01955
+                },
+                {
+                  "feature": "DaysSinceS1",
+                  "weight": -0.009502
+                }
+              ],
+              "bootstrap": "day-block resampling of weighted AUC(detector) - weighted AUC(benchmark)"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A01 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 47.5,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H11p-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H12p",
+        "Family": "F4",
+        "Primary": true,
+        "Test": "search-grid-spa",
+        "Claim": "The H12 rule grid nets at least \u002B1.0%/trade after the frozen cost model when it trades every pass in the population, not only passes on candidate days.",
+        "Feature": "pmVolRatio and v_3 at 08:30",
+        "Label": "net return per trade",
+        "DecisionTime": "08:30",
+        "MinEffect": {
+          "meanNetPctPerTrade": 1.0,
+          "clusteredLowerBoundAbove": 0.0,
+          "minTrades": 150,
+          "minDays": 40
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 110549,
+          "Days": 250,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "population at 08:30: 51,797 candidate days (weight 1) and 58,752 population-sample days (weight 10)",
+          "FeatureColumns": [
+            "VolRatioTod",
+            "Velocity3m",
+            "PmCumVol",
+            "csSpreadPrior",
+            "sigma20"
+          ],
+          "LabelColumns": [
+            "weighted net return per trade after the frozen cost model"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A01",
+          "AmendmentSha256": "557b34e2502ba5943cdb966adb4784b688a0058f606b6830fc6769ac129b55cb",
+          "AmendsHypothesis": "H12"
+        },
+        "Parts": [
+          {
+            "Name": "meanNetPctPerTrade",
+            "EffectName": "meanNetPctPerTrade",
+            "Effect": -3.927706640969101,
+            "MinEffect": 1,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": 1,
+            "FamilyQ": 1,
+            "HolmP": 1,
+            "CiLow": -4.294850392934532,
+            "CiHigh": -3.580819429034441,
+            "N": 1438,
+            "Days": 249,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: SPA p 1.000 vs 0.05, DSR 1.8e-54 vs 0.95, worth-trading False"
+            ],
+            "Statistic": {
+              "candidateRows": 51797,
+              "sampleRows": 58752,
+              "populationWeight": 639317,
+              "cellsPassingLoosest": 1732,
+              "sampleCellsPassingLoosest": 272,
+              "meanRoundTripCost": 0.036208509440134026,
+              "spreadMultiplier": 9.39340522666859,
+              "spreadMultiplierSource": "spread-multiplier.json",
+              "configs": [
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 1732,
+                  "Days": 249,
+                  "MeanNetPct": -4.708030775565477,
+                  "LowerBoundPct": -5.2377795830209735,
+                  "Sharpe": -0.8126222741891554,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 2.1902177657736137E-38,
+                  "Exits": {
+                    "velocity-death": 764,
+                    "vwap-loss": 530,
+                    "stop": 210,
+                    "sell-by": 228
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 1732,
+                  "Days": 249,
+                  "MeanNetPct": -4.771772831233277,
+                  "LowerBoundPct": -5.307649425134941,
+                  "Sharpe": -0.8378353978291354,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.4831129993758377E-47,
+                  "Exits": {
+                    "velocity-death": 1093,
+                    "stop": 255,
+                    "sell-by": 384
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 1732,
+                  "Days": 249,
+                  "MeanNetPct": -4.703361160421673,
+                  "LowerBoundPct": -5.232024757149992,
+                  "Sharpe": -0.8041518173287452,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 8.698991342728914E-40,
+                  "Exits": {
+                    "velocity-death": 866,
+                    "vwap-loss": 589,
+                    "sell-by": 230,
+                    "stop": 47
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 1732,
+                  "Days": 249,
+                  "MeanNetPct": -4.756722896582355,
+                  "LowerBoundPct": -5.284928689988798,
+                  "Sharpe": -0.8251489249766324,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 5.680738921055972E-50,
+                  "Exits": {
+                    "velocity-death": 1266,
+                    "sell-by": 404,
+                    "stop": 62
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 619,
+                  "Days": 230,
+                  "MeanNetPct": -5.932537777248628,
+                  "LowerBoundPct": -7.126316779872965,
+                  "Sharpe": -0.772418015419062,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.4254845172183618E-29,
+                  "Exits": {
+                    "velocity-death": 254,
+                    "vwap-loss": 150,
+                    "stop": 125,
+                    "sell-by": 90
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 619,
+                  "Days": 230,
+                  "MeanNetPct": -5.949279700417102,
+                  "LowerBoundPct": -7.1550445204462685,
+                  "Sharpe": -0.768826865659809,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 2.024577695916607E-30,
+                  "Exits": {
+                    "velocity-death": 362,
+                    "stop": 141,
+                    "sell-by": 116
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 619,
+                  "Days": 230,
+                  "MeanNetPct": -5.954170368703327,
+                  "LowerBoundPct": -7.146189965358021,
+                  "Sharpe": -0.7684950458545414,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.382636845569965E-30,
+                  "Exits": {
+                    "velocity-death": 306,
+                    "vwap-loss": 187,
+                    "sell-by": 92,
+                    "stop": 34
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 619,
+                  "Days": 230,
+                  "MeanNetPct": -5.924190645815449,
+                  "LowerBoundPct": -7.125093611660277,
+                  "Sharpe": -0.7583862892423149,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.1715402768787273E-31,
+                  "Exits": {
+                    "velocity-death": 451,
+                    "sell-by": 127,
+                    "stop": 41
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 1632,
+                  "Days": 249,
+                  "MeanNetPct": -4.494278938609041,
+                  "LowerBoundPct": -5.0557280446575446,
+                  "Sharpe": -0.7708053033654222,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.4653538210145812E-34,
+                  "Exits": {
+                    "velocity-death": 741,
+                    "vwap-loss": 483,
+                    "stop": 207,
+                    "sell-by": 201
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 1632,
+                  "Days": 249,
+                  "MeanNetPct": -4.552284467039516,
+                  "LowerBoundPct": -5.115147226964058,
+                  "Sharpe": -0.7979212419310177,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 4.0794756982864286E-42,
+                  "Exits": {
+                    "velocity-death": 1045,
+                    "stop": 251,
+                    "sell-by": 336
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 1632,
+                  "Days": 249,
+                  "MeanNetPct": -4.490407594152704,
+                  "LowerBoundPct": -5.050731734803011,
+                  "Sharpe": -0.7620080140652096,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 5.577454364026857E-36,
+                  "Exits": {
+                    "velocity-death": 843,
+                    "vwap-loss": 539,
+                    "sell-by": 203,
+                    "stop": 47
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 1632,
+                  "Days": 249,
+                  "MeanNetPct": -4.536218006180513,
+                  "LowerBoundPct": -5.0989123605251745,
+                  "Sharpe": -0.7844310201664932,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.529618985347167E-44,
+                  "Exits": {
+                    "velocity-death": 1216,
+                    "sell-by": 354,
+                    "stop": 62
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 590,
+                  "Days": 229,
+                  "MeanNetPct": -5.720026394037457,
+                  "LowerBoundPct": -7.008331568980508,
+                  "Sharpe": -0.7365681904672867,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.3821730069626002E-28,
+                  "Exits": {
+                    "velocity-death": 244,
+                    "vwap-loss": 138,
+                    "stop": 124,
+                    "sell-by": 84
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 590,
+                  "Days": 229,
+                  "MeanNetPct": -5.7311563889776815,
+                  "LowerBoundPct": -7.025120765866927,
+                  "Sharpe": -0.7337110050679337,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.454579156434494E-29,
+                  "Exits": {
+                    "velocity-death": 343,
+                    "stop": 139,
+                    "sell-by": 108
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 590,
+                  "Days": 229,
+                  "MeanNetPct": -5.745978914016627,
+                  "LowerBoundPct": -7.033902175628024,
+                  "Sharpe": -0.7329309430767419,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.1867468334033694E-29,
+                  "Exits": {
+                    "velocity-death": 296,
+                    "vwap-loss": 174,
+                    "sell-by": 86,
+                    "stop": 34
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 590,
+                  "Days": 229,
+                  "MeanNetPct": -5.706894498264065,
+                  "LowerBoundPct": -7.010849535870442,
+                  "Sharpe": -0.7232406494893561,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.7568354208627676E-30,
+                  "Exits": {
+                    "velocity-death": 431,
+                    "sell-by": 118,
+                    "stop": 41
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 1438,
+                  "Days": 249,
+                  "MeanNetPct": -3.8691322668914734,
+                  "LowerBoundPct": -4.234224053281969,
+                  "Sharpe": -0.8289477192631182,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 6.417702410858664E-25,
+                  "Exits": {
+                    "velocity-death": 685,
+                    "vwap-loss": 410,
+                    "stop": 198,
+                    "sell-by": 145
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 1438,
+                  "Days": 249,
+                  "MeanNetPct": -3.949793482521484,
+                  "LowerBoundPct": -4.313400330987393,
+                  "Sharpe": -0.8778943005687604,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.0839952457792452E-50,
+                  "Exits": {
+                    "velocity-death": 951,
+                    "stop": 240,
+                    "sell-by": 247
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 1438,
+                  "Days": 249,
+                  "MeanNetPct": -3.8598055979939954,
+                  "LowerBoundPct": -4.224621654705362,
+                  "Sharpe": -0.8115082662852516,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 2.189025058174207E-26,
+                  "Exits": {
+                    "velocity-death": 785,
+                    "vwap-loss": 461,
+                    "sell-by": 147,
+                    "stop": 45
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 1438,
+                  "Days": 249,
+                  "MeanNetPct": -3.927706640969101,
+                  "LowerBoundPct": -4.294850392934532,
+                  "Sharpe": -0.8512280168020173,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.8002981847750174E-54,
+                  "Exits": {
+                    "velocity-death": 1115,
+                    "sell-by": 263,
+                    "stop": 60
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop5% sellBy09:28 vwapon",
+                  "Trades": 514,
+                  "Days": 222,
+                  "MeanNetPct": -4.488351549783572,
+                  "LowerBoundPct": -5.277062510255117,
+                  "Sharpe": -0.8534700899884615,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 2.460041817666316E-25,
+                  "Exits": {
+                    "velocity-death": 222,
+                    "vwap-loss": 118,
+                    "stop": 121,
+                    "sell-by": 53
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop5% sellBy09:28 vwapoff",
+                  "Trades": 514,
+                  "Days": 222,
+                  "MeanNetPct": -4.504602760008349,
+                  "LowerBoundPct": -5.291349839680218,
+                  "Sharpe": -0.8476755872571624,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 8.47530703754457E-26,
+                  "Exits": {
+                    "velocity-death": 309,
+                    "stop": 135,
+                    "sell-by": 70
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop10% sellBy09:28 vwapon",
+                  "Trades": 514,
+                  "Days": 222,
+                  "MeanNetPct": -4.506593564689175,
+                  "LowerBoundPct": -5.294732746425968,
+                  "Sharpe": -0.8349019011846737,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.902332673550627E-27,
+                  "Exits": {
+                    "velocity-death": 273,
+                    "vwap-loss": 152,
+                    "sell-by": 55,
+                    "stop": 34
+                  }
+                },
+                {
+                  "Label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+                  "Trades": 514,
+                  "Days": 222,
+                  "MeanNetPct": -4.465242263149664,
+                  "LowerBoundPct": -5.255247460688664,
+                  "Sharpe": -0.818282526397263,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.0910671770707173E-27,
+                  "Exits": {
+                    "velocity-death": 395,
+                    "sell-by": 78,
+                    "stop": 41
+                  }
+                }
+              ],
+              "configCount": 24,
+              "cells": 110549,
+              "selection": "carried from the latest train run of H12p",
+              "whiteP": 1,
+              "spaP": 1,
+              "spaBestConfig": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+              "spaResamples": 1000,
+              "spaSeries": "per-day weighted mean net return per population cell (zero where the configuration did not trade)",
+              "dsrLength": "unweighted trade count",
+              "selectedConfig": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+              "selectedTrades": 1438,
+              "selectedSampleTrades": 184,
+              "selectedWeightedTrades": 3094,
+              "selectedDays": 249,
+              "selectedLowerBoundPct": -4.294850392934532,
+              "dsr": 1.8002981847750174E-54,
+              "selectedQ": 1,
+              "selectedExits": {
+                "velocity-death": 1115,
+                "sell-by": 263,
+                "stop": 60
+              },
+              "worthTrading": {
+                "minTrades": 150,
+                "minDays": 40,
+                "lowerBoundAbove": 0,
+                "meanNetPctPerTrade": 1
+              }
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A01 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 10.5,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H12p-validation-20261109-0857.json",
+        "HolmInputP": 1
+      },
+      {
+        "Id": "H18",
+        "Family": "F4",
+        "Primary": true,
+        "Test": "news-ride-grid",
+        "Claim": "Buying the first premarket news item second-hand and exiting on the frozen exit ladder nets at least \u002B1.0%/trade after the frozen cost model over the population, on a grid of 24 configurations.",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "meanNetPctPerTrade": 1.0,
+          "clusteredLowerBoundAbove": 0.0,
+          "minTrades": 150,
+          "minDays": 40
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 110549,
+          "Days": 250,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "population days: 51,797 candidate days (weight 1) and 58,752 population-sample days (weight 10); 12,769 with a first realtime news item in (prior close, 09:20]",
+          "FeatureColumns": [
+            "first realtime news item",
+            "pre-classifier direction",
+            "close before the trigger vs the adjusted prior close"
+          ],
+          "LabelColumns": [
+            "weighted net return per trade after the frozen cost model"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A02",
+          "AmendmentSha256": "c481f9272b9bd38f299cef76eafc744a0af1bceb0b02849590aff2090f2f4b81",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "meanNetPctPerTrade",
+            "EffectName": "meanNetPctPerTrade",
+            "Effect": -2.3554988936782597,
+            "MinEffect": 1,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": 1,
+            "FamilyQ": 1,
+            "HolmP": null,
+            "CiLow": -3.353969146175762,
+            "CiHigh": -1.2027449137414454,
+            "N": 212,
+            "Days": 131,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: SPA p 1.000 vs 0.05, DSR 1.1e-4 vs 0.95, worth-trading False"
+            ],
+            "Statistic": {
+              "candidateRows": 51797,
+              "sampleRows": 58752,
+              "populationWeight": 639317,
+              "newsDays": 12769,
+              "newsDaysBullish": 472,
+              "distinctEntries": 17858,
+              "meanRoundTripCost": 0.04317740838156092,
+              "spreadMultiplier": 9.39340522666859,
+              "spreadMultiplierSource": "spread-multiplier.json",
+              "exitLadder": "stop 10%, VWAP loss on, velocity death 3m, sell-by per configuration",
+              "configs": [
+                {
+                  "Label": "latency1m news=any confirm=none sellBy09:15",
+                  "Trades": 11386,
+                  "Days": 249,
+                  "MeanNetPct": -4.2344995795538445,
+                  "LowerBoundPct": -4.559863740361259,
+                  "Sharpe": -0.42985405434672697,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.0821633599428523E-261,
+                  "Exits": {
+                    "sell-by": 2386,
+                    "velocity-death": 3559,
+                    "vwap-loss": 4789,
+                    "stop": 652
+                  }
+                },
+                {
+                  "Label": "latency1m news=any confirm=none sellBy09:28",
+                  "Trades": 11635,
+                  "Days": 249,
+                  "MeanNetPct": -4.220331096618388,
+                  "LowerBoundPct": -4.538447074199467,
+                  "Sharpe": -0.43243123859755256,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.6630953769930494E-263,
+                  "Exits": {
+                    "sell-by": 2185,
+                    "velocity-death": 3747,
+                    "vwap-loss": 5032,
+                    "stop": 671
+                  }
+                },
+                {
+                  "Label": "latency1m news=any confirm=none sellBy09:45",
+                  "Trades": 11635,
+                  "Days": 249,
+                  "MeanNetPct": -4.229810324115331,
+                  "LowerBoundPct": -4.546966417766741,
+                  "Sharpe": -0.4293748439106746,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 6.223610011178895E-272,
+                  "Exits": {
+                    "velocity-death": 4393,
+                    "vwap-loss": 5990,
+                    "sell-by": 478,
+                    "stop": 774
+                  }
+                },
+                {
+                  "Label": "latency1m news=any confirm=up5 sellBy09:15",
+                  "Trades": 3342,
+                  "Days": 249,
+                  "MeanNetPct": -5.5941486722532865,
+                  "LowerBoundPct": -6.138660376660863,
+                  "Sharpe": -0.5429298437874215,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.0366082950669926E-157,
+                  "Exits": {
+                    "sell-by": 286,
+                    "vwap-loss": 1292,
+                    "velocity-death": 1374,
+                    "stop": 390
+                  }
+                },
+                {
+                  "Label": "latency1m news=any confirm=up5 sellBy09:28",
+                  "Trades": 3409,
+                  "Days": 249,
+                  "MeanNetPct": -5.622233341586115,
+                  "LowerBoundPct": -6.165509202178354,
+                  "Sharpe": -0.5474877033423458,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.593206810304713E-166,
+                  "Exits": {
+                    "velocity-death": 1444,
+                    "vwap-loss": 1336,
+                    "sell-by": 232,
+                    "stop": 397
+                  }
+                },
+                {
+                  "Label": "latency1m news=any confirm=up5 sellBy09:45",
+                  "Trades": 3409,
+                  "Days": 249,
+                  "MeanNetPct": -5.678625936962713,
+                  "LowerBoundPct": -6.225911617520461,
+                  "Sharpe": -0.5482691225720268,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 2.8977062706315833E-166,
+                  "Exits": {
+                    "velocity-death": 1535,
+                    "vwap-loss": 1421,
+                    "sell-by": 42,
+                    "stop": 411
+                  }
+                },
+                {
+                  "Label": "latency1m news=bullish confirm=none sellBy09:15",
+                  "Trades": 433,
+                  "Days": 195,
+                  "MeanNetPct": -3.0800744746478705,
+                  "LowerBoundPct": -3.954528592452179,
+                  "Sharpe": -0.4678808296058803,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.7167192441978425E-10,
+                  "Exits": {
+                    "velocity-death": 158,
+                    "sell-by": 71,
+                    "vwap-loss": 160,
+                    "stop": 44
+                  }
+                },
+                {
+                  "Label": "latency1m news=bullish confirm=none sellBy09:28",
+                  "Trades": 452,
+                  "Days": 200,
+                  "MeanNetPct": -3.039605531153445,
+                  "LowerBoundPct": -3.93138057638627,
+                  "Sharpe": -0.4572766091698732,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 5.224352137627993E-11,
+                  "Exits": {
+                    "velocity-death": 172,
+                    "vwap-loss": 173,
+                    "stop": 48,
+                    "sell-by": 59
+                  }
+                },
+                {
+                  "Label": "latency1m news=bullish confirm=none sellBy09:45",
+                  "Trades": 452,
+                  "Days": 200,
+                  "MeanNetPct": -2.95369080795777,
+                  "LowerBoundPct": -3.878280613070162,
+                  "Sharpe": -0.42009120367032055,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.9739000229231696E-10,
+                  "Exits": {
+                    "velocity-death": 196,
+                    "vwap-loss": 193,
+                    "stop": 50,
+                    "sell-by": 13
+                  }
+                },
+                {
+                  "Label": "latency1m news=bullish confirm=up5 sellBy09:15",
+                  "Trades": 219,
+                  "Days": 140,
+                  "MeanNetPct": -3.768250821406623,
+                  "LowerBoundPct": -4.780963377566124,
+                  "Sharpe": -0.5034168856183184,
+                  "NaiveP": 0.9999999999988033,
+                  "Q": 1,
+                  "Dsr": 5.081511025239037E-05,
+                  "Exits": {
+                    "vwap-loss": 81,
+                    "stop": 38,
+                    "velocity-death": 82,
+                    "sell-by": 18
+                  }
+                },
+                {
+                  "Label": "latency1m news=bullish confirm=up5 sellBy09:28",
+                  "Trades": 230,
+                  "Days": 144,
+                  "MeanNetPct": -3.9827842449140562,
+                  "LowerBoundPct": -5.174733062730661,
+                  "Sharpe": -0.5252318255556994,
+                  "NaiveP": 0.9999999999999571,
+                  "Q": 1,
+                  "Dsr": 1.8579695323437048E-05,
+                  "Exits": {
+                    "vwap-loss": 85,
+                    "stop": 41,
+                    "sell-by": 16,
+                    "velocity-death": 88
+                  }
+                },
+                {
+                  "Label": "latency1m news=bullish confirm=up5 sellBy09:45",
+                  "Trades": 230,
+                  "Days": 144,
+                  "MeanNetPct": -3.8656404590497635,
+                  "LowerBoundPct": -5.1426827031740245,
+                  "Sharpe": -0.4594486512155545,
+                  "NaiveP": 0.9999999999814838,
+                  "Q": 1,
+                  "Dsr": 2.4007195501633026E-05,
+                  "Exits": {
+                    "vwap-loss": 90,
+                    "stop": 41,
+                    "velocity-death": 98,
+                    "sell-by": 1
+                  }
+                },
+                {
+                  "Label": "latency5m news=any confirm=none sellBy09:15",
+                  "Trades": 11280,
+                  "Days": 249,
+                  "MeanNetPct": -4.421939549687711,
+                  "LowerBoundPct": -4.790344162220387,
+                  "Sharpe": -0.4180043830314097,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 2.1882335441421596E-303,
+                  "Exits": {
+                    "sell-by": 2426,
+                    "velocity-death": 3708,
+                    "vwap-loss": 4651,
+                    "stop": 495
+                  }
+                },
+                {
+                  "Label": "latency5m news=any confirm=none sellBy09:28",
+                  "Trades": 11570,
+                  "Days": 249,
+                  "MeanNetPct": -4.400118218726433,
+                  "LowerBoundPct": -4.7606417268510715,
+                  "Sharpe": -0.42074197906308486,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.6782169921832224E-303,
+                  "Exits": {
+                    "sell-by": 2242,
+                    "velocity-death": 3913,
+                    "vwap-loss": 4903,
+                    "stop": 512
+                  }
+                },
+                {
+                  "Label": "latency5m news=any confirm=none sellBy09:45",
+                  "Trades": 11570,
+                  "Days": 249,
+                  "MeanNetPct": -4.412162439357664,
+                  "LowerBoundPct": -4.773070476449408,
+                  "Sharpe": -0.4185148372802565,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.11385230026E-312,
+                  "Exits": {
+                    "velocity-death": 4585,
+                    "vwap-loss": 5880,
+                    "stop": 616,
+                    "sell-by": 489
+                  }
+                },
+                {
+                  "Label": "latency5m news=any confirm=up5 sellBy09:15",
+                  "Trades": 3416,
+                  "Days": 249,
+                  "MeanNetPct": -4.968915540735272,
+                  "LowerBoundPct": -5.53101896257268,
+                  "Sharpe": -0.5116503656179175,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.3162825974207839E-140,
+                  "Exits": {
+                    "sell-by": 300,
+                    "velocity-death": 1521,
+                    "vwap-loss": 1310,
+                    "stop": 285
+                  }
+                },
+                {
+                  "Label": "latency5m news=any confirm=up5 sellBy09:28",
+                  "Trades": 3503,
+                  "Days": 249,
+                  "MeanNetPct": -5.0206539100699805,
+                  "LowerBoundPct": -5.576489677390054,
+                  "Sharpe": -0.5178070307246725,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.2729324671796454E-145,
+                  "Exits": {
+                    "velocity-death": 1594,
+                    "vwap-loss": 1356,
+                    "stop": 292,
+                    "sell-by": 261
+                  }
+                },
+                {
+                  "Label": "latency5m news=any confirm=up5 sellBy09:45",
+                  "Trades": 3503,
+                  "Days": 249,
+                  "MeanNetPct": -5.086627935438833,
+                  "LowerBoundPct": -5.635853501994374,
+                  "Sharpe": -0.5208339299925692,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 1.0900646703968705E-147,
+                  "Exits": {
+                    "velocity-death": 1700,
+                    "vwap-loss": 1452,
+                    "stop": 306,
+                    "sell-by": 45
+                  }
+                },
+                {
+                  "Label": "latency5m news=bullish confirm=none sellBy09:15",
+                  "Trades": 425,
+                  "Days": 193,
+                  "MeanNetPct": -2.99214458171084,
+                  "LowerBoundPct": -3.9473305305629687,
+                  "Sharpe": -0.45008111244828475,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.6165782235997982E-12,
+                  "Exits": {
+                    "vwap-loss": 144,
+                    "sell-by": 77,
+                    "velocity-death": 169,
+                    "stop": 35
+                  }
+                },
+                {
+                  "Label": "latency5m news=bullish confirm=none sellBy09:28",
+                  "Trades": 447,
+                  "Days": 199,
+                  "MeanNetPct": -2.9325670918702573,
+                  "LowerBoundPct": -3.8476208985475213,
+                  "Sharpe": -0.4419027657342801,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 5.185882355560066E-13,
+                  "Exits": {
+                    "vwap-loss": 158,
+                    "velocity-death": 184,
+                    "sell-by": 68,
+                    "stop": 37
+                  }
+                },
+                {
+                  "Label": "latency5m news=bullish confirm=none sellBy09:45",
+                  "Trades": 447,
+                  "Days": 199,
+                  "MeanNetPct": -2.8790025412407934,
+                  "LowerBoundPct": -3.810327417834146,
+                  "Sharpe": -0.4273300447269928,
+                  "NaiveP": 1,
+                  "Q": 1,
+                  "Dsr": 3.0029835006331567E-13,
+                  "Exits": {
+                    "vwap-loss": 180,
+                    "velocity-death": 215,
+                    "sell-by": 13,
+                    "stop": 39
+                  }
+                },
+                {
+                  "Label": "latency5m news=bullish confirm=up5 sellBy09:15",
+                  "Trades": 212,
+                  "Days": 131,
+                  "MeanNetPct": -2.3554988936782597,
+                  "LowerBoundPct": -3.353969146175762,
+                  "Sharpe": -0.2774647257770404,
+                  "NaiveP": 0.9999611291096899,
+                  "Q": 1,
+                  "Dsr": 0.00010790408165002188,
+                  "Exits": {
+                    "sell-by": 20,
+                    "vwap-loss": 72,
+                    "velocity-death": 92,
+                    "stop": 28
+                  }
+                },
+                {
+                  "Label": "latency5m news=bullish confirm=up5 sellBy09:28",
+                  "Trades": 225,
+                  "Days": 137,
+                  "MeanNetPct": -2.611438543248165,
+                  "LowerBoundPct": -3.522994062143021,
+                  "Sharpe": -0.311558675977822,
+                  "NaiveP": 0.9999973224275436,
+                  "Q": 1,
+                  "Dsr": 3.904886434089592E-05,
+                  "Exits": {
+                    "vwap-loss": 77,
+                    "velocity-death": 98,
+                    "sell-by": 21,
+                    "stop": 29
+                  }
+                },
+                {
+                  "Label": "latency5m news=bullish confirm=up5 sellBy09:45",
+                  "Trades": 225,
+                  "Days": 137,
+                  "MeanNetPct": -2.692188025626064,
+                  "LowerBoundPct": -3.618206249957884,
+                  "Sharpe": -0.32006524834289035,
+                  "NaiveP": 0.9999984853014119,
+                  "Q": 1,
+                  "Dsr": 3.4201124838453024E-05,
+                  "Exits": {
+                    "vwap-loss": 83,
+                    "velocity-death": 112,
+                    "sell-by": 1,
+                    "stop": 29
+                  }
+                }
+              ],
+              "configCount": 24,
+              "cells": 110549,
+              "selection": "carried from the latest train run of H18",
+              "whiteP": 1,
+              "spaP": 1,
+              "spaBestConfig": "latency5m news=bullish confirm=up5 sellBy09:15",
+              "spaResamples": 1000,
+              "spaSeries": "per-day weighted mean net return per population cell (zero where the configuration did not trade)",
+              "dsrLength": "unweighted trade count",
+              "selectedConfig": "latency5m news=bullish confirm=up5 sellBy09:15",
+              "selectedTrades": 212,
+              "selectedSampleTrades": 7,
+              "selectedWeightedTrades": 275,
+              "selectedDays": 131,
+              "selectedLowerBoundPct": -3.353969146175762,
+              "dsr": 0.00010790408165002188,
+              "selectedQ": 1,
+              "selectedExits": {
+                "sell-by": 20,
+                "vwap-loss": 72,
+                "velocity-death": 92,
+                "stop": 28
+              },
+              "worthTrading": {
+                "minTrades": 150,
+                "minDays": 40,
+                "lowerBoundAbove": 0,
+                "meanNetPctPerTrade": 1
+              }
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A02 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 42.3,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H18-validation-20261109-0857.json",
+        "HolmInputP": 1
+      },
+      {
+        "Id": "H19",
+        "Family": "F3",
+        "Primary": true,
+        "Test": "prepub-drift",
+        "Claim": "On Tier20 gapper days whose first news item publishes between 04:30 and 09:15 ET, the median share of the hour\u0027s move that happens before publication is at most 0.25: the move mostly follows the headline rather than leading it.",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "medianPreShareAtMost": 0.25
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 1335,
+          "Days": 244,
+          "FirstDate": "2024-11-05",
+          "LastDate": "2025-10-31",
+          "Population": "Tier20 gapper days whose first realtime news item published between 04:30 and 09:15 ET",
+          "FeatureColumns": [
+            "return over the 30 minutes before publication"
+          ],
+          "LabelColumns": [
+            "highest high in the 30 minutes after publication"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A02",
+          "AmendmentSha256": "c481f9272b9bd38f299cef76eafc744a0af1bceb0b02849590aff2090f2f4b81",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "medianPreShare",
+            "EffectName": "median share of the hour\u0027s move before publication",
+            "Effect": 0.3295918367346939,
+            "MinEffect": 0.25,
+            "Direction": "AtMost",
+            "MeetsMinimum": false,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": 0.288159074822562,
+            "CiHigh": 0.35716482480060685,
+            "N": 1335,
+            "Days": 244,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: interval [0.288, 0.357] against 0.25 (AtMost); descriptive, no p"
+            ],
+            "Statistic": {
+              "bootstrapDraws": 10000,
+              "treatedN": 1335,
+              "controlN": 0,
+              "ciLevel": 0.95,
+              "medianPrePct": 3.111111111111111,
+              "medianPostPct": 5.555555555555555,
+              "shareWithPreAbove5Pct": 0.4299625468164794,
+              "window": "30 minutes before and after publication"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A02 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 5.8,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H19-validation-20261109-0857.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H20",
+        "Family": "F3",
+        "Primary": false,
+        "Test": "latency-decay",
+        "Claim": "On bullish news events, the weighted mean gross return from a second-hand entry to a 09:28 exit is at least 1.0 percentage point higher at a 1-minute latency than at a 15-minute latency.",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "meanDifferencePctAtLeast": 1.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 425,
+          "Days": 193,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "population days: 51,797 candidate days (weight 1) and 58,752 population-sample days (weight 10); bullish first news items with an entry at every latency",
+          "FeatureColumns": [
+            "entry 1/2/5/10/15 minutes after publication"
+          ],
+          "LabelColumns": [
+            "gross return to the 09:28 open, pct"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A02",
+          "AmendmentSha256": "c481f9272b9bd38f299cef76eafc744a0af1bceb0b02849590aff2090f2f4b81",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "meanDifferencePct",
+            "EffectName": "mean gross return at 1m minus at 15m (pct)",
+            "Effect": -0.1300719113255106,
+            "MinEffect": 1,
+            "Direction": "AtLeast",
+            "MeetsMinimum": false,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": -0.7967162402869867,
+            "CiHigh": 0.619995775606775,
+            "N": 425,
+            "Days": 193,
+            "Verdict": "refuted",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: interval [-0.797, 0.620] against 1 (AtLeast); descriptive, no p"
+            ],
+            "Statistic": {
+              "curve": [
+                {
+                  "latencyMinutes": 1,
+                  "meanGrossPct": -0.7573388443441877
+                },
+                {
+                  "latencyMinutes": 2,
+                  "meanGrossPct": -0.7207117617412446
+                },
+                {
+                  "latencyMinutes": 5,
+                  "meanGrossPct": -0.6384432331449994
+                },
+                {
+                  "latencyMinutes": 10,
+                  "meanGrossPct": -0.5375317730552899
+                },
+                {
+                  "latencyMinutes": 15,
+                  "meanGrossPct": -0.6272669330186765
+                }
+              ]
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "refuted",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A02 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 4.8,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H20-validation-20261109-0857.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H21",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "corobs-auc",
+        "Claim": "The Corobs look-alike score alone beats the catalyst-latency benchmark by at least 0.05 weighted AUC for reach20By0945 over the population (the H11p bar, with Corobs in place of the logistic detector).",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "aucDifference": 0.05
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 107669,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "population at 08:00: 50,904 candidate days (weight 1) and 56,765 population-sample days (weight 10)",
+          "FeatureColumns": [
+            "GapPct (Corobs ply, 8 dims)",
+            "LogPmCumVol (Corobs ply, 8 dims)",
+            "VolRatioTod (Corobs ply, 8 dims)",
+            "OwnProfileRatio (Corobs ply, 8 dims)",
+            "Velocity1m (Corobs ply, 8 dims)",
+            "Velocity3m (Corobs ply, 8 dims)",
+            "Velocity5m (Corobs ply, 8 dims)",
+            "Velocity15m (Corobs ply, 8 dims)",
+            "Acceleration (Corobs ply, 8 dims)",
+            "VolumeRoc (Corobs ply, 8 dims)",
+            "TradesProxy (Corobs ply, 8 dims)",
+            "TradesRoc (Corobs ply, 8 dims)",
+            "SpreadProxy (Corobs ply, 8 dims)",
+            "DistToPmHighPct (Corobs ply, 8 dims)",
+            "MinsSinceFirstAbnormal (Corobs ply, 8 dims)",
+            "AbnormalReturnD1 (Corobs ply, 8 dims)",
+            "AbnormalReturnD2 (Corobs ply, 8 dims)",
+            "AbnormalReturnD3 (Corobs ply, 8 dims)",
+            "AbnormalReturnD4 (Corobs ply, 8 dims)",
+            "AbnormalReturnD5 (Corobs ply, 8 dims)",
+            "VolumeRatioD1 (Corobs ply, 8 dims)",
+            "VolumeRatioD2 (Corobs ply, 8 dims)",
+            "VolumeRatioD3 (Corobs ply, 8 dims)",
+            "VolumeRatioD4 (Corobs ply, 8 dims)",
+            "VolumeRatioD5 (Corobs ply, 8 dims)",
+            "DaysSinceReverseSplit (Corobs ply, 8 dims)",
+            "DaysSince424B (Corobs ply, 8 dims)",
+            "DaysSinceS1 (Corobs ply, 8 dims)",
+            "corobs vs benchmark"
+          ],
+          "LabelColumns": [
+            "Reach20By0945"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A03",
+          "AmendmentSha256": "f09f5e28324e07da837bd42b33950f679d1237814bd52661e1c3fc87b58bdd8c",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "aucDifference",
+            "EffectName": "aucDifference",
+            "Effect": 0.37675421353674043,
+            "MinEffect": 0.05,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00019998000199980003,
+            "HolmP": null,
+            "CiLow": 0.367207912136322,
+            "CiHigh": 0.38605357539592844,
+            "N": 107669,
+            "Days": 249,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 0.377 vs 0.05 (AtLeast), q 2.0e-4 vs 0.05"
+            ],
+            "Statistic": {
+              "candidateRows": 50904,
+              "sampleRows": 56765,
+              "populationWeight": 618554,
+              "compared": "corobs - benchmark",
+              "positives": 5842,
+              "aucBenchmark": 0.5580523055977188,
+              "aucLogistic": 0.9119351985015995,
+              "aucCorobs": 0.9348065191344592,
+              "aucCombined": 0.9377894699889145,
+              "fitOn": "train",
+              "trainRows": 253115,
+              "dimensions": 224,
+              "k": 100,
+              "priorWeight": 10,
+              "trainBaseRate": 0.005743399548808608,
+              "logitCorobsCoefficient": 0.172435,
+              "scoringSeconds": 710.9,
+              "ranges": [
+                {
+                  "feature": "GapPct",
+                  "low": -9.63265306122449,
+                  "high": 10.594315245478036
+                },
+                {
+                  "feature": "LogPmCumVol",
+                  "low": 0,
+                  "high": 12.403159654524602
+                },
+                {
+                  "feature": "VolRatioTod",
+                  "low": 0,
+                  "high": 204.66348846860248
+                },
+                {
+                  "feature": "OwnProfileRatio",
+                  "low": 0,
+                  "high": 82.82744092919184
+                },
+                {
+                  "feature": "Velocity1m",
+                  "low": -0.4524886877828055,
+                  "high": 0.48465266558966075
+                },
+                {
+                  "feature": "Velocity3m",
+                  "low": -0.4138449962377728,
+                  "high": 0.3875968992248062
+                },
+                {
+                  "feature": "Velocity5m",
+                  "low": -0.3389830508474576,
+                  "high": 0.33333333333333337
+                },
+                {
+                  "feature": "Velocity15m",
+                  "low": -0.20072341943043456,
+                  "high": 0.20240963855421687
+                },
+                {
+                  "feature": "Acceleration",
+                  "low": -0.6776822404088539,
+                  "high": 0.6564614149753468
+                },
+                {
+                  "feature": "VolumeRoc",
+                  "low": 0,
+                  "high": 32.18
+                },
+                {
+                  "feature": "TradesProxy",
+                  "low": 0,
+                  "high": 86
+                },
+                {
+                  "feature": "TradesRoc",
+                  "low": -1,
+                  "high": 12
+                },
+                {
+                  "feature": "SpreadProxy",
+                  "low": 0,
+                  "high": 0.002481065470181216
+                },
+                {
+                  "feature": "DistToPmHighPct",
+                  "low": 0,
+                  "high": 14.101646385110952
+                },
+                {
+                  "feature": "MinsSinceFirstAbnormal",
+                  "low": 0,
+                  "high": 222
+                },
+                {
+                  "feature": "AbnormalReturnD1",
+                  "low": -13.54295555649314,
+                  "high": 14.58927479222228
+                },
+                {
+                  "feature": "AbnormalReturnD2",
+                  "low": -13.70053019380073,
+                  "high": 14.638866209883528
+                },
+                {
+                  "feature": "AbnormalReturnD3",
+                  "low": -13.735797951143175,
+                  "high": 14.618998540357062
+                },
+                {
+                  "feature": "AbnormalReturnD4",
+                  "low": -13.6628092758828,
+                  "high": 14.909844664736685
+                },
+                {
+                  "feature": "AbnormalReturnD5",
+                  "low": -13.798936695516808,
+                  "high": 14.979322010537762
+                },
+                {
+                  "feature": "VolumeRatioD1",
+                  "low": 0.04060087730437298,
+                  "high": 6.263689952561429
+                },
+                {
+                  "feature": "VolumeRatioD2",
+                  "low": 0.04300532530654082,
+                  "high": 6.652401214908882
+                },
+                {
+                  "feature": "VolumeRatioD3",
+                  "low": 0.04358255726247583,
+                  "high": 6.750628024830499
+                },
+                {
+                  "feature": "VolumeRatioD4",
+                  "low": 0.04415305152627382,
+                  "high": 6.8315267202406105
+                },
+                {
+                  "feature": "VolumeRatioD5",
+                  "low": 0.04510713219113306,
+                  "high": 6.794762526634133
+                },
+                {
+                  "feature": "DaysSinceReverseSplit",
+                  "low": 27,
+                  "high": 361
+                },
+                {
+                  "feature": "DaysSince424B",
+                  "low": 1,
+                  "high": 362
+                },
+                {
+                  "feature": "DaysSinceS1",
+                  "low": 4,
+                  "high": 365
+                }
+              ],
+              "bootstrap": "day-block resampling of weighted AUC(corobs) - weighted AUC(benchmark)"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A03 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 755.9,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H21-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H22",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "corobs-plugin-auc",
+        "Claim": "Plugging the Corobs score into the logistic detector (the combined model) raises weighted AUC for reach20By0945 by at least 0.01 over the logistic detector alone.",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "aucDifference": 0.01
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 107669,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "population at 08:00: 50,904 candidate days (weight 1) and 56,765 population-sample days (weight 10)",
+          "FeatureColumns": [
+            "GapPct (Corobs ply, 8 dims)",
+            "LogPmCumVol (Corobs ply, 8 dims)",
+            "VolRatioTod (Corobs ply, 8 dims)",
+            "OwnProfileRatio (Corobs ply, 8 dims)",
+            "Velocity1m (Corobs ply, 8 dims)",
+            "Velocity3m (Corobs ply, 8 dims)",
+            "Velocity5m (Corobs ply, 8 dims)",
+            "Velocity15m (Corobs ply, 8 dims)",
+            "Acceleration (Corobs ply, 8 dims)",
+            "VolumeRoc (Corobs ply, 8 dims)",
+            "TradesProxy (Corobs ply, 8 dims)",
+            "TradesRoc (Corobs ply, 8 dims)",
+            "SpreadProxy (Corobs ply, 8 dims)",
+            "DistToPmHighPct (Corobs ply, 8 dims)",
+            "MinsSinceFirstAbnormal (Corobs ply, 8 dims)",
+            "AbnormalReturnD1 (Corobs ply, 8 dims)",
+            "AbnormalReturnD2 (Corobs ply, 8 dims)",
+            "AbnormalReturnD3 (Corobs ply, 8 dims)",
+            "AbnormalReturnD4 (Corobs ply, 8 dims)",
+            "AbnormalReturnD5 (Corobs ply, 8 dims)",
+            "VolumeRatioD1 (Corobs ply, 8 dims)",
+            "VolumeRatioD2 (Corobs ply, 8 dims)",
+            "VolumeRatioD3 (Corobs ply, 8 dims)",
+            "VolumeRatioD4 (Corobs ply, 8 dims)",
+            "VolumeRatioD5 (Corobs ply, 8 dims)",
+            "DaysSinceReverseSplit (Corobs ply, 8 dims)",
+            "DaysSince424B (Corobs ply, 8 dims)",
+            "DaysSinceS1 (Corobs ply, 8 dims)",
+            "combined vs logistic"
+          ],
+          "LabelColumns": [
+            "Reach20By0945"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A03",
+          "AmendmentSha256": "f09f5e28324e07da837bd42b33950f679d1237814bd52661e1c3fc87b58bdd8c",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "aucDifference",
+            "EffectName": "aucDifference",
+            "Effect": 0.025854271487315006,
+            "MinEffect": 0.01,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00019998000199980003,
+            "HolmP": null,
+            "CiLow": 0.020512534376467828,
+            "CiHigh": 0.031552527194381175,
+            "N": 107669,
+            "Days": 249,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 0.026 vs 0.01 (AtLeast), q 2.0e-4 vs 0.05"
+            ],
+            "Statistic": {
+              "candidateRows": 50904,
+              "sampleRows": 56765,
+              "populationWeight": 618554,
+              "compared": "combined - logistic",
+              "positives": 5842,
+              "aucBenchmark": 0.5580523055977188,
+              "aucLogistic": 0.9119351985015995,
+              "aucCorobs": 0.9348065191344592,
+              "aucCombined": 0.9377894699889145,
+              "fitOn": "train",
+              "trainRows": 253115,
+              "dimensions": 224,
+              "k": 100,
+              "priorWeight": 10,
+              "trainBaseRate": 0.005743399548808608,
+              "logitCorobsCoefficient": 0.172435,
+              "scoringSeconds": 710.9,
+              "ranges": [
+                {
+                  "feature": "GapPct",
+                  "low": -9.63265306122449,
+                  "high": 10.594315245478036
+                },
+                {
+                  "feature": "LogPmCumVol",
+                  "low": 0,
+                  "high": 12.403159654524602
+                },
+                {
+                  "feature": "VolRatioTod",
+                  "low": 0,
+                  "high": 204.66348846860248
+                },
+                {
+                  "feature": "OwnProfileRatio",
+                  "low": 0,
+                  "high": 82.82744092919184
+                },
+                {
+                  "feature": "Velocity1m",
+                  "low": -0.4524886877828055,
+                  "high": 0.48465266558966075
+                },
+                {
+                  "feature": "Velocity3m",
+                  "low": -0.4138449962377728,
+                  "high": 0.3875968992248062
+                },
+                {
+                  "feature": "Velocity5m",
+                  "low": -0.3389830508474576,
+                  "high": 0.33333333333333337
+                },
+                {
+                  "feature": "Velocity15m",
+                  "low": -0.20072341943043456,
+                  "high": 0.20240963855421687
+                },
+                {
+                  "feature": "Acceleration",
+                  "low": -0.6776822404088539,
+                  "high": 0.6564614149753468
+                },
+                {
+                  "feature": "VolumeRoc",
+                  "low": 0,
+                  "high": 32.18
+                },
+                {
+                  "feature": "TradesProxy",
+                  "low": 0,
+                  "high": 86
+                },
+                {
+                  "feature": "TradesRoc",
+                  "low": -1,
+                  "high": 12
+                },
+                {
+                  "feature": "SpreadProxy",
+                  "low": 0,
+                  "high": 0.002481065470181216
+                },
+                {
+                  "feature": "DistToPmHighPct",
+                  "low": 0,
+                  "high": 14.101646385110952
+                },
+                {
+                  "feature": "MinsSinceFirstAbnormal",
+                  "low": 0,
+                  "high": 222
+                },
+                {
+                  "feature": "AbnormalReturnD1",
+                  "low": -13.54295555649314,
+                  "high": 14.58927479222228
+                },
+                {
+                  "feature": "AbnormalReturnD2",
+                  "low": -13.70053019380073,
+                  "high": 14.638866209883528
+                },
+                {
+                  "feature": "AbnormalReturnD3",
+                  "low": -13.735797951143175,
+                  "high": 14.618998540357062
+                },
+                {
+                  "feature": "AbnormalReturnD4",
+                  "low": -13.6628092758828,
+                  "high": 14.909844664736685
+                },
+                {
+                  "feature": "AbnormalReturnD5",
+                  "low": -13.798936695516808,
+                  "high": 14.979322010537762
+                },
+                {
+                  "feature": "VolumeRatioD1",
+                  "low": 0.04060087730437298,
+                  "high": 6.263689952561429
+                },
+                {
+                  "feature": "VolumeRatioD2",
+                  "low": 0.04300532530654082,
+                  "high": 6.652401214908882
+                },
+                {
+                  "feature": "VolumeRatioD3",
+                  "low": 0.04358255726247583,
+                  "high": 6.750628024830499
+                },
+                {
+                  "feature": "VolumeRatioD4",
+                  "low": 0.04415305152627382,
+                  "high": 6.8315267202406105
+                },
+                {
+                  "feature": "VolumeRatioD5",
+                  "low": 0.04510713219113306,
+                  "high": 6.794762526634133
+                },
+                {
+                  "feature": "DaysSinceReverseSplit",
+                  "low": 27,
+                  "high": 361
+                },
+                {
+                  "feature": "DaysSince424B",
+                  "low": 1,
+                  "high": 362
+                },
+                {
+                  "feature": "DaysSinceS1",
+                  "low": 4,
+                  "high": 365
+                }
+              ],
+              "bootstrap": "day-block resampling of weighted AUC(combined) - weighted AUC(logistic)"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A03 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 47.1,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H22-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H23",
+        "Family": "F1",
+        "Primary": false,
+        "Test": "corobs-vs-logistic-auc",
+        "Claim": "Head to head: the Corobs score alone has a weighted AUC for reach20By0945 at least as high as the logistic detector alone.",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "aucDifference": 0.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 107669,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "population at 08:00: 50,904 candidate days (weight 1) and 56,765 population-sample days (weight 10)",
+          "FeatureColumns": [
+            "GapPct (Corobs ply, 8 dims)",
+            "LogPmCumVol (Corobs ply, 8 dims)",
+            "VolRatioTod (Corobs ply, 8 dims)",
+            "OwnProfileRatio (Corobs ply, 8 dims)",
+            "Velocity1m (Corobs ply, 8 dims)",
+            "Velocity3m (Corobs ply, 8 dims)",
+            "Velocity5m (Corobs ply, 8 dims)",
+            "Velocity15m (Corobs ply, 8 dims)",
+            "Acceleration (Corobs ply, 8 dims)",
+            "VolumeRoc (Corobs ply, 8 dims)",
+            "TradesProxy (Corobs ply, 8 dims)",
+            "TradesRoc (Corobs ply, 8 dims)",
+            "SpreadProxy (Corobs ply, 8 dims)",
+            "DistToPmHighPct (Corobs ply, 8 dims)",
+            "MinsSinceFirstAbnormal (Corobs ply, 8 dims)",
+            "AbnormalReturnD1 (Corobs ply, 8 dims)",
+            "AbnormalReturnD2 (Corobs ply, 8 dims)",
+            "AbnormalReturnD3 (Corobs ply, 8 dims)",
+            "AbnormalReturnD4 (Corobs ply, 8 dims)",
+            "AbnormalReturnD5 (Corobs ply, 8 dims)",
+            "VolumeRatioD1 (Corobs ply, 8 dims)",
+            "VolumeRatioD2 (Corobs ply, 8 dims)",
+            "VolumeRatioD3 (Corobs ply, 8 dims)",
+            "VolumeRatioD4 (Corobs ply, 8 dims)",
+            "VolumeRatioD5 (Corobs ply, 8 dims)",
+            "DaysSinceReverseSplit (Corobs ply, 8 dims)",
+            "DaysSince424B (Corobs ply, 8 dims)",
+            "DaysSinceS1 (Corobs ply, 8 dims)",
+            "corobs vs logistic"
+          ],
+          "LabelColumns": [
+            "Reach20By0945"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A03",
+          "AmendmentSha256": "f09f5e28324e07da837bd42b33950f679d1237814bd52661e1c3fc87b58bdd8c",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "aucDifference",
+            "EffectName": "aucDifference",
+            "Effect": 0.022871320632859682,
+            "MinEffect": 0,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00019998000199980003,
+            "HolmP": null,
+            "CiLow": 0.014950792940964908,
+            "CiHigh": 0.031073488833302965,
+            "N": 107669,
+            "Days": 249,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 0.023 vs 0 (AtLeast), q 2.0e-4 vs 0.05"
+            ],
+            "Statistic": {
+              "candidateRows": 50904,
+              "sampleRows": 56765,
+              "populationWeight": 618554,
+              "compared": "corobs - logistic",
+              "positives": 5842,
+              "aucBenchmark": 0.5580523055977188,
+              "aucLogistic": 0.9119351985015995,
+              "aucCorobs": 0.9348065191344592,
+              "aucCombined": 0.9377894699889145,
+              "fitOn": "train",
+              "trainRows": 253115,
+              "dimensions": 224,
+              "k": 100,
+              "priorWeight": 10,
+              "trainBaseRate": 0.005743399548808608,
+              "logitCorobsCoefficient": 0.172435,
+              "scoringSeconds": 710.9,
+              "ranges": [
+                {
+                  "feature": "GapPct",
+                  "low": -9.63265306122449,
+                  "high": 10.594315245478036
+                },
+                {
+                  "feature": "LogPmCumVol",
+                  "low": 0,
+                  "high": 12.403159654524602
+                },
+                {
+                  "feature": "VolRatioTod",
+                  "low": 0,
+                  "high": 204.66348846860248
+                },
+                {
+                  "feature": "OwnProfileRatio",
+                  "low": 0,
+                  "high": 82.82744092919184
+                },
+                {
+                  "feature": "Velocity1m",
+                  "low": -0.4524886877828055,
+                  "high": 0.48465266558966075
+                },
+                {
+                  "feature": "Velocity3m",
+                  "low": -0.4138449962377728,
+                  "high": 0.3875968992248062
+                },
+                {
+                  "feature": "Velocity5m",
+                  "low": -0.3389830508474576,
+                  "high": 0.33333333333333337
+                },
+                {
+                  "feature": "Velocity15m",
+                  "low": -0.20072341943043456,
+                  "high": 0.20240963855421687
+                },
+                {
+                  "feature": "Acceleration",
+                  "low": -0.6776822404088539,
+                  "high": 0.6564614149753468
+                },
+                {
+                  "feature": "VolumeRoc",
+                  "low": 0,
+                  "high": 32.18
+                },
+                {
+                  "feature": "TradesProxy",
+                  "low": 0,
+                  "high": 86
+                },
+                {
+                  "feature": "TradesRoc",
+                  "low": -1,
+                  "high": 12
+                },
+                {
+                  "feature": "SpreadProxy",
+                  "low": 0,
+                  "high": 0.002481065470181216
+                },
+                {
+                  "feature": "DistToPmHighPct",
+                  "low": 0,
+                  "high": 14.101646385110952
+                },
+                {
+                  "feature": "MinsSinceFirstAbnormal",
+                  "low": 0,
+                  "high": 222
+                },
+                {
+                  "feature": "AbnormalReturnD1",
+                  "low": -13.54295555649314,
+                  "high": 14.58927479222228
+                },
+                {
+                  "feature": "AbnormalReturnD2",
+                  "low": -13.70053019380073,
+                  "high": 14.638866209883528
+                },
+                {
+                  "feature": "AbnormalReturnD3",
+                  "low": -13.735797951143175,
+                  "high": 14.618998540357062
+                },
+                {
+                  "feature": "AbnormalReturnD4",
+                  "low": -13.6628092758828,
+                  "high": 14.909844664736685
+                },
+                {
+                  "feature": "AbnormalReturnD5",
+                  "low": -13.798936695516808,
+                  "high": 14.979322010537762
+                },
+                {
+                  "feature": "VolumeRatioD1",
+                  "low": 0.04060087730437298,
+                  "high": 6.263689952561429
+                },
+                {
+                  "feature": "VolumeRatioD2",
+                  "low": 0.04300532530654082,
+                  "high": 6.652401214908882
+                },
+                {
+                  "feature": "VolumeRatioD3",
+                  "low": 0.04358255726247583,
+                  "high": 6.750628024830499
+                },
+                {
+                  "feature": "VolumeRatioD4",
+                  "low": 0.04415305152627382,
+                  "high": 6.8315267202406105
+                },
+                {
+                  "feature": "VolumeRatioD5",
+                  "low": 0.04510713219113306,
+                  "high": 6.794762526634133
+                },
+                {
+                  "feature": "DaysSinceReverseSplit",
+                  "low": 27,
+                  "high": 361
+                },
+                {
+                  "feature": "DaysSince424B",
+                  "low": 1,
+                  "high": 362
+                },
+                {
+                  "feature": "DaysSinceS1",
+                  "low": 4,
+                  "high": 365
+                }
+              ],
+              "bootstrap": "day-block resampling of weighted AUC(corobs) - weighted AUC(logistic)"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A03 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 44.8,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H23-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      },
+      {
+        "Id": "H24",
+        "Family": "F1",
+        "Primary": false,
+        "Test": "corobs-novelty-lift",
+        "Claim": "The top decile of the novelty score (rows least like anything in training) has precision for reach20By0945 at least 2x the weighted base rate.",
+        "Feature": null,
+        "Label": null,
+        "DecisionTime": null,
+        "MinEffect": {
+          "precisionOverBaseRate": 2.0
+        },
+        "Split": "validation",
+        "Smoke": false,
+        "Inputs": {
+          "N": 107669,
+          "Days": 249,
+          "FirstDate": "2024-11-04",
+          "LastDate": "2025-10-31",
+          "Population": "population at 08:00: 50,904 candidate days (weight 1) and 56,765 population-sample days (weight 10)",
+          "FeatureColumns": [
+            "GapPct (Corobs ply, 8 dims)",
+            "LogPmCumVol (Corobs ply, 8 dims)",
+            "VolRatioTod (Corobs ply, 8 dims)",
+            "OwnProfileRatio (Corobs ply, 8 dims)",
+            "Velocity1m (Corobs ply, 8 dims)",
+            "Velocity3m (Corobs ply, 8 dims)",
+            "Velocity5m (Corobs ply, 8 dims)",
+            "Velocity15m (Corobs ply, 8 dims)",
+            "Acceleration (Corobs ply, 8 dims)",
+            "VolumeRoc (Corobs ply, 8 dims)",
+            "TradesProxy (Corobs ply, 8 dims)",
+            "TradesRoc (Corobs ply, 8 dims)",
+            "SpreadProxy (Corobs ply, 8 dims)",
+            "DistToPmHighPct (Corobs ply, 8 dims)",
+            "MinsSinceFirstAbnormal (Corobs ply, 8 dims)",
+            "AbnormalReturnD1 (Corobs ply, 8 dims)",
+            "AbnormalReturnD2 (Corobs ply, 8 dims)",
+            "AbnormalReturnD3 (Corobs ply, 8 dims)",
+            "AbnormalReturnD4 (Corobs ply, 8 dims)",
+            "AbnormalReturnD5 (Corobs ply, 8 dims)",
+            "VolumeRatioD1 (Corobs ply, 8 dims)",
+            "VolumeRatioD2 (Corobs ply, 8 dims)",
+            "VolumeRatioD3 (Corobs ply, 8 dims)",
+            "VolumeRatioD4 (Corobs ply, 8 dims)",
+            "VolumeRatioD5 (Corobs ply, 8 dims)",
+            "DaysSinceReverseSplit (Corobs ply, 8 dims)",
+            "DaysSince424B (Corobs ply, 8 dims)",
+            "DaysSinceS1 (Corobs ply, 8 dims)",
+            "novelty (top decile, weighted train edge)"
+          ],
+          "LabelColumns": [
+            "Reach20By0945"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": [],
+          "AmendmentId": "A03",
+          "AmendmentSha256": "f09f5e28324e07da837bd42b33950f679d1237814bd52661e1c3fc87b58bdd8c",
+          "AmendsHypothesis": null
+        },
+        "Parts": [
+          {
+            "Name": "precisionOverBaseRate",
+            "EffectName": "precisionOverBaseRate",
+            "Effect": 5.053529130895381,
+            "MinEffect": 2,
+            "Direction": "AtLeast",
+            "MeetsMinimum": true,
+            "RawP": 0.00019998000199980003,
+            "FamilyQ": 0.00019998000199980003,
+            "HolmP": null,
+            "CiLow": 4.8976450610272675,
+            "CiHigh": 5.2187393215266855,
+            "N": 30951,
+            "Days": 249,
+            "Verdict": "supported",
+            "VerdictFixed": false,
+            "Reasons": [
+              "verdict: effect 5.054 vs 2 (AtLeast), q 2.0e-4 vs 0.05"
+            ],
+            "Statistic": {
+              "candidateRows": 50904,
+              "sampleRows": 56765,
+              "populationWeight": 618554,
+              "groupRate": 0.05662563075533565,
+              "baseRate": 0.01120516559588977,
+              "groupWeight": 101862,
+              "noveltyEdge": 1.544063962394069,
+              "aucBenchmark": 0.5580523055977188,
+              "aucLogistic": 0.9119351985015995,
+              "aucCorobs": 0.9348065191344592,
+              "aucCombined": 0.9377894699889145,
+              "fitOn": "train",
+              "trainRows": 253115,
+              "dimensions": 224,
+              "k": 100,
+              "priorWeight": 10,
+              "trainBaseRate": 0.005743399548808608,
+              "logitCorobsCoefficient": 0.172435,
+              "scoringSeconds": 710.9,
+              "ranges": [
+                {
+                  "feature": "GapPct",
+                  "low": -9.63265306122449,
+                  "high": 10.594315245478036
+                },
+                {
+                  "feature": "LogPmCumVol",
+                  "low": 0,
+                  "high": 12.403159654524602
+                },
+                {
+                  "feature": "VolRatioTod",
+                  "low": 0,
+                  "high": 204.66348846860248
+                },
+                {
+                  "feature": "OwnProfileRatio",
+                  "low": 0,
+                  "high": 82.82744092919184
+                },
+                {
+                  "feature": "Velocity1m",
+                  "low": -0.4524886877828055,
+                  "high": 0.48465266558966075
+                },
+                {
+                  "feature": "Velocity3m",
+                  "low": -0.4138449962377728,
+                  "high": 0.3875968992248062
+                },
+                {
+                  "feature": "Velocity5m",
+                  "low": -0.3389830508474576,
+                  "high": 0.33333333333333337
+                },
+                {
+                  "feature": "Velocity15m",
+                  "low": -0.20072341943043456,
+                  "high": 0.20240963855421687
+                },
+                {
+                  "feature": "Acceleration",
+                  "low": -0.6776822404088539,
+                  "high": 0.6564614149753468
+                },
+                {
+                  "feature": "VolumeRoc",
+                  "low": 0,
+                  "high": 32.18
+                },
+                {
+                  "feature": "TradesProxy",
+                  "low": 0,
+                  "high": 86
+                },
+                {
+                  "feature": "TradesRoc",
+                  "low": -1,
+                  "high": 12
+                },
+                {
+                  "feature": "SpreadProxy",
+                  "low": 0,
+                  "high": 0.002481065470181216
+                },
+                {
+                  "feature": "DistToPmHighPct",
+                  "low": 0,
+                  "high": 14.101646385110952
+                },
+                {
+                  "feature": "MinsSinceFirstAbnormal",
+                  "low": 0,
+                  "high": 222
+                },
+                {
+                  "feature": "AbnormalReturnD1",
+                  "low": -13.54295555649314,
+                  "high": 14.58927479222228
+                },
+                {
+                  "feature": "AbnormalReturnD2",
+                  "low": -13.70053019380073,
+                  "high": 14.638866209883528
+                },
+                {
+                  "feature": "AbnormalReturnD3",
+                  "low": -13.735797951143175,
+                  "high": 14.618998540357062
+                },
+                {
+                  "feature": "AbnormalReturnD4",
+                  "low": -13.6628092758828,
+                  "high": 14.909844664736685
+                },
+                {
+                  "feature": "AbnormalReturnD5",
+                  "low": -13.798936695516808,
+                  "high": 14.979322010537762
+                },
+                {
+                  "feature": "VolumeRatioD1",
+                  "low": 0.04060087730437298,
+                  "high": 6.263689952561429
+                },
+                {
+                  "feature": "VolumeRatioD2",
+                  "low": 0.04300532530654082,
+                  "high": 6.652401214908882
+                },
+                {
+                  "feature": "VolumeRatioD3",
+                  "low": 0.04358255726247583,
+                  "high": 6.750628024830499
+                },
+                {
+                  "feature": "VolumeRatioD4",
+                  "low": 0.04415305152627382,
+                  "high": 6.8315267202406105
+                },
+                {
+                  "feature": "VolumeRatioD5",
+                  "low": 0.04510713219113306,
+                  "high": 6.794762526634133
+                },
+                {
+                  "feature": "DaysSinceReverseSplit",
+                  "low": 27,
+                  "high": 361
+                },
+                {
+                  "feature": "DaysSince424B",
+                  "low": 1,
+                  "high": 362
+                },
+                {
+                  "feature": "DaysSinceS1",
+                  "low": 4,
+                  "high": 365
+                }
+              ],
+              "pRule": "day-clustered bootstrap of the weighted group rate minus the weighted base rate"
+            },
+            "HasInterval": true
+          }
+        ],
+        "Verdict": "supported",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A03 corrected as its own set",
+        "ComputedUtc": "2026-11-09T08:57:37.3581571Z",
+        "Seconds": 0.3,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H24-validation-20261109-0857.json",
+        "HolmInputP": 0.00019998000199980003
+      }
+    ],
+    "HoldoutNote": null,
+    "Minutes": 22.36
+  }
+}

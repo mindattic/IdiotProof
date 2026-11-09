@@ -1,0 +1,75 @@
+{
+  "id": "H2",
+  "family": "F2",
+  "primary": true,
+  "test": "event-study-bmp",
+  "claim": "Gappers with an Fda, ContractAward or MA catalyst in [t-24h, t] continue after 10:30 (fwdClose_16:00 minus fwdClose_10:30 at t=09:30) more than no-catalyst gappers.",
+  "feature": "catalystType in {Fda, ContractAward, MA} vs hasCatalyst = false",
+  "label": "fwdClose_16:00 - fwdClose_10:30",
+  "decisionTime": "09:30",
+  "minEffect": {
+    "meanDifferencePct": 2.0
+  },
+  "split": "validation",
+  "smoke": false,
+  "inputs": {
+    "n": 3051,
+    "days": 249,
+    "firstDate": "2024-11-04",
+    "lastDate": "2025-10-31",
+    "population": "Tier20 gapper days at 09:30 with a group",
+    "featureColumns": [
+      "catalystType in {Fda, ContractAward, MA} vs hasCatalyst = false"
+    ],
+    "labelColumns": [
+      "(FwdClose1600 - FwdClose1030) x 100"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "meanDifferencePct",
+      "effectName": "meanDifferencePct",
+      "effect": -2.252108218917717,
+      "minEffect": 2,
+      "direction": "AtLeast",
+      "meetsMinimum": false,
+      "rawP": 0.01998001998001998,
+      "familyQ": 0.01998001998001998,
+      "holmP": 0.05159484051594841,
+      "ciLow": -4.2038877483923525,
+      "ciHigh": -0.3591367640407774,
+      "n": 3051,
+      "days": 249,
+      "verdict": "refuted",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect -2.252 vs 2 (AtLeast), q 0.020 vs 0.05, Holm p 0.052 vs 0.05"
+      ],
+      "statistic": {
+        "meanTreated": -2.2115740977047214,
+        "meanControl": 0.04053412121299578,
+        "bmpT": -2.801723025926943,
+        "bmpP": 0.005360499109442686,
+        "placeboP": 0.01998001998001998,
+        "placeboDraws": 1000,
+        "daysWithBothGroups": 164,
+        "treatedN": 286,
+        "controlN": 2765,
+        "rawPRule": "max(BMP p, placebo p)"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "refuted",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:57:37.3581571Z",
+  "seconds": 3,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H2-validation-20261109-0857.json",
+  "holmInputP": 0.01998001998001998
+}

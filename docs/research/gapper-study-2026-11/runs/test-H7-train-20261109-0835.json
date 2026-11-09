@@ -1,0 +1,73 @@
+{
+  "id": "H7",
+  "family": "F5",
+  "primary": true,
+  "test": "group-diff",
+  "claim": "A reverse split within the prior 30 days lowers fwdClose_10:30 (entry at 09:30) and raises fade among Tier20 gappers.",
+  "feature": "daysSinceReverseSplit \u003C= 30",
+  "label": "fwdClose_10:30; fade",
+  "decisionTime": "09:30",
+  "minEffect": {
+    "fwdCloseDifferencePct": -2.0,
+    "fadeDifferencePct": -5.0
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 6855,
+    "days": 753,
+    "firstDate": "2021-11-01",
+    "lastDate": "2024-10-31",
+    "population": "Tier20 gapper days at 09:30",
+    "featureColumns": [
+      "daysSinceReverseSplit \u003C= 30"
+    ],
+    "labelColumns": [
+      "FwdClose1030 x 100",
+      "Fade x 100"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "fwdCloseDifferencePct",
+      "effectName": "fwdClose_10:30 difference (pct)",
+      "minEffect": -2,
+      "direction": "AtMost",
+      "n": 6855,
+      "days": 753,
+      "verdict": "void",
+      "verdictFixed": true,
+      "reasons": [
+        "35 rows in the tested group / 6820 in the control group, fewer than minBucketN 50"
+      ],
+      "statistic": {},
+      "hasInterval": false
+    },
+    {
+      "name": "fadeDifferencePct",
+      "effectName": "fade difference (pct)",
+      "minEffect": -5,
+      "direction": "AtMost",
+      "n": 6657,
+      "days": 753,
+      "verdict": "void",
+      "verdictFixed": true,
+      "reasons": [
+        "34 rows in the tested group / 6623 in the control group, fewer than minBucketN 50"
+      ],
+      "statistic": {},
+      "hasInterval": false
+    }
+  ],
+  "verdict": "void",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 3.4,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H7-train-20261109-0835.json"
+}

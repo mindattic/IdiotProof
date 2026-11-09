@@ -1,0 +1,12 @@
+stage: snapshot-validation
+started: 2026-11-09 02:35:34 ET
+seconds: 1339
+status: Ok
+message: 
+
+split:          validation
+symbol-days:    115639
+snapshot rows:  921677 (681408 with VolRatioTod)
+profile:        loaded D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\data\tod-profile.json
+holdout:        not a holdout run
+minutes:        22.32

@@ -1,0 +1,49 @@
+{
+  "id": "H11",
+  "family": "F1",
+  "primary": true,
+  "test": "auc-delong",
+  "claim": "A feature detector on the 08:00 snapshot beats the catalyst-latency benchmark (a news item or 8-K with pubToTMinutes \u003C= 60 exists at 08:00) by at least 0.05 AUC for reach20By0945 on validation.",
+  "feature": "08:00 core feature set (logistic, fit on train) vs benchmark indicator pubToTMinutes \u003C= 60",
+  "label": "reach20By0945",
+  "decisionTime": "08:00",
+  "minEffect": {
+    "aucDifference": 0.05
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 0,
+    "days": 0,
+    "population": "",
+    "featureColumns": [],
+    "labelColumns": [],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "split",
+      "effectName": "",
+      "direction": "AtLeast",
+      "n": 0,
+      "days": 0,
+      "verdict": "void",
+      "verdictFixed": true,
+      "reasons": [
+        "hypotheses.json allows H11 on validation, holdout only"
+      ],
+      "statistic": {},
+      "hasInterval": false
+    }
+  ],
+  "verdict": "void",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 0.1,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H11-train-20261109-0835.json"
+}

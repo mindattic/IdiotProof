@@ -1,0 +1,19 @@
+stage: status
+started: 2026-11-06 17:47:42 ET
+seconds: 1
+status: Ok
+message: 
+
+No universe rows yet.
+database:       Server=(localdb)\MSSQLLocalDB;Database=IdiotProof_Research_GAP_A2;Trusted_Connection=True;TrustServerCertificate=True;Command Timeout=600;
+bar root:       D:\IdiotProofData\gapper-study\bars
+study dir:      D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11
+frozen commit:  13f145219f97c40fb346d68336c31dfa59d3eba0
+frozen:         2026-11-06 3:15 PM ET
+daily bars:     0 rows, 0 symbols
+splits:         0
+cik map:        0/0 mapped
+news rows:      0
+edgar rows:     0 (0 with acceptance time)
+profile:        not fit yet
+holdout:        locked

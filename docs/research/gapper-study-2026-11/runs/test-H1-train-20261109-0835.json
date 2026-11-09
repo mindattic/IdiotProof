@@ -1,0 +1,76 @@
+{
+  "id": "H1",
+  "family": "F1",
+  "primary": true,
+  "test": "bucket-lift",
+  "claim": "The top quintile of pmVolRatio at 08:00 has precision for reach20By0945 at least 3x the base rate among candidate days.",
+  "feature": "pmVolRatio",
+  "label": "reach20By0945",
+  "decisionTime": "08:00",
+  "minEffect": {
+    "precisionOverBaseRate": 3.0
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 24531,
+    "days": 755,
+    "firstDate": "2021-11-01",
+    "lastDate": "2024-10-31",
+    "population": "candidate days with a bar by 08:00",
+    "featureColumns": [
+      "VolRatioTod"
+    ],
+    "labelColumns": [
+      "Reach20By0945"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "precisionOverBaseRate",
+      "effectName": "precisionOverBaseRate",
+      "effect": 3.134634973494001,
+      "minEffect": 3,
+      "direction": "AtLeast",
+      "meetsMinimum": true,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.00019998000199980003,
+      "holmP": 0.0015998400159984002,
+      "ciLow": 3.0067410482286414,
+      "ciHigh": 3.2654126227249543,
+      "n": 4907,
+      "days": 749,
+      "verdict": "supported",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 3.135 vs 3 (AtLeast), q 2.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+      ],
+      "statistic": {
+        "bucketRate": 0.3148563276951294,
+        "baseRate": 0.10044433573845339,
+        "trainBucketRate": 0.3149317579955184,
+        "trainBaseRate": 0.10044433573845339,
+        "binomialP": 0,
+        "dayClusteredP": 0.00019998000199980003,
+        "qWithinFeatureBuckets": 0.00024997500249975,
+        "bins": 5,
+        "trainSamples": 24531,
+        "splitSamples": 24531,
+        "edgesFitOn": "this split (in-sample)"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "supported",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 8.2,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H1-train-20261109-0835.json",
+  "holmInputP": 0.00019998000199980003
+}

@@ -1,0 +1,140 @@
+{
+  "stage": "test-H4-H1-smoke",
+  "startedUtc": "2026-11-06T22:47:44.6348975Z",
+  "seconds": 0.7385088,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Split": "smoke",
+    "Runs": [
+      {
+        "Id": "H4",
+        "Family": "F3",
+        "Primary": true,
+        "Test": "wilson-ci",
+        "Claim": "At least 60% of Tier50 gapper days print the RTH high of day before 09:46.",
+        "Feature": null,
+        "Label": "hodTimeRth \u003C 09:46",
+        "DecisionTime": null,
+        "MinEffect": {
+          "proportionAtLeast": 0.60
+        },
+        "Split": "smoke",
+        "Smoke": true,
+        "Inputs": {
+          "N": 0,
+          "Days": 0,
+          "FirstDate": null,
+          "LastDate": null,
+          "Population": "Tier50 gapper days",
+          "FeatureColumns": [],
+          "LabelColumns": [
+            "HodTimeRthEt \u003C 09:46"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "f8036260817d5082b89485892cab4f62cf8a0590",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": []
+        },
+        "Parts": [
+          {
+            "Name": "proportionAtLeast",
+            "EffectName": "proportion",
+            "Effect": null,
+            "MinEffect": 0.6,
+            "Direction": "AtLeast",
+            "MeetsMinimum": null,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": null,
+            "CiHigh": null,
+            "N": 0,
+            "Days": 0,
+            "Verdict": "void",
+            "VerdictFixed": true,
+            "Reasons": [
+              "0 rows, fewer than minBucketN 50"
+            ],
+            "Statistic": {},
+            "HasInterval": false
+          }
+        ],
+        "Verdict": "void",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 2 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-06T22:47:45.3531146Z",
+        "Seconds": 0.6,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H4-smoke-20261106-2247.json",
+        "HolmInputP": null
+      },
+      {
+        "Id": "H1",
+        "Family": "F1",
+        "Primary": true,
+        "Test": "bucket-lift",
+        "Claim": "The top quintile of pmVolRatio at 08:00 has precision for reach20By0945 at least 3x the base rate among candidate days.",
+        "Feature": "pmVolRatio",
+        "Label": "reach20By0945",
+        "DecisionTime": "08:00",
+        "MinEffect": {
+          "precisionOverBaseRate": 3.0
+        },
+        "Split": "smoke",
+        "Smoke": true,
+        "Inputs": {
+          "N": 0,
+          "Days": 0,
+          "FirstDate": null,
+          "LastDate": null,
+          "Population": "candidate days with a bar by 08:00",
+          "FeatureColumns": [
+            "VolRatioTod"
+          ],
+          "LabelColumns": [
+            "Reach20By0945"
+          ],
+          "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+          "Head": "f8036260817d5082b89485892cab4f62cf8a0590",
+          "HypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+          "ParamsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+          "PostRegistrationFeaturesUsed": []
+        },
+        "Parts": [
+          {
+            "Name": "precisionOverBaseRate",
+            "EffectName": "precisionOverBaseRate",
+            "Effect": null,
+            "MinEffect": 3,
+            "Direction": "AtLeast",
+            "MeetsMinimum": null,
+            "RawP": null,
+            "FamilyQ": null,
+            "HolmP": null,
+            "CiLow": null,
+            "CiHigh": null,
+            "N": 0,
+            "Days": 0,
+            "Verdict": "void",
+            "VerdictFixed": false,
+            "Reasons": [
+              "0 rows in the tested bucket (minBucketN 50) or no base rate"
+            ],
+            "Statistic": {},
+            "HasInterval": false
+          }
+        ],
+        "Verdict": "void",
+        "Reasons": [],
+        "CorrectionScope": "BH within family and Holm across the 2 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+        "ComputedUtc": "2026-11-06T22:47:45.3531146Z",
+        "Seconds": 0.1,
+        "File": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H1-smoke-20261106-2247.json",
+        "HolmInputP": null
+      }
+    ],
+    "HoldoutNote": null,
+    "Minutes": 0.01
+  }
+}

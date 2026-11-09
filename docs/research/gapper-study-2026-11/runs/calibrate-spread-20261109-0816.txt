@@ -1,0 +1,13 @@
+stage: calibrate-spread
+started: 2026-11-09 03:16:22 ET
+seconds: 156
+status: Ok
+message: 
+
+multiplier:   9.3934
+statistic:    median
+events:       339 usable of 500 sampled (500 requested)
+quote calls:  499
+note:         1 without a Corwin-Schultz estimate, 160 without quotes
+file:         D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\data\spread-multiplier.json
+minutes:      2.59

@@ -1,0 +1,97 @@
+{
+  "id": "H5",
+  "family": "F3",
+  "primary": true,
+  "test": "quantile-ci",
+  "claim": "Among Tier20 gappers with a velocity death, the median deathToHodMin lies in [-2, \u002B5] minutes, and fewer than 25% of full-session highs fall in the 09:30-09:31 bucket.",
+  "feature": "velocityDeathTime",
+  "label": "deathToHodMin; hodBucket = 09:30-09:31",
+  "minEffect": {
+    "medianWithin": [
+      -2,
+      5
+    ],
+    "bucketShareBelow": 0.25
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 6831,
+    "days": 753,
+    "firstDate": "2021-11-01",
+    "lastDate": "2024-10-31",
+    "population": "Tier20 gapper days with a velocity death",
+    "featureColumns": [
+      "VelocityDeathTimeEt"
+    ],
+    "labelColumns": [
+      "DeathToHodMin",
+      "HodBucket"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "medianDeathToHodMin",
+      "effectName": "medianDeathToHodMin",
+      "effect": 42,
+      "minEffect": -2,
+      "direction": "AtLeast",
+      "meetsMinimum": false,
+      "ciLow": 38,
+      "ciHigh": 44,
+      "n": 6831,
+      "days": 753,
+      "verdict": "refuted",
+      "verdictFixed": true,
+      "reasons": [
+        "verdict: bootstrap interval [38.000, 44.000] against [-2, 5]; descriptive, no p"
+      ],
+      "statistic": {
+        "bootstrapDraws": 10000,
+        "treatedN": 6831,
+        "controlN": 0,
+        "ciLevel": 0.95,
+        "range": [
+          -2,
+          5
+        ]
+      },
+      "hasInterval": true
+    },
+    {
+      "name": "bucketShareBelow",
+      "effectName": "share of HOD in 09:30-09:31",
+      "effect": 0.019909237300541647,
+      "minEffect": 0.25,
+      "direction": "AtMost",
+      "meetsMinimum": true,
+      "ciLow": 0.016856444066726494,
+      "ciHigh": 0.02350169157431602,
+      "n": 6831,
+      "days": 0,
+      "verdict": "supported",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: interval [0.017, 0.024] against 0.25 (AtMost); descriptive, no p"
+      ],
+      "statistic": {
+        "successes": 136,
+        "ciLevel": 0.95,
+        "interval": "Wilson",
+        "bucket": "09:30-09:31"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "refuted",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 7.2,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H5-train-20261109-0835.json"
+}

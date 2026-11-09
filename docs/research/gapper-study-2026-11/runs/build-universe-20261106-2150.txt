@@ -1,0 +1,16 @@
+stage: build-universe
+started: 2026-11-06 16:50:28 ET
+seconds: 4845
+status: Ok
+message: 
+
+keys:               host AppSettings
+assets:             32439
+daily bars:         12040511 rows inserted in 8941 calls
+splits:             2635 rows inserted in 649 calls
+symbols with bars:  13646 (125 bracket a >90-session gap)
+universe days:      3026687
+candidates:         213915
+excluded:           split-window=22091, unexplained-move=16133
+minutes:            80.75
+sample:             D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\sample.json

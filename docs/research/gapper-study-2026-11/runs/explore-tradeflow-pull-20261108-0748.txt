@@ -1,0 +1,12 @@
+stage: explore-tradeflow-pull
+started: 2026-11-08 02:48:31 ET
+seconds: 15
+status: Ok
+message: 
+
+command:        tradeflow-pull
+report:         D:\IdiotProofData\gapper-study\tradeflow
+trials logged:  0
+ledger total:   0
+minutes:        0.25
+28 gapper mornings written to D:\IdiotProofData\gapper-study\tradeflow (47 pages)

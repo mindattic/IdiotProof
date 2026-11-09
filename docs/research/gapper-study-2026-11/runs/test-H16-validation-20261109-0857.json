@@ -1,0 +1,58 @@
+{
+  "id": "H16",
+  "family": "F2",
+  "primary": false,
+  "test": "event-study-bmp",
+  "claim": "Gappers whose latest catalyst is promotional (deterministic CatalystPreClassifier class PromoPr, or source tier promotional) reverse by 16:00 (negative fwdClose_16:00 at 09:30) while wire-sourced non-promotional catalysts continue.",
+  "feature": "catalystPreClass = PromoPr OR sourceTier = promotional, vs sourceTier = wire AND preClass != PromoPr",
+  "label": "fwdClose_16:00",
+  "decisionTime": "09:30",
+  "minEffect": {
+    "meanDifferencePct": 3.0
+  },
+  "split": "validation",
+  "smoke": false,
+  "inputs": {
+    "n": 2914,
+    "days": 249,
+    "firstDate": "2024-11-04",
+    "lastDate": "2025-10-31",
+    "population": "Tier20 gapper days at 09:30 with a group",
+    "featureColumns": [
+      "catalystPreClass = PromoPr OR sourceTier = promotional, vs sourceTier = wire AND preClass != PromoPr"
+    ],
+    "labelColumns": [
+      "FwdClose1600 x 100"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "meanDifferencePct",
+      "effectName": "meanDifferencePct",
+      "minEffect": 3,
+      "direction": "AtLeast",
+      "n": 2914,
+      "days": 249,
+      "verdict": "void",
+      "verdictFixed": true,
+      "reasons": [
+        "2 treated / 2912 control events, fewer than minBucketN 50"
+      ],
+      "statistic": {},
+      "hasInterval": false
+    }
+  ],
+  "verdict": "void",
+  "reasons": [
+    "promotional = CatalystPreClass PromoPr (params promotionalSources is empty); control = every other catalyst inside the lookback, source tier not distinguished on snapshot rows"
+  ],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:57:37.3581571Z",
+  "seconds": 2.9,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H16-validation-20261109-0857.json"
+}

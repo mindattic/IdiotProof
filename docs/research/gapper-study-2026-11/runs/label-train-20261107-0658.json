@@ -1,0 +1,15 @@
+{
+  "stage": "label-train",
+  "startedUtc": "2026-11-07T06:58:55.5509771Z",
+  "seconds": 11.7700754,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Split": "train",
+    "SymbolDays": 2254,
+    "Rows": 19472,
+    "WithEntry": 19395,
+    "HoldoutNote": null,
+    "Minutes": 0.2
+  }
+}

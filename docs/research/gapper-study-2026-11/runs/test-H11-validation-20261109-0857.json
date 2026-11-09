@@ -1,0 +1,216 @@
+{
+  "id": "H11",
+  "family": "F1",
+  "primary": true,
+  "test": "auc-delong",
+  "claim": "A feature detector on the 08:00 snapshot beats the catalyst-latency benchmark (a news item or 8-K with pubToTMinutes \u003C= 60 exists at 08:00) by at least 0.05 AUC for reach20By0945 on validation.",
+  "feature": "08:00 core feature set (logistic, fit on train) vs benchmark indicator pubToTMinutes \u003C= 60",
+  "label": "reach20By0945",
+  "decisionTime": "08:00",
+  "minEffect": {
+    "aucDifference": 0.05
+  },
+  "split": "validation",
+  "smoke": false,
+  "inputs": {
+    "n": 50904,
+    "days": 249,
+    "firstDate": "2024-11-04",
+    "lastDate": "2025-10-31",
+    "population": "candidate days at 08:00",
+    "featureColumns": [
+      "GapPct",
+      "LogPmCumVol",
+      "VolRatioTod",
+      "OwnProfileRatio",
+      "Velocity1m",
+      "Velocity3m",
+      "Velocity5m",
+      "Velocity15m",
+      "Acceleration",
+      "VolumeRoc",
+      "TradesProxy",
+      "TradesRoc",
+      "SpreadProxy",
+      "DistToPmHighPct",
+      "MinsSinceFirstAbnormal",
+      "AbnormalReturnD1",
+      "AbnormalReturnD2",
+      "AbnormalReturnD3",
+      "AbnormalReturnD4",
+      "AbnormalReturnD5",
+      "VolumeRatioD1",
+      "VolumeRatioD2",
+      "VolumeRatioD3",
+      "VolumeRatioD4",
+      "VolumeRatioD5",
+      "DaysSinceReverseSplit",
+      "DaysSince424B",
+      "DaysSinceS1",
+      "benchmark: pubToTMinutes \u003C= 60"
+    ],
+    "labelColumns": [
+      "Reach20By0945"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "aucDifference",
+      "effectName": "aucDifference",
+      "effect": 0.32180128724553714,
+      "minEffect": 0.05,
+      "direction": "AtLeast",
+      "meetsMinimum": true,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.0001999800019998,
+      "holmP": 0.0017998200179982003,
+      "ciLow": 0.3130374209277996,
+      "ciHigh": 0.33031498728284436,
+      "n": 50904,
+      "days": 249,
+      "verdict": "supported",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 0.322 vs 0.05 (AtLeast), q 2.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+      ],
+      "statistic": {
+        "aucDetector": 0.8704161080950984,
+        "aucBenchmark": 0.5486148208495613,
+        "positives": 5721,
+        "benchmarkPositiveShare": 0.043395410969668397,
+        "fitOn": "train",
+        "trainRows": 103044,
+        "epochs": 500,
+        "trainLogLoss": 0.14537883538456597,
+        "weights": [
+          {
+            "feature": "GapPct",
+            "weight": 1.114477
+          },
+          {
+            "feature": "LogPmCumVol",
+            "weight": 0.607844
+          },
+          {
+            "feature": "VolRatioTod",
+            "weight": 0.126795
+          },
+          {
+            "feature": "OwnProfileRatio",
+            "weight": 0.125014
+          },
+          {
+            "feature": "Velocity1m",
+            "weight": 0.011296
+          },
+          {
+            "feature": "Velocity3m",
+            "weight": 0.021557
+          },
+          {
+            "feature": "Velocity5m",
+            "weight": 0.041487
+          },
+          {
+            "feature": "Velocity15m",
+            "weight": 0.064176
+          },
+          {
+            "feature": "Acceleration",
+            "weight": -0.007813
+          },
+          {
+            "feature": "VolumeRoc",
+            "weight": 2.8E-05
+          },
+          {
+            "feature": "TradesProxy",
+            "weight": 0.307271
+          },
+          {
+            "feature": "TradesRoc",
+            "weight": 0.027357
+          },
+          {
+            "feature": "SpreadProxy",
+            "weight": 0.175394
+          },
+          {
+            "feature": "DistToPmHighPct",
+            "weight": 0.852969
+          },
+          {
+            "feature": "MinsSinceFirstAbnormal",
+            "weight": -0.143459
+          },
+          {
+            "feature": "AbnormalReturnD1",
+            "weight": 0.02816
+          },
+          {
+            "feature": "AbnormalReturnD2",
+            "weight": 0.017917
+          },
+          {
+            "feature": "AbnormalReturnD3",
+            "weight": -3.2E-05
+          },
+          {
+            "feature": "AbnormalReturnD4",
+            "weight": -0.006735
+          },
+          {
+            "feature": "AbnormalReturnD5",
+            "weight": -0.021325
+          },
+          {
+            "feature": "VolumeRatioD1",
+            "weight": 0.002661
+          },
+          {
+            "feature": "VolumeRatioD2",
+            "weight": 0.01648
+          },
+          {
+            "feature": "VolumeRatioD3",
+            "weight": 0.014437
+          },
+          {
+            "feature": "VolumeRatioD4",
+            "weight": 0.010305
+          },
+          {
+            "feature": "VolumeRatioD5",
+            "weight": 0.024243
+          },
+          {
+            "feature": "DaysSinceReverseSplit",
+            "weight": -0.021872
+          },
+          {
+            "feature": "DaysSince424B",
+            "weight": -0.046525
+          },
+          {
+            "feature": "DaysSinceS1",
+            "weight": -0.040338
+          }
+        ],
+        "bootstrap": "day-block resampling of AUC(detector) - AUC(benchmark)"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "supported",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:57:37.3581571Z",
+  "seconds": 158.2,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H11-validation-20261109-0857.json",
+  "holmInputP": 0.00019998000199980003
+}

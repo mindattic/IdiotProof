@@ -1,0 +1,71 @@
+stage: test-all
+started: 2026-11-09 03:18:59 ET
+seconds: 975
+status: Ok
+message: 
+
+hypothesis  part                           n  days  effect     min       p       q    holm  verdict
+----------  -----------------------  -------  ----  ------  ------  ------  ------  ------  ---------
+H1          precisionOverBaseRate       4907   749   3.135   3.000  2.0e-4  2.0e-4   0.002  supported
+H2          meanDifferencePct           3206   728   0.455   2.000   0.599   0.599   1.000  undecided
+H3          proportionDifferencePp      6657   753  -4.661  10.000  2.0e-4  4.0e-4   0.002  refuted
+H4          proportionAtLeast           1922     0   0.449   0.600     n/a     n/a     n/a  refuted
+H5          medianDeathToHodMin         6831   753  42.000  -2.000     n/a     n/a     n/a  refuted
+H5          bucketShareBelow            6831     0   0.020   0.250     n/a     n/a     n/a  supported
+H6          lift                       45844   754   6.727   2.000  2.0e-4  2.0e-4   0.002  supported
+H7          fwdCloseDifferencePct       6855   753     n/a  -2.000     n/a     n/a     n/a  void
+H7          fadeDifferencePct           6657   753     n/a  -5.000     n/a     n/a     n/a  void
+H8          lift                     1549033   755   0.731   1.500  2.0e-4  3.0e-4   0.002  refuted
+H9          lift                         798   463   3.579   2.000  2.0e-4  2.0e-4   0.002  supported
+H10         lift                      105964   755   1.448   1.500  2.0e-4  3.0e-4   0.005  undecided
+H10         fwdCloseMeanBelowPct         460   331   3.456   0.000   0.002   0.002   0.005  refuted
+H11         split                          0     0     n/a     n/a     n/a     n/a     n/a  void
+H12         meanNetPctPerTrade          1611   626  -3.610   1.000   1.000   1.000   1.000  refuted
+H13         proportionAtLeast           4382     0   0.465   0.850     n/a     n/a     n/a  refuted
+H14         meanPairedDifferencePct     1893   656   0.196   0.500   0.253   0.506     n/a  undecided
+H15         lift                       14491   754  17.047   1.500  2.0e-4  2.0e-4     n/a  supported
+H16         meanDifferencePct           4013   741     n/a   3.000     n/a     n/a     n/a  void
+H17         ratioOverUnconditional      6855   753   0.546   1.500     n/a     n/a     n/a  refuted
+H1p         precisionOverBaseRate      15451   755   4.103   3.000  2.0e-4  2.0e-4  6.0e-4  supported
+H9p         lift                         911   497  20.311   2.000  2.0e-4  2.0e-4  6.0e-4  supported
+H11p        split                          0     0     n/a     n/a     n/a     n/a     n/a  void
+H12p        meanNetPctPerTrade          1878   661  -4.385   1.000   1.000   1.000   1.000  refuted
+H18         meanNetPctPerTrade           362   268  -3.294   1.000   1.000   1.000     n/a  refuted
+H19         medianPreShare              1440   589   0.311   0.250     n/a     n/a     n/a  refuted
+H20         meanDifferencePct            883   432  -0.275   1.000     n/a     n/a     n/a  refuted
+H21         split                          0     0     n/a     n/a     n/a     n/a     n/a  void
+H22         split                          0     0     n/a     n/a     n/a     n/a     n/a  void
+H23         split                          0     0     n/a     n/a     n/a     n/a     n/a  void
+H24         precisionOverBaseRate      46248   755   7.962   2.000  2.0e-4  2.0e-4     n/a  supported
+split:    train
+runs:     H1=supported, H2=undecided, H3=refuted, H4=refuted, H5=refuted, H6=supported, H7=void, H8=refuted, H9=supported, H10=refuted, H11=void, H12=refuted, H13=refuted, H14=undecided, H15=supported, H16=void, H17=refuted, H1p=supported, H9p=supported, H11p=void, H12p=refuted, H18=refuted, H19=refuted, H20=refuted, H21=void, H22=void, H23=void, H24=supported
+files:    D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H1-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H2-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H3-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H4-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H5-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H6-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H7-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H8-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H9-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H10-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H11-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H12-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H13-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H14-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H15-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H16-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H17-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H1p-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H9p-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H11p-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H12p-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H18-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H19-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H20-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H21-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H22-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H23-train-20261109-0835.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H24-train-20261109-0835.json
+holdout:  not a holdout run
+minutes:  16.25

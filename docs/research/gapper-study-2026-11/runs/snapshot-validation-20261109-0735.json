@@ -1,0 +1,18 @@
+{
+  "stage": "snapshot-validation",
+  "startedUtc": "2026-11-09T07:35:34.5998796Z",
+  "seconds": 1339.1540646,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Split": "validation",
+    "SymbolDays": 115639,
+    "Rows": 921677,
+    "WithProfile": 681408,
+    "ProfileFile": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\data\\tod-profile.json",
+    "ProfileBuilt": false,
+    "ProfileDays": 0,
+    "HoldoutNote": null,
+    "Minutes": 22.32
+  }
+}

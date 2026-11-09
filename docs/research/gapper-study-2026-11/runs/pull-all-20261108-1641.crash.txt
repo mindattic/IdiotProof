@@ -1,0 +1,32 @@
+System.Threading.Tasks.TaskCanceledException: The request was canceled due to the configured HttpClient.Timeout of 15 seconds elapsing.
+ ---> System.TimeoutException: The operation was canceled.
+ ---> System.Threading.Tasks.TaskCanceledException: The operation was canceled.
+ ---> System.IO.IOException: Unable to read data from the transport connection: The I/O operation has been aborted because of either a thread exit or an application request..
+ ---> System.Net.Sockets.SocketException (995): The I/O operation has been aborted because of either a thread exit or an application request.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at System.Net.Security.SslStream.EnsureFullTlsFrameAsync[TIOAdapter](CancellationToken cancellationToken, Int32 estimatedSize)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)
+   at System.Net.Security.SslStream.ReadAsyncInternal[TIOAdapter](Memory`1 buffer, CancellationToken cancellationToken)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)
+   at System.Net.Http.HttpConnection.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at System.Net.Http.HttpConnection.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at System.Net.Http.HttpConnectionPool.SendWithVersionDetectionAndRetryAsync(HttpRequestMessage request, Boolean async, Boolean doRequestAuth, CancellationToken cancellationToken)
+   at System.Net.Http.RedirectHandler.SendAsync(HttpRequestMessage request, Boolean async, CancellationToken cancellationToken)
+   at Microsoft.Extensions.Http.Logging.LoggingHttpMessageHandler.<SendCoreAsync>g__Core|4_0(HttpRequestMessage request, Boolean useAsync, CancellationToken cancellationToken)
+   at Microsoft.Extensions.Http.Logging.LoggingScopeHttpMessageHandler.<SendCoreAsync>g__Core|4_0(HttpRequestMessage request, Boolean useAsync, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   --- End of inner exception stack trace ---
+   --- End of inner exception stack trace ---
+   at System.Net.Http.HttpClient.HandleFailure(Exception e, Boolean telemetryStarted, HttpResponseMessage response, CancellationTokenSource cts, CancellationToken cancellationToken, CancellationTokenSource pendingRequestsCts)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at IdiotProof.Core.Research.Gappers.GapperPullStage.<>c__DisplayClass16_3.<<PullForm4Async>b__16>d.MoveNext() in D:\Projects\MindAttic\IdiotProof\IdiotProof.Core\Research\Gappers\GapperPullStage.cs:line 117
+--- End of stack trace from previous location ---
+   at IdiotProof.Core.Catalysts.EdgarRateGate.RunAsync[T](Func`2 call, CancellationToken ct)
+   at IdiotProof.Core.Research.Gappers.GapperPullStage.PullForm4Async(PullStageRequest req, CallBudget calls, CancellationToken ct) in D:\Projects\MindAttic\IdiotProof\IdiotProof.Core\Research\Gappers\GapperPullStage.cs:line 114
+   at IdiotProof.Core.Research.Gappers.GapperPullStage.PullForm4Async(PullStageRequest req, CallBudget calls, CancellationToken ct) in D:\Projects\MindAttic\IdiotProof\IdiotProof.Core\Research\Gappers\GapperPullStage.cs:line 146
+   at IdiotProof.Core.Research.Gappers.GapperPullStage.RunAsync(PullStageRequest req, CancellationToken ct) in D:\Projects\MindAttic\IdiotProof\IdiotProof.Core\Research\Gappers\GapperPullStage.cs:line 59
+   at IdiotProof.Operations.Research.Gappers.GapperPullOperation.ExecuteAsync(GapperPullArgs args, OperationContext ctx) in D:\Projects\MindAttic\IdiotProof\IdiotProof.Operations\Research\Gappers\GapperStudyOperations.cs:line 108
+   at Program.<Main>$(String[] args) in D:\Projects\MindAttic\IdiotProof\tools\GapperStudy\Program.cs:line 95

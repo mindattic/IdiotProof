@@ -1,0 +1,18 @@
+stage: test-H18-H19-H20
+started: 2026-11-09 03:59:30 ET
+seconds: 60
+status: Ok
+message: 
+
+hypothesis  part                   n  days  effect    min      p      q  holm  verdict
+----------  ------------------  ----  ----  ------  -----  -----  -----  ----  -------
+H18         meanNetPctPerTrade   212   131  -2.355  1.000  1.000  1.000   n/a  refuted
+H19         medianPreShare      1335   244   0.330  0.250    n/a    n/a   n/a  refuted
+H20         meanDifferencePct    425   193  -0.130  1.000    n/a    n/a   n/a  refuted
+split:    validation
+runs:     H18=refuted, H19=refuted, H20=refuted
+files:    D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H18-validation-20261109-0900.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H19-validation-20261109-0900.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H20-validation-20261109-0900.json
+holdout:  not a holdout run
+minutes:  1.01

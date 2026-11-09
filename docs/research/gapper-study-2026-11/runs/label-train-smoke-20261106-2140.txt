@@ -1,0 +1,11 @@
+stage: label-train-smoke
+started: 2026-11-06 16:40:50 ET
+seconds: 1
+status: Ok
+message: 
+
+split:        smoke
+symbol-days:  2
+label rows:   26 (26 with an entry bar)
+holdout:      not a holdout run
+minutes:      0.02

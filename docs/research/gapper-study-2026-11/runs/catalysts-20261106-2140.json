@@ -1,0 +1,14 @@
+{
+  "stage": "catalysts",
+  "startedUtc": "2026-11-06T21:40:21.350347Z",
+  "seconds": 0.8513207,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Rows": 4,
+    "Reclassified": 0,
+    "LlmClassified": 0,
+    "LlmSkipped": 4,
+    "Minutes": 0.01
+  }
+}

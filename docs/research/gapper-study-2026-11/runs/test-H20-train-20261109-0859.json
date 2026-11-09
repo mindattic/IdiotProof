@@ -1,0 +1,82 @@
+{
+  "id": "H20",
+  "family": "F3",
+  "primary": false,
+  "test": "latency-decay",
+  "claim": "On bullish news events, the weighted mean gross return from a second-hand entry to a 09:28 exit is at least 1.0 percentage point higher at a 1-minute latency than at a 15-minute latency.",
+  "minEffect": {
+    "meanDifferencePctAtLeast": 1.0
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 883,
+    "days": 432,
+    "firstDate": "2021-12-17",
+    "lastDate": "2024-10-30",
+    "population": "population days: 105,964 candidate days (weight 1) and 155,845 population-sample days (weight 10); bullish first news items with an entry at every latency",
+    "featureColumns": [
+      "entry 1/2/5/10/15 minutes after publication"
+    ],
+    "labelColumns": [
+      "gross return to the 09:28 open, pct"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": [],
+    "amendmentId": "A02",
+    "amendmentSha256": "c481f9272b9bd38f299cef76eafc744a0af1bceb0b02849590aff2090f2f4b81"
+  },
+  "parts": [
+    {
+      "name": "meanDifferencePct",
+      "effectName": "mean gross return at 1m minus at 15m (pct)",
+      "effect": -0.2752792531289735,
+      "minEffect": 1,
+      "direction": "AtLeast",
+      "meetsMinimum": false,
+      "ciLow": -0.6542588411508744,
+      "ciHigh": 0.010184472824427424,
+      "n": 883,
+      "days": 432,
+      "verdict": "refuted",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: interval [-0.654, 0.010] against 1 (AtLeast); descriptive, no p"
+      ],
+      "statistic": {
+        "curve": [
+          {
+            "latencyMinutes": 1,
+            "meanGrossPct": -0.8743979031556754
+          },
+          {
+            "latencyMinutes": 2,
+            "meanGrossPct": -0.8876697624794799
+          },
+          {
+            "latencyMinutes": 5,
+            "meanGrossPct": -0.8480260874997219
+          },
+          {
+            "latencyMinutes": 10,
+            "meanGrossPct": -0.7205612096978595
+          },
+          {
+            "latencyMinutes": 15,
+            "meanGrossPct": -0.5991186500267012
+          }
+        ]
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "refuted",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 3 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A02 corrected as its own set",
+  "computedUtc": "2026-11-09T08:59:29.7221677Z",
+  "seconds": 8.6,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H20-train-20261109-0859.json"
+}

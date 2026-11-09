@@ -1,0 +1,42 @@
+{
+  "stage": "status",
+  "startedUtc": "2026-11-06T21:31:31.8331319Z",
+  "seconds": 1.7377462,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Database": "Server=(localdb)\\MSSQLLocalDB;Database=IdiotProof_Research_GAP;Trusted_Connection=True;TrustServerCertificate=True;Command Timeout=600;",
+    "BarRoot": "D:\\IdiotProofData\\gapper-study\\bars",
+    "StudyDir": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11",
+    "FrozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "FrozenUtc": "2026-11-06T20:15:00Z",
+    "Splits": [
+      {
+        "Split": "smoke",
+        "UniverseDays": 6,
+        "Candidates": 2,
+        "Tier20": 0,
+        "Tier50": 0,
+        "Tier100": 0,
+        "Controls": 0,
+        "BarCoveragePct": 100,
+        "Snapshots": 26,
+        "Labels": 26,
+        "First": "2026-11-03",
+        "Last": "2026-11-05"
+      }
+    ],
+    "DailyBarRows": 132,
+    "DailySymbols": 3,
+    "SplitRows": 0,
+    "CikMapped": 2,
+    "CikTotal": 3,
+    "NewsRows": 4,
+    "EdgarRows": 10,
+    "EdgarWithAcceptance": 0,
+    "ProfileExists": false,
+    "UnlockFileExists": false,
+    "HoldoutRunExists": false,
+    "HoldoutState": "locked"
+  }
+}

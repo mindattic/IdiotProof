@@ -1,0 +1,16 @@
+stage: test-H4-H1-smoke
+started: 2026-11-06 17:47:44 ET
+seconds: 1
+status: Ok
+message: 
+
+hypothesis  part                   n  days  effect    min    p    q  holm  verdict
+----------  ---------------------  -  ----  ------  -----  ---  ---  ----  -------
+H4          proportionAtLeast      0     0     n/a  0.600  n/a  n/a   n/a  void
+H1          precisionOverBaseRate  0     0     n/a  3.000  n/a  n/a   n/a  void
+split:    smoke
+runs:     H4=void, H1=void
+files:    D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H4-smoke-20261106-2247.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H1-smoke-20261106-2247.json
+holdout:  not a holdout run
+minutes:  0.01

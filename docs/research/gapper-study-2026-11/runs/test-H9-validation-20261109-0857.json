@@ -1,0 +1,77 @@
+{
+  "id": "H9",
+  "family": "F1",
+  "primary": true,
+  "test": "bucket-lift",
+  "claim": "v_3 above 1%/min and pmVolRatio above 5 at 09:00 predict fwdMax_09:45 \u003E= 10% with lift at least 2 over the candidate-day base rate.",
+  "feature": "v_3 \u003E 1.0 AND pmVolRatio \u003E 5",
+  "label": "fwdMax_09:45 \u003E= 0.10",
+  "decisionTime": "09:00",
+  "minEffect": {
+    "lift": 2.0
+  },
+  "split": "validation",
+  "smoke": false,
+  "inputs": {
+    "n": 50820,
+    "days": 249,
+    "firstDate": "2024-11-04",
+    "lastDate": "2025-10-31",
+    "population": "candidate days at 09:00",
+    "featureColumns": [
+      "v_3 \u003E 1",
+      "pmVolRatio \u003E 5"
+    ],
+    "labelColumns": [
+      "FwdMax0945 \u003E= 0.1"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "lift",
+      "effectName": "lift",
+      "effect": 2.2515569883036,
+      "minEffect": 2,
+      "direction": "AtLeast",
+      "meetsMinimum": true,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.0001999800019998,
+      "holmP": 0.0017998200179982003,
+      "ciLow": 1.9264526533119914,
+      "ciHigh": 2.6128342347321394,
+      "n": 537,
+      "days": 218,
+      "verdict": "supported",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 2.252 vs 2 (AtLeast), q 2.0e-4 vs 0.05, Holm p 0.002 vs 0.05"
+      ],
+      "statistic": {
+        "bucketRate": 0.2346368715083799,
+        "baseRate": 0.10421094057457694,
+        "trainBucketRate": 0.28625,
+        "trainBaseRate": 0.07984095968580789,
+        "binomialP": 6.1270273969669475E-18,
+        "dayClusteredP": 0.00019998000199980003,
+        "qWithinFeatureBuckets": 0.00039996000399960006,
+        "bins": 2,
+        "trainSamples": 102867,
+        "splitSamples": 50820,
+        "edgesFitOn": "train"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "supported",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:57:37.3581571Z",
+  "seconds": 9.6,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H9-validation-20261109-0857.json",
+  "holmInputP": 0.00019998000199980003
+}

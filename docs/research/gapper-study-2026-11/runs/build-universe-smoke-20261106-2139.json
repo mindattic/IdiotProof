@@ -1,0 +1,22 @@
+{
+  "stage": "build-universe-smoke",
+  "startedUtc": "2026-11-06T21:39:45.7966982Z",
+  "seconds": 4.1942282,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "KeySource": "host AppSettings",
+    "Assets": 3,
+    "DailyBarCalls": 1,
+    "DailyBarsInserted": 132,
+    "SplitCalls": 1,
+    "SplitsInserted": 0,
+    "Symbols": 3,
+    "ReusedTickerSymbols": 0,
+    "UniverseDays": 6,
+    "Candidates": 2,
+    "ExcludedByReason": {},
+    "Minutes": 0.07,
+    "SampleFile": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\sample.smoke.json"
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "id": "H15",
+  "family": "F1",
+  "primary": false,
+  "test": "bucket-lift",
+  "claim": "Being in the top 20 of U(D-1) by daily return on D-1 raises the probability of a Tier20 gapper day on D.",
+  "feature": "priorDayTopMoverRank \u003C= 20",
+  "label": "isTier20Gapper",
+  "decisionTime": "D-1 16:00",
+  "minEffect": {
+    "lift": 1.5
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 1667154,
+    "days": 754,
+    "firstDate": "2021-11-02",
+    "lastDate": "2024-10-31",
+    "population": "U(D) members ranked among U(D-1)",
+    "featureColumns": [
+      "priorDayTopMoverRank \u003C= 20"
+    ],
+    "labelColumns": [
+      "IsGapper (Tier20)"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": []
+  },
+  "parts": [
+    {
+      "name": "lift",
+      "effectName": "lift",
+      "effect": 17.047191234226933,
+      "minEffect": 1.5,
+      "direction": "AtLeast",
+      "meetsMinimum": true,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.00019998000199980003,
+      "ciLow": 16.063333003022578,
+      "ciHigh": 18.08651489736388,
+      "n": 14491,
+      "days": 754,
+      "verdict": "supported",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 17.047 vs 1.5 (AtLeast), q 2.0e-4 vs 0.05"
+      ],
+      "statistic": {
+        "bucketRate": 0.07004347526050653,
+        "baseRate": 0.004108798587293076,
+        "trainBucketRate": 0.07010280825225972,
+        "trainBaseRate": 0.004108798587293076,
+        "binomialP": 0,
+        "dayClusteredP": 0.00019998000199980003,
+        "qWithinFeatureBuckets": 0.00019998000199980003,
+        "bins": 2,
+        "trainSamples": 1667154,
+        "splitSamples": 1667154,
+        "edgesFitOn": "this split (in-sample)"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "supported",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 47.4,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H15-train-20261109-0835.json",
+  "holmInputP": 0.00019998000199980003
+}

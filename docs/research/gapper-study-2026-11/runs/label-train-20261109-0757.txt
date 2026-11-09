@@ -1,0 +1,11 @@
+stage: label-train
+started: 2026-11-09 02:57:55 ET
+seconds: 751
+status: Ok
+message: 
+
+split:        train
+symbol-days:  267976
+label rows:   1932118 (1927019 with an entry bar)
+holdout:      not a holdout run
+minutes:      12.51

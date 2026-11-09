@@ -1,0 +1,15 @@
+{
+  "stage": "report",
+  "startedUtc": "2026-11-06T22:47:47.4402317Z",
+  "seconds": 0.9374966,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "ReportFile": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11.md",
+    "RunsUsed": 0,
+    "HoldoutRunsWithheld": 0,
+    "PostHocHypotheses": 0,
+    "Exports": [],
+    "Minutes": 0.02
+  }
+}

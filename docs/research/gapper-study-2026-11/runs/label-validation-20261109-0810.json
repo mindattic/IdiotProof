@@ -1,0 +1,15 @@
+{
+  "stage": "label-validation",
+  "startedUtc": "2026-11-09T08:10:27.5309996Z",
+  "seconds": 354.2516424,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Split": "validation",
+    "SymbolDays": 115639,
+    "Rows": 921677,
+    "WithEntry": 919076,
+    "HoldoutNote": null,
+    "Minutes": 5.9
+  }
+}

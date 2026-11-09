@@ -1,0 +1,14 @@
+stage: pull-all
+started: 2026-11-08 21:50:30 ET
+seconds: 14120
+status: Ok
+message: 
+
+tier     rows  calls  minutes  coverage  note
+------  -----  -----  -------  --------  -----------------------------------------------------------------------------------------------------------------------------------------
+splits      0      0     0.03    100.0%  0 symbols pulled, 6668 already covered
+bars        0      0    14.72    100.0%  23730 gapper events, 18430 controls assigned, SIP share 100.0%
+news        0      0     0.07    100.0%  0 items seen, 0 new rows, 107975 windows already covered; population sample: 0 batches, 0 items seen, 0 new, 3495 batches already covered
+cik         2   1130     4.54     83.7%  2 company_tickers, 0 Form 4, 0 name match; candidate coverage 83.72%
+edgar       0      0     0.15     57.1%  0 quarter files, 0 header fetches, 0 acceptance times
+form4   95342  68882   215.83    100.0%  68843 filings parsed, 95342 lines, 10615 code-P purchases, 0 already on file

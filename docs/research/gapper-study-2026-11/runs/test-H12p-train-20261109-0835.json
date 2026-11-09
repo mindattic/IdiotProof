@@ -1,0 +1,509 @@
+{
+  "id": "H12p",
+  "family": "F4",
+  "primary": true,
+  "test": "search-grid-spa",
+  "claim": "The H12 rule grid nets at least \u002B1.0%/trade after the frozen cost model when it trades every pass in the population, not only passes on candidate days.",
+  "feature": "pmVolRatio and v_3 at 08:30",
+  "label": "net return per trade",
+  "decisionTime": "08:30",
+  "minEffect": {
+    "meanNetPctPerTrade": 1.0,
+    "clusteredLowerBoundAbove": 0.0,
+    "minTrades": 150,
+    "minDays": 40
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 261809,
+    "days": 755,
+    "firstDate": "2021-11-01",
+    "lastDate": "2024-10-31",
+    "population": "population at 08:30: 105,964 candidate days (weight 1) and 155,845 population-sample days (weight 10)",
+    "featureColumns": [
+      "VolRatioTod",
+      "Velocity3m",
+      "PmCumVol",
+      "csSpreadPrior",
+      "sigma20"
+    ],
+    "labelColumns": [
+      "weighted net return per trade after the frozen cost model"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": [],
+    "amendmentId": "A01",
+    "amendmentSha256": "557b34e2502ba5943cdb966adb4784b688a0058f606b6830fc6769ac129b55cb",
+    "amendsHypothesis": "H12"
+  },
+  "parts": [
+    {
+      "name": "meanNetPctPerTrade",
+      "effectName": "meanNetPctPerTrade",
+      "effect": -4.385138124601895,
+      "minEffect": 1,
+      "direction": "AtLeast",
+      "meetsMinimum": false,
+      "rawP": 1,
+      "familyQ": 1,
+      "holmP": 1,
+      "ciLow": -4.727309480100253,
+      "ciHigh": -4.029184575019897,
+      "n": 1878,
+      "days": 661,
+      "verdict": "refuted",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: SPA p 1.000 vs 0.05, DSR 2.2e-65 vs 0.95, worth-trading False"
+      ],
+      "statistic": {
+        "candidateRows": 105964,
+        "sampleRows": 155845,
+        "populationWeight": 1664414,
+        "cellsPassingLoosest": 2372,
+        "sampleCellsPassingLoosest": 408,
+        "meanRoundTripCost": 0.041663771628328676,
+        "spreadMultiplier": 9.39340522666859,
+        "spreadMultiplierSource": "spread-multiplier.json",
+        "configs": [
+          {
+            "label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapon",
+            "trades": 2372,
+            "days": 696,
+            "meanNetPct": -5.335065427199175,
+            "lowerBoundPct": -5.698009152284784,
+            "sharpe": -0.9428302900422949,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 2.6971246853914463E-142,
+            "exits": {
+              "sell-by": 372,
+              "vwap-loss": 698,
+              "velocity-death": 1042,
+              "stop": 260
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapoff",
+            "trades": 2372,
+            "days": 696,
+            "meanNetPct": -5.288262158472167,
+            "lowerBoundPct": -5.658717523709143,
+            "sharpe": -0.9297971036882566,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 1.9135119375104127E-144,
+            "exits": {
+              "sell-by": 557,
+              "stop": 326,
+              "velocity-death": 1489
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapon",
+            "trades": 2372,
+            "days": 696,
+            "meanNetPct": -5.330371696904857,
+            "lowerBoundPct": -5.6921101721856475,
+            "sharpe": -0.9303607581233548,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 1.6236742030460253E-137,
+            "exits": {
+              "sell-by": 382,
+              "vwap-loss": 765,
+              "velocity-death": 1173,
+              "stop": 52
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=3 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+            "trades": 2372,
+            "days": 696,
+            "meanNetPct": -5.252434144952425,
+            "lowerBoundPct": -5.621651257225371,
+            "sharpe": -0.9097144356527876,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 1.4467070921581856E-138,
+            "exits": {
+              "sell-by": 593,
+              "velocity-death": 1709,
+              "stop": 70
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop5% sellBy09:28 vwapon",
+            "trades": 839,
+            "days": 489,
+            "meanNetPct": -6.102150881220156,
+            "lowerBoundPct": -6.940406625514979,
+            "sharpe": -0.8470253268322573,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 3.768830681106825E-58,
+            "exits": {
+              "sell-by": 142,
+              "vwap-loss": 216,
+              "velocity-death": 345,
+              "stop": 136
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop5% sellBy09:28 vwapoff",
+            "trades": 839,
+            "days": 489,
+            "meanNetPct": -6.040437274092775,
+            "lowerBoundPct": -6.879850302585619,
+            "sharpe": -0.8417512472823019,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 2.4853922841968715E-57,
+            "exits": {
+              "sell-by": 195,
+              "stop": 171,
+              "velocity-death": 473
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop10% sellBy09:28 vwapon",
+            "trades": 839,
+            "days": 489,
+            "meanNetPct": -6.0810602190636684,
+            "lowerBoundPct": -6.919408395886352,
+            "sharpe": -0.8306605447406868,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 5.409375224379309E-55,
+            "exits": {
+              "sell-by": 145,
+              "vwap-loss": 257,
+              "velocity-death": 405,
+              "stop": 32
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=3 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+            "trades": 839,
+            "days": 489,
+            "meanNetPct": -5.962769530677396,
+            "lowerBoundPct": -6.793800805587289,
+            "sharpe": -0.8125211365294102,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 6.392455771060433E-54,
+            "exits": {
+              "sell-by": 210,
+              "velocity-death": 585,
+              "stop": 44
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapon",
+            "trades": 2183,
+            "days": 682,
+            "meanNetPct": -4.938687682817217,
+            "lowerBoundPct": -5.31193945693079,
+            "sharpe": -0.8960230535106651,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 1.633183457140372E-109,
+            "exits": {
+              "sell-by": 294,
+              "vwap-loss": 638,
+              "velocity-death": 1002,
+              "stop": 249
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapoff",
+            "trades": 2183,
+            "days": 682,
+            "meanNetPct": -4.8690951243310385,
+            "lowerBoundPct": -5.247132174161826,
+            "sharpe": -0.880321513828681,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 9.79929934482711E-111,
+            "exits": {
+              "sell-by": 449,
+              "stop": 312,
+              "velocity-death": 1422
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapon",
+            "trades": 2183,
+            "days": 682,
+            "meanNetPct": -4.950413258467018,
+            "lowerBoundPct": -5.328566200485404,
+            "sharpe": -0.8785803052964318,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 7.733146100059284E-109,
+            "exits": {
+              "sell-by": 303,
+              "vwap-loss": 698,
+              "velocity-death": 1131,
+              "stop": 51
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=5 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+            "trades": 2183,
+            "days": 682,
+            "meanNetPct": -4.847858008654263,
+            "lowerBoundPct": -5.232372511330715,
+            "sharpe": -0.8542480828989708,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 1.4364279569045116E-109,
+            "exits": {
+              "sell-by": 479,
+              "velocity-death": 1635,
+              "stop": 69
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop5% sellBy09:28 vwapon",
+            "trades": 774,
+            "days": 466,
+            "meanNetPct": -5.560519776383206,
+            "lowerBoundPct": -6.423844790017968,
+            "sharpe": -0.7791731827446304,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 2.0571770829459042E-47,
+            "exits": {
+              "sell-by": 113,
+              "vwap-loss": 200,
+              "velocity-death": 331,
+              "stop": 130
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop5% sellBy09:28 vwapoff",
+            "trades": 774,
+            "days": 466,
+            "meanNetPct": -5.479345268913031,
+            "lowerBoundPct": -6.336027491254987,
+            "sharpe": -0.7722667409304932,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 1.6279627570072216E-46,
+            "exits": {
+              "sell-by": 159,
+              "stop": 162,
+              "velocity-death": 453
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop10% sellBy09:28 vwapon",
+            "trades": 774,
+            "days": 466,
+            "meanNetPct": -5.561652095454179,
+            "lowerBoundPct": -6.427465255758807,
+            "sharpe": -0.7627422627347837,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 2.1828356491255968E-45,
+            "exits": {
+              "sell-by": 116,
+              "vwap-loss": 238,
+              "velocity-death": 389,
+              "stop": 31
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=5 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+            "trades": 774,
+            "days": 466,
+            "meanNetPct": -5.4211532086267775,
+            "lowerBoundPct": -6.2756428693337325,
+            "sharpe": -0.7421828168153024,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 2.2770162820926364E-44,
+            "exits": {
+              "sell-by": 171,
+              "velocity-death": 560,
+              "stop": 43
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapon",
+            "trades": 1878,
+            "days": 661,
+            "meanNetPct": -4.483921322017183,
+            "lowerBoundPct": -4.818720100068036,
+            "sharpe": -0.8989558876140766,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 3.077697322287226E-64,
+            "exits": {
+              "sell-by": 203,
+              "vwap-loss": 524,
+              "velocity-death": 917,
+              "stop": 234
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop5% sellBy09:28 vwapoff",
+            "trades": 1878,
+            "days": 661,
+            "meanNetPct": -4.406772639412553,
+            "lowerBoundPct": -4.742765834493851,
+            "sharpe": -0.8854557281091222,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 5.877316127057046E-64,
+            "exits": {
+              "sell-by": 314,
+              "stop": 289,
+              "velocity-death": 1275
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapon",
+            "trades": 1878,
+            "days": 661,
+            "meanNetPct": -4.495063860494942,
+            "lowerBoundPct": -4.839061700015583,
+            "sharpe": -0.8712714269928098,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 2.1774247896468472E-65,
+            "exits": {
+              "sell-by": 209,
+              "vwap-loss": 579,
+              "velocity-death": 1041,
+              "stop": 49
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+            "trades": 1878,
+            "days": 661,
+            "meanNetPct": -4.385138124601895,
+            "lowerBoundPct": -4.727309480100253,
+            "sharpe": -0.8454933641460045,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 2.1852586228279054E-65,
+            "exits": {
+              "sell-by": 336,
+              "velocity-death": 1476,
+              "stop": 66
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop5% sellBy09:28 vwapon",
+            "trades": 666,
+            "days": 430,
+            "meanNetPct": -4.948530568192631,
+            "lowerBoundPct": -5.699982374149904,
+            "sharpe": -0.779767641581342,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 1.3825266011961378E-26,
+            "exits": {
+              "sell-by": 73,
+              "vwap-loss": 174,
+              "stop": 123,
+              "velocity-death": 296
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop5% sellBy09:28 vwapoff",
+            "trades": 666,
+            "days": 430,
+            "meanNetPct": -4.861243351309046,
+            "lowerBoundPct": -5.599532202663255,
+            "sharpe": -0.7742492079340734,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 8.691519243794608E-26,
+            "exits": {
+              "sell-by": 111,
+              "stop": 152,
+              "velocity-death": 403
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop10% sellBy09:28 vwapon",
+            "trades": 666,
+            "days": 430,
+            "meanNetPct": -4.977472926549427,
+            "lowerBoundPct": -5.744603346132025,
+            "sharpe": -0.7540799463979471,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 2.0351304021655757E-26,
+            "exits": {
+              "sell-by": 75,
+              "vwap-loss": 208,
+              "velocity-death": 352,
+              "stop": 31
+            }
+          },
+          {
+            "label": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+            "trades": 666,
+            "days": 430,
+            "meanNetPct": -4.82136676650414,
+            "lowerBoundPct": -5.59169762746815,
+            "sharpe": -0.7289150925223337,
+            "naiveP": 1,
+            "q": 1,
+            "dsr": 8.27249938066553E-26,
+            "exits": {
+              "sell-by": 119,
+              "velocity-death": 504,
+              "stop": 43
+            }
+          }
+        ],
+        "configCount": 24,
+        "cells": 261809,
+        "selection": "highest weighted day-clustered lower bound on this split among configs with enough unweighted trades",
+        "whiteP": 1,
+        "spaP": 1,
+        "spaBestConfig": "pmVolRatio\u003E=10 v3\u003E=1 death3m stop10% sellBy09:28 vwapoff",
+        "spaResamples": 1000,
+        "spaSeries": "per-day weighted mean net return per population cell (zero where the configuration did not trade)",
+        "dsrLength": "unweighted trade count",
+        "selectedConfig": "pmVolRatio\u003E=10 v3\u003E=0.5 death3m stop10% sellBy09:28 vwapoff",
+        "selectedTrades": 1878,
+        "selectedSampleTrades": 267,
+        "selectedWeightedTrades": 4281,
+        "selectedDays": 661,
+        "selectedLowerBoundPct": -4.727309480100253,
+        "dsr": 2.1852586228279054E-65,
+        "selectedQ": 1,
+        "selectedExits": {
+          "sell-by": 336,
+          "velocity-death": 1476,
+          "stop": 66
+        },
+        "worthTrading": {
+          "minTrades": 150,
+          "minDays": 40,
+          "lowerBoundAbove": 0,
+          "meanNetPctPerTrade": 1
+        }
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "refuted",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A01 corrected as its own set",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 16.9,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H12p-train-20261109-0835.json",
+  "holmInputP": 1
+}

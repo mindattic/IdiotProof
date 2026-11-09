@@ -1,0 +1,18 @@
+{
+  "stage": "snapshot-train",
+  "startedUtc": "2026-11-09T06:46:19.9268715Z",
+  "seconds": 2953.2254309,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Split": "train",
+    "SymbolDays": 267976,
+    "Rows": 1932118,
+    "WithProfile": 1424734,
+    "ProfileFile": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\data\\tod-profile.json",
+    "ProfileBuilt": true,
+    "ProfileDays": 6812,
+    "HoldoutNote": null,
+    "Minutes": 49.22
+  }
+}

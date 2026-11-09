@@ -1,0 +1,17 @@
+{
+  "stage": "explore-tradeflow-pull",
+  "startedUtc": "2026-11-08T07:48:31.8029655Z",
+  "seconds": 15.2487526,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Command": "tradeflow-pull",
+    "ReportFile": "D:\\IdiotProofData\\gapper-study\\tradeflow",
+    "Trials": 0,
+    "LedgerTotal": 0,
+    "Lines": [
+      "28 gapper mornings written to D:\\IdiotProofData\\gapper-study\\tradeflow (47 pages)"
+    ],
+    "Minutes": 0.25
+  }
+}

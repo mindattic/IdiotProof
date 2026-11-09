@@ -1,0 +1,20 @@
+stage: test-H21-H22-H23-H24
+started: 2026-11-09 04:00:32 ET
+seconds: 515
+status: Ok
+message: 
+
+hypothesis  part                       n  days  effect    min       p       q  holm  verdict
+----------  ---------------------  -----  ----  ------  -----  ------  ------  ----  ---------
+H21         split                      0     0     n/a    n/a     n/a     n/a   n/a  void
+H22         split                      0     0     n/a    n/a     n/a     n/a   n/a  void
+H23         split                      0     0     n/a    n/a     n/a     n/a   n/a  void
+H24         precisionOverBaseRate  46248   755   7.962  2.000  2.0e-4  2.0e-4   n/a  supported
+split:    train
+runs:     H21=void, H22=void, H23=void, H24=supported
+files:    D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H21-train-20261109-0909.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H22-train-20261109-0909.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H23-train-20261109-0909.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H24-train-20261109-0909.json
+holdout:  not a holdout run
+minutes:  8.59

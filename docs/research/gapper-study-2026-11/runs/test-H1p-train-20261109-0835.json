@@ -1,0 +1,77 @@
+{
+  "id": "H1p",
+  "family": "F1",
+  "primary": true,
+  "test": "bucket-lift",
+  "claim": "The top quintile of pmVolRatio at 08:00 has precision for reach20By0945 at least 3x the base rate over the population of U(D) members with premarket volume by 08:00.",
+  "feature": "pmVolRatio",
+  "label": "reach20By0945",
+  "decisionTime": "08:00",
+  "minEffect": {
+    "precisionOverBaseRate": 3.0
+  },
+  "split": "train",
+  "smoke": false,
+  "inputs": {
+    "n": 51223,
+    "days": 755,
+    "firstDate": "2021-11-01",
+    "lastDate": "2024-10-31",
+    "population": "population with premarket volume by 08:00: 24,531 candidate days (weight 1) and 26,692 population-sample days (weight 10)",
+    "featureColumns": [
+      "VolRatioTod (top quintile, weighted train edges)"
+    ],
+    "labelColumns": [
+      "Reach20By0945"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": [],
+    "amendmentId": "A01",
+    "amendmentSha256": "557b34e2502ba5943cdb966adb4784b688a0058f606b6830fc6769ac129b55cb",
+    "amendsHypothesis": "H1"
+  },
+  "parts": [
+    {
+      "name": "precisionOverBaseRate",
+      "effectName": "precisionOverBaseRate",
+      "effect": 4.102854997340346,
+      "minEffect": 3,
+      "direction": "AtLeast",
+      "meetsMinimum": true,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.00019998000199980003,
+      "holmP": 0.0005999400059994001,
+      "ciLow": 3.9510726035629458,
+      "ciHigh": 4.2562510452562226,
+      "n": 15451,
+      "days": 755,
+      "verdict": "supported",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 4.103 vs 3 (AtLeast), q 2.0e-4 vs 0.05, Holm p 6.0e-4 vs 0.05"
+      ],
+      "statistic": {
+        "candidateRows": 24531,
+        "sampleRows": 26692,
+        "populationWeight": 291451,
+        "groupRate": 0.041584464153986034,
+        "baseRate": 0.01013549447419978,
+        "groupWeight": 58291,
+        "trainRows": 51223,
+        "edgesFitOn": "this split (in-sample)",
+        "pRule": "day-clustered bootstrap of the weighted group rate minus the weighted base rate"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "supported",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 28 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A01 corrected as its own set",
+  "computedUtc": "2026-11-09T08:35:14.5932562Z",
+  "seconds": 7.7,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H1p-train-20261109-0835.json",
+  "holmInputP": 0.00019998000199980003
+}

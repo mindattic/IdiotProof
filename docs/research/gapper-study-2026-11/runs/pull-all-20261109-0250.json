@@ -1,0 +1,57 @@
+{
+  "stage": "pull-all",
+  "startedUtc": "2026-11-09T02:50:30.9830863Z",
+  "seconds": 14120.1652838,
+  "status": "Ok",
+  "Message": null,
+  "data": [
+    {
+      "Tier": "splits",
+      "Rows": 0,
+      "Calls": 0,
+      "Minutes": 0.03,
+      "CoveragePct": 100,
+      "Note": "0 symbols pulled, 6668 already covered"
+    },
+    {
+      "Tier": "bars",
+      "Rows": 0,
+      "Calls": 0,
+      "Minutes": 14.72,
+      "CoveragePct": 100,
+      "Note": "23730 gapper events, 18430 controls assigned, SIP share 100.0%"
+    },
+    {
+      "Tier": "news",
+      "Rows": 0,
+      "Calls": 0,
+      "Minutes": 0.07,
+      "CoveragePct": 100,
+      "Note": "0 items seen, 0 new rows, 107975 windows already covered; population sample: 0 batches, 0 items seen, 0 new, 3495 batches already covered"
+    },
+    {
+      "Tier": "cik",
+      "Rows": 2,
+      "Calls": 1130,
+      "Minutes": 4.54,
+      "CoveragePct": 83.72,
+      "Note": "2 company_tickers, 0 Form 4, 0 name match; candidate coverage 83.72%"
+    },
+    {
+      "Tier": "edgar",
+      "Rows": 0,
+      "Calls": 0,
+      "Minutes": 0.15,
+      "CoveragePct": 57.06,
+      "Note": "0 quarter files, 0 header fetches, 0 acceptance times"
+    },
+    {
+      "Tier": "form4",
+      "Rows": 95342,
+      "Calls": 68882,
+      "Minutes": 215.83,
+      "CoveragePct": 100,
+      "Note": "68843 filings parsed, 95342 lines, 10615 code-P purchases, 0 already on file"
+    }
+  ]
+}
