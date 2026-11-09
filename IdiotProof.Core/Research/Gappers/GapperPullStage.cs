@@ -255,8 +255,15 @@ public sealed partial class GapperPullStage(
             $"{events} gapper events, {controls} controls assigned, SIP share {coverage.SipShare:P1}");
     }
 
-    /// <summary>Groups wanted symbol-days by day, 100 symbols per request over that day's 04:00-20:00 ET window; a day block is written per symbol even when empty.</summary>
-    private async Task<(int Calls, int Days)> PullSymbolDaysAsync(AlpacaDataFeed feed, FileBackedBarStore store, HashSet<(string Symbol, DateOnly DateEt)> wanted, CallBudget calls, CancellationToken ct)
+    private Task<(int Calls, int Days)> PullSymbolDaysAsync(AlpacaDataFeed feed, FileBackedBarStore store, HashSet<(string Symbol, DateOnly DateEt)> wanted, CallBudget calls, CancellationToken ct)
+        => PullSymbolDaysAsync(s, feed, store, wanted, calls, ct);
+
+    /// <summary>
+    /// Groups wanted symbol-days by day, 100 symbols per request over that day's 04:00-20:00 ET window (raw, as traded), paced by the
+    /// study's Alpaca gate; a day block is written per symbol even when empty, so a rerun skips it (resumable). Shared with
+    /// <c>explore split-days-pull</c> (IP-T490).
+    /// </summary>
+    internal static async Task<(int Calls, int Days)> PullSymbolDaysAsync(GapperStudyServices s, AlpacaDataFeed feed, FileBackedBarStore store, HashSet<(string Symbol, DateOnly DateEt)> wanted, CallBudget calls, CancellationToken ct)
     {
         var todayEt = DateOnly.FromDateTime(EasternTime.FromUtc(s.UtcNow));
         var byDay = wanted.Where(w => w.DateEt < todayEt && MarketCalendar.IsTradingDay(w.DateEt))
