@@ -1,0 +1,13 @@
+stage: explore-catalyst-events
+started: 2026-11-09 18:04:54 ET
+seconds: 141
+status: Ok
+message: 
+
+command:        catalyst-events
+report:         D:\IdiotProofData\gapper-study\explore\catalyst-ml\events.csv
+trials logged:  0
+ledger total:   5568
+minutes:        2.34
+251,541 event rows (134,310 symbol-days, 3,882 symbols) -> D:\IdiotProofData\gapper-study\explore\catalyst-ml\events.csv
+news items read 127,874, filings read 126,615 (forms 3/4/5 skipped); symbol rows on a train universe session 302,490; dropped 50,812 without minute bars on E, 137 without a reference price (or a split on E with the reference before it)

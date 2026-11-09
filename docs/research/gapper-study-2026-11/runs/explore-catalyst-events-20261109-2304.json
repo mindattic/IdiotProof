@@ -1,0 +1,18 @@
+{
+  "stage": "explore-catalyst-events",
+  "startedUtc": "2026-11-09T23:04:54.7218574Z",
+  "seconds": 140.6996944,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Command": "catalyst-events",
+    "ReportFile": "D:\\IdiotProofData\\gapper-study\\explore\\catalyst-ml\\events.csv",
+    "Trials": 0,
+    "LedgerTotal": 5568,
+    "Lines": [
+      "251,541 event rows (134,310 symbol-days, 3,882 symbols) -\u003E D:\\IdiotProofData\\gapper-study\\explore\\catalyst-ml\\events.csv",
+      "news items read 127,874, filings read 126,615 (forms 3/4/5 skipped); symbol rows on a train universe session 302,490; dropped 50,812 without minute bars on E, 137 without a reference price (or a split on E with the reference before it)"
+    ],
+    "Minutes": 2.34
+  }
+}

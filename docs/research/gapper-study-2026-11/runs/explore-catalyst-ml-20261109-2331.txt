@@ -1,0 +1,376 @@
+stage: explore-catalyst-ml
+started: 2026-11-09 18:31:55 ET
+seconds: 212
+status: Ok
+message: 
+
+command:        catalyst-ml
+report:         D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\explore\catalyst-ml-20261109-2335.md
+trials logged:  45
+ledger total:   5613
+minutes:        3.53
+# Explore: machine-learning catalyst discovery (IP-T488): which news and filings move small caps
+
+Train only. Weighted (amendment 01 population). Folds:
+- fold 1 (fit 2021-11..2022-10, eval 2022-11..2023-04)
+- fold 2 (fit 2021-11..2023-04, eval 2023-05..2023-10)
+- fold 3 (fit 2021-11..2023-10, eval 2023-11..2024-04)
+- fold 4 (fit 2021-11..2024-04, eval 2024-05..2024-10)
+
+## 0. Data and method
+
+Event table (`explore catalyst-events`): one row per (symbol, item) for every stored news item (Alpaca/Benzinga, headline + stored snippet, 205,726 rows) and EDGAR filing (forms 3/4/5 left out, 45,815 rows) whose event session E is a train universe day with minute bars: 251,541 rows, 134,310 symbol-days, 3,775 symbols, 2021-11-01..2024-10-31. E = the publish day for an item out 00:00-15:59 ET on a trading day, else the next session. Outcomes start at the first full minute after publication (04:00 of E for an item from the night before) against the reference = the last trade that ended by publication (the prior session's after-hours count; else the prior daily close): max run in the next 60 / 240 minutes and to 16:00 (high over reference), return to the 16:00 close, D+1 / D+2 close (daily, raw; blank across a split or past train), giveback = close over the post-publication high minus 1, and whether the day ran >= +50% / +100% (04:00-16:00 high over the adjusted prior close). Pre-publication drift: log return over the 30 / 60 minutes before publication, and as a z-score against the stock's own 20-session daily volatility scaled to the window (sigma x sqrt(minutes / 390)). Controls: log prior close, log 20-day dollar volume, ADV decile, ADR, log shares outstanding known before E (float proxy), D-1 top-mover rank, days since and log ratio of the last reverse split, daily volatility, gap at publication, the pre-drift, premarket volume before publication, publish minute and session, symbols on the item, items earlier that symbol-day, filing flag, weekday. Base rates: run >= +50% within 240 minutes 0.9 %; day >= +50% 4.7 %. The news store holds the candidate windows (gapper days and the 5 sessions before, plus controls), so the population is small caps around a move, not every small cap.
+
+Topics (tools/gapper-catalyst-ml/catalyst_ml.py, Python sklearn TfidfVectorizer(1-2 grams, min_df 5, max_df 0.3, sublinear) + LogisticRegression(liblinear, C=1) / Ridge(alpha=10), scikit-learn, run isolated with `python -I`): TF-IDF on word 1-2-grams of headline + snippet (numbers, dollar amounts and percentages folded into tokens, exchange tickers and cashtags stripped), NMF on the 117,891 unique news items: 30 topics; the one topic holding over 15% of the items (the catch-all of press releases once the wire templates had their own topics) refit into 25 sub-topics, and a sub-topic over 4% into 15 more. A row's topic is its largest NMF weight. The 71 topics were then named by hand from their top terms and examples (tools/gapper-catalyst-ml/names.json), several templated wires merging into one name, leaving 37 news clusters. Filings are clustered by form and 8-K item (priority 1.01 > 2.01 > 1.02 > 2.02 > 3.01 > 3.02 > 3.03 > 5.03 > 5.07 > 5.02 > 7.01 > 8.01). No 6-K is in the study's EDGAR index (the widened dilution files were never pulled on this host), so there is no 6-K exhibit cluster. No external model or API.
+
+## 1. Clusters: which catalyst types precede a run
+
+Every row counts once (a chatty symbol-day counts once per item). Lift = P(run >= +50% within 240 minutes of publication | cluster) / 0.9 %. Run = median max run to 16:00; giveback = median close over the post-publication high minus 1; mean returns winsorized at the pooled 1st/99th percentiles. Drift share = mean pre-60-minute log drift / (that + mean log max run in the 240 minutes after), on items published 04:30-15:59 ET with premarket or regular-hours prints in the hour before ("in-session"). Kind: news = an event at the company; coverage = a wire about the move, the market or analysts' views of it (Benzinga templates); filing = EDGAR form / 8-K item. Sorted by lift.
+
+| cluster | kind | rows | symbol-days | run >= +50% in 240 min | lift | day >= +50% | median run to close | median ret to close | mean ret to close | median giveback | mean D+2 | median D+2 | in-session | median pre-60 drift | pre z >= 2 | already +5% | drift share |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| volatility halt / trading resumed | coverage | 3,010 | 1,511 | 9.1 % | 10.58 | 36.2 % | +9.11% | -1.96% | -2.91% | -12.90% | -5.65% | -6.60% | 2,705 | +8.52% | 49.0 % | 57.4 % | 38.3 % |
+| Form 25 delisting | filing | 194 | 185 | 6.2 % | 7.28 | 10.3 % | +1.75% | -0.23% | -3.10% | -2.40% | -7.05% | -1.02% | 92 | -0.06% | 12.0 % | 10.9 % | 0.0 % |
+| 8-K 3.03 holder rights modified (reverse split) | filing | 158 | 158 | 3.7 % | 4.31 | 5.1 % | +3.02% | -0.96% | -0.92% | -5.28% | +2.08% | -0.52% | 32 | -0.03% | 9.4 % | 9.4 % | 21.0 % |
+| 8-K other items | filing | 870 | 857 | 3.3 % | 3.84 | 2.9 % | +2.95% | -0.47% | -0.63% | -3.52% | -0.24% | -0.11% | 66 | +0.00% | 4.5 % | 7.6 % | 3.3 % |
+| FDA / regulatory approval, clearance, designation | news | 3,197 | 2,756 | 2.8 % | 3.24 | 8.4 % | +4.39% | -0.85% | -1.18% | -5.60% | -1.41% | -1.67% | 2,333 | +0.81% | 24.2 % | 36.5 % | 23.9 % |
+| clinical trial update / data | news | 2,955 | 2,495 | 2.6 % | 3.07 | 9.4 % | +4.93% | -0.77% | -1.79% | -5.56% | -1.49% | -1.41% | 1,861 | +0.93% | 23.7 % | 35.3 % | 21.6 % |
+| 8-K 1.02 agreement terminated | filing | 180 | 180 | 2.5 % | 2.94 | 3.3 % | +3.94% | -0.49% | -0.85% | -4.43% | -1.57% | -1.14% | 34 | +0.00% | 11.8 % | 8.8 % | 0.0 % |
+| 8-K 5.03 charter / bylaw amendment | filing | 648 | 648 | 2.4 % | 2.80 | 1.9 % | +2.40% | -0.20% | -0.35% | -2.56% | +0.02% | -0.36% | 70 | +0.01% | 8.6 % | 11.4 % | 11.4 % |
+| licensing / collaboration deal | news | 585 | 557 | 2.3 % | 2.68 | 6.5 % | +3.92% | -0.20% | -0.24% | -4.13% | +0.34% | -0.50% | 372 | +0.97% | 25.0 % | 29.3 % | 34.6 % |
+| SC 13D stake | filing | 1,218 | 1,009 | 2.2 % | 2.54 | 2.9 % | +4.26% | +0.16% | +0.74% | -3.86% | -0.06% | -0.31% | 168 | -0.07% | 3.0 % | 11.9 % | 2.3 % |
+| acquisition agreement (definitive, priced) | news | 518 | 492 | 2.2 % | 2.51 | 4.4 % | +3.28% | -0.10% | +0.17% | -3.17% | +0.23% | -0.11% | 288 | +0.58% | 21.9 % | 32.3 % | 26.3 % |
+| 8-K 1.01 material agreement | filing | 5,534 | 5,486 | 2.1 % | 2.50 | 3.4 % | +3.51% | -0.12% | -0.31% | -3.97% | -1.00% | -0.72% | 1,223 | +0.15% | 14.5 % | 21.7 % | 12.4 % |
+| registered direct offering / private placement (PIPE) | news | 551 | 494 | 2.1 % | 2.39 | 6.7 % | +5.59% | -1.20% | -1.33% | -7.56% | -1.55% | -2.33% | 425 | -2.77% | 12.2 % | 17.6 % | 0.0 % |
+| product launch / operations update | news | 563 | 531 | 1.7 % | 1.92 | 3.4 % | +3.13% | -+0.00% | +0.23% | -2.99% | +0.06% | -0.66% | 368 | +0.46% | 15.5 % | 22.8 % | 25.4 % |
+| strategic partnership | news | 397 | 385 | 1.6 % | 1.84 | 2.0 % | +2.47% | -0.37% | -0.21% | -2.81% | -0.58% | -1.09% | 253 | +0.60% | 17.0 % | 24.9 % | 27.8 % |
+| 8-K 7.01 Reg FD | filing | 4,837 | 4,755 | 1.5 % | 1.77 | 2.8 % | +3.02% | -0.05% | -0.19% | -3.19% | -0.19% | -0.22% | 1,646 | +0.12% | 12.6 % | 20.5 % | 11.3 % |
+| acquisition, terms not disclosed | news | 893 | 865 | 1.4 % | 1.67 | 2.8 % | +3.49% | +0.00% | +0.04% | -3.39% | -0.79% | -0.78% | 515 | +0.80% | 18.1 % | 23.5 % | 26.7 % |
+| insider purchase (Form 4) / 13D proposal | news | 615 | 595 | 1.2 % | 1.43 | 7.2 % | +4.88% | +0.25% | +0.67% | -3.68% | +0.15% | +0.00% | 354 | +0.99% | 23.2 % | 42.7 % | 31.4 % |
+| S-1/F-1 registration | filing | 442 | 434 | 1.2 % | 1.39 | 2.7 % | +3.48% | -3.39% | -4.15% | -7.11% | -5.35% | -5.38% | 41 | +0.00% | 2.4 % | 12.2 % | 0.0 % |
+| 8-K 8.01 other events | filing | 4,537 | 4,487 | 1.1 % | 1.22 | 2.4 % | +2.93% | -0.24% | -0.75% | -3.29% | -0.65% | -0.32% | 1,219 | +0.01% | 14.2 % | 20.3 % | 10.8 % |
+| other company news | coverage | 1,627 | 1,553 | 1.0 % | 1.21 | 3.1 % | +2.39% | -0.11% | -0.01% | -2.54% | +0.12% | -0.35% | 1,176 | +0.38% | 15.3 % | 23.7 % | 27.5 % |
+| commercial / distribution / purchase agreement | news | 733 | 691 | 1.0 % | 1.17 | 6.1 % | +3.80% | -0.17% | -0.18% | -3.74% | +0.14% | +0.10% | 475 | +0.96% | 26.7 % | 32.4 % | 36.3 % |
+| 8-K 3.02 unregistered equity sale | filing | 325 | 325 | 0.9 % | 1.10 | 1.5 % | +2.98% | -0.67% | -0.70% | -4.23% | -1.34% | -1.29% | 49 | +0.00% | 0.0 % | 16.3 % | 0.0 % |
+| share repurchase program | news | 1,080 | 996 | 0.9 % | 1.06 | 4.5 % | +4.45% | +0.49% | +1.02% | -3.43% | +1.11% | +0.71% | 635 | +0.71% | 21.7 % | 36.2 % | 26.8 % |
+| contract award | news | 462 | 419 | 0.9 % | 1.03 | 1.9 % | +2.99% | -0.15% | +0.14% | -2.95% | +0.86% | +0.36% | 324 | +0.92% | 23.1 % | 25.3 % | 33.3 % |
+| 8-K 3.01 delisting / listing-rule notice | filing | 773 | 770 | 0.9 % | 1.03 | 2.3 % | +4.27% | -1.38% | -1.98% | -6.07% | -3.28% | -2.91% | 108 | +0.00% | 5.6 % | 13.9 % | 0.0 % |
+| earnings scorecard vs year ago | news | 3,376 | 3,167 | 0.9 % | 1.01 | 1.8 % | +4.66% | -0.15% | -0.17% | -4.66% | +0.38% | +0.00% | 1,242 | +0.20% | 18.0 % | 21.3 % | 13.2 % |
+| movers list (sector, session) | coverage | 74,735 | 54,694 | 0.8 % | 0.98 | 6.6 % | +3.11% | -0.34% | -0.52% | -3.58% | -0.91% | -1.35% | 58,166 | -0.01% | 7.9 % | 32.6 % | 0.7 % |
+| underwritten public offering / resale registration | news | 1,570 | 1,248 | 0.8 % | 0.96 | 3.8 % | +3.68% | -1.12% | -1.74% | -5.75% | -2.51% | -1.91% | 765 | -0.28% | 13.2 % | 18.0 % | 0.0 % |
+| market wrap | coverage | 13,293 | 10,103 | 0.8 % | 0.93 | 12.2 % | +3.22% | -0.28% | -0.46% | -3.51% | -0.97% | -1.02% | 11,432 | +0.22% | 19.0 % | 52.9 % | 10.8 % |
+| 424B5 shelf takedown | filing | 1,712 | 1,638 | 0.7 % | 0.87 | 1.8 % | +3.17% | -1.33% | -2.45% | -4.87% | -3.70% | -2.39% | 420 | -0.24% | 4.5 % | 13.1 % | 0.0 % |
+| S-3/F-3 shelf | filing | 787 | 763 | 0.7 % | 0.82 | 0.6 % | +2.80% | -1.32% | -1.44% | -4.31% | -1.07% | -1.50% | 56 | -0.05% | 7.1 % | 19.6 % | 0.0 % |
+| analyst initiation | news | 2,758 | 2,478 | 0.7 % | 0.80 | 2.3 % | +3.68% | +0.23% | +0.80% | -3.12% | +1.52% | +0.20% | 1,570 | +0.21% | 11.3 % | 22.8 % | 13.3 % |
+| executive appointment | news | 539 | 520 | 0.7 % | 0.76 | 2.0 % | +2.58% | -0.48% | -1.32% | -3.73% | -2.45% | -1.77% | 267 | +0.00% | 10.9 % | 18.0 % | 13.7 % |
+| short interest report | coverage | 1,420 | 1,388 | 0.6 % | 0.75 | 4.1 % | +1.85% | -0.10% | -0.06% | -2.08% | -0.25% | -0.60% | 1,262 | -0.04% | 6.4 % | 19.3 % | 2.7 % |
+| guidance vs estimate | news | 5,092 | 4,403 | 0.6 % | 0.74 | 2.0 % | +6.06% | -+0.00% | +0.12% | -5.55% | +0.72% | +0.27% | 1,702 | +0.00% | 22.6 % | 21.6 % | 0.4 % |
+| why-shares-are-moving explainer | coverage | 3,039 | 2,869 | 0.6 % | 0.74 | 14.0 % | +2.56% | -0.36% | -1.44% | -3.16% | -1.51% | -1.24% | 2,773 | +0.46% | 19.5 % | 63.8 % | 27.5 % |
+| 8-K 5.07 shareholder vote | filing | 2,327 | 2,326 | 0.6 % | 0.73 | 0.7 % | +2.36% | -0.07% | -0.04% | -2.53% | +0.10% | -0.03% | 299 | +0.00% | 4.7 % | 10.7 % | 1.0 % |
+| post-results move explainer | coverage | 2,213 | 1,942 | 0.6 % | 0.71 | 4.7 % | +3.28% | -0.60% | -0.75% | -3.94% | -0.64% | -0.91% | 1,688 | +0.00% | 16.4 % | 37.9 % | 3.1 % |
+| sector news: cannabis | news | 512 | 470 | 0.6 % | 0.71 | 2.0 % | +2.43% | -0.25% | -0.20% | -2.97% | -0.71% | -0.68% | 412 | +0.21% | 7.8 % | 16.7 % | 12.1 % |
+| earnings scorecard, EPS only (mostly beats of a loss estimate) | news | 3,176 | 3,025 | 0.5 % | 0.61 | 1.9 % | +6.88% | +0.16% | +0.55% | -6.19% | +1.54% | +0.32% | 677 | +0.00% | 17.7 % | 21.3 % | 5.9 % |
+| sector news: clean energy and hydrogen | news | 602 | 555 | 0.5 % | 0.60 | 2.0 % | +2.99% | +0.00% | +0.11% | -2.75% | +0.77% | -0.30% | 427 | +0.35% | 12.2 % | 21.8 % | 22.3 % |
+| AI product / partnership | news | 612 | 588 | 0.5 % | 0.59 | 5.6 % | +2.60% | -0.16% | -0.50% | -2.95% | -0.69% | -0.40% | 450 | +0.58% | 17.3 % | 29.6 % | 33.0 % |
+| 8-K 2.02 results of operations | filing | 11,352 | 11,303 | 0.4 % | 0.51 | 1.1 % | +4.70% | -0.10% | -0.05% | -4.79% | +0.30% | -0.19% | 2,002 | +0.00% | 18.3 % | 17.9 % | 0.0 % |
+| crypto / bitcoin miners | news | 1,907 | 1,682 | 0.4 % | 0.51 | 2.6 % | +2.80% | -0.21% | -0.11% | -2.97% | +0.64% | -0.26% | 1,386 | +0.25% | 9.4 % | 34.8 % | 17.4 % |
+| unusual options activity (sweeps, whale alerts) | coverage | 4,621 | 4,264 | 0.4 % | 0.47 | 2.1 % | +1.78% | -+0.00% | +0.04% | -1.74% | +0.27% | -0.30% | 3,843 | +0.25% | 10.6 % | 25.7 % | 23.2 % |
+| analyst price target / rating change | news | 32,842 | 24,004 | 0.4 % | 0.46 | 2.5 % | +2.72% | -+0.00% | +0.03% | -2.83% | +0.41% | -0.07% | 23,289 | +0.00% | 10.7 % | 21.6 % | 5.0 % |
+| 8-K/A amendment | filing | 852 | 839 | 0.4 % | 0.45 | 1.3 % | +2.74% | -0.31% | -0.59% | -3.28% | -0.77% | -0.79% | 131 | -0.02% | 4.6 % | 16.0 % | 0.0 % |
+| 8-K 5.02 officer / director change | filing | 4,545 | 4,535 | 0.3 % | 0.40 | 0.7 % | +2.51% | -0.43% | -0.40% | -2.92% | -0.45% | -0.66% | 600 | +0.00% | 5.3 % | 8.5 % | 0.4 % |
+| stocks-to-watch / evergreen commentary | coverage | 2,222 | 2,133 | 0.3 % | 0.38 | 3.0 % | +2.18% | -0.09% | -0.31% | -2.28% | -0.28% | -0.51% | 1,558 | +0.07% | 9.1 % | 17.2 % | 11.4 % |
+| earnings miss (EPS/sales vs estimate) | news | 2,381 | 2,260 | 0.3 % | 0.33 | 0.8 % | +3.40% | -2.46% | -2.87% | -5.92% | -2.53% | -2.17% | 599 | -1.06% | 12.2 % | 9.5 % | 0.0 % |
+| earnings preview / insights recap | coverage | 19,152 | 17,108 | 0.3 % | 0.29 | 1.1 % | +2.33% | -0.15% | -0.16% | -2.59% | +0.42% | -0.12% | 9,113 | +0.00% | 9.5 % | 14.9 % | 4.2 % |
+| 424B other prospectus | filing | 4,147 | 3,082 | 0.2 % | 0.28 | 1.7 % | +3.31% | -0.62% | -1.19% | -4.33% | -1.82% | -1.31% | 890 | +0.00% | 6.0 % | 13.3 % | 0.0 % |
+| earnings beat (EPS/sales vs estimate) | news | 3,185 | 3,027 | 0.2 % | 0.21 | 1.0 % | +6.65% | +1.28% | +1.76% | -4.45% | +2.47% | +1.85% | 643 | +0.62% | 28.8 % | 23.0 % | 12.1 % |
+| sector news: EV and autos | news | 3,419 | 2,604 | 0.2 % | 0.17 | 1.3 % | +1.83% | -0.07% | -0.09% | -1.96% | +0.43% | +0.00% | 2,247 | +0.00% | 7.0 % | 17.6 % | 13.0 % |
+| analyst ratings roundup | coverage | 5,874 | 5,388 | 0.1 % | 0.10 | 0.9 % | +1.79% | -+0.00% | +0.09% | -1.82% | +0.97% | +0.16% | 4,645 | +0.00% | 7.0 % | 18.5 % | 4.9 % |
+| 8-K 2.01 completed acquisition/disposition | filing | 187 | 187 | 0.0 % | 0.00 | 0.0 % | +3.05% | -0.73% | -0.50% | -3.07% | +0.04% | -0.05% | 35 | +0.25% | 14.3 % | 14.3 % | 15.7 % |
+| 424B4 priced offering | filing | 181 | 174 | 0.0 % | 0.00 | 2.2 % | +5.00% | -1.31% | -1.47% | -6.45% | -2.72% | -4.17% | 57 | +0.00% | 0.0 % | 17.5 % | 0.0 % |
+| Form 15 deregistration | filing | 9 | 9 | 0.0 % | 0.00 | 0.0 % | +1.04% | -0.19% | -0.83% | -0.55% | -0.19% | -0.10% | 1 | -0.14% | 0.0 % | 0.0 % | 0.0 % |
+
+Top terms and examples of the news clusters (NMF topics merged under one name are listed together):
+
+- **AI product / partnership** (NMF topics 207): ai, generative, generative ai, partners, solutions, cloud, nvidia, soundhound, partner, microsoft. E.g. "Palladyne AI Ticker Symbol Now 'PDYN'" / "Alibaba Partners With Canaan Over AI"
+- **FDA / regulatory approval, clearance, designation** (NMF topics 117): fda, drug, treatment, application, approval, patent, receives, therapeutics, new drug, granted. E.g. "Amneal Receives U.S. FDA Approval Of New Drug Application For Pyridostigmine Bromide Exten..." / "Aytu Biopharma Partner Denovo Biopharma Reports Received FDA Clearance, Orphan Drug Design..."
+- **acquisition agreement (definitive, priced)** (NMF topics 210): acquire, cash, agreement acquire, acquisition, usdamt cash, transaction, definitive, agrees, deal, business. E.g. "Skillsoft To Acquire Codecademy For $525M" / "Chicken Soup For The Soul To Acquire Redbox"
+- **acquisition, terms not disclosed** (NMF topics 106): disclosed, terms disclosed, terms, acquires, financial terms, reports, financial, acquire, acquisition, partnership. E.g. "SmartRent Acquires iQuue; Terms Not Disclosed" / "iCoreConnect Inc. Announces Acquisition Of FeatherPay; Terms Not Disclosed"
+- **analyst initiation** (NMF topics 10): initiates coverage, initiates, coverage, rating, rating price, buy rating, target usdamt, price target, target, price. E.g. "ThinkEquity Initiates Coverage On IperionX with Buy Rating, Announces Price Target of $20" / "Laidlaw & Co. Initiates Coverage On Abivax with Buy Rating, Announces Price Target of $48"
+- **analyst price target / rating change** (NMF topics 2, 114, 7, 19, 21, 24, 29): lowers price, lowers, target usdamt, price target, target, price, maintains, maintains buy, neutral, outperform. E.g. "B of A Securities Maintains Neutral on Prothena Corp, Lowers Price Target to $31" / "Ascendiant Capital Maintains Buy on Intrusion, Lowers Price Target to $4.5" / "10 Biggest Price Target Changes For Tuesday"
+- **analyst ratings roundup** (NMF topics 15): ratings, analyst, analyst ratings, say, num analyst, ratings say, quarter, analysts, following, observed following. E.g. "What 16 Analyst Ratings Have To Say About Avantor" / "What 8 Analyst Ratings Have To Say About AT&T"
+- **clinical trial update / data** (NMF topics 104): phase, trial, phase num, clinical, data, study, clinical trial, therapeutics, patients, num trial. E.g. "Takeda To Present Long-Term Data From Phase 3 ADVANCE-CIDP 3 Clinical Trial Of HYQVIA In P..." / "Lyra Therapeutics Announces First Patient Treated In Phase 2 BEACON Clinical Trial Of LYR-..."
+- **commercial / distribution / purchase agreement** (NMF topics 201): agreement, enters, distribution, signs, distribution agreement, purchase, entered, purchase agreement, supply, supply agreement. E.g. "Sabre Terminates Distribution Agreement With Aeroflot" / "Tantech Subsidiary Forges ~$7.8M Factoring Agreement"
+- **contract award** (NMF topics 205): contract, usdamt contract, awarded, awarded usdamt, secures, department, bags, secures usdamt, wins, global. E.g. "Bridger Aerospace Awarded $24M Contract By U.S. Dept Of Intertior" / "IZEA Awarded $2.8M Contract With Metaverse Influencer Activation"
+- **crypto / bitcoin miners** (NMF topics 120): bitcoin, digital, holdings, marathon, marathon digital, mining, crypto, digital holdings, riot, bitcoin crypto. E.g. "What's Going On With Bitcoin Mining Stocks Marathon Digital, Riot Platforms And CleanSpark..." / "Bitcoin Mining Stocks Marathon Digital, Riot Platforms And CleanSpark Are Rising: What's G..."
+- **earnings beat (EPS/sales vs estimate)** (NMF topics 16): usdamt estimate, estimate, beat usdamt, usdamt beat, beat, sales usdamt, usdamt beats, eps usdamt, sales, beats usdamt. E.g. "NOW Q4 Adj EPS $0.25 Beats $0.20 Estimate, Sales $547.00M Beat $531.32M Estimate" / "Fluent Q4 Adj. EPS $0.08 Beats $0.03 Estimate, Sales $99.80M Beat $90.18M Estimate"
+- **earnings miss (EPS/sales vs estimate)** (NMF topics 0): miss usdamt, usdamt miss, miss, usdamt estimate, estimate, misses, sales usdamt, sales, estimate sales, misses usdamt. E.g. "FVCBankcorp Q3 EPS $0.22 Misses $0.24 Estimate, Sales $13.34M Miss $14.72M Estimate" / "Portillos Q2 EPS $0.10 Misses $0.12 Estimate, Sales $181.86M Miss $187.33M Estimate"
+- **earnings preview / insights recap** (NMF topics 4, 23): num num, earnings, need know, need, know, investors need, know announcement, announcement, investors, report. E.g. "Earnings Outlook For AT&T" / "Earnings Outlook For Cango" / "Earnings Preview: MasterBrand"
+- **earnings scorecard vs year ago** (NMF topics 12): yoy, usdamt yoy, yoy sales, usdamt usdamt, num yoy, eps, sales, sales usdamt, eps num, num num. E.g. "Ipsidy Q3 EPS $(0.24) Down From $(0.11) YoY, Sales $528.35K Up From $515.69K YoY" / "Tucows Q3 EPS $(2.09) Down From $(0.74) YoY, Sales $86.97M Up From $78.05M YoY"
+- **earnings scorecard, EPS only (mostly beats of a loss estimate)** (NMF topics 22): num estimate, eps num, beats num, num beats, estimate, eps, beats, estimate sales, misses num, num misses. E.g. "Biohaven Q1 EPS $(0.98) Beats $(1.39) Estimate" / "Metagenomi Q2 EPS $(0.29) Beats $(0.65) Estimate"
+- **executive appointment** (NMF topics 118): chief, officer, financial officer, chief financial, financial, appoints, names, executive, ceo, appointment. E.g. "OneSpan Appoints Jorge Martell As Chief Financial Officer" / "Arbe Appoints Karine Pinto-Flomenboim As Chief Financial Officer"
+- **guidance vs estimate** (NMF topics 3): usdamt usdamt, vs usdamt, vs, usdamt est, est, usdamt vs, sees, revenue, revenue usdamt, fy23. E.g. "Latronix Sees FY23 Revenue $149M-$162M Vs $151.37M Est., Adj. EPS $0.39-$0.44 Vs $0.50 Est..." / "TheRealReal Sees FY23 Revenue $540M-$560M Vs $555.26M Est"
+- **insider purchase (Form 4) / 13D proposal** (NMF topics 109): price usdamt, filing, usdamt share, share, num shares, price, purchase, form, form num, num filing. E.g. "PlayStudios CEO Andrew Pascal Reported Purchase of 25,700 Shares @ Avg Price of $4.77/Shar..." / "MCAP Acquisition Corp CEO Theodore  Koenig Reported Purchase of 300,000 Shares @ Avg Price..."
+- **licensing / collaboration deal** (NMF topics 211): collaboration, license, exclusive, therapeutics, license agreement, receive, announce, upfront, development, potential. E.g. "Jazz Pharmaceuticals, Werewolf Therapeutics Announce Global License And Collaboration Agre..." / "GSK and Spero Therapeutics Announced Exclusive License Agreement for Late-Stage Antibiotic..."
+- **market wrap** (NMF topics 20): dow, traded, num points, points, pctnum num, nasdaq, pctnum, stocks traded, stocks, gaining. E.g. "Dow Up 150 Points; Gold Jumps Over 2%" / "Dow Jumps Over 300 Points; Crude Oil Up 1%"
+- **movers list (sector, session)** (NMF topics 1, 5, 100, 105, 107, 111, 8, 9, 13, 18, 26, 27, 28): health care, care, care stocks, num health, health, stocks moving, moving, session, pre-market session, pre-market. E.g. "12 Health Care Stocks Moving In Monday's Pre-Market Session" / "12 Health Care Stocks Moving In Monday's Pre-Market Session" / "12 Information Technology Stocks Moving In Friday's Pre-Market Session"
+- **other company news** (NMF topics 200, 212, 213, 214, 215, 125, -1): num, year, num year, num new, says, sale, pctnum, expected, reports, num mw. E.g. "New Found Disclosed New Discovery With 35 G/t Au Over 17M Including 1,910 G/t Au Over 0.3m..." / "Allurion Announces Three Scientific Presentations At IFSO-European Chapter 2024, Including..." / "New York Gives First Pot Licenses; 8 Nonprofits, 29 Individuals"
+- **post-results move explainer** (NMF topics 115): results, reported, financial results, financial, revenue, better-than-expected, reported better-than-expected, guidance, q2, q4. E.g. "Celestica shares are trading lower after the company reported better-than-expected Q2 fina..." / "Cemex shares are trading higher after the company reported better-than-expected Q2 financi..."
+- **product launch / operations update** (NMF topics 204, 206): launches, launches new, platform, product, rumble, service, brand, line, store, solution. E.g. "Hertz Launches "Hertz Electrifies" In Denver" / "VEON's Beeline Launches 4G In Tashkent Metro" / "Rocket Lab Announces Launch Of 45th Electron Mission"
+- **registered direct offering / private placement (PIPE)** (NMF topics 112): direct, direct offering, registered, registered direct, offering, share, usdamt registered, usdamt share, private, placement. E.g. "NexImmune Announces $3.67M Registered Direct Offering Of 304,731 Shares At $12.05/Share" / "Cuentas Announces $5M Registered Direct Offering For 3,787,879 Shares At $1.32/Share"
+- **sector news: EV and autos** (NMF topics 119): ev, tesla, ford, electric, says, nio, vehicle, ceo, electric vehicle, china. E.g. "Tesla 'Bang For The Buck' Semi Arrives, Ford Is America's Second Best, Lordstown's 'Endura..." / "Tesla Had A Top 10 Selling Vehicle In The US For 2022: What It Means And What's Next For 2..."
+- **sector news: cannabis** (NMF topics 209): cannabis, tilray, brands, growth, medical, tilray brands, canopy, canopy growth, brand, products. E.g. "What's Going On With Tilray, Canopy Growth And Aurora Cannabis Shares Today?" / "Tilray Brands Announced Receiving Approval For First Medical Cannabis Extract In Portugal"
+- **sector news: clean energy and hydrogen** (NMF topics 203): energy, power, plug, plug power, hydrogen, fuelcell, clean, clean energy, production, fuelcell energy. E.g. "Vermilion Energy To Acquire Equinor Energy Ireland For $434M" / "Why Plug Power, FuelCell, Enphase Energy, First Solar And Sunrun Shares Are Rising"
+- **share repurchase program** (NMF topics 122): program, repurchase, repurchase program, share repurchase, share, board, buyback, usdamt share, stock repurchase, buyback program. E.g. "Travelzoo Announces Share Repurchase Program Of Up To 1M Shares" / "DoubleVerify Plans $150M Share Repurchase Program"
+- **short interest report** (NMF topics 101, 108, 124): short, short pctnum, pctnum report, sold short, report recently, regular shares, shares available, pctnum regular, shares sold, percent float. E.g. "How Is The Market Feeling About Telefonaktiebolaget L M?" / "How Is The Market Feeling About Telefonaktiebolaget L M?" / "Looking Into AT&T's Recent Short Interest"
+- **stocks-to-watch / evergreen commentary** (NMF topics 110, 113, 116, 121): stocks, stocks watch, watch heading, watch, heading, grab, focus today, stocks grab, grab investor, investor focus. E.g. "Intuit, Hibbett And 3 Stocks To Watch Heading Into Friday" / "Scholastic, Dynatronics And 3 Stocks To Watch Heading Into Friday" / "5 Value Stocks In The Healthcare Sector"
+- **strategic partnership** (NMF topics 202): partnership, strategic, strategic partnership, announce, expands, expand, announce partnership, inks, expands partnership, solutions. E.g. "SurgePays Announces Strategic Partnership With SIN PIN" / "Xos, Inc. Announces Strategic Partnership With NationaLease"
+- **underwritten public offering / resale registration** (NMF topics 102): common, common stock, offering, public, public offering, stock, shares common, offering common, offering num, proposed. E.g. "Dynex Capital, Inc. Announces Public Offering Of 10.5M Shares Of Common Stock" / "Hercules Capital Upsizes Its Public Offering To 6.5M Shares Of Common Stock"
+- **unusual options activity (sweeps, whale alerts)** (NMF topics 14, 17): num usdamt, option alert, ref, ref usdamt, num oi, oi, option, vs num, usdamt calls, calls. E.g. "GameStop Option Alert: May 17 $15 Calls Sweep (20) near the Ask: 239 @ $1.931 vs 27218 OI;..." / "GameStop Option Alert: May 17 $15 Calls Sweep (5) near the Ask: 3109 @ $2.5 vs 27218 OI; E..." / "10 Communication Services Stocks With Whale Alerts In Today's Session"
+- **volatility halt / trading resumed** (NMF topics 11, 25): halted, circuit, circuit breaker, breaker, shares halted, halted circuit, stock pctnum, shares, pctnum, breaker upside. E.g. "Vaccinex Shares Halted On Circuit Breaker To The Upside, Stock Now Up 6.20%" / "8x8 Shares Halted On Circuit Breaker To The Upside, Stock Now Down 3.58%" / "SCWorx Shares Resume Trade"
+- **why-shares-are-moving explainer** (NMF topics 103, 208): higher, trading higher, trading, shares trading, today, stock, going, higher today, tuesday, wednesday. E.g. "Why Are MakeMyTrip Shares Trading Higher Today?" / "Here's Why Atomera Shares Are Trading Higher Today" / "TherapeuticsMD Tender Offer Expired Tuesday; Said Only 30.6% of Shares Were Tendered; Mini..."
+
+## 2. Text vs the stock's profile, per fold
+
+**Linear models on TF-IDF (Python, scikit-learn)**: weighted logistic regression for (a), ridge for (b) and (c) (winsorized at the fit window's 1st/99th percentiles), fitted on each fold's fit window (TF-IDF vocabulary too) and scored on its eval window; weight 1 / items on the symbol-day. Controls only vs text only vs text + controls. (a) weighted AUC, (b)/(c) weighted R^2 on the eval window.
+
+| target | features | fold 1 | fold 2 | fold 3 | fold 4 | mean | folds text+controls > controls |
+|---|---|---|---|---|---|---|---|
+| run >= +50% within 240 minutes of publication | controls | 0.850 | 0.853 | 0.784 | 0.856 | 0.836 |  |
+| run >= +50% within 240 minutes of publication | text | 0.754 | 0.782 | 0.733 | 0.768 | 0.759 |  |
+| run >= +50% within 240 minutes of publication | text+controls | 0.866 | 0.876 | 0.816 | 0.880 | 0.859 | 4/4 |
+| return from publication to the 16:00 close | controls | 0.030 | 0.030 | 0.040 | 0.041 | 0.035 |  |
+| return from publication to the 16:00 close | text | 0.002 | 0.001 | 0.004 | 0.008 | 0.003 |  |
+| return from publication to the 16:00 close | text+controls | 0.030 | 0.029 | 0.043 | 0.047 | 0.037 | 2/4 |
+| giveback: close over the post-publication high, minus 1 | controls | 0.275 | 0.297 | 0.297 | 0.330 | 0.300 |  |
+| giveback: close over the post-publication high, minus 1 | text | 0.130 | 0.164 | 0.137 | 0.150 | 0.145 |  |
+| giveback: close over the post-publication high, minus 1 | text+controls | 0.296 | 0.327 | 0.322 | 0.358 | 0.326 | 4/4 |
+
+**Boosted trees (`GradientBoostedTrees`)** on controls only vs controls + one-hot cluster ids, the topics refit by NMF on each fold's fit window (fit window and eval window rows; filings by form/item; ids seen at least 30 times in the fit window). Weighted AUC on the eval window; (b) and (c) as binary labels.
+
+| target | eval positives (fold 1-4) | features | fold 1 | fold 2 | fold 3 | fold 4 | mean | folds clusters > controls |
+|---|---|---|---|---|---|---|---|---|
+| run >= +50% within 240 minutes | 278/266/378/394 | controls | 0.901 | 0.908 | 0.886 | 0.897 | 0.898 |  |
+| run >= +50% within 240 minutes | 278/266/378/394 | controls + clusters | 0.900 | 0.910 | 0.887 | 0.897 | 0.899 | 3/4 |
+| up at the 16:00 close (ret > 0) | 20010/19405/19185/16831 | controls | 0.576 | 0.571 | 0.586 | 0.585 | 0.580 |  |
+| up at the 16:00 close (ret > 0) | 20010/19405/19185/16831 | controls + clusters | 0.575 | 0.579 | 0.589 | 0.592 | 0.584 | 3/4 |
+| gives back >= 20% from the post-publication high | 2059/1903/2660/2706 | controls | 0.903 | 0.915 | 0.895 | 0.910 | 0.906 |  |
+| gives back >= 20% from the post-publication high | 2059/1903/2660/2706 | controls + clusters | 0.904 | 0.917 | 0.895 | 0.912 | 0.907 | 4/4 |
+
+Top features by gain, boosted controls + clusters, run >= +50% in 240 minutes, fold 4 (descriptive; cluster ids are fold 4's own topics): gap_at_pub 22.2%, sigma_daily 16.5%, pre60 10.1%, start_min 8.4%, adv_decile 8.4%, log_shares 6.3%, pre30 5.6%, log_n_symbols 3.8%, log_price 3.7%, log_top_rank 3.4%, pub_min_et 2.7%, log_pre_vol60 2.4%, log_adv_dollars 1.6%, cluster=20 1.4%, log_prior_items 1.0%.
+
+## 3. Top terms (descriptive fit on every train row, text + controls)
+
+- **run >= +50% within 240 minutes of publication**, positive: form_25nse (+2.11, n=160), halted (+1.82, n=1323), item_5_07 item_8_01 (+1.60, n=150), shares halted (+1.33, n=1134), exclusive (+1.31, n=1133), resume (+1.18, n=1288), shares resume (+1.12, n=1166), item_7_01 item_8_01 (+1.08, n=1010), item_5_01 item_5_02 (+1.05, n=94), item_5_01 (+1.02, n=109), receives (+1.01, n=710), item_5_07 item_7_01 (+1.01, n=115), group shares (+0.96, n=1092), halted circuit (+0.95, n=1062), news (+0.91, n=1747), news pending (+0.88, n=159), patent (+0.88, n=949), pending (+0.85, n=233), item_8_01 (+0.84, n=6009), form_8k (+0.84, n=23795), item_5_03 (+0.81, n=789), approval (+0.80, n=880), novel (+0.79, n=237), circuit (+0.79, n=1322), item_1_01 item_7_01 (+0.78, n=342)
+- **run >= +50% within 240 minutes of publication**, negative: form_424b3 (-1.33, n=2922), form_424b4 (-0.84, n=157), form_8k item_5_02 (-0.83, n=2801), form_8k item_7_01 (-0.82, n=3650), form_8k item_8_01 (-0.79, n=3094), earnings (-0.79, n=16010), maintains (-0.75, n=14502), item_3_01 (-0.74, n=636), price (-0.69, n=21857), form_8k item_2_02 (-0.63, n=7537), form_8ka (-0.62, n=521), target (-0.61, n=20420), item_9_01 (-0.58, n=19742), new (-0.58, n=18966), usdamt (-0.58, n=63575), price target (-0.57, n=19968), lowers (-0.56, n=8064), form_8k item_3_01 (-0.56, n=567), lowers price (-0.55, n=7933), form_s3 (-0.55, n=425), form_8k item_5_07 (-0.55, n=925), item_5_07 item_9_01 (-0.55, n=364), item_1_01 item_2_03 (-0.53, n=732), preview (-0.53, n=2004), estimate (-0.53, n=7640)
+- controls (standardized coefficient): start_min -0.781, after_close -0.543, log_pre_vol60 +0.460, adv_decile -0.433, log_n_symbols -0.387, log_prior_items +0.334, log_shares -0.307, log_price -0.298
+- **return from publication to the 16:00 close**, positive: apyx (+0.04, n=106), apyx medical (+0.04, n=106), higher pctnum (+0.04, n=5734), reclassify (+0.04, n=54), upgrades (+0.04, n=4747), usdamt private (+0.04, n=261), repurchase (+0.04, n=461), dea (+0.03, n=172), shares jumped (+0.03, n=4925), financial terms (+0.03, n=177), lower reported (+0.03, n=81), audiocodes estimated (+0.03, n=103), bell audiocodes (+0.03, n=103), audiocodes (+0.03, n=141), wednesday trading (+0.03, n=259), group projected (+0.03, n=79), create premier (+0.03, n=73), legal (+0.03, n=187), comera (+0.03, n=98), gainers kidpik (+0.03, n=52), bell seres (+0.03, n=76), walt (+0.03, n=74), walt disney (+0.03, n=74), comera life (+0.03, n=97), highs (+0.03, n=379)
+- **return from publication to the 16:00 close**, negative: downgrades (-0.04, n=5457), misses (-0.04, n=2724), trading higher (-0.04, n=8171), offering (-0.04, n=2517), breaker downside (-0.04, n=313), higher reported (-0.04, n=151), neurosense (-0.04, n=106), premarket gainers (-0.04, n=2309), bell atlantica (-0.04, n=63), atlantica (-0.04, n=63), atlantica sustainable (-0.04, n=63), sustainable likely (-0.04, n=63), misses usdamt (-0.04, n=1183), exicure (-0.03, n=65), helbiz (-0.03, n=53), therapeutics jumped (-0.03, n=78), wednesday num (-0.03, n=2058), lower pctnum (-0.03, n=6674), dose (-0.03, n=240), warrant (-0.03, n=110), fda (-0.03, n=2575), bell mirum (-0.03, n=80), bell nomura (-0.03, n=60), bell gcm (-0.03, n=97), grosvenor likely (-0.03, n=97)
+- controls (standardized coefficient): gap_at_pub -0.014, pre30 -0.007, after_close +0.006, log_pre_vol60 -0.004, pre60 -0.004, start_min +0.003, is_filing -0.003, pub_min_et -0.002
+- **giveback: close over the post-publication high, minus 1**, positive: shares jumped (+0.04, n=4923), gilat (+0.03, n=60), funko (+0.03, n=121), end trading (+0.03, n=1568), amneal (+0.03, n=103), bell seres (+0.03, n=76), higher pctnum (+0.03, n=5732), amarin (+0.03, n=124), enrollment (+0.03, n=228), citius (+0.02, n=62), cohort (+0.02, n=88), pctnum stocks (+0.02, n=6551), pctnum usdamt (+0.02, n=15853), going (+0.02, n=2416), sndl (+0.02, n=113), evgo (+0.02, n=216), group projected (+0.02, n=79), medical shares (+0.02, n=348), form_8k item_2_01 (+0.02, n=180), form_8k item_2_05 (+0.02, n=144), capital (+0.02, n=4245), analyst (+0.02, n=4748), dosed (+0.02, n=109), nokia (+0.02, n=169), genetic (+0.02, n=121)
+- **giveback: close over the post-publication high, minus 1**, negative: halted (-0.06, n=1330), shares resume (-0.05, n=1166), resume (-0.05, n=1289), exclusive (-0.04, n=1172), halted circuit (-0.04, n=1064), scisparc (-0.04, n=168), shares halted (-0.04, n=1137), item_5_01 item_5_02 (-0.04, n=135), circuit breaker (-0.04, n=1304), breaker (-0.04, n=1305), form_25nse (-0.04, n=192), rail vision (-0.04, n=94), premarket (-0.03, n=4514), circuit (-0.03, n=1325), rail (-0.03, n=104), moving premarket (-0.03, n=3935), tumor (-0.03, n=90), gainers hycroft (-0.03, n=101), resume trade (-0.03, n=771), item_5_07 item_8_01 (-0.03, n=240), market-moving (-0.03, n=382), market-moving news (-0.03, n=371), item_5_01 (-0.03, n=154), warrants (-0.03, n=236), pctnum premarket (-0.03, n=144)
+- controls (standardized coefficient): start_min +0.024, after_close +0.020, gap_at_pub -0.015, sigma_daily -0.011, log_pre_vol60 -0.010, pub_min_et -0.009, log_price +0.009, regular +0.008
+
+Tokens: `usdamt` = a dollar amount, `pctnum` = a percentage, `num` = another number, `form_*` / `item_*` = a filing's form and 8-K items.
+
+## 4. Drift then news, or news then move?
+
+In-session items only (published 04:30-15:59 ET on E with prints in the hour before). Drift then news = up >= 5% (log) or >= 2 sigma in the 60 minutes before publication; news then move = flat before (< 1 sigma and < +2%) and a >= +10% run within 240 minutes after. Drift share as in section 1. A cluster is flagged as a leakage / promotion signature when its drift share is >= 33% and its drift-then-news share is at least twice the pooled one (14.5 %) over at least 100 in-session items, and as "watch" at a drift share >= 30% with 1.5x the pooled drift-then-news share. Coverage wires (halt notices, movers lists, explainers) are written after the move by construction, so a high drift share there is a reaction, not a leak, and they are marked "reaction" instead. Sorted by drift share.
+
+| cluster | kind | in-session items | mean pre-60 log drift | mean log run 240 after | drift share | drift then news | news then move | already +5% at publication | flag |
+|---|---|---|---|---|---|---|---|---|---|
+| volatility halt / trading resumed | coverage | 2,705 | +8.88% | +14.34% | 38.3 % | 56.0 % | 15.0 % | 57.4 % | reaction (coverage) |
+| commercial / distribution / purchase agreement | news | 475 | +3.48% | +6.13% | 36.3 % | 31.2 % | 7.6 % | 32.4 % | **leakage / promotion** |
+| licensing / collaboration deal | news | 372 | +3.35% | +6.32% | 34.6 % | 28.0 % | 6.5 % | 29.3 % | watch (leakage / promotion) |
+| contract award | news | 324 | +2.18% | +4.38% | 33.3 % | 25.0 % | 5.6 % | 25.3 % | watch (leakage / promotion) |
+| AI product / partnership | news | 450 | +2.71% | +5.50% | 33.0 % | 21.6 % | 7.1 % | 29.6 % |  |
+| insider purchase (Form 4) / 13D proposal | news | 354 | +2.74% | +6.00% | 31.4 % | 27.4 % | 9.3 % | 42.7 % | watch (leakage / promotion) |
+| strategic partnership | news | 253 | +1.71% | +4.44% | 27.8 % | 19.0 % | 7.9 % | 24.9 % |  |
+| why-shares-are-moving explainer | coverage | 2,773 | +1.76% | +4.63% | 27.5 % | 23.0 % | 6.8 % | 63.8 % |  |
+| other company news | coverage | 1,176 | +1.64% | +4.32% | 27.5 % | 18.0 % | 5.3 % | 23.7 % |  |
+| share repurchase program | news | 635 | +2.04% | +5.55% | 26.8 % | 23.9 % | 8.0 % | 36.2 % |  |
+| acquisition, terms not disclosed | news | 515 | +2.18% | +5.99% | 26.7 % | 22.9 % | 8.2 % | 23.5 % |  |
+| acquisition agreement (definitive, priced) | news | 288 | +2.49% | +6.97% | 26.3 % | 26.0 % | 8.0 % | 32.3 % |  |
+| product launch / operations update | news | 368 | +1.76% | +5.15% | 25.4 % | 17.7 % | 6.2 % | 22.8 % |  |
+| FDA / regulatory approval, clearance, designation | news | 2,333 | +2.27% | +7.22% | 23.9 % | 28.8 % | 11.4 % | 36.5 % |  |
+| unusual options activity (sweeps, whale alerts) | coverage | 3,843 | +0.89% | +2.95% | 23.2 % | 12.9 % | 2.6 % | 25.7 % |  |
+| sector news: clean energy and hydrogen | news | 427 | +1.17% | +4.06% | 22.3 % | 14.8 % | 5.4 % | 21.8 % |  |
+| clinical trial update / data | news | 1,861 | +2.11% | +7.67% | 21.6 % | 27.8 % | 12.3 % | 35.3 % |  |
+| 8-K 3.03 holder rights modified (reverse split) | filing | 32 | +1.51% | +5.68% | 21.0 % | 12.5 % | 15.6 % | 9.4 % |  |
+| crypto / bitcoin miners | news | 1,386 | +0.88% | +4.17% | 17.4 % | 11.3 % | 6.1 % | 34.8 % |  |
+| 8-K 2.01 completed acquisition/disposition | filing | 35 | +0.59% | +3.15% | 15.7 % | 17.1 % | 0.0 % | 14.3 % |  |
+| executive appointment | news | 267 | +0.62% | +3.91% | 13.7 % | 13.1 % | 4.5 % | 18.0 % |  |
+| analyst initiation | news | 1,570 | +0.71% | +4.67% | 13.3 % | 13.2 % | 7.5 % | 22.8 % |  |
+| earnings scorecard vs year ago | news | 1,242 | +0.88% | +5.78% | 13.2 % | 20.8 % | 12.4 % | 21.3 % |  |
+| sector news: EV and autos | news | 2,247 | +0.40% | +2.64% | 13.0 % | 8.0 % | 2.6 % | 17.6 % |  |
+| 8-K 1.01 material agreement | filing | 1,223 | +1.09% | +7.71% | 12.4 % | 17.8 % | 14.9 % | 21.7 % |  |
+| sector news: cannabis | news | 412 | +0.50% | +3.66% | 12.1 % | 9.5 % | 5.3 % | 16.7 % |  |
+| earnings beat (EPS/sales vs estimate) | news | 643 | +0.93% | +6.77% | 12.1 % | 28.8 % | 12.8 % | 23.0 % |  |
+| stocks-to-watch / evergreen commentary | coverage | 1,558 | +0.41% | +3.17% | 11.4 % | 10.0 % | 3.5 % | 17.2 % |  |
+| 8-K 5.03 charter / bylaw amendment | filing | 70 | +0.44% | +3.42% | 11.4 % | 11.4 % | 7.1 % | 11.4 % |  |
+| 8-K 7.01 Reg FD | filing | 1,646 | +0.80% | +6.34% | 11.3 % | 15.0 % | 12.3 % | 20.5 % |  |
+| market wrap | coverage | 11,432 | +0.62% | +5.10% | 10.8 % | 22.3 % | 8.1 % | 52.9 % |  |
+| 8-K 8.01 other events | filing | 1,219 | +0.62% | +5.15% | 10.8 % | 16.4 % | 9.0 % | 20.3 % |  |
+| earnings scorecard, EPS only (mostly beats of a loss estimate) | news | 677 | +0.43% | +6.82% | 5.9 % | 19.5 % | 16.8 % | 21.3 % |  |
+| analyst price target / rating change | news | 23,289 | +0.22% | +4.09% | 5.0 % | 12.0 % | 7.3 % | 21.6 % |  |
+| analyst ratings roundup | coverage | 4,645 | +0.15% | +2.90% | 4.9 % | 7.9 % | 4.2 % | 18.5 % |  |
+| earnings preview / insights recap | coverage | 9,113 | +0.13% | +2.94% | 4.2 % | 10.3 % | 4.5 % | 14.9 % |  |
+| 8-K other items | filing | 66 | +0.10% | +2.76% | 3.3 % | 7.6 % | 3.0 % | 7.6 % |  |
+| post-results move explainer | coverage | 1,688 | +0.16% | +4.95% | 3.1 % | 17.4 % | 9.4 % | 37.9 % |  |
+| short interest report | coverage | 1,262 | +0.10% | +3.68% | 2.7 % | 9.1 % | 4.8 % | 19.3 % |  |
+| SC 13D stake | filing | 168 | +0.18% | +7.79% | 2.3 % | 4.8 % | 19.6 % | 11.9 % |  |
+| 8-K 5.07 shareholder vote | filing | 299 | +0.03% | +2.66% | 1.0 % | 5.4 % | 4.7 % | 10.7 % |  |
+| movers list (sector, session) | coverage | 58,166 | +0.04% | +4.87% | 0.7 % | 11.1 % | 9.8 % | 32.6 % |  |
+| 8-K 5.02 officer / director change | filing | 600 | +0.01% | +3.68% | 0.4 % | 6.8 % | 6.2 % | 8.5 % |  |
+| guidance vs estimate | news | 1,702 | +0.02% | +6.19% | 0.4 % | 23.6 % | 11.3 % | 21.6 % |  |
+| S-3/F-3 shelf | filing | 56 | -0.03% | +3.54% | 0.0 % | 8.9 % | 1.8 % | 19.6 % |  |
+| underwritten public offering / resale registration | news | 765 | -1.87% | +6.69% | 0.0 % | 16.3 % | 16.7 % | 18.0 % |  |
+| earnings miss (EPS/sales vs estimate) | news | 599 | -1.85% | +4.87% | 0.0 % | 12.7 % | 13.4 % | 9.5 % |  |
+| 8-K 2.02 results of operations | filing | 2,002 | -0.31% | +5.91% | 0.0 % | 19.4 % | 12.9 % | 17.9 % |  |
+| 424B5 shelf takedown | filing | 420 | -0.71% | +5.32% | 0.0 % | 7.9 % | 12.1 % | 13.1 % |  |
+| 424B other prospectus | filing | 890 | -0.15% | +4.20% | 0.0 % | 7.5 % | 9.6 % | 13.3 % |  |
+| 8-K/A amendment | filing | 131 | -0.27% | +2.90% | 0.0 % | 6.9 % | 3.1 % | 16.0 % |  |
+| registered direct offering / private placement (PIPE) | news | 425 | -6.13% | +8.33% | 0.0 % | 14.4 % | 25.6 % | 17.6 % |  |
+| Form 25 delisting | filing | 92 | -0.19% | +3.88% | 0.0 % | 12.0 % | 6.5 % | 10.9 % |  |
+| 8-K 3.01 delisting / listing-rule notice | filing | 108 | -0.03% | +5.45% | 0.0 % | 10.2 % | 8.3 % | 13.9 % |  |
+| 8-K 3.02 unregistered equity sale | filing | 49 | -0.45% | +5.82% | 0.0 % | 4.1 % | 14.3 % | 16.3 % |  |
+| S-1/F-1 registration | filing | 41 | -0.68% | +1.09% | 0.0 % | 2.4 % | 0.0 % | 12.2 % |  |
+| 8-K 1.02 agreement terminated | filing | 34 | -1.48% | +10.34% | 0.0 % | 11.8 % | 26.5 % | 8.8 % |  |
+| 424B4 priced offering | filing | 57 | -0.63% | +4.57% | 0.0 % | 1.8 % | 8.8 % | 17.5 % |  |
+
+Flagged: commercial / distribution / purchase agreement; licensing / collaboration deal (watch); contract award (watch); insider purchase (Form 4) / 13D proposal (watch).
+
+## 5. Tradeability (long only, train, small)
+
+Clusters chosen by "holds gains" from section 1 (in-sample on train, which the DSR pays for): event clusters (not coverage) with >= 150 rows, mean return to the close > 0 and mean D+2 > 0, ranked by median giveback (least first), top 5: sector news: clean energy and hydrogen; analyst price target / rating change; contract award; product launch / operations update; analyst initiation. One trade per symbol and entry day (the first item). Entry: the open of the first real bar from the first full minute after publication (within 30 minutes, by 15:40; premarket fills count), or the next 09:30 open (E's when published by 09:30, else the next session's daily open). Exits relative to the entry day: the 15:55 bar's open (daily close for a next-session entry), the next session's open, the second session's close (daily bars, raw; dropped across a split or past train). No stop. Costs: (1) regular hours = Corwin-Schultz over E's 09:30-15:55 minute bars + $0.0035/share each side; (2) the frozen model (premarket multiplier, impact on the 04:00-to-entry volume, 20-session sigma, floor; a next-session entry uses E's spread and premarket volume); (3) commission only. Pooled over every train day; per fold = the four eval windows; day-clustered 95% bounds; LOMO = the lowest leave-one-month-out lower bound. DSR = per-trade deflated Sharpe of the regular-hours net at N = 5,613 (ledger total after this run), variance of this run's 30 trade-config Sharpes 0.0026; frozen minimum 0.95. Finalist bar (explore-plan.md): >= +1.0% net per trade with lower bound > 0, >= 150 trades over >= 40 days, > 0 in at least 3 of 4 folds, LOMO lower bound > 0, and DSR >= 0.95. 30 configurations.
+
+Not selected: earnings beat holds on the mean (close +1.76%, D+2 +2.47%) but gives back more from its high (median -4.45%); its 09:30-open entry was already tested in IP-T492 (catalyst-split: +0.79% net RTH to the D+2 close). The selection rule was fixed before this run's trades were read; a dry run on a scratch copy of the ledger produced these same 30 configurations.
+
+| cluster | entry | exit | trades | days | gross | RTH cost | net RTH [95%] | net frozen [95%] | net commission only | per fold (RTH) | folds > 0 | LOMO lo | win-rate proxy: worst 1% | DSR | finalist RTH/frozen/comm |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| sector news: clean energy and hydrogen | first bar after publication | close | 420 | 290 | -0.36% | +0.38% | -0.74% [-1.47%, -0.01%] | -3.06% [-3.94%, -2.19%] | -0.63% | +0.01% / -0.13% / -2.23% / -0.15% | 1/4 | -1.59% | -21.59% | 0.000 | -/-/- |
+| sector news: clean energy and hydrogen | first bar after publication | D+1 open | 419 | 289 | +0.02% | +0.38% | -0.35% [-1.18%, +0.47%] | -2.68% [-3.62%, -1.74%] | -0.24% | +0.39% / -0.03% / -1.79% / +0.19% | 2/4 | -1.42% | -24.10% | 0.000 | -/-/- |
+| sector news: clean energy and hydrogen | first bar after publication | D+2 close | 419 | 289 | +0.48% | +0.38% | +0.11% [-1.27%, +1.49%] | -2.22% [-3.67%, -0.76%] | +0.22% | +2.32% / -0.29% / -1.43% / +0.30% | 2/4 | -1.57% | -31.38% | 0.000 | -/-/- |
+| sector news: clean energy and hydrogen | next 09:30 open | close | 579 | 374 | +0.17% | +0.35% | -0.17% [-0.78%, +0.43%] | -2.36% [-3.03%, -1.68%] | -0.08% | +0.11% / +0.27% / -0.41% / +0.33% | 3/4 | -0.91% | -19.25% | 0.000 | -/-/- |
+| sector news: clean energy and hydrogen | next 09:30 open | D+1 open | 578 | 373 | +0.49% | +0.35% | +0.14% [-0.59%, +0.87%] | -2.05% [-2.82%, -1.27%] | +0.24% | +0.59% / +0.64% / -0.22% / +0.96% | 3/4 | -0.73% | -24.13% | 0.000 | -/-/- |
+| sector news: clean energy and hydrogen | next 09:30 open | D+2 close | 578 | 373 | +0.68% | +0.35% | +0.33% [-0.80%, +1.47%] | -1.85% [-3.03%, -0.68%] | +0.43% | +1.92% / -0.15% / -0.51% / +1.60% | 2/4 | -1.12% | -30.60% | 0.000 | -/-/- |
+| analyst price target / rating change | first bar after publication | close | 18,644 | 755 | +0.06% | +0.33% | -0.27% [-0.46%, -0.08%] | -1.90% [-2.10%, -1.71%] | -0.18% | -0.27% / -0.26% / -0.16% / -0.28% | 0/4 | -0.49% | -23.75% | 0.000 | -/-/- |
+| analyst price target / rating change | first bar after publication | D+1 open | 18,592 | 754 | +0.18% | +0.33% | -0.14% [-0.39%, +0.11%] | -1.78% [-2.03%, -1.53%] | -0.05% | -0.13% / -0.07% / +0.03% / +0.19% | 2/4 | -0.43% | -26.70% | 0.000 | -/-/- |
+| analyst price target / rating change | first bar after publication | D+2 close | 18,544 | 753 | +0.34% | +0.33% | +0.01% [-0.36%, +0.38%] | -1.63% [-2.00%, -1.26%] | +0.10% | -0.03% / -0.03% / +0.57% / +0.40% | 2/4 | -0.45% | -34.83% | 0.000 | -/-/- |
+| analyst price target / rating change | next 09:30 open | close | 26,156 | 755 | +0.09% | +0.31% | -0.21% [-0.40%, -0.02%] | -2.43% [-2.63%, -2.24%] | -0.13% | -0.27% / -0.25% / -0.05% / -0.35% | 0/4 | -0.44% | -20.32% | 0.000 | -/-/- |
+| analyst price target / rating change | next 09:30 open | D+1 open | 26,087 | 754 | +0.26% | +0.30% | -0.04% [-0.29%, +0.20%] | -2.27% [-2.51%, -2.03%] | +0.04% | -0.09% / -0.07% / +0.15% / +0.08% | 2/4 | -0.34% | -22.90% | 0.000 | -/-/- |
+| analyst price target / rating change | next 09:30 open | D+2 close | 26,041 | 753 | +0.38% | +0.30% | +0.07% [-0.29%, +0.43%] | -2.15% [-2.51%, -1.79%] | +0.15% | -0.08% / -0.04% / +0.62% / +0.40% | 2/4 | -0.38% | -31.30% | 0.000 | -/-/- |
+| contract award | first bar after publication | close | 328 | 253 | -0.67% | +0.56% | -1.23% [-2.25%, -0.21%] | -3.18% [-4.27%, -2.09%] | -1.13% | -1.14% / -4.41% / +1.03% / -1.36% | 1/4 | -2.52% | -29.00% | 0.000 | -/-/- |
+| contract award | first bar after publication | D+1 open | 328 | 253 | -0.69% | +0.56% | -1.25% [-2.32%, -0.19%] | -3.20% [-4.34%, -2.06%] | -1.15% | -0.77% / -4.71% / +1.36% / -1.62% | 1/4 | -2.64% | -32.01% | 0.000 | -/-/- |
+| contract award | first bar after publication | D+2 close | 328 | 253 | +0.05% | +0.56% | -0.51% [-1.98%, +0.96%] | -2.45% [-3.98%, -0.92%] | -0.41% | -1.29% / -4.33% / +3.01% / -0.39% | 1/4 | -2.28% | -34.70% | 0.000 | -/-/- |
+| contract award | next 09:30 open | close | 442 | 325 | +0.39% | +0.48% | -0.09% [-0.95%, +0.76%] | -2.43% [-3.32%, -1.54%] | -0.01% | +0.20% / -3.63% / +1.04% / +0.92% | 3/4 | -1.09% | -23.91% | 0.000 | -/-/- |
+| contract award | next 09:30 open | D+1 open | 442 | 325 | +0.32% | +0.48% | -0.16% [-0.97%, +0.66%] | -2.50% [-3.36%, -1.63%] | -0.07% | +0.18% / -3.70% / +1.32% / +0.10% | 3/4 | -1.11% | -27.71% | 0.000 | -/-/- |
+| contract award | next 09:30 open | D+2 close | 440 | 324 | +0.83% | +0.47% | +0.35% [-1.02%, +1.73%] | -2.00% [-3.41%, -0.58%] | +0.44% | -1.22% / -3.78% / +2.20% / +2.02% | 2/4 | -1.36% | -30.66% | 0.000 | -/-/- |
+| product launch / operations update | first bar after publication | close | 402 | 301 | -0.09% | +0.43% | -0.51% [-1.35%, +0.32%] | -2.73% [-3.63%, -1.84%] | -0.41% | -1.31% / -1.09% / -0.41% / +1.71% | 1/4 | -1.49% | -21.60% | 0.000 | -/-/- |
+| product launch / operations update | first bar after publication | D+1 open | 402 | 301 | -0.08% | +0.43% | -0.51% [-1.46%, +0.45%] | -2.73% [-3.74%, -1.72%] | -0.40% | -1.18% / -0.50% / -1.13% / +2.00% | 1/4 | -1.62% | -23.64% | 0.000 | -/-/- |
+| product launch / operations update | first bar after publication | D+2 close | 401 | 300 | +0.02% | +0.43% | -0.41% [-2.01%, +1.20%] | -2.63% [-4.25%, -1.00%] | -0.30% | -2.11% / -1.93% / +2.11% / +1.77% | 2/4 | -2.33% | -33.91% | 0.000 | -/-/- |
+| product launch / operations update | next 09:30 open | close | 540 | 365 | +0.07% | +0.38% | -0.30% [-0.92%, +0.31%] | -2.81% [-3.56%, -2.05%] | -0.22% | -0.93% / -1.56% / -0.31% / +2.05% | 1/4 | -1.07% | -20.42% | 0.000 | -/-/- |
+| product launch / operations update | next 09:30 open | D+1 open | 540 | 365 | +0.23% | +0.38% | -0.15% [-0.87%, +0.58%] | -2.65% [-3.49%, -1.81%] | -0.06% | -0.61% / -0.98% / -0.89% / +2.89% | 1/4 | -1.02% | -27.28% | 0.000 | -/-/- |
+| product launch / operations update | next 09:30 open | D+2 close | 539 | 364 | +0.49% | +0.38% | +0.12% [-1.11%, +1.34%] | -2.39% [-3.67%, -1.10%] | +0.20% | -1.01% / -2.12% / +3.14% / +2.13% | 2/4 | -1.49% | -32.87% | 0.000 | -/-/- |
+| analyst initiation | first bar after publication | close | 1,475 | 607 | +0.73% | +0.31% | +0.42% [-+0.00%, +0.84%] | -1.84% [-2.31%, -1.38%] | +0.50% | +0.55% / -0.16% / +0.77% / +0.70% | 3/4 | -0.11% | -18.66% | 0.000 | -/-/- |
+| analyst initiation | first bar after publication | D+1 open | 1,474 | 607 | +0.78% | +0.31% | +0.47% [+0.00%, +0.93%] | -1.79% [-2.32%, -1.26%] | +0.55% | +0.24% / +0.15% / +1.37% / +1.40% | 4/4 | -0.08% | -20.93% | 0.000 | -/-/- |
+| analyst initiation | first bar after publication | D+2 close | 1,473 | 606 | +1.81% | +0.31% | +1.50% [+0.65%, +2.35%] | -0.76% [-1.64%, +0.12%] | +1.58% | +0.85% / +2.13% / +2.22% / +2.37% | 4/4 | +0.46% | -26.78% | 0.000 | y/-/y |
+| analyst initiation | next 09:30 open | close | 2,562 | 703 | +0.25% | +0.25% | -+0.00% [-0.31%, +0.30%] | -2.43% [-2.80%, -2.07%] | +0.06% | +0.05% / -0.26% / +0.36% / +0.48% | 3/4 | -0.37% | -15.52% | 0.000 | -/-/- |
+| analyst initiation | next 09:30 open | D+1 open | 2,559 | 702 | +0.29% | +0.25% | +0.03% [-0.32%, +0.38%] | -2.40% [-2.80%, -2.00%] | +0.10% | -0.45% / -0.02% / +0.72% / +1.12% | 2/4 | -0.38% | -18.76% | 0.000 | -/-/- |
+| analyst initiation | next 09:30 open | D+2 close | 2,557 | 701 | +0.89% | +0.25% | +0.64% [+0.01%, +1.27%] | -1.79% [-2.43%, -1.15%] | +0.71% | +0.05% / +0.97% / +1.79% / +1.80% | 4/4 | -0.10% | -26.30% | 0.000 | -/-/- |
+
+- Finalist bar at the regular-hours (Corwin-Schultz RTH + commission) cost: 1 configuration(s) before DSR, 0 after: analyst initiation / first bar after publication / D+2 close +1.50%, DSR 0.000.
+- Finalist bar at the frozen model cost: 0 configuration(s) before DSR, 0 after.
+- Finalist bar at the commission only cost: 1 configuration(s) before DSR, 0 after: analyst initiation / first bar after publication / D+2 close +1.58%, DSR 0.000.
+- Positive net at the regular-hours cost: 12 of 30; lower bound above 0: 3.
+
+## 6. The keyword classifier (`CatalystTypes`) against the clusters
+
+Per type: rows it tags before (the classifier at export time) and after this ticket's fixes (`CatalystTypes` now), and the share of its tags that land in a cluster the cluster map (`CatalystClusterMap`) does not tie to that type ("off-cluster": a false-positive proxy; templated coverage such as movers lists and analyst notes is where most keyword misfires land). Then the cluster-to-type map.
+
+| type | rows before | off-cluster before | rows after | off-cluster after | lift (+50% in 240 min) before | after |
+|---|---|---|---|---|---|---|
+| outside investment / PIPE | 4,001 | 12.5 % | 3,774 | 8.6 % | 3.25 | 3.33 |
+| acquisition (target) | 214 | 80.8 % | 200 | 82.0 % | 1.69 | 1.80 |
+| acquisition (acquirer) | 1,521 | 31.4 % | 1,509 | 30.9 % | 2.74 | 2.67 |
+| merger | 1,629 | 88.3 % | 745 | 74.0 % | 1.21 | 2.04 |
+| earnings beat | 8,118 | 22.9 % | 6,440 | 23.3 % | 0.50 | 0.41 |
+| earnings miss | 4,577 | 14.7 % | 3,306 | 17.5 % | 0.52 | 0.44 |
+| earnings (no beat/miss word) | 33,575 | 58.8 % | 18,689 | 26.0 % | 0.55 | 0.64 |
+| guidance change | 1,251 | 36.5 % | 1,207 | 34.2 % | 0.66 | 0.57 |
+| contract or partnership | 10,065 | 25.9 % | 9,749 | 23.7 % | 2.26 | 2.29 |
+| non-binding LOI / MOU | 229 | 61.1 % | 229 | 61.1 % | 2.60 | 2.60 |
+| FDA or clinical | 6,533 | 43.8 % | 4,636 | 29.3 % | 2.46 | 3.04 |
+| reverse split / ADS ratio change | 906 | 80.6 % | 1,607 | 47.0 % | 3.55 | 3.19 |
+| uplisting | 156 | 98.1 % | 18 | 83.3 % | 3.08 | 13.70 |
+| buyback | 605 | 40.8 % | 610 | 41.0 % | 0.23 | 0.22 |
+| analyst upgrade | 10,828 | 0.6 % | 7,487 | 0.8 % | 0.28 | 0.37 |
+| offering or dilution | 9,673 | 9.7 % | 8,926 | 4.5 % | 0.83 | 0.72 |
+| theme pivot | 4,405 | 67.4 % | 3,932 | 64.4 % | 1.17 | 1.13 |
+| listing compliance / deficiency notice | 0 | n/a | 1,137 | 30.5 % | n/a | 0.80 |
+| coverage of a move or the market (not a catalyst) | 0 | n/a | 97,425 | 7.7 % | n/a | 1.11 |
+
+Cluster -> type map (`CatalystClusterMap`, IdiotProof.Evidence):
+
+- 424B other prospectus: offering
+- 424B4 priced offering: offering
+- 424B5 shelf takedown: offering
+- 8-K 1.01 material agreement: contract, loi, pipe, acqAcquirer, acqTarget, merger, offering
+- 8-K 1.02 agreement terminated: (none: coverage or no catalyst type)
+- 8-K 2.01 completed acquisition/disposition: acqAcquirer
+- 8-K 2.02 results of operations: earnOther, earnBeat, earnMiss, guidance
+- 8-K 3.01 delisting / listing-rule notice: compliance
+- 8-K 3.02 unregistered equity sale: pipe
+- 8-K 3.03 holder rights modified (reverse split): rsplit
+- 8-K 5.02 officer / director change: (none: coverage or no catalyst type)
+- 8-K 5.03 charter / bylaw amendment: rsplit
+- 8-K 5.07 shareholder vote: rsplit
+- 8-K 7.01 Reg FD: pipe, acqTarget, acqAcquirer, merger, earnBeat, earnMiss, earnOther, guidance, contract, loi, fda, rsplit, uplist, buyback, upgrade, offering, theme, compliance
+- 8-K 8.01 other events: pipe, acqTarget, acqAcquirer, merger, earnBeat, earnMiss, earnOther, guidance, contract, loi, fda, rsplit, uplist, buyback, upgrade, offering, theme, compliance
+- 8-K other items: pipe, acqTarget, acqAcquirer, merger, earnBeat, earnMiss, earnOther, guidance, contract, loi, fda, rsplit, uplist, buyback, upgrade, offering, theme, compliance
+- 8-K/A amendment: pipe, acqTarget, acqAcquirer, merger, earnBeat, earnMiss, earnOther, guidance, contract, loi, fda, rsplit, uplist, buyback, upgrade, offering, theme, compliance
+- AI product / partnership: theme, contract
+- FDA / regulatory approval, clearance, designation: fda
+- Form 15 deregistration: compliance
+- Form 25 delisting: compliance
+- S-1/F-1 registration: offering
+- S-3/F-3 shelf: offering
+- SC 13D stake: pipe
+- acquisition agreement (definitive, priced): acqAcquirer, acqTarget, merger, loi
+- acquisition, terms not disclosed: acqAcquirer
+- analyst initiation: upgrade
+- analyst price target / rating change: upgrade
+- analyst ratings roundup: upgrade, coverage
+- clinical trial update / data: fda
+- commercial / distribution / purchase agreement: contract, loi
+- contract award: contract
+- crypto / bitcoin miners: theme
+- earnings beat (EPS/sales vs estimate): earnBeat, earnOther
+- earnings miss (EPS/sales vs estimate): earnMiss, earnOther
+- earnings preview / insights recap: coverage
+- earnings scorecard vs year ago: earnBeat, earnMiss, earnOther
+- earnings scorecard, EPS only (mostly beats of a loss estimate): earnBeat, earnMiss, earnOther
+- executive appointment: (none: coverage or no catalyst type)
+- guidance vs estimate: guidance, earnOther, earnBeat, earnMiss
+- insider purchase (Form 4) / 13D proposal: pipe, acqTarget
+- licensing / collaboration deal: contract, fda
+- market wrap: coverage
+- movers list (sector, session): coverage
+- other company news: pipe, acqTarget, acqAcquirer, merger, earnBeat, earnMiss, earnOther, guidance, contract, loi, fda, rsplit, uplist, buyback, upgrade, offering, theme, compliance
+- post-results move explainer: earnBeat, earnMiss, earnOther, guidance
+- product launch / operations update: (none: coverage or no catalyst type)
+- registered direct offering / private placement (PIPE): offering, pipe
+- sector news: EV and autos: (none: coverage or no catalyst type)
+- sector news: cannabis: (none: coverage or no catalyst type)
+- sector news: clean energy and hydrogen: contract, loi
+- share repurchase program: buyback
+- short interest report: coverage
+- stocks-to-watch / evergreen commentary: coverage
+- strategic partnership: contract, loi
+- underwritten public offering / resale registration: offering
+- unusual options activity (sweeps, whale alerts): coverage
+- volatility halt / trading resumed: coverage
+- why-shares-are-moving explainer: pipe, acqTarget, acqAcquirer, merger, earnBeat, earnMiss, earnOther, guidance, contract, loi, fda, rsplit, uplist, buyback, upgrade, offering, theme, compliance
+
+Exploration only (train 2021-11-01..2024-10-31). Nothing after the last train day is read: news to its 16:00, daily bars to its close, and exits past it are blank. The python step reads only this train event table.
+
+Trials logged: 45 (ids 5569..5613); ledger total 5613.

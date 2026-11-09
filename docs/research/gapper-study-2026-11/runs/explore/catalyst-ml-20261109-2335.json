@@ -1,0 +1,2821 @@
+{
+  "clusters": [
+    {
+      "name": "volatility halt / trading resumed",
+      "kind": "coverage",
+      "N": 3010,
+      "Days": 1511,
+      "run50": 0.0908781484002723,
+      "lift": 10.580403662019089,
+      "day50": 0.3624584717607973,
+      "medianRun": 0.091078,
+      "medianRet": -0.0196078,
+      "meanRet": -0.029138019133498765,
+      "medianFade": -0.128985,
+      "meanD2": -0.05649692422507487,
+      "medianD2": -0.0659898,
+      "inSession": 2705,
+      "medianPre60": 0.0851765,
+      "shareZ2": 0.4902033271719039,
+      "shareUp5": 0.5744916820702403,
+      "driftShare": 0.3825800917642145,
+      "driftThenNews": 0.5600739371534196,
+      "newsThenMove": 0.15046210720887246
+    },
+    {
+      "name": "Form 25 delisting",
+      "kind": "filing",
+      "N": 194,
+      "Days": 185,
+      "run50": 0.0625,
+      "lift": 7.276504203888597,
+      "day50": 0.10309278350515463,
+      "medianRun": 0.0174825,
+      "medianRet": -0.0023473,
+      "meanRet": -0.030961909578319055,
+      "medianFade": -0.0240187,
+      "meanD2": -0.07054692199381446,
+      "medianD2": -0.0101538,
+      "inSession": 92,
+      "medianPre60": -0.000612182,
+      "shareZ2": 0.11956521739130435,
+      "shareUp5": 0.10869565217391304,
+      "driftShare": 0,
+      "driftThenNews": 0.11956521739130435,
+      "newsThenMove": 0.06521739130434782
+    },
+    {
+      "name": "8-K 3.03 holder rights modified (reverse split)",
+      "kind": "filing",
+      "N": 158,
+      "Days": 158,
+      "run50": 0.037037037037037035,
+      "lift": 4.312002491193242,
+      "day50": 0.05063291139240506,
+      "medianRun": 0.0301705,
+      "medianRet": -0.00961541,
+      "meanRet": -0.009183510731529811,
+      "medianFade": -0.0528053,
+      "meanD2": 0.020764803825174833,
+      "medianD2": -0.00524017,
+      "inSession": 32,
+      "medianPre60": -0.000340078,
+      "shareZ2": 0.09375,
+      "shareUp5": 0.09375,
+      "driftShare": 0.20955172681627335,
+      "driftThenNews": 0.125,
+      "newsThenMove": 0.15625
+    },
+    {
+      "name": "8-K other items",
+      "kind": "filing",
+      "N": 870,
+      "Days": 857,
+      "run50": 0.032989690721649485,
+      "lift": 3.8407939715370736,
+      "day50": 0.028735632183908046,
+      "medianRun": 0.0295302,
+      "medianRet": -0.00466197,
+      "meanRet": -0.006340588907967869,
+      "medianFade": -0.0352349,
+      "meanD2": -0.0023609482348837247,
+      "medianD2": -0.00105988,
+      "inSession": 66,
+      "medianPre60": 0,
+      "shareZ2": 0.045454545454545456,
+      "shareUp5": 0.07575757575757576,
+      "driftShare": 0.033437869048839323,
+      "driftThenNews": 0.07575757575757576,
+      "newsThenMove": 0.030303030303030304
+    },
+    {
+      "name": "FDA / regulatory approval, clearance, designation",
+      "kind": "news",
+      "N": 3197,
+      "Days": 2756,
+      "run50": 0.02780472033624313,
+      "lift": 3.2371386306339183,
+      "day50": 0.08351579605880513,
+      "medianRun": 0.0439025,
+      "medianRet": -0.00846661,
+      "meanRet": -0.01182137418212027,
+      "medianFade": -0.056,
+      "meanD2": -0.0140978587826223,
+      "medianD2": -0.0166667,
+      "inSession": 2333,
+      "medianPre60": 0.00811912,
+      "shareZ2": 0.24217745392198886,
+      "shareUp5": 0.365195027861123,
+      "driftShare": 0.2391617056634168,
+      "driftThenNews": 0.28761251607372484,
+      "newsThenMove": 0.11401628804114873
+    },
+    {
+      "name": "clinical trial update / data",
+      "kind": "news",
+      "N": 2955,
+      "Days": 2495,
+      "run50": 0.026382363570654137,
+      "lift": 3.071542070886115,
+      "day50": 0.09407783417935703,
+      "medianRun": 0.0493333,
+      "medianRet": -0.0076715,
+      "meanRet": -0.017879558760420296,
+      "medianFade": -0.0555556,
+      "meanD2": -0.014878158177815563,
+      "medianD2": -0.0140515,
+      "inSession": 1861,
+      "medianPre60": 0.00925803,
+      "shareZ2": 0.2369693713057496,
+      "shareUp5": 0.3530360021493821,
+      "driftShare": 0.21621863819086162,
+      "driftThenNews": 0.2783449758194519,
+      "newsThenMove": 0.12251477700161204
+    },
+    {
+      "name": "8-K 1.02 agreement terminated",
+      "kind": "filing",
+      "N": 180,
+      "Days": 180,
+      "run50": 0.025210084033613446,
+      "lift": 2.9350605192155683,
+      "day50": 0.03333333333333333,
+      "medianRun": 0.0393701,
+      "medianRet": -0.00493018,
+      "meanRet": -0.008479021944768057,
+      "medianFade": -0.0443038,
+      "meanD2": -0.01565185357541899,
+      "medianD2": -0.0114286,
+      "inSession": 34,
+      "medianPre60": 0,
+      "shareZ2": 0.11764705882352941,
+      "shareUp5": 0.08823529411764706,
+      "driftShare": 0,
+      "driftThenNews": 0.11764705882352941,
+      "newsThenMove": 0.2647058823529412
+    },
+    {
+      "name": "8-K 5.03 charter / bylaw amendment",
+      "kind": "filing",
+      "N": 648,
+      "Days": 648,
+      "run50": 0.024024024024024024,
+      "lift": 2.796974588882103,
+      "day50": 0.018518518518518517,
+      "medianRun": 0.0239651,
+      "medianRet": -0.00202838,
+      "meanRet": -0.0034954009243535664,
+      "medianFade": -0.0256236,
+      "meanD2": 0.00022626001086956788,
+      "medianD2": -0.00363636,
+      "inSession": 70,
+      "medianPre60": 0.000105877,
+      "shareZ2": 0.08571428571428572,
+      "shareUp5": 0.11428571428571428,
+      "driftShare": 0.11374308822182048,
+      "driftThenNews": 0.11428571428571428,
+      "newsThenMove": 0.07142857142857142
+    },
+    {
+      "name": "licensing / collaboration deal",
+      "kind": "news",
+      "N": 585,
+      "Days": 557,
+      "run50": 0.023008849557522124,
+      "lift": 2.6787838485112,
+      "day50": 0.06495726495726496,
+      "medianRun": 0.0391931,
+      "medianRet": -0.00202838,
+      "meanRet": -0.002444841798413333,
+      "medianFade": -0.0413333,
+      "meanD2": 0.003370116081034489,
+      "medianD2": -0.00502513,
+      "inSession": 372,
+      "medianPre60": 0.00968531,
+      "shareZ2": 0.25,
+      "shareUp5": 0.29301075268817206,
+      "driftShare": 0.3464282330209781,
+      "driftThenNews": 0.27956989247311825,
+      "newsThenMove": 0.06451612903225806
+    },
+    {
+      "name": "SC 13D stake",
+      "kind": "filing",
+      "N": 1218,
+      "Days": 1009,
+      "run50": 0.02185792349726776,
+      "lift": 2.544788355458307,
+      "day50": 0.028735632183908046,
+      "medianRun": 0.0426439,
+      "medianRet": 0.00157898,
+      "meanRet": 0.007369352083805248,
+      "medianFade": -0.0385542,
+      "meanD2": -0.0005823976188167793,
+      "medianD2": -0.00306748,
+      "inSession": 168,
+      "medianPre60": -0.000721241,
+      "shareZ2": 0.02976190476190476,
+      "shareUp5": 0.11904761904761904,
+      "driftShare": 0.022845390266032668,
+      "driftThenNews": 0.047619047619047616,
+      "newsThenMove": 0.19642857142857142
+    },
+    {
+      "name": "acquisition agreement (definitive, priced)",
+      "kind": "news",
+      "N": 518,
+      "Days": 492,
+      "run50": 0.02159827213822894,
+      "lift": 2.5145586881688455,
+      "day50": 0.0444015444015444,
+      "medianRun": 0.0327869,
+      "medianRet": -0.000996963,
+      "meanRet": 0.0017087668466567415,
+      "medianFade": -0.0317073,
+      "meanD2": 0.002257397578640779,
+      "medianD2": -0.00105708,
+      "inSession": 288,
+      "medianPre60": 0.00584797,
+      "shareZ2": 0.21875,
+      "shareUp5": 0.3229166666666667,
+      "driftShare": 0.2630006922836374,
+      "driftThenNews": 0.2604166666666667,
+      "newsThenMove": 0.0798611111111111
+    },
+    {
+      "name": "8-K 1.01 material agreement",
+      "kind": "filing",
+      "N": 5534,
+      "Days": 5486,
+      "run50": 0.02149111170071637,
+      "lift": 2.5020826341840334,
+      "day50": 0.03415251174557282,
+      "medianRun": 0.0350877,
+      "medianRet": -0.00122849,
+      "meanRet": -0.00307466534496848,
+      "medianFade": -0.0396825,
+      "meanD2": -0.009975789524550895,
+      "medianD2": -0.00724638,
+      "inSession": 1223,
+      "medianPre60": 0.00154044,
+      "shareZ2": 0.14472608340147178,
+      "shareUp5": 0.21668029435813574,
+      "driftShare": 0.12404712900659778,
+      "driftThenNews": 0.17825020441537204,
+      "newsThenMove": 0.14881439084219134
+    },
+    {
+      "name": "registered direct offering / private placement (PIPE)",
+      "kind": "news",
+      "N": 551,
+      "Days": 494,
+      "run50": 0.020522388059701493,
+      "lift": 2.389299887844017,
+      "day50": 0.06715063520871144,
+      "medianRun": 0.0559367,
+      "medianRet": -0.0119718,
+      "meanRet": -0.013253683637136847,
+      "medianFade": -0.0756303,
+      "meanD2": -0.015538844974405852,
+      "medianD2": -0.0232558,
+      "inSession": 425,
+      "medianPre60": -0.0277499,
+      "shareZ2": 0.1223529411764706,
+      "shareUp5": 0.17647058823529413,
+      "driftShare": 0,
+      "driftThenNews": 0.14352941176470588,
+      "newsThenMove": 0.2564705882352941
+    },
+    {
+      "name": "product launch / operations update",
+      "kind": "news",
+      "N": 563,
+      "Days": 531,
+      "run50": 0.01651376146788991,
+      "lift": 1.9225992758898311,
+      "day50": 0.03374777975133215,
+      "medianRun": 0.0312766,
+      "medianRet": -2.53637E-09,
+      "meanRet": 0.00229119210222204,
+      "medianFade": -0.0298864,
+      "meanD2": 0.0005902597243772283,
+      "medianD2": -0.0066313,
+      "inSession": 368,
+      "medianPre60": 0.0045627,
+      "shareZ2": 0.15489130434782608,
+      "shareUp5": 0.22826086956521738,
+      "driftShare": 0.2543477494470365,
+      "driftThenNews": 0.1766304347826087,
+      "newsThenMove": 0.0625
+    },
+    {
+      "name": "strategic partnership",
+      "kind": "news",
+      "N": 397,
+      "Days": 385,
+      "run50": 0.0158311345646438,
+      "lift": 1.8431250753913069,
+      "day50": 0.020151133501259445,
+      "medianRun": 0.0247128,
+      "medianRet": -0.00373599,
+      "meanRet": -0.002105175899528817,
+      "medianFade": -0.0280721,
+      "meanD2": -0.005789189867758193,
+      "medianD2": -0.0109051,
+      "inSession": 253,
+      "medianPre60": 0.00596423,
+      "shareZ2": 0.16996047430830039,
+      "shareUp5": 0.2490118577075099,
+      "driftShare": 0.27846027096556064,
+      "driftThenNews": 0.18972332015810275,
+      "newsThenMove": 0.07905138339920949
+    },
+    {
+      "name": "8-K 7.01 Reg FD",
+      "kind": "filing",
+      "N": 4837,
+      "Days": 4755,
+      "run50": 0.015184381778741865,
+      "lift": 1.7678274855434333,
+      "day50": 0.02832334091378954,
+      "medianRun": 0.0302398,
+      "medianRet": -0.000526617,
+      "meanRet": -0.0018663537684509158,
+      "medianFade": -0.0319471,
+      "meanD2": -0.001918319811703449,
+      "medianD2": -0.00216138,
+      "inSession": 1646,
+      "medianPre60": 0.00124198,
+      "shareZ2": 0.12575941676792224,
+      "shareUp5": 0.20534629404617255,
+      "driftShare": 0.11262625973867009,
+      "driftThenNews": 0.1500607533414338,
+      "newsThenMove": 0.1227217496962333
+    },
+    {
+      "name": "acquisition, terms not disclosed",
+      "kind": "news",
+      "N": 893,
+      "Days": 865,
+      "run50": 0.014354066985645933,
+      "lift": 1.6711588602232184,
+      "day50": 0.027995520716685332,
+      "medianRun": 0.0349344,
+      "medianRet": 3.3409E-08,
+      "meanRet": 0.00043853898462996484,
+      "medianFade": -0.0338983,
+      "meanD2": -0.00790949702249719,
+      "medianD2": -0.00779221,
+      "inSession": 515,
+      "medianPre60": 0.00796817,
+      "shareZ2": 0.18058252427184465,
+      "shareUp5": 0.23495145631067962,
+      "driftShare": 0.26697442126125276,
+      "driftThenNews": 0.229126213592233,
+      "newsThenMove": 0.08155339805825243
+    },
+    {
+      "name": "insider purchase (Form 4) / 13D proposal",
+      "kind": "news",
+      "N": 615,
+      "Days": 595,
+      "run50": 0.012302284710017574,
+      "lift": 1.4322820225580366,
+      "day50": 0.07154471544715447,
+      "medianRun": 0.0487805,
+      "medianRet": 0.00251413,
+      "meanRet": 0.0066623040678789125,
+      "medianFade": -0.0368,
+      "meanD2": 0.0015009674873977088,
+      "medianD2": 0,
+      "inSession": 354,
+      "medianPre60": 0.00987884,
+      "shareZ2": 0.23163841807909605,
+      "shareUp5": 0.4265536723163842,
+      "driftShare": 0.31392012455701285,
+      "driftThenNews": 0.2740112994350282,
+      "newsThenMove": 0.09322033898305085
+    },
+    {
+      "name": "S-1/F-1 registration",
+      "kind": "filing",
+      "N": 442,
+      "Days": 434,
+      "run50": 0.011976047904191617,
+      "lift": 1.3943002067331443,
+      "day50": 0.027149321266968326,
+      "medianRun": 0.0347645,
+      "medianRet": -0.0338983,
+      "meanRet": -0.041477521510142376,
+      "medianFade": -0.0710924,
+      "meanD2": -0.053491653399093,
+      "medianD2": -0.0538462,
+      "inSession": 41,
+      "medianPre60": 0,
+      "shareZ2": 0.024390243902439025,
+      "shareUp5": 0.12195121951219512,
+      "driftShare": 0,
+      "driftThenNews": 0.024390243902439025,
+      "newsThenMove": 0
+    },
+    {
+      "name": "8-K 8.01 other events",
+      "kind": "filing",
+      "N": 4537,
+      "Days": 4487,
+      "run50": 0.010516252390057362,
+      "lift": 1.2243448756064943,
+      "day50": 0.02380427595327309,
+      "medianRun": 0.0292683,
+      "medianRet": -0.00240967,
+      "meanRet": -0.007512026084470239,
+      "medianFade": -0.032882,
+      "meanD2": -0.006512785709499563,
+      "medianD2": -0.00315615,
+      "inSession": 1219,
+      "medianPre60": 0.000140756,
+      "shareZ2": 0.14191960623461855,
+      "shareUp5": 0.2026251025430681,
+      "driftShare": 0.10796343270023254,
+      "driftThenNews": 0.16406890894175555,
+      "newsThenMove": 0.09023789991796555
+    },
+    {
+      "name": "other company news",
+      "kind": "coverage",
+      "N": 1627,
+      "Days": 1553,
+      "run50": 0.010430247718383311,
+      "lift": 1.2143318619266497,
+      "day50": 0.03073140749846343,
+      "medianRun": 0.0239362,
+      "medianRet": -0.00107872,
+      "meanRet": -0.00012387434688992632,
+      "medianFade": -0.0253521,
+      "meanD2": 0.001165858683723797,
+      "medianD2": -0.00354191,
+      "inSession": 1176,
+      "medianPre60": 0.00378072,
+      "shareZ2": 0.15306122448979592,
+      "shareUp5": 0.2372448979591837,
+      "driftShare": 0.27495694852197305,
+      "driftThenNews": 0.18027210884353742,
+      "newsThenMove": 0.05272108843537415
+    },
+    {
+      "name": "commercial / distribution / purchase agreement",
+      "kind": "news",
+      "N": 733,
+      "Days": 691,
+      "run50": 0.010071942446043165,
+      "lift": 1.1726165047993133,
+      "day50": 0.061391541609822645,
+      "medianRun": 0.0380435,
+      "medianRet": -0.00173115,
+      "meanRet": -0.0018078487214676377,
+      "medianFade": -0.0374035,
+      "meanD2": 0.0013859280973936927,
+      "medianD2": 0.00102249,
+      "inSession": 475,
+      "medianPre60": 0.00956945,
+      "shareZ2": 0.2673684210526316,
+      "shareUp5": 0.32421052631578945,
+      "driftShare": 0.3625756332693943,
+      "driftThenNews": 0.31157894736842107,
+      "newsThenMove": 0.07578947368421053
+    },
+    {
+      "name": "8-K 3.02 unregistered equity sale",
+      "kind": "filing",
+      "N": 325,
+      "Days": 325,
+      "run50": 0.009478672985781991,
+      "lift": 1.103545661253247,
+      "day50": 0.015384615384615385,
+      "medianRun": 0.0297873,
+      "medianRet": -0.00669457,
+      "meanRet": -0.006963007763045664,
+      "medianFade": -0.0422535,
+      "meanD2": -0.013353779790769228,
+      "medianD2": -0.012931,
+      "inSession": 49,
+      "medianPre60": 0,
+      "shareZ2": 0,
+      "shareUp5": 0.16326530612244897,
+      "driftShare": 0,
+      "driftThenNews": 0.04081632653061224,
+      "newsThenMove": 0.14285714285714285
+    },
+    {
+      "name": "share repurchase program",
+      "kind": "news",
+      "N": 1080,
+      "Days": 996,
+      "run50": 0.009127789046653144,
+      "lift": 1.0626943259228783,
+      "day50": 0.04537037037037037,
+      "medianRun": 0.0445247,
+      "medianRet": 0.00488956,
+      "meanRet": 0.010239782085495716,
+      "medianFade": -0.0342531,
+      "meanD2": 0.011097938322128865,
+      "medianD2": 0.0070609,
+      "inSession": 635,
+      "medianPre60": 0.00706717,
+      "shareZ2": 0.2173228346456693,
+      "shareUp5": 0.36220472440944884,
+      "driftShare": 0.26827460798860975,
+      "driftThenNews": 0.23937007874015748,
+      "newsThenMove": 0.08031496062992126
+    },
+    {
+      "name": "contract award",
+      "kind": "news",
+      "N": 462,
+      "Days": 419,
+      "run50": 0.008888888888888889,
+      "lift": 1.0348805978863782,
+      "day50": 0.01948051948051948,
+      "medianRun": 0.0299193,
+      "medianRet": -0.00150526,
+      "meanRet": 0.0013627343031396531,
+      "medianFade": -0.0294827,
+      "meanD2": 0.008626999798264642,
+      "medianD2": 0.0036036,
+      "inSession": 324,
+      "medianPre60": 0.00921324,
+      "shareZ2": 0.23148148148148148,
+      "shareUp5": 0.25308641975308643,
+      "driftShare": 0.3325146798812428,
+      "driftThenNews": 0.25,
+      "newsThenMove": 0.05555555555555555
+    },
+    {
+      "name": "8-K 3.01 delisting / listing-rule notice",
+      "kind": "filing",
+      "N": 773,
+      "Days": 770,
+      "run50": 0.008818342151675485,
+      "lift": 1.0266672598079147,
+      "day50": 0.02328589909443726,
+      "medianRun": 0.0427204,
+      "medianRet": -0.0138,
+      "meanRet": -0.019807424972343186,
+      "medianFade": -0.0607142,
+      "meanD2": -0.032761119398184144,
+      "medianD2": -0.0291121,
+      "inSession": 108,
+      "medianPre60": 0,
+      "shareZ2": 0.05555555555555555,
+      "shareUp5": 0.1388888888888889,
+      "driftShare": 0,
+      "driftThenNews": 0.10185185185185185,
+      "newsThenMove": 0.08333333333333333
+    },
+    {
+      "name": "earnings scorecard vs year ago",
+      "kind": "news",
+      "N": 3376,
+      "Days": 3167,
+      "run50": 0.00870223231176693,
+      "lift": 1.013149279996596,
+      "day50": 0.018364928909952605,
+      "medianRun": 0.0466321,
+      "medianRet": -0.0015361,
+      "meanRet": -0.0016645603087814276,
+      "medianFade": -0.046556,
+      "meanD2": 0.0038331213963668878,
+      "medianD2": 0,
+      "inSession": 1242,
+      "medianPre60": 0.00197607,
+      "shareZ2": 0.17954911433172302,
+      "shareUp5": 0.21336553945249598,
+      "driftShare": 0.13167360890978502,
+      "driftThenNews": 0.20772946859903382,
+      "newsThenMove": 0.12399355877616747
+    },
+    {
+      "name": "movers list (sector, session)",
+      "kind": "coverage",
+      "N": 74735,
+      "Days": 54694,
+      "run50": 0.00844435046169028,
+      "lift": 0.9831256261375669,
+      "day50": 0.06634107178698066,
+      "medianRun": 0.0310559,
+      "medianRet": -0.00335376,
+      "meanRet": -0.005157731468031269,
+      "medianFade": -0.0358127,
+      "meanD2": -0.009113437111463809,
+      "medianD2": -0.0135135,
+      "inSession": 58166,
+      "medianPre60": -5.567E-05,
+      "shareZ2": 0.0786713887838256,
+      "shareUp5": 0.3264278100608603,
+      "driftShare": 0.007434125633405182,
+      "driftThenNews": 0.11100986830794622,
+      "newsThenMove": 0.09790943162672351
+    },
+    {
+      "name": "underwritten public offering / resale registration",
+      "kind": "news",
+      "N": 1570,
+      "Days": 1248,
+      "run50": 0.008213552361396304,
+      "lift": 0.9562551725849491,
+      "day50": 0.0375796178343949,
+      "medianRun": 0.0368421,
+      "medianRet": -0.0112486,
+      "meanRet": -0.017355823890883994,
+      "medianFade": -0.0574596,
+      "meanD2": -0.025146263890032158,
+      "medianD2": -0.0191458,
+      "inSession": 765,
+      "medianPre60": -0.00284275,
+      "shareZ2": 0.13202614379084968,
+      "shareUp5": 0.1803921568627451,
+      "driftShare": 0,
+      "driftThenNews": 0.16339869281045752,
+      "newsThenMove": 0.16732026143790849
+    },
+    {
+      "name": "market wrap",
+      "kind": "coverage",
+      "N": 13293,
+      "Days": 10103,
+      "run50": 0.00797057020232986,
+      "lift": 0.9279662013542784,
+      "day50": 0.12186865267433988,
+      "medianRun": 0.0321688,
+      "medianRet": -0.00280114,
+      "meanRet": -0.004551133300077111,
+      "medianFade": -0.0350956,
+      "meanD2": -0.009748285094826269,
+      "medianD2": -0.010179,
+      "inSession": 11432,
+      "medianPre60": 0.00224618,
+      "shareZ2": 0.19016794961511546,
+      "shareUp5": 0.5289538138558433,
+      "driftShare": 0.10806809190254003,
+      "driftThenNews": 0.2225332400279916,
+      "newsThenMove": 0.08056333100069979
+    },
+    {
+      "name": "424B5 shelf takedown",
+      "kind": "filing",
+      "N": 1712,
+      "Days": 1638,
+      "run50": 0.007457121551081283,
+      "lift": 0.8681884210456193,
+      "day50": 0.017523364485981307,
+      "medianRun": 0.0316857,
+      "medianRet": -0.013267,
+      "meanRet": -0.024460668383002475,
+      "medianFade": -0.0487288,
+      "meanD2": -0.0369631883992932,
+      "medianD2": -0.0238908,
+      "inSession": 420,
+      "medianPre60": -0.00235294,
+      "shareZ2": 0.04523809523809524,
+      "shareUp5": 0.13095238095238096,
+      "driftShare": 0,
+      "driftThenNews": 0.07857142857142857,
+      "newsThenMove": 0.12142857142857143
+    },
+    {
+      "name": "S-3/F-3 shelf",
+      "kind": "filing",
+      "N": 787,
+      "Days": 763,
+      "run50": 0.007058823529411765,
+      "lift": 0.8218169453803592,
+      "day50": 0.0063532401524777635,
+      "medianRun": 0.0280421,
+      "medianRet": -0.0131868,
+      "meanRet": -0.014384600168277762,
+      "medianFade": -0.0430769,
+      "meanD2": -0.010692287195679794,
+      "medianD2": -0.0150376,
+      "inSession": 56,
+      "medianPre60": -0.0005493,
+      "shareZ2": 0.07142857142857142,
+      "shareUp5": 0.19642857142857142,
+      "driftShare": 0,
+      "driftThenNews": 0.08928571428571429,
+      "newsThenMove": 0.017857142857142856
+    },
+    {
+      "name": "analyst initiation",
+      "kind": "news",
+      "N": 2758,
+      "Days": 2478,
+      "run50": 0.006907137375287797,
+      "lift": 0.8041570263698833,
+      "day50": 0.02284263959390863,
+      "medianRun": 0.0368246,
+      "medianRet": 0.0022738,
+      "meanRet": 0.007998494606508977,
+      "medianFade": -0.0311954,
+      "meanD2": 0.015247642206031984,
+      "medianD2": 0.00202634,
+      "inSession": 1570,
+      "medianPre60": 0.00213447,
+      "shareZ2": 0.11337579617834395,
+      "shareUp5": 0.22802547770700637,
+      "driftShare": 0.13260492509216623,
+      "driftThenNews": 0.13184713375796178,
+      "newsThenMove": 0.07452229299363057
+    },
+    {
+      "name": "executive appointment",
+      "kind": "news",
+      "N": 539,
+      "Days": 520,
+      "run50": 0.006507592190889371,
+      "lift": 0.7576403509471857,
+      "day50": 0.02040816326530612,
+      "medianRun": 0.0257986,
+      "medianRet": -0.00480772,
+      "meanRet": -0.013196158309504474,
+      "medianFade": -0.0372651,
+      "meanD2": -0.024490768232029815,
+      "medianD2": -0.0176991,
+      "inSession": 267,
+      "medianPre60": 0,
+      "shareZ2": 0.10861423220973783,
+      "shareUp5": 0.1797752808988764,
+      "driftShare": 0.137044704165587,
+      "driftThenNews": 0.13108614232209737,
+      "newsThenMove": 0.0449438202247191
+    },
+    {
+      "name": "short interest report",
+      "kind": "coverage",
+      "N": 1420,
+      "Days": 1388,
+      "run50": 0.0064516129032258064,
+      "lift": 0.7511230145949519,
+      "day50": 0.04084507042253521,
+      "medianRun": 0.0185018,
+      "medianRet": -0.000993142,
+      "meanRet": -0.0006151397784402256,
+      "medianFade": -0.0208173,
+      "meanD2": -0.0024786252634819545,
+      "medianD2": -0.00604433,
+      "inSession": 1262,
+      "medianPre60": -0.000395544,
+      "shareZ2": 0.06418383518225039,
+      "shareUp5": 0.19334389857369255,
+      "driftShare": 0.027347314772846854,
+      "driftThenNews": 0.09112519809825674,
+      "newsThenMove": 0.04754358161648178
+    },
+    {
+      "name": "guidance vs estimate",
+      "kind": "news",
+      "N": 5092,
+      "Days": 4403,
+      "run50": 0.00635386119257087,
+      "lift": 0.7397423628586648,
+      "day50": 0.01983503534956795,
+      "medianRun": 0.0606223,
+      "medianRet": -2.53637E-09,
+      "meanRet": 0.0011908822974244795,
+      "medianFade": -0.0555042,
+      "meanD2": 0.007239649758422541,
+      "medianD2": 0.00268276,
+      "inSession": 1702,
+      "medianPre60": 0,
+      "shareZ2": 0.2256169212690952,
+      "shareUp5": 0.2156286721504113,
+      "driftShare": 0.003549519942493628,
+      "driftThenNews": 0.2356051703877791,
+      "newsThenMove": 0.1128084606345476
+    },
+    {
+      "name": "why-shares-are-moving explainer",
+      "kind": "coverage",
+      "N": 3039,
+      "Days": 2869,
+      "run50": 0.00632279534109817,
+      "lift": 0.736125550077249,
+      "day50": 0.13951957880881868,
+      "medianRun": 0.0256411,
+      "medianRet": -0.00359566,
+      "meanRet": -0.014439140449588826,
+      "medianFade": -0.0315638,
+      "meanD2": -0.015117886951532105,
+      "medianD2": -0.0124324,
+      "inSession": 2773,
+      "medianPre60": 0.00462505,
+      "shareZ2": 0.19545618463757664,
+      "shareUp5": 0.6379372520735666,
+      "driftShare": 0.2751201604231957,
+      "driftThenNews": 0.2297151099891814,
+      "newsThenMove": 0.06815723043635052
+    },
+    {
+      "name": "8-K 5.07 shareholder vote",
+      "kind": "filing",
+      "N": 2327,
+      "Days": 2326,
+      "run50": 0.006233303650934996,
+      "lift": 0.7257065635222821,
+      "day50": 0.006875805758487323,
+      "medianRun": 0.023647,
+      "medianRet": -0.000747393,
+      "meanRet": -0.0004233432952395755,
+      "medianFade": -0.0253096,
+      "meanD2": 0.0009588485534400661,
+      "medianD2": -0.000334448,
+      "inSession": 299,
+      "medianPre60": 0,
+      "shareZ2": 0.046822742474916385,
+      "shareUp5": 0.10702341137123746,
+      "driftShare": 0.01043939934121538,
+      "driftThenNews": 0.05351170568561873,
+      "newsThenMove": 0.046822742474916385
+    },
+    {
+      "name": "post-results move explainer",
+      "kind": "coverage",
+      "N": 2213,
+      "Days": 1942,
+      "run50": 0.006077606358111267,
+      "lift": 0.7075796514300272,
+      "day50": 0.04699502937189336,
+      "medianRun": 0.0327869,
+      "medianRet": -0.00604592,
+      "meanRet": -0.007483001925834057,
+      "medianFade": -0.0393939,
+      "meanD2": -0.0064270943168641724,
+      "medianD2": -0.00913885,
+      "inSession": 1688,
+      "medianPre60": 0,
+      "shareZ2": 0.1640995260663507,
+      "shareUp5": 0.3791469194312796,
+      "driftShare": 0.031204322855749658,
+      "driftThenNews": 0.1735781990521327,
+      "newsThenMove": 0.09419431279620853
+    },
+    {
+      "name": "sector news: cannabis",
+      "kind": "news",
+      "N": 512,
+      "Days": 470,
+      "run50": 0.006072874493927126,
+      "lift": 0.707028748555977,
+      "day50": 0.01953125,
+      "medianRun": 0.0243056,
+      "medianRet": -0.0024786,
+      "meanRet": -0.0019782990553113278,
+      "medianFade": -0.029661,
+      "meanD2": -0.007134690224070445,
+      "medianD2": -0.00679031,
+      "inSession": 412,
+      "medianPre60": 0.00211864,
+      "shareZ2": 0.07766990291262135,
+      "shareUp5": 0.16747572815533981,
+      "driftShare": 0.121253035445074,
+      "driftThenNews": 0.09466019417475728,
+      "newsThenMove": 0.05339805825242718
+    },
+    {
+      "name": "earnings scorecard, EPS only (mostly beats of a loss estimate)",
+      "kind": "news",
+      "N": 3176,
+      "Days": 3025,
+      "run50": 0.005253940455341506,
+      "lift": 0.6116851169643654,
+      "day50": 0.018891687657430732,
+      "medianRun": 0.06875,
+      "medianRet": 0.00162339,
+      "meanRet": 0.005452707166138725,
+      "medianFade": -0.0619388,
+      "meanD2": 0.01539407856854791,
+      "medianD2": 0.00324886,
+      "inSession": 677,
+      "medianPre60": 0,
+      "shareZ2": 0.17725258493353027,
+      "shareUp5": 0.21270310192023634,
+      "driftShare": 0.0590793048603336,
+      "driftThenNews": 0.19497784342688332,
+      "newsThenMove": 0.16838995568685378
+    },
+    {
+      "name": "sector news: clean energy and hydrogen",
+      "kind": "news",
+      "N": 602,
+      "Days": 555,
+      "run50": 0.005190311418685121,
+      "lift": 0.6042771657208523,
+      "day50": 0.019933554817275746,
+      "medianRun": 0.0298805,
+      "medianRet": 3.28853E-08,
+      "meanRet": 0.0010883692344015598,
+      "medianFade": -0.0274798,
+      "meanD2": 0.007698776388333325,
+      "medianD2": -0.00299401,
+      "inSession": 427,
+      "medianPre60": 0.00346621,
+      "shareZ2": 0.12177985948477751,
+      "shareUp5": 0.21779859484777517,
+      "driftShare": 0.2234695474008749,
+      "driftThenNews": 0.14754098360655737,
+      "newsThenMove": 0.053864168618266976
+    },
+    {
+      "name": "AI product / partnership",
+      "kind": "news",
+      "N": 612,
+      "Days": 588,
+      "run50": 0.005076142131979695,
+      "lift": 0.5909851130061804,
+      "day50": 0.05555555555555555,
+      "medianRun": 0.0259741,
+      "medianRet": -0.00158396,
+      "meanRet": -0.004955435805471288,
+      "medianFade": -0.0295358,
+      "meanD2": -0.006906538608760325,
+      "medianD2": -0.00401606,
+      "inSession": 450,
+      "medianPre60": 0.00575265,
+      "shareZ2": 0.17333333333333334,
+      "shareUp5": 0.29555555555555557,
+      "driftShare": 0.3296528155816889,
+      "driftThenNews": 0.21555555555555556,
+      "newsThenMove": 0.07111111111111111
+    },
+    {
+      "name": "8-K 2.02 results of operations",
+      "kind": "filing",
+      "N": 11352,
+      "Days": 11303,
+      "run50": 0.004378399893856973,
+      "lift": 0.5097511237432903,
+      "day50": 0.011099365750528542,
+      "medianRun": 0.0469798,
+      "medianRet": -0.00104881,
+      "meanRet": -0.0005401308186758301,
+      "medianFade": -0.0479452,
+      "meanD2": 0.003038044877804464,
+      "medianD2": -0.00192555,
+      "inSession": 2002,
+      "medianPre60": 0,
+      "shareZ2": 0.18331668331668333,
+      "shareUp5": 0.17932067932067933,
+      "driftShare": 0,
+      "driftThenNews": 0.1943056943056943,
+      "newsThenMove": 0.12937062937062938
+    },
+    {
+      "name": "crypto / bitcoin miners",
+      "kind": "news",
+      "N": 1907,
+      "Days": 1682,
+      "run50": 0.004357298474945534,
+      "lift": 0.5072944107286168,
+      "day50": 0.026219192448872573,
+      "medianRun": 0.028048,
+      "medianRet": -0.0020587,
+      "meanRet": -0.0011076843839829683,
+      "medianFade": -0.0296804,
+      "meanD2": 0.0063673846481052615,
+      "medianD2": -0.00256904,
+      "inSession": 1386,
+      "medianPre60": 0.00250941,
+      "shareZ2": 0.09379509379509379,
+      "shareUp5": 0.3477633477633478,
+      "driftShare": 0.17389184333652127,
+      "driftThenNews": 0.11255411255411256,
+      "newsThenMove": 0.06132756132756133
+    },
+    {
+      "name": "unusual options activity (sweeps, whale alerts)",
+      "kind": "coverage",
+      "N": 4621,
+      "Days": 4264,
+      "run50": 0.004007123775601068,
+      "lift": 0.4665256479786099,
+      "day50": 0.020774724085695737,
+      "medianRun": 0.0177533,
+      "medianRet": -1.25483E-08,
+      "meanRet": 0.00041898402410639517,
+      "medianFade": -0.0173653,
+      "meanD2": 0.0027362104745008702,
+      "medianD2": -0.00297217,
+      "inSession": 3843,
+      "medianPre60": 0.0025047,
+      "shareZ2": 0.10616705698672912,
+      "shareUp5": 0.25709081446786364,
+      "driftShare": 0.23205158573296233,
+      "driftThenNews": 0.12932604735883424,
+      "newsThenMove": 0.026021337496747333
+    },
+    {
+      "name": "analyst price target / rating change",
+      "kind": "news",
+      "N": 32842,
+      "Days": 24004,
+      "run50": 0.003940358730258803,
+      "lift": 0.458752589848917,
+      "day50": 0.025059375190305096,
+      "medianRun": 0.027219,
+      "medianRet": -8.23287E-06,
+      "meanRet": 0.00032058055169445563,
+      "medianFade": -0.0282556,
+      "meanD2": 0.004145107567533962,
+      "medianD2": -0.00070373,
+      "inSession": 23289,
+      "medianPre60": 0,
+      "shareZ2": 0.10657391901756194,
+      "shareUp5": 0.2159388552535532,
+      "driftShare": 0.05001007127140563,
+      "driftThenNews": 0.11967023058096096,
+      "newsThenMove": 0.07346816093434669
+    },
+    {
+      "name": "8-K/A amendment",
+      "kind": "filing",
+      "N": 852,
+      "Days": 839,
+      "run50": 0.003838771593090211,
+      "lift": 0.44692540215822474,
+      "day50": 0.012910798122065728,
+      "medianRun": 0.0273973,
+      "medianRet": -0.00307065,
+      "meanRet": -0.005877033567707425,
+      "medianFade": -0.0327605,
+      "meanD2": -0.007691960281861011,
+      "medianD2": -0.00791766,
+      "inSession": 131,
+      "medianPre60": -0.000221558,
+      "shareZ2": 0.04580152671755725,
+      "shareUp5": 0.16030534351145037,
+      "driftShare": 0,
+      "driftThenNews": 0.06870229007633588,
+      "newsThenMove": 0.030534351145038167
+    },
+    {
+      "name": "8-K 5.02 officer / director change",
+      "kind": "filing",
+      "N": 4545,
+      "Days": 4535,
+      "run50": 0.0034749034749034747,
+      "lift": 0.40456239589187565,
+      "day50": 0.006600660066006601,
+      "medianRun": 0.0251256,
+      "medianRet": -0.00428819,
+      "meanRet": -0.003979533009096698,
+      "medianFade": -0.029175,
+      "meanD2": -0.004545603100993584,
+      "medianD2": -0.00664452,
+      "inSession": 600,
+      "medianPre60": 0,
+      "shareZ2": 0.05333333333333334,
+      "shareUp5": 0.085,
+      "driftShare": 0.003565799253713074,
+      "driftThenNews": 0.06833333333333333,
+      "newsThenMove": 0.06166666666666667
+    },
+    {
+      "name": "stocks-to-watch / evergreen commentary",
+      "kind": "coverage",
+      "N": 2222,
+      "Days": 2133,
+      "run50": 0.0032771535580524347,
+      "lift": 0.3815395462713122,
+      "day50": 0.030153015301530153,
+      "medianRun": 0.0217688,
+      "medianRet": -0.000926809,
+      "meanRet": -0.0031090940455553895,
+      "medianFade": -0.0228013,
+      "meanD2": -0.0028311236348847737,
+      "medianD2": -0.00508906,
+      "inSession": 1558,
+      "medianPre60": 0.000708466,
+      "shareZ2": 0.09050064184852374,
+      "shareUp5": 0.17201540436456997,
+      "driftShare": 0.11377323457210377,
+      "driftThenNews": 0.10012836970474968,
+      "newsThenMove": 0.03465982028241335
+    },
+    {
+      "name": "earnings miss (EPS/sales vs estimate)",
+      "kind": "news",
+      "N": 2381,
+      "Days": 2260,
+      "run50": 0.0028360748723766306,
+      "lift": 0.33018737170226187,
+      "day50": 0.007979840403191937,
+      "medianRun": 0.0340136,
+      "medianRet": -0.0246085,
+      "meanRet": -0.028745978204695297,
+      "medianFade": -0.0591579,
+      "meanD2": -0.025270750370967758,
+      "medianD2": -0.0217166,
+      "inSession": 599,
+      "medianPre60": -0.0106303,
+      "shareZ2": 0.12186978297161936,
+      "shareUp5": 0.09515859766277128,
+      "driftShare": 0,
+      "driftThenNews": 0.12687813021702837,
+      "newsThenMove": 0.1335559265442404
+    },
+    {
+      "name": "earnings preview / insights recap",
+      "kind": "coverage",
+      "N": 19152,
+      "Days": 17108,
+      "run50": 0.002509095471082675,
+      "lift": 0.2921190998926548,
+      "day50": 0.011278195488721804,
+      "medianRun": 0.0232558,
+      "medianRet": -0.00149253,
+      "meanRet": -0.00161572866807515,
+      "medianFade": -0.0258953,
+      "meanD2": 0.004183194376159595,
+      "medianD2": -0.00116959,
+      "inSession": 9113,
+      "medianPre60": 0,
+      "shareZ2": 0.09535827938110392,
+      "shareUp5": 0.14934708657961154,
+      "driftShare": 0.042236796868674924,
+      "driftThenNews": 0.1033688137825085,
+      "newsThenMove": 0.04455173927356524
+    },
+    {
+      "name": "424B other prospectus",
+      "kind": "filing",
+      "N": 4147,
+      "Days": 3082,
+      "run50": 0.0023956194387405884,
+      "lift": 0.27890775867061013,
+      "day50": 0.016879672052085844,
+      "medianRun": 0.0330579,
+      "medianRet": -0.00624997,
+      "meanRet": -0.011949657880761976,
+      "medianFade": -0.0433263,
+      "meanD2": -0.01824098788703123,
+      "medianD2": -0.0131363,
+      "inSession": 890,
+      "medianPre60": 0,
+      "shareZ2": 0.05955056179775281,
+      "shareUp5": 0.13258426966292136,
+      "driftShare": 0,
+      "driftThenNews": 0.07528089887640449,
+      "newsThenMove": 0.09550561797752809
+    },
+    {
+      "name": "earnings beat (EPS/sales vs estimate)",
+      "kind": "news",
+      "N": 3185,
+      "Days": 3027,
+      "run50": 0.0018214936247723133,
+      "lift": 0.21206569628819225,
+      "day50": 0.010361067503924647,
+      "medianRun": 0.066482,
+      "medianRet": 0.0128205,
+      "meanRet": 0.017579704551200746,
+      "medianFade": -0.0445247,
+      "meanD2": 0.024708249586984154,
+      "medianD2": 0.0184775,
+      "inSession": 643,
+      "medianPre60": 0.00616335,
+      "shareZ2": 0.28771384136858474,
+      "shareUp5": 0.2301710730948678,
+      "driftShare": 0.12071291844817685,
+      "driftThenNews": 0.28771384136858474,
+      "newsThenMove": 0.12752721617418353
+    },
+    {
+      "name": "sector news: EV and autos",
+      "kind": "news",
+      "N": 3419,
+      "Days": 2604,
+      "run50": 0.0015006002400960385,
+      "lift": 0.17470598328664097,
+      "day50": 0.012576776835331968,
+      "medianRun": 0.0183486,
+      "medianRet": -0.000656983,
+      "meanRet": -0.0008868659645688599,
+      "medianFade": -0.0195651,
+      "meanD2": 0.004319448921043384,
+      "medianD2": 0,
+      "inSession": 2247,
+      "medianPre60": 0,
+      "shareZ2": 0.06987093902981753,
+      "shareUp5": 0.17578994214508234,
+      "driftShare": 0.13002083292261135,
+      "driftThenNews": 0.0796617712505563,
+      "newsThenMove": 0.0262572318647085
+    },
+    {
+      "name": "analyst ratings roundup",
+      "kind": "coverage",
+      "N": 5874,
+      "Days": 5388,
+      "run50": 0.0008844861135680169,
+      "lift": 0.10297547077854019,
+      "day50": 0.00902281239359891,
+      "medianRun": 0.0178902,
+      "medianRet": -3.21176E-08,
+      "meanRet": 0.0009272456796010793,
+      "medianFade": -0.0181747,
+      "meanD2": 0.009656098152395558,
+      "medianD2": 0.00157978,
+      "inSession": 4645,
+      "medianPre60": 0,
+      "shareZ2": 0.07039827771797631,
+      "shareUp5": 0.18471474703982776,
+      "driftShare": 0.048619196786033506,
+      "driftThenNews": 0.07922497308934338,
+      "newsThenMove": 0.04219590958019376
+    },
+    {
+      "name": "8-K 2.01 completed acquisition/disposition",
+      "kind": "filing",
+      "N": 187,
+      "Days": 187,
+      "run50": 0,
+      "lift": 0,
+      "day50": 0,
+      "medianRun": 0.0304533,
+      "medianRet": -0.00728152,
+      "meanRet": -0.005017010350219248,
+      "medianFade": -0.0306702,
+      "meanD2": 0.00036549197849462394,
+      "medianD2": -0.000511509,
+      "inSession": 35,
+      "medianPre60": 0.00250522,
+      "shareZ2": 0.14285714285714285,
+      "shareUp5": 0.14285714285714285,
+      "driftShare": 0.15738236658542845,
+      "driftThenNews": 0.17142857142857143,
+      "newsThenMove": 0
+    },
+    {
+      "name": "424B4 priced offering",
+      "kind": "filing",
+      "N": 181,
+      "Days": 174,
+      "run50": 0,
+      "lift": 0,
+      "day50": 0.022099447513812154,
+      "medianRun": 0.05,
+      "medianRet": -0.013089,
+      "meanRet": -0.014689928346191164,
+      "medianFade": -0.0645162,
+      "meanD2": -0.027150511123595497,
+      "medianD2": -0.0416667,
+      "inSession": 57,
+      "medianPre60": 0,
+      "shareZ2": 0,
+      "shareUp5": 0.17543859649122806,
+      "driftShare": 0,
+      "driftThenNews": 0.017543859649122806,
+      "newsThenMove": 0.08771929824561403
+    },
+    {
+      "name": "Form 15 deregistration",
+      "kind": "filing",
+      "N": 9,
+      "Days": 9,
+      "run50": 0,
+      "lift": 0,
+      "day50": 0,
+      "medianRun": 0.0103685,
+      "medianRet": -0.00194177,
+      "meanRet": -0.008268546666666664,
+      "medianFade": -0.0054695,
+      "meanD2": -0.0019351244444444438,
+      "medianD2": -0.000970874,
+      "inSession": 1,
+      "medianPre60": -0.00137206,
+      "shareZ2": 0,
+      "shareUp5": 0,
+      "driftShare": 0,
+      "driftThenNews": 0,
+      "newsThenMove": 0
+    }
+  ],
+  "linear": [
+    {
+      "target": "run50_240",
+      "set": "controls",
+      "folds": [
+        0.850149110473015,
+        0.8532663071005562,
+        0.7836600847073781,
+        0.8558360378204566
+      ],
+      "mean": 0.8357278850253514
+    },
+    {
+      "target": "run50_240",
+      "set": "text",
+      "folds": [
+        0.7541192666018461,
+        0.7822105704398995,
+        0.7326322150400066,
+        0.7678577305123718
+      ],
+      "mean": 0.759204945648531
+    },
+    {
+      "target": "run50_240",
+      "set": "text\u002Bcontrols",
+      "folds": [
+        0.8659845961170327,
+        0.8758594746524451,
+        0.8163341358455666,
+        0.8797233358468045
+      ],
+      "mean": 0.8594753856154622
+    },
+    {
+      "target": "ret_close",
+      "set": "controls",
+      "folds": [
+        0.030078148105741276,
+        0.029739712101326865,
+        0.03969627536479914,
+        0.041398713719552616
+      ],
+      "mean": 0.035228212322854974
+    },
+    {
+      "target": "ret_close",
+      "set": "text",
+      "folds": [
+        0.001640825718310257,
+        0.0005654246379283023,
+        0.00375116256287511,
+        0.007510184406392284
+      ],
+      "mean": 0.0033668993313764883
+    },
+    {
+      "target": "ret_close",
+      "set": "text\u002Bcontrols",
+      "folds": [
+        0.02962070659534044,
+        0.028548831897873717,
+        0.04255996666985706,
+        0.046859511812770926
+      ],
+      "mean": 0.03689725424396054
+    },
+    {
+      "target": "fade",
+      "set": "controls",
+      "folds": [
+        0.2753988118191286,
+        0.2966992672467602,
+        0.297362938228232,
+        0.33035093963493634
+      ],
+      "mean": 0.2999529892322643
+    },
+    {
+      "target": "fade",
+      "set": "text",
+      "folds": [
+        0.13007565453740466,
+        0.1638476747317016,
+        0.13704533319514223,
+        0.15007805879086522
+      ],
+      "mean": 0.14526168031377842
+    },
+    {
+      "target": "fade",
+      "set": "text\u002Bcontrols",
+      "folds": [
+        0.2963174577515759,
+        0.32691019855394543,
+        0.32160543076607573,
+        0.3577298616018981
+      ],
+      "mean": 0.32564073716837383
+    }
+  ],
+  "boosted": [
+    {
+      "target": "run50_240",
+      "set": "controls",
+      "folds": [
+        0.9006521491009921,
+        0.9081347330187924,
+        0.8864802615467398,
+        0.8965434925137219
+      ],
+      "mean": 0.8979526590450615
+    },
+    {
+      "target": "run50_240",
+      "set": "controls\u002Bclusters",
+      "folds": [
+        0.9002424331758304,
+        0.9099247550319495,
+        0.8872847372535176,
+        0.8970157420856026
+      ],
+      "mean": 0.8986169168867251
+    },
+    {
+      "target": "up_close",
+      "set": "controls",
+      "folds": [
+        0.5762730117773016,
+        0.5710000246840929,
+        0.5859633103669557,
+        0.5852929837684541
+      ],
+      "mean": 0.5796323326492011
+    },
+    {
+      "target": "up_close",
+      "set": "controls\u002Bclusters",
+      "folds": [
+        0.5747054015026937,
+        0.5790970251477692,
+        0.5891016110405113,
+        0.5916957375961992
+      ],
+      "mean": 0.5836499438217934
+    },
+    {
+      "target": "giveback20",
+      "set": "controls",
+      "folds": [
+        0.9027329099566085,
+        0.9154736790617183,
+        0.8949558431907315,
+        0.9101924454310161
+      ],
+      "mean": 0.9058387194100186
+    },
+    {
+      "target": "giveback20",
+      "set": "controls\u002Bclusters",
+      "folds": [
+        0.9040522305484261,
+        0.9165914033524462,
+        0.8954907616597934,
+        0.9118267322233732
+      ],
+      "mean": 0.9069902819460096
+    }
+  ],
+  "drift": {
+    "pooledDriftThenNews": 0.14457449547462026,
+    "flagged": [
+      "commercial / distribution / purchase agreement",
+      "licensing / collaboration deal (watch)",
+      "contract award (watch)",
+      "insider purchase (Form 4) / 13D proposal (watch)"
+    ]
+  },
+  "trades": [
+    {
+      "cluster": "sector news: clean energy and hydrogen",
+      "entry": "first bar after publication",
+      "exit": "close",
+      "Trades": 420,
+      "Days": 290,
+      "gross": -0.0036441439496965834,
+      "meanRthCost": 0.003754646371054973,
+      "net": [
+        {
+          "Mean": -0.007398790320751557,
+          "Lo": -0.014703387968721622,
+          "Hi": -9.419267278149273E-05
+        },
+        {
+          "Mean": -0.030645060551476144,
+          "Lo": -0.03939531951884103,
+          "Hi": -0.021894801584111258
+        },
+        {
+          "Mean": -0.006295928007048566,
+          "Lo": -0.01358691767725925,
+          "Hi": 0.0009950616631621192
+        }
+      ],
+      "folds": [
+        8.359935347233777E-05,
+        -0.0012973524277092507,
+        -0.02233236122711171,
+        -0.0014699603485165756
+      ],
+      "lomoLo": -0.015911693222053953,
+      "worst1": -0.21593935787677765,
+      "sharpe": -0.1001436050630255,
+      "dsr": 8.768807131582831E-09,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "sector news: clean energy and hydrogen",
+      "entry": "first bar after publication",
+      "exit": "D\u002B1 open",
+      "Trades": 419,
+      "Days": 289,
+      "gross": 0.0002366153238261194,
+      "meanRthCost": 0.0037618209710005707,
+      "net": [
+        {
+          "Mean": -0.003525205647174451,
+          "Lo": -0.011755795213427773,
+          "Hi": 0.004705383919078871
+        },
+        {
+          "Mean": -0.02677129558926595,
+          "Lo": -0.03615643483037878,
+          "Hi": -0.01738615634815312
+        },
+        {
+          "Mean": -0.0024203260138581967,
+          "Lo": -0.010640855946451647,
+          "Hi": 0.005800203918735255
+        }
+      ],
+      "folds": [
+        0.003916500566486755,
+        -0.00028339373276162986,
+        -0.017933918851345116,
+        0.0019311037516956209
+      ],
+      "lomoLo": -0.014162036307445433,
+      "worst1": -0.24100276827812195,
+      "sharpe": -0.04175240447725905,
+      "dsr": 1.4334103741046916E-06,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "sector news: clean energy and hydrogen",
+      "entry": "first bar after publication",
+      "exit": "D\u002B2 close",
+      "Trades": 419,
+      "Days": 289,
+      "gross": 0.0048367522159860265,
+      "meanRthCost": 0.0037618209710005707,
+      "net": [
+        {
+          "Mean": 0.001074931244985456,
+          "Lo": -0.012724351093705856,
+          "Hi": 0.014874213583676769
+        },
+        {
+          "Mean": -0.022171158697106043,
+          "Lo": -0.03673073618532659,
+          "Hi": -0.007611581208885495
+        },
+        {
+          "Mean": 0.0021798108783017108,
+          "Lo": -0.011616295340877554,
+          "Hi": 0.015975917097480974
+        }
+      ],
+      "folds": [
+        0.02317579300648978,
+        -0.0028875872779351016,
+        -0.014267136600063813,
+        0.0030143197578882132
+      ],
+      "lomoLo": -0.015674126161287934,
+      "worst1": -0.3138042092323303,
+      "sharpe": 0.007680152407498839,
+      "dsr": 7.94372987222944E-05,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "sector news: clean energy and hydrogen",
+      "entry": "next 09:30 open",
+      "exit": "close",
+      "Trades": 579,
+      "Days": 374,
+      "gross": 0.0017415052260854685,
+      "meanRthCost": 0.0034719345862844505,
+      "net": [
+        {
+          "Mean": -0.001730429360198982,
+          "Lo": -0.007799874050012317,
+          "Hi": 0.004339015329614353
+        },
+        {
+          "Mean": -0.023556045273733377,
+          "Lo": -0.030265660448875416,
+          "Hi": -0.01684643009859134
+        },
+        {
+          "Mean": -0.0007527456795152346,
+          "Lo": -0.006815138221277389,
+          "Hi": 0.005309646862246919
+        }
+      ],
+      "folds": [
+        0.001077559751138324,
+        0.002657523930583221,
+        -0.004105128207586684,
+        0.003285577710830816
+      ],
+      "lomoLo": -0.009140014053058556,
+      "worst1": -0.19249744713306427,
+      "sharpe": -0.02507385073933244,
+      "dsr": 9.289960851911768E-08,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "sector news: clean energy and hydrogen",
+      "entry": "next 09:30 open",
+      "exit": "D\u002B1 open",
+      "Trades": 578,
+      "Days": 373,
+      "gross": 0.004858286142958309,
+      "meanRthCost": 0.0034766410371013935,
+      "net": [
+        {
+          "Mean": 0.0013816451058569154,
+          "Lo": -0.005934211508454005,
+          "Hi": 0.008697501720167835
+        },
+        {
+          "Mean": -0.02046095406367511,
+          "Lo": -0.02822539747875181,
+          "Hi": -0.012696510648598414
+        },
+        {
+          "Mean": 0.0023605745981320914,
+          "Lo": -0.004949815854068916,
+          "Hi": 0.009670965050333099
+        }
+      ],
+      "folds": [
+        0.005912985184295394,
+        0.006442324977027825,
+        -0.002221842092040696,
+        0.00963014702476259
+      ],
+      "lomoLo": -0.007284547056432694,
+      "worst1": -0.24126550555229187,
+      "sharpe": 0.016908012802207616,
+      "dsr": 1.4612692737801499E-05,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "sector news: clean energy and hydrogen",
+      "entry": "next 09:30 open",
+      "exit": "D\u002B2 close",
+      "Trades": 578,
+      "Days": 373,
+      "gross": 0.006806404158738072,
+      "meanRthCost": 0.0034766410371013935,
+      "net": [
+        {
+          "Mean": 0.003329763121636678,
+          "Lo": -0.008037377407598313,
+          "Hi": 0.014696903650871668
+        },
+        {
+          "Mean": -0.01851283604789535,
+          "Lo": -0.030257777708698586,
+          "Hi": -0.00676789438709211
+        },
+        {
+          "Mean": 0.004308692613911854,
+          "Lo": -0.007061106278835951,
+          "Hi": 0.015678491506659658
+        }
+      ],
+      "folds": [
+        0.019153153614752227,
+        -0.001491363400418777,
+        -0.0051341067533286055,
+        0.015992013814251846
+      ],
+      "lomoLo": -0.011159526749838281,
+      "worst1": -0.3060295283794403,
+      "sharpe": 0.025028251337964755,
+      "dsr": 1.996311293796906E-05,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst price target / rating change",
+      "entry": "first bar after publication",
+      "exit": "close",
+      "Trades": 18644,
+      "Days": 755,
+      "gross": 0.0006186871697213223,
+      "meanRthCost": 0.003302397306237881,
+      "net": [
+        {
+          "Mean": -0.0026837101365165586,
+          "Lo": -0.004562565599102945,
+          "Hi": -0.0008048546739301715
+        },
+        {
+          "Mean": -0.01903098682525273,
+          "Lo": -0.020972865962898102,
+          "Hi": -0.01708910768760736
+        },
+        {
+          "Mean": -0.0017839424261612198,
+          "Lo": -0.0036639311774461997,
+          "Hi": 9.60463251237604E-05
+        }
+      ],
+      "folds": [
+        -0.002721125310937454,
+        -0.002612595480900327,
+        -0.0015686147367911896,
+        -0.002767903949732001
+      ],
+      "lomoLo": -0.004904001462049742,
+      "worst1": -0.2375357747077942,
+      "sharpe": -0.03064736296678721,
+      "dsr": 8.831718795695703E-169,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst price target / rating change",
+      "entry": "first bar after publication",
+      "exit": "D\u002B1 open",
+      "Trades": 18592,
+      "Days": 754,
+      "gross": 0.0018453938151058535,
+      "meanRthCost": 0.0032713048177636745,
+      "net": [
+        {
+          "Mean": -0.001425911002657821,
+          "Lo": -0.003915185043091651,
+          "Hi": 0.0010633630377760086
+        },
+        {
+          "Mean": -0.017788030624930288,
+          "Lo": -0.02030586350492847,
+          "Hi": -0.015270197744932107
+        },
+        {
+          "Mean": -0.0005270781654610893,
+          "Lo": -0.0030180028359251465,
+          "Hi": 0.0019638465050029683
+        }
+      ],
+      "folds": [
+        -0.0012868075914882699,
+        -0.0007105302166418668,
+        0.000327329912350379,
+        0.0018952257664547987
+      ],
+      "lomoLo": -0.004331297964272186,
+      "worst1": -0.2670128047466278,
+      "sharpe": -0.013475050960005869,
+      "dsr": 1.2863850502680017E-152,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst price target / rating change",
+      "entry": "first bar after publication",
+      "exit": "D\u002B2 close",
+      "Trades": 18544,
+      "Days": 753,
+      "gross": 0.003383995086110084,
+      "meanRthCost": 0.0032579364725154676,
+      "net": [
+        {
+          "Mean": 0.0001260586135946162,
+          "Lo": -0.003562566296813292,
+          "Hi": 0.0038146835240025242
+        },
+        {
+          "Mean": -0.016256081093415347,
+          "Lo": -0.019951491816845503,
+          "Hi": -0.012560670369985191
+        },
+        {
+          "Mean": 0.001024644714827306,
+          "Lo": -0.002662707779083861,
+          "Hi": 0.0047119972087384734
+        }
+      ],
+      "folds": [
+        -0.0002851099310655012,
+        -0.0002547359852048677,
+        0.00571781675472459,
+        0.003964718426060677
+      ],
+      "lomoLo": -0.004450475172546918,
+      "worst1": -0.34827178716659546,
+      "sharpe": 0.0009388684110848508,
+      "dsr": 5.422952025781145E-148,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst price target / rating change",
+      "entry": "next 09:30 open",
+      "exit": "close",
+      "Trades": 26156,
+      "Days": 755,
+      "gross": 0.0009440072430807872,
+      "meanRthCost": 0.0030680562854512126,
+      "net": [
+        {
+          "Mean": -0.002124049042370425,
+          "Lo": -0.00404721759299382,
+          "Hi": -0.0002008804917470301
+        },
+        {
+          "Mean": -0.02434090087671183,
+          "Lo": -0.026310808581633607,
+          "Hi": -0.022370993171790053
+        },
+        {
+          "Mean": -0.0013270535318548817,
+          "Lo": -0.003250396505352981,
+          "Hi": 0.0005962894416432175
+        }
+      ],
+      "folds": [
+        -0.002738606686535288,
+        -0.0024637352837709762,
+        -0.0005379312345626609,
+        -0.003463890921882564
+      ],
+      "lomoLo": -0.004365945530589915,
+      "worst1": -0.2032189667224884,
+      "sharpe": -0.027328714159092157,
+      "dsr": 3.699726165277412E-247,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst price target / rating change",
+      "entry": "next 09:30 open",
+      "exit": "D\u002B1 open",
+      "Trades": 26087,
+      "Days": 754,
+      "gross": 0.0026072694598865565,
+      "meanRthCost": 0.003048477201482404,
+      "net": [
+        {
+          "Mean": -0.0004412077415958475,
+          "Lo": -0.0028557131959708426,
+          "Hi": 0.0019732977127791475
+        },
+        {
+          "Mean": -0.02268524031859755,
+          "Lo": -0.02511772642918205,
+          "Hi": -0.02025275420801305
+        },
+        {
+          "Mean": 0.00035543086183613095,
+          "Lo": -0.0020595015746625706,
+          "Hi": 0.0027703632983348326
+        }
+      ],
+      "folds": [
+        -0.0009255825038032482,
+        -0.0006937750794423042,
+        0.001527648092639481,
+        0.000755563866867609
+      ],
+      "lomoLo": -0.0033725608453572978,
+      "worst1": -0.2289876937866211,
+      "sharpe": -0.004571747958745741,
+      "dsr": 2.416822104172502E-210,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst price target / rating change",
+      "entry": "next 09:30 open",
+      "exit": "D\u002B2 close",
+      "Trades": 26041,
+      "Days": 753,
+      "gross": 0.0037732147911360707,
+      "meanRthCost": 0.0030403005483995403,
+      "net": [
+        {
+          "Mean": 0.0007329142427365307,
+          "Lo": -0.0028535102113137183,
+          "Hi": 0.00431933869678678
+        },
+        {
+          "Mean": -0.021522452439383496,
+          "Lo": -0.025143160780546528,
+          "Hi": -0.017901744098220464
+        },
+        {
+          "Mean": 0.0015289815142065643,
+          "Lo": -0.002056587872861668,
+          "Hi": 0.005114550901274796
+        }
+      ],
+      "folds": [
+        -0.0008013171956008987,
+        -0.000425628184164757,
+        0.0061703899110900065,
+        0.003984850639763179
+      ],
+      "lomoLo": -0.003785345525954172,
+      "worst1": -0.3130241334438324,
+      "sharpe": 0.005899323857497495,
+      "dsr": 3.683186311112797E-198,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "contract award",
+      "entry": "first bar after publication",
+      "exit": "close",
+      "Trades": 328,
+      "Days": 253,
+      "gross": -0.006724472821155714,
+      "meanRthCost": 0.005613884362679617,
+      "net": [
+        {
+          "Mean": -0.01233835718383533,
+          "Lo": -0.022536443646751912,
+          "Hi": -0.0021402707209187497
+        },
+        {
+          "Mean": -0.03178406047979989,
+          "Lo": -0.04267894863292872,
+          "Hi": -0.020889172326671066
+        },
+        {
+          "Mean": -0.011347570111721746,
+          "Lo": -0.021544357865017922,
+          "Hi": -0.00115078235842557
+        }
+      ],
+      "folds": [
+        -0.011426089347124373,
+        -0.04410275226967185,
+        0.010326257430745337,
+        -0.013578815475827264
+      ],
+      "lomoLo": -0.025242638373163793,
+      "worst1": -0.28995025157928467,
+      "sharpe": -0.13720645694705946,
+      "dsr": 3.082536033035493E-08,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "contract award",
+      "entry": "first bar after publication",
+      "exit": "D\u002B1 open",
+      "Trades": 328,
+      "Days": 253,
+      "gross": -0.006900115123133263,
+      "meanRthCost": 0.005613884362679617,
+      "net": [
+        {
+          "Mean": -0.012513999485812879,
+          "Lo": -0.023174464410060484,
+          "Hi": -0.0018535345615652721
+        },
+        {
+          "Mean": -0.03195970278177744,
+          "Lo": -0.043367183758484196,
+          "Hi": -0.02055222180507069
+        },
+        {
+          "Mean": -0.011523212413699295,
+          "Lo": -0.02216940362693807,
+          "Hi": -0.0008770212004605184
+        }
+      ],
+      "folds": [
+        -0.007666371866390563,
+        -0.04706897447379431,
+        0.013593704466564724,
+        -0.016194247564623853
+      ],
+      "lomoLo": -0.026369176257165707,
+      "worst1": -0.32005172967910767,
+      "sharpe": -0.12935687879222185,
+      "dsr": 1.9642856296379187E-08,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "contract award",
+      "entry": "first bar after publication",
+      "exit": "D\u002B2 close",
+      "Trades": 328,
+      "Days": 253,
+      "gross": 0.0005183717967156554,
+      "meanRthCost": 0.005613884362679617,
+      "net": [
+        {
+          "Mean": -0.005095512565963961,
+          "Lo": -0.019793454185952054,
+          "Hi": 0.009602429054024132
+        },
+        {
+          "Mean": -0.02454121586192852,
+          "Lo": -0.03983778278869152,
+          "Hi": -0.00924464893516552
+        },
+        {
+          "Mean": -0.004104725493850376,
+          "Lo": -0.018786317148562433,
+          "Hi": 0.010576866160861682
+        }
+      ],
+      "folds": [
+        -0.012938164215728005,
+        -0.043301993133614554,
+        0.0301241713653629,
+        -0.003934142343144143
+      ],
+      "lomoLo": -0.022803163125108848,
+      "worst1": -0.34697699546813965,
+      "sharpe": -0.04003422703081246,
+      "dsr": 1.934790449576432E-05,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "contract award",
+      "entry": "next 09:30 open",
+      "exit": "close",
+      "Trades": 442,
+      "Days": 325,
+      "gross": 0.0038549749873569594,
+      "meanRthCost": 0.004798876095828663,
+      "net": [
+        {
+          "Mean": -0.0009439011084717041,
+          "Lo": -0.009484986581399082,
+          "Hi": 0.007597184364455674
+        },
+        {
+          "Mean": -0.024342405988037538,
+          "Lo": -0.03323755250435677,
+          "Hi": -0.015447259471718308
+        },
+        {
+          "Mean": -0.0001058487907514014,
+          "Lo": -0.008642718016565725,
+          "Hi": 0.00843102043506292
+        }
+      ],
+      "folds": [
+        0.00198710294565759,
+        -0.03628125410831636,
+        0.010362983580476052,
+        0.009230064362502443
+      ],
+      "lomoLo": -0.0109409527330054,
+      "worst1": -0.239104226231575,
+      "sharpe": -0.01159223866129823,
+      "dsr": 1.1799231929052229E-05,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "contract award",
+      "entry": "next 09:30 open",
+      "exit": "D\u002B1 open",
+      "Trades": 442,
+      "Days": 325,
+      "gross": 0.003213943415488658,
+      "meanRthCost": 0.004798876095828663,
+      "net": [
+        {
+          "Mean": -0.0015849326803400055,
+          "Lo": -0.009731650870229706,
+          "Hi": 0.006561785509549695
+        },
+        {
+          "Mean": -0.024983437559905838,
+          "Lo": -0.0336274376504348,
+          "Hi": -0.016339437469376876
+        },
+        {
+          "Mean": -0.0007468803626197028,
+          "Lo": -0.008876640661384015,
+          "Hi": 0.007382879936144609
+        }
+      ],
+      "folds": [
+        0.0017889877485756118,
+        -0.03704923811779122,
+        0.013238999614798188,
+        0.0009713309521500308
+      ],
+      "lomoLo": -0.011129950171864399,
+      "worst1": -0.2771432101726532,
+      "sharpe": -0.018503725735977087,
+      "dsr": 5.702921334217242E-06,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "contract award",
+      "entry": "next 09:30 open",
+      "exit": "D\u002B2 close",
+      "Trades": 440,
+      "Days": 324,
+      "gross": 0.008275692097826819,
+      "meanRthCost": 0.004736501785968854,
+      "net": [
+        {
+          "Mean": 0.003539190311857965,
+          "Lo": -0.010218037997918112,
+          "Hi": 0.01729641862163404
+        },
+        {
+          "Mean": -0.019968979313985488,
+          "Lo": -0.03409258211329053,
+          "Hi": -0.005845376514680442
+        },
+        {
+          "Mean": 0.004379475365699777,
+          "Lo": -0.009366949894322857,
+          "Hi": 0.01812590062572241
+        }
+      ],
+      "folds": [
+        -0.012178075240136912,
+        -0.03784875067702325,
+        0.022003817536406806,
+        0.0202270381360952
+      ],
+      "lomoLo": -0.01361672521953981,
+      "worst1": -0.3066275715827942,
+      "sharpe": 0.025353791555360692,
+      "dsr": 0.000142201481789919,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "product launch / operations update",
+      "entry": "first bar after publication",
+      "exit": "close",
+      "Trades": 402,
+      "Days": 301,
+      "gross": -0.0008690767850992108,
+      "meanRthCost": 0.004265370088935232,
+      "net": [
+        {
+          "Mean": -0.005134446874034443,
+          "Lo": -0.013504334940519369,
+          "Hi": 0.003235441192450483
+        },
+        {
+          "Mean": -0.027335838461425087,
+          "Lo": -0.03631118388819453,
+          "Hi": -0.01836049303465565
+        },
+        {
+          "Mean": -0.0040817113478977315,
+          "Lo": -0.012474935176447047,
+          "Hi": 0.0043115124806515845
+        }
+      ],
+      "folds": [
+        -0.01313834452698107,
+        -0.010850388777907938,
+        -0.004146822026150562,
+        0.01705607135550559
+      ],
+      "lomoLo": -0.014941051403445895,
+      "worst1": -0.21599827706813812,
+      "sharpe": -0.062153510354676055,
+      "dsr": 2.9319729675784873E-07,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "product launch / operations update",
+      "entry": "first bar after publication",
+      "exit": "D\u002B1 open",
+      "Trades": 402,
+      "Days": 301,
+      "gross": -0.0007896626668651206,
+      "meanRthCost": 0.004265370088935232,
+      "net": [
+        {
+          "Mean": -0.005055032755800353,
+          "Lo": -0.014635300537549929,
+          "Hi": 0.0045252350259492235
+        },
+        {
+          "Mean": -0.027256424343190994,
+          "Lo": -0.037350089976489524,
+          "Hi": -0.017162758709892464
+        },
+        {
+          "Mean": -0.0040022972296636415,
+          "Lo": -0.013590148366318399,
+          "Hi": 0.005585553906991117
+        }
+      ],
+      "folds": [
+        -0.011807231782378429,
+        -0.005038075073389337,
+        -0.01132970686905952,
+        0.019976869131723005
+      ],
+      "lomoLo": -0.01618121532956575,
+      "worst1": -0.23639391362667084,
+      "sharpe": -0.052938218998226406,
+      "dsr": 1.1121224176929632E-06,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "product launch / operations update",
+      "entry": "first bar after publication",
+      "exit": "D\u002B2 close",
+      "Trades": 401,
+      "Days": 300,
+      "gross": 0.00022108876814094937,
+      "meanRthCost": 0.004272828792498222,
+      "net": [
+        {
+          "Mean": -0.004051740024357272,
+          "Lo": -0.020102752032823974,
+          "Hi": 0.011999271984109432
+        },
+        {
+          "Mean": -0.02626646408535995,
+          "Lo": -0.042487875550856126,
+          "Hi": -0.010045052619863777
+        },
+        {
+          "Mean": -0.002998332318674513,
+          "Lo": -0.019059932336155598,
+          "Hi": 0.013063267698806572
+        }
+      ],
+      "folds": [
+        -0.021148513930841415,
+        -0.01931010185674365,
+        0.02113024225323706,
+        0.017660787114283254
+      ],
+      "lomoLo": -0.023270937290715315,
+      "worst1": -0.339143842458725,
+      "sharpe": -0.026190894361472053,
+      "dsr": 1.2302044926773141E-05,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "product launch / operations update",
+      "entry": "next 09:30 open",
+      "exit": "close",
+      "Trades": 540,
+      "Days": 365,
+      "gross": 0.0007271382315256806,
+      "meanRthCost": 0.0037676687308703547,
+      "net": [
+        {
+          "Mean": -0.003040530499344674,
+          "Lo": -0.00922718444105045,
+          "Hi": 0.003146123442361103
+        },
+        {
+          "Mean": -0.02805392181250715,
+          "Lo": -0.03561841937141574,
+          "Hi": -0.02048942425359857
+        },
+        {
+          "Mean": -0.002152768049024787,
+          "Lo": -0.008348576947157304,
+          "Hi": 0.00404304084910773
+        }
+      ],
+      "folds": [
+        -0.009262674065728395,
+        -0.01555812671386565,
+        -0.0031496367939632965,
+        0.02048977271382076
+      ],
+      "lomoLo": -0.010725739177341261,
+      "worst1": -0.20424120128154755,
+      "sharpe": -0.043870236977025086,
+      "dsr": 3.7934790197623223E-08,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "product launch / operations update",
+      "entry": "next 09:30 open",
+      "exit": "D\u002B1 open",
+      "Trades": 540,
+      "Days": 365,
+      "gross": 0.002311150185737966,
+      "meanRthCost": 0.0037676687308703547,
+      "net": [
+        {
+          "Mean": -0.001456518545132389,
+          "Lo": -0.008676679677797606,
+          "Hi": 0.005763642587532828
+        },
+        {
+          "Mean": -0.026469909858294866,
+          "Lo": -0.03486321323398952,
+          "Hi": -0.018076606482600212
+        },
+        {
+          "Mean": -0.0005687560948125017,
+          "Lo": -0.0077939677056361335,
+          "Hi": 0.00665645551601113
+        }
+      ],
+      "folds": [
+        -0.006128743519798877,
+        -0.009756169409828853,
+        -0.008860183957973253,
+        0.0289335730688463
+      ],
+      "lomoLo": -0.010236879333498145,
+      "worst1": -0.2727926969528198,
+      "sharpe": -0.01754944203284062,
+      "dsr": 7.895782699161102E-07,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "product launch / operations update",
+      "entry": "next 09:30 open",
+      "exit": "D\u002B2 close",
+      "Trades": 539,
+      "Days": 364,
+      "gross": 0.004931134075131129,
+      "meanRthCost": 0.003772286019762736,
+      "net": [
+        {
+          "Mean": 0.0011588480553683931,
+          "Lo": -0.011054978314396656,
+          "Hi": 0.013372674425133442
+        },
+        {
+          "Mean": -0.02387702403966327,
+          "Lo": -0.03673690965657433,
+          "Hi": -0.011017138422752211
+        },
+        {
+          "Mean": 0.00204680450034936,
+          "Lo": -0.01016985204476218,
+          "Hi": 0.0142634610454609
+        }
+      ],
+      "folds": [
+        -0.010083125622603236,
+        -0.021161738706363755,
+        0.0314093804657429,
+        0.021309949353406188
+      ],
+      "lomoLo": -0.014910309430637826,
+      "worst1": -0.3287201523780823,
+      "sharpe": 0.008725558261661123,
+      "dsr": 1.0106107663836337E-05,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst initiation",
+      "entry": "first bar after publication",
+      "exit": "close",
+      "Trades": 1475,
+      "Days": 607,
+      "gross": 0.007299759071196974,
+      "meanRthCost": 0.0031383860124456616,
+      "net": [
+        {
+          "Mean": 0.004161373058751312,
+          "Lo": -4.1645542966508436E-05,
+          "Hi": 0.008364391660469133
+        },
+        {
+          "Mean": -0.018432865004983565,
+          "Lo": -0.02307926465387083,
+          "Hi": -0.0137864653560963
+        },
+        {
+          "Mean": 0.005023230648430861,
+          "Lo": 0.0007895753124779236,
+          "Hi": 0.0092568859843838
+        }
+      ],
+      "folds": [
+        0.0055322527635311685,
+        -0.0016432739868498768,
+        0.0076652511035525655,
+        0.007000057969327486
+      ],
+      "lomoLo": -0.0011198987790269118,
+      "worst1": -0.18664593994617462,
+      "sharpe": 0.050930821194594036,
+      "dsr": 3.189642354860055E-09,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst initiation",
+      "entry": "first bar after publication",
+      "exit": "D\u002B1 open",
+      "Trades": 1474,
+      "Days": 607,
+      "gross": 0.007813157954781215,
+      "meanRthCost": 0.0031298658541987208,
+      "net": [
+        {
+          "Mean": 0.004683292100582494,
+          "Lo": 1.9601078778262726E-05,
+          "Hi": 0.009346983122386725
+        },
+        {
+          "Mean": -0.017929825974728412,
+          "Lo": -0.023221457058577633,
+          "Hi": -0.012638194890879192
+        },
+        {
+          "Mean": 0.005544978789120024,
+          "Lo": 0.0008530694450150263,
+          "Hi": 0.010236888133225023
+        }
+      ],
+      "folds": [
+        0.0023669001051463694,
+        0.0014944409871165533,
+        0.013700335511637195,
+        0.01402794653638233
+      ],
+      "lomoLo": -0.0008223003964938779,
+      "worst1": -0.20931819081306458,
+      "sharpe": 0.052651550555332924,
+      "dsr": 8.363392385953153E-09,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst initiation",
+      "entry": "first bar after publication",
+      "exit": "D\u002B2 close",
+      "Trades": 1473,
+      "Days": 606,
+      "gross": 0.01810691341318125,
+      "meanRthCost": 0.0031268758037911876,
+      "net": [
+        {
+          "Mean": 0.014980037609390059,
+          "Lo": 0.006453283456021501,
+          "Hi": 0.02350679176275862
+        },
+        {
+          "Mean": -0.007619091211248233,
+          "Lo": -0.016408901243600796,
+          "Hi": 0.001170718821104329
+        },
+        {
+          "Mean": 0.01584214462602111,
+          "Lo": 0.007290704551618229,
+          "Hi": 0.02439358470042399
+        }
+      ],
+      "folds": [
+        0.00853447926339906,
+        0.021330139233269825,
+        0.02217571895405631,
+        0.02367740902269064
+      ],
+      "lomoLo": 0.004559929124450409,
+      "worst1": -0.2678423523902893,
+      "sharpe": 0.10536986621038309,
+      "dsr": 8.567642035355014E-05,
+      "finalist": [
+        true,
+        false,
+        true
+      ]
+    },
+    {
+      "cluster": "analyst initiation",
+      "entry": "next 09:30 open",
+      "exit": "close",
+      "Trades": 2562,
+      "Days": 703,
+      "gross": 0.002497085959027241,
+      "meanRthCost": 0.002539043751596415,
+      "net": [
+        {
+          "Mean": -4.195779256917432E-05,
+          "Lo": -0.0031068201344904654,
+          "Hi": 0.0030229045493521166
+        },
+        {
+          "Mean": -0.024321806976403283,
+          "Lo": -0.027951691181824195,
+          "Hi": -0.02069192277098237
+        },
+        {
+          "Mean": 0.0006468770761706883,
+          "Lo": -0.0024233476808035734,
+          "Hi": 0.00371710183314495
+        }
+      ],
+      "folds": [
+        0.0005420706137313022,
+        -0.002646651162933247,
+        0.003641472116490177,
+        0.004834073384833381
+      ],
+      "lomoLo": -0.0036744387745965236,
+      "worst1": -0.15515869855880737,
+      "sharpe": -0.0006019655739947238,
+      "dsr": 1.8063386518138306E-22,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst initiation",
+      "entry": "next 09:30 open",
+      "exit": "D\u002B1 open",
+      "Trades": 2559,
+      "Days": 702,
+      "gross": 0.0028621262154836153,
+      "meanRthCost": 0.0025352910006912507,
+      "net": [
+        {
+          "Mean": 0.00032683521479236465,
+          "Lo": -0.0031878198435117224,
+          "Hi": 0.0038414902730964516
+        },
+        {
+          "Mean": -0.023973405359685656,
+          "Lo": -0.027996123513804597,
+          "Hi": -0.019950687205566715
+        },
+        {
+          "Mean": 0.0010158667758348023,
+          "Lo": -0.0025013285673684653,
+          "Hi": 0.004533062119038069
+        }
+      ],
+      "folds": [
+        -0.004546655736647179,
+        -0.00021605579650112554,
+        0.0072450282745493595,
+        0.011181930045922897
+      ],
+      "lomoLo": -0.003824020442124992,
+      "worst1": -0.1876499503850937,
+      "sharpe": 0.004071482999038579,
+      "dsr": 1.3564883401545105E-21,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "cluster": "analyst initiation",
+      "entry": "next 09:30 open",
+      "exit": "D\u002B2 close",
+      "Trades": 2557,
+      "Days": 701,
+      "gross": 0.008935391933199763,
+      "meanRthCost": 0.002533207145293462,
+      "net": [
+        {
+          "Mean": 0.006402184787906301,
+          "Lo": 0.00013538459191214137,
+          "Hi": 0.01266898498390046
+        },
+        {
+          "Mean": -0.017874947801663217,
+          "Lo": -0.024255378846549817,
+          "Hi": -0.011494516756776617
+        },
+        {
+          "Mean": 0.00709154328742948,
+          "Lo": 0.0008257062099498299,
+          "Hi": 0.01335738036490913
+        }
+      ],
+      "folds": [
+        0.0004968746643985661,
+        0.009716215181069755,
+        0.017922661566364143,
+        0.018015173337887432
+      ],
+      "lomoLo": -0.0009866275496998216,
+      "worst1": -0.26301851868629456,
+      "sharpe": 0.05264559391355136,
+      "dsr": 8.997276052925804E-14,
+      "finalist": [
+        false,
+        false,
+        false
+      ]
+    }
+  ],
+  "dsr": {
+    "nTrials": 5613,
+    "varianceOfTrialSharpes": 0.002635291501743422,
+    "dsrMin": 0.95
+  },
+  "holdsGains": [
+    "sector news: clean energy and hydrogen",
+    "analyst price target / rating change",
+    "contract award",
+    "product launch / operations update",
+    "analyst initiation"
+  ],
+  "classifier": [
+    {
+      "key": "pipe",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "acqTarget",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "acqAcquirer",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "merger",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "earnBeat",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "earnMiss",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "earnOther",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "guidance",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "contract",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "loi",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "fda",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "rsplit",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "uplist",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "buyback",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "upgrade",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "offering",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "theme",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "compliance",
+      "before": {},
+      "after": {}
+    },
+    {
+      "key": "coverage",
+      "before": {},
+      "after": {}
+    }
+  ]
+}
