@@ -1,0 +1,64 @@
+{
+  "id": "A04",
+  "version": 1,
+  "registeredUtc": "2026-11-09T16:45:00Z",
+  "ticket": "IP-T475",
+  "registeredBeforeResults": "When this file was committed no A04 hypothesis had been computed on the validation or holdout split. The rule below was chosen on train only, in the exploration round (runs/explore/alarms-20261109-1621.md, ledger trials 320..436, ledger total 599 at registration), after the IP-T474 forming-filter fix. The holdout is locked and has never been opened.",
+  "approvedBy": "user, 2026-11-09 (\"Amendment 04: register the detection alarm as a finalist\")",
+  "question": "Does a within-morning rank alarm recognize a forming gapper earlier and more often than the screen a trader already has (top gainers with fresh news first), at the same false-alarm rate, on data it never saw?",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json", "amendment-01.json", "amendment-02.json", "amendment-03.json"],
+  "population": "Amendment 01's population: candidate days (weight 1) and population-sample days (weight 1/rate). A morning is scorable when it has a reach20By0945 label and is still below +20% (bar highs) at 06:00 ET.",
+  "label": "reach20By0945, with the first +20% touch time taken from bar highs of bars ending by 09:45 ET, as the labeler defines it.",
+  "sweep": "Every scorable morning is swept minute by minute 06:00-09:10 ET using only bars ending at or before each minute (OnsetTrack). A rule's alarm is the first minute in that window at which the rule passes; at most one alarm per morning per rule.",
+  "rules": {
+    "R4": {
+      "name": "rank composite top5, gap [5%,15%), $50k, conf>=0.5",
+      "score": "composite(t) = mean of the finite values among three weighted cross-sectional percentile ranks over that morning's population rows at minute t: volRatioTod(t), pmRet(t) (gap of the last close over the prior close), and the one-sided volume CUSUM statistic with drift ln 2 against the frozen train time-of-day volume profile (z capped at ln 20, volume pseudocount ADV20 x 1e-5). A population-sample row weighs 1/rate (10).",
+      "pass": "the row is among the 5 highest composite scores among the morning's rows not yet alarmed with pmRet(t) < 15% (weighted count of higher-ranked eligible rows < 5), and pmRet(t) >= 5%, and cumulative premarket dollar volume to t >= $50,000, and conf(t) = pmVwapRet / pmRet >= 0.5.",
+      "fitted": "No parameter is fitted on the split under test; the time-of-day volume profile is the frozen train profile (data/tod-profile.json)."
+    },
+    "B4": {
+      "name": "B3 gainers+news top10, gap [2%,15%), $50k",
+      "score": "gainers+news(t) = 1e6 if a news item or 8-K with pubToT <= 60 minutes exists at t, else 0, plus pmRet(t).",
+      "pass": "among the 10 highest gainers+news scores among the morning's rows not yet alarmed with pmRet(t) < 15%, and pmRet(t) >= 2%, and cumulative premarket dollar volume to t >= $50,000.",
+      "why": "On train this benchmark had the same false-alarm rate as R4 (0.83 per 100 mornings), so the comparison is made at matched false alarms."
+    }
+  },
+  "metrics": {
+    "hitRate": "weighted share of scorable mornings that reach +20% by 09:45 whose alarm came before the first +20% touch",
+    "faPer100": "weighted alarms on scorable mornings that do not reach +20% by 09:45, per 100 weighted scorable mornings",
+    "lead": "minutes from the alarm to the first +20% touch on hits"
+  },
+  "trainReference": { "R4": { "hitRate": 0.326, "faPer100": 0.83, "medianLeadMin": 62 }, "B4": { "hitRate": 0.276, "faPer100": 0.83, "medianLeadMin": 62 } },
+  "hypotheses": [
+    {
+      "id": "H25",
+      "primary": true,
+      "family": "F1",
+      "test": "alarm-hit-vs-benchmark",
+      "claim": "The R4 alarm catches more future +20% movers than the gainers+news benchmark B4 at no more false alarms: hitRate(R4) - hitRate(B4) >= 0.03 and faPer100(R4) - faPer100(B4) <= 0.10.",
+      "method": "Both rules on the same scorable mornings. The hit-rate difference and the false-alarm difference are bootstrapped over whole days with weights kept (params.statistics.bootstrapDraws, seed, ciLevel). Supported when the hit-rate difference is >= 0.03 with its lower bound > 0 and the false-alarm difference's point estimate is <= 0.10; refuted when the hit-rate difference's upper bound is < 0.03 or the false-alarm difference's lower bound is > 0.10; undecided otherwise.",
+      "minEffect": { "hitRateDifference": 0.03, "maxFaPer100Difference": 0.10 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    },
+    {
+      "id": "H26",
+      "primary": false,
+      "family": "F3",
+      "test": "alarm-lead-time",
+      "claim": "R4's alarms come well before the move: the median lead from alarm to the first +20% touch on hits is at least 30 minutes.",
+      "method": "Weighted median lead over R4 hits with a day-clustered bootstrap 95% interval; descriptive (F3, interval only). Supported when the interval lies at or above 30; refuted when it lies below 30.",
+      "minEffect": { "medianLeadMinutes": 30 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    }
+  ],
+  "decisionRules": {
+    "corrections": "A04 runs are corrected as their own set (Holm on H25, the only primary). Frozen and A01-A03 corrections are unchanged.",
+    "trainRun": "The train run only checks that the confirmatory code reproduces the exploration numbers; it carries no verdict weight.",
+    "promotion": "A04 tests detection only. A supported H25 on validation and on the holdout makes R4 the watchlist and alarm for the live formation recorder (paper, alerts only). It cannot place, size or exit a trade: every long trading rule tested so far lost money after costs (H12, H12p, H18, explore entries and exit routes), and no trading rule is registered here.",
+    "killCriterion": "A04 neither triggers nor lifts the H11/H11p kill criterion.",
+    "holdout": "The single holdout test invocation runs frozen and A01-A04 hypotheses together; it requires the user's explicit go-ahead.",
+    "reporting": "Every A04 result is reported, failures included, with both rules' hit rate, false alarms per 100 mornings, alarms per day and lead side by side.",
+    "notRegistered": "The fade-short candidate seen in the exploration (Tier50+ gappers extending < 10% from the open at 09:45) is not part of A04; it would need its own amendment with an exact entry, exit, borrow and margin model."
+  }
+}
