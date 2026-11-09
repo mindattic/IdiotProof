@@ -75,6 +75,39 @@ public sealed partial class GapperPullStage(
     /// transaction lines, so <c>form4BuysD30</c> and <c>research insiders</c> read the same rows.
     /// Resumable per accession; a filing whose claim already exists is only marked.
     /// </summary>
+    private static readonly TimeSpan[] EdgarRetryDelays = [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30)];
+
+    /// <summary>
+    /// One EDGAR document through the gate. A client timeout or network error is retried after 2, 10 and 30 s,
+    /// then returns null like a non-success status (the filing stays unmarked, so the next pull retries it):
+    /// one slow response once aborted `pull all` 160,400 filings in (IP-T466). Caller cancellation still throws.
+    /// </summary>
+    private async Task<string?> FetchEdgarTextAsync(string url, CancellationToken ct)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await edgarGate.RunAsync(async c =>
+                {
+                    var http = httpFactory.CreateClient(s.Params.DataTiers.EdgarHttpClientName);
+                    using var resp = await http.GetAsync(url, c);
+                    return resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync(c) : null;
+                }, ct);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested && ex is TaskCanceledException or HttpRequestException or IOException)
+            {
+                if (attempt >= EdgarRetryDelays.Length)
+                {
+                    s.Logger.LogWarning("EDGAR {Url} failed after {Attempts} attempts: {Error}", url, attempt + 1, ex.Message);
+                    return null;
+                }
+                s.Logger.LogWarning("EDGAR {Url} attempt {Attempt} failed ({Error}); retrying in {Delay}", url, attempt + 1, ex.Message, EdgarRetryDelays[attempt]);
+                await Task.Delay(EdgarRetryDelays[attempt], ct);
+            }
+        }
+    }
+
     private async Task<TierSummary> PullForm4Async(PullStageRequest req, CallBudget calls, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
@@ -111,12 +144,7 @@ public sealed partial class GapperPullStage(
                 continue;
             }
             fetched++;
-            var text = await edgarGate.RunAsync(async c =>
-            {
-                var http = httpFactory.CreateClient(p.DataTiers.EdgarHttpClientName);
-                using var resp = await http.GetAsync(url, c);
-                return resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync(c) : null;
-            }, ct);
+            var text = await FetchEdgarTextAsync(url, ct);
             if (text is null) { s.Logger.LogWarning("form4: {Url} not fetched", url); continue; }
             var xml = Form4Submission.ExtractOwnershipXml(text);
             var transactions = xml is null ? [] : form4Parser.Parse(xml, url);
