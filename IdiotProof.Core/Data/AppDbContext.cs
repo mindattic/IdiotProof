@@ -56,6 +56,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<GapperFormationSnapshotRow> GapperFormationSnapshots => Set<GapperFormationSnapshotRow>();
     public DbSet<GapperStudyLabel>     GapperStudyLabels    => Set<GapperStudyLabel>();
     public DbSet<EdgarFilingIndexRow>  EdgarFilingIndex     => Set<EdgarFilingIndexRow>();
+    public DbSet<FadeShortBorrowObservation> FadeShortBorrowObservations => Set<FadeShortBorrowObservation>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -330,6 +331,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasIndex(x => new { x.Split, x.DecisionTimeEt });
             e.Property(x => x.EntryRef).HasPrecision(18, 6);
             e.Property(x => x.PmHigh).HasPrecision(18, 6);
+        });
+        b.Entity<FadeShortBorrowObservation>(e =>
+        {
+            e.ToTable("FadeShortBorrowObservations");
+            e.HasIndex(x => new { x.DateEt, x.Symbol }).IsUnique();
+            foreach (var p in new[] { "PrevClose", "PmHigh", "Open0930", "Close0945", "LocateFee0940", "LocateFee" })
+                e.Property(p).HasPrecision(18, 6);
         });
         b.Entity<EdgarFilingIndexRow>(e =>
         {

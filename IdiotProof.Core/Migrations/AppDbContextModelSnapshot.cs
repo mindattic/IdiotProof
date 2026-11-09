@@ -738,6 +738,156 @@ namespace IdiotProof.Core.Migrations
                     b.ToTable("ExhaustionDecisions", (string)null);
                 });
 
+            modelBuilder.Entity("IdiotProof.Core.Data.FadeShortBorrowObservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BorrowStatus")
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<string>("CandidateSource")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("Checked0940Utc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("Checked0946Utc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("Close0945")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("DateEt")
+                        .HasColumnType("date");
+
+                    b.Property<bool?>("EasyToBorrow")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("EasyToBorrow0940")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("ExtensionAt0945")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("GapAt0945")
+                        .HasColumnType("float");
+
+                    b.Property<bool?>("LocateAvailable")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("LocateAvailable0940")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("LocateFee")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal?>("LocateFee0940")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("LocateNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("LocateQueried")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("LocateSize")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("LocateSize0940")
+                        .HasColumnType("float");
+
+                    b.Property<bool?>("Marginable")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("Marginable0940")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<decimal?>("Open0930")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("PmHigh")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<bool>("PmHigh100")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("PmHighPct")
+                        .HasColumnType("float");
+
+                    b.Property<decimal?>("PrevClose")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("RawJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<bool?>("RegSho")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("Shortable")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("Shortable0940")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("SignalEvaluatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("SignalFired")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("SsrActive")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("SsrD1LowVsD2Close")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Status0940")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DateEt", "Symbol")
+                        .IsUnique();
+
+                    b.ToTable("FadeShortBorrowObservations", (string)null);
+                });
+
             modelBuilder.Entity("IdiotProof.Core.Data.GapperFormationSnapshotRow", b =>
                 {
                     b.Property<long>("Id")

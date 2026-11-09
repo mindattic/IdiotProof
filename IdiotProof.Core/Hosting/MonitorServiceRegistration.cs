@@ -62,6 +62,13 @@ public static class MonitorServiceRegistration
         services.AddScoped<IdiotProof.Core.Monitoring.Formation.GapperFormationScanner>();
         services.AddHostedService<IdiotProof.Core.Monitoring.Formation.GapperFormationWorker>();
 
+        // Fade-short borrow pilot (IP-T480): idle unless SettingsKv fadeShort.pilot.enabled = "true"; leader-only,
+        // paper-only, 09:40 and 09:46 ET weekdays. NO ORDERS: Alpaca is reached only through the GET-only
+        // IFadeShortBorrowReader (asset, advisory locate quote, bars, movers); rows go to FadeShortBorrowObservations.
+        services.AddSingleton<IdiotProof.Core.Monitoring.FadeShort.FadeShortPilotSettings>();
+        services.AddSingleton<IdiotProof.Core.Monitoring.FadeShort.IFadeShortBorrowReader, IdiotProof.Core.Monitoring.FadeShort.AlpacaFadeShortBorrowReader>();
+        services.AddHostedService<IdiotProof.Core.Monitoring.FadeShort.FadeShortBorrowPilotWorker>();
+
         // Permanent market history (IP-T454): idle unless SettingsKv history.backfill.enabled = "true"; leader-only;
         // queues 5 years for every newly met ticker and the last session nightly; writes the history database only.
         services.AddHostedService<IdiotProof.Core.History.HistoryBackfillWorker>();
