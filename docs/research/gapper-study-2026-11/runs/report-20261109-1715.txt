@@ -1,0 +1,12 @@
+stage: report
+started: 2026-11-09 12:15:26 ET
+seconds: 314
+status: Ok
+message: 
+
+report:                 D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11.md
+runs used:              60
+holdout runs withheld:  0
+post-hoc hypotheses:    0
+exports:                
+minutes:                5.23

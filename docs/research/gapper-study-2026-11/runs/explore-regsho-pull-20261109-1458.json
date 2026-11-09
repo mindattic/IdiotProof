@@ -1,0 +1,21 @@
+{
+  "stage": "explore-regsho-pull",
+  "startedUtc": "2026-11-09T14:58:16.8421571Z",
+  "seconds": 711.3590749,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Command": "regsho-pull",
+    "ReportFile": "D:\\IdiotProofData\\regsho-threshold",
+    "Trials": 0,
+    "LedgerTotal": 0,
+    "Lines": [
+      "1,282 trading days 2021-10-01..2026-11-06",
+      "nasdaq threshold: fetched 455, already on disk 826, missing 1 (2025-01-09), failed 0",
+      "nyse threshold: fetched 456, already on disk 826, missing 0, failed 0",
+      "finra short volume: fetched 456, already on disk 825, missing 1 (2025-01-09), failed 0",
+      "threshold lists in D:\\IdiotProofData\\regsho-threshold, short volume in D:\\IdiotProofData\\finra-short-volume"
+    ],
+    "Minutes": 11.86
+  }
+}

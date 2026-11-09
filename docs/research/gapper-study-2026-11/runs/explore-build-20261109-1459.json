@@ -1,0 +1,17 @@
+{
+  "stage": "explore-build",
+  "startedUtc": "2026-11-09T14:59:16.8573946Z",
+  "seconds": 600.2801965,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Command": "build",
+    "ReportFile": null,
+    "Trials": 0,
+    "LedgerTotal": 0,
+    "Lines": [
+      "built 13 decision times over 261,809 train population symbol-days (105,964 candidates, 155,845 sample) into D:\\IdiotProofData\\gapper-study\\explore"
+    ],
+    "Minutes": 10
+  }
+}

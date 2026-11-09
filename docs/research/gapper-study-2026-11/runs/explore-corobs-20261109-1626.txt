@@ -1,0 +1,31 @@
+stage: explore-corobs
+started: 2026-11-09 11:26:48 ET
+seconds: 1400
+status: Ok
+message: 
+
+command:        corobs
+report:         D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\explore\corobs-20261109-1650.md
+trials logged:  16
+ledger total:   615
+minutes:        23.33
+# Explore: Corobs look-alike variations at 08:00 (mornings still below +20%)
+
+Train only. Weighted (amendment 01 population). Folds:
+- fold 1 (fit 2021-11..2022-10, eval 2022-11..2023-04)
+- fold 2 (fit 2021-11..2023-04, eval 2023-05..2023-10)
+- fold 3 (fit 2021-11..2023-10, eval 2023-11..2024-04)
+- fold 4 (fit 2021-11..2024-04, eval 2024-05..2024-10)
+
+Reference: boosted trees, all features, mean fold AUC 0.934 (0.922 / 0.944 / 0.940 / 0.930).
+
+| subset | k=25 | k=50 | k=100 | k=200 |
+|---|---|---|---|---|
+| all features (106) | 0.876 (0.858/0.889/0.889/0.867) | 0.882 (0.864/0.893/0.889/0.883) | 0.882 (0.864/0.891/0.890/0.882) | 0.878 (0.857/0.882/0.889/0.884) |
+| volume + velocity (10) | 0.726 (0.697/0.749/0.737/0.721) | 0.749 (0.715/0.782/0.756/0.742) | 0.796 (0.784/0.819/0.797/0.786) | 0.798 (0.791/0.814/0.796/0.792) |
+| volume + velocity + catalyst (26) | 0.771 (0.764/0.790/0.774/0.756) | 0.786 (0.792/0.801/0.781/0.771) | 0.799 (0.790/0.809/0.808/0.790) | 0.808 (0.792/0.820/0.817/0.802) |
+| volume + velocity + prior days + sympathy (23) | 0.824 (0.811/0.826/0.842/0.817) | 0.831 (0.813/0.838/0.837/0.836) | 0.836 (0.819/0.835/0.848/0.841) | 0.842 (0.822/0.845/0.854/0.847) |
+
+Mean of the four fold AUCs (weighted) with the fold values in brackets. The boosted reference is logged by `explore models`, not here.
+
+Trials logged: 16 (ids 600..615); ledger total 615.

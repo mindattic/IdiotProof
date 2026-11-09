@@ -1,0 +1,16 @@
+stage: explore-regsho-pull
+started: 2026-11-09 09:58:16 ET
+seconds: 711
+status: Ok
+message: 
+
+command:        regsho-pull
+report:         D:\IdiotProofData\regsho-threshold
+trials logged:  0
+ledger total:   0
+minutes:        11.86
+1,282 trading days 2021-10-01..2026-11-06
+nasdaq threshold: fetched 455, already on disk 826, missing 1 (2025-01-09), failed 0
+nyse threshold: fetched 456, already on disk 826, missing 0, failed 0
+finra short volume: fetched 456, already on disk 825, missing 1 (2025-01-09), failed 0
+threshold lists in D:\IdiotProofData\regsho-threshold, short volume in D:\IdiotProofData\finra-short-volume

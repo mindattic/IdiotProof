@@ -1,0 +1,130 @@
+[
+  {
+    "tier": "Tier20\u002B",
+    "bucket": "\u003C 10%",
+    "days": 4382,
+    "closeBelowOpen": 0.46531264262893657,
+    "fade30": 0.11986940298507463,
+    "medianFade": -0.0868891142308712
+  },
+  {
+    "tier": "Tier20\u002B",
+    "bucket": "10-25%",
+    "days": 2156,
+    "closeBelowOpen": 0.2657699443413729,
+    "fade30": 0.06769825918762089,
+    "medianFade": 0.03368882089853287
+  },
+  {
+    "tier": "Tier20\u002B",
+    "bucket": "25-50%",
+    "days": 284,
+    "closeBelowOpen": 0.28169014084507044,
+    "fade30": 0.09747292418772563,
+    "medianFade": 0.03867050260305405
+  },
+  {
+    "tier": "Tier20\u002B",
+    "bucket": "\u003E= 50%",
+    "days": 22,
+    "closeBelowOpen": 0.2727272727272727,
+    "fade30": 0.15,
+    "medianFade": 0.09393835812807083
+  },
+  {
+    "tier": "Tier50\u002B",
+    "bucket": "\u003C 10%",
+    "days": 1096,
+    "closeBelowOpen": 0.7016423357664233,
+    "fade30": 0.5293040293040293,
+    "medianFade": -0.31310150027275085
+  },
+  {
+    "tier": "Tier50\u002B",
+    "bucket": "10-25%",
+    "days": 596,
+    "closeBelowOpen": 0.48322147651006714,
+    "fade30": 0.304421768707483,
+    "medianFade": -0.18745192885398865
+  },
+  {
+    "tier": "Tier50\u002B",
+    "bucket": "25-50%",
+    "days": 198,
+    "closeBelowOpen": 0.36363636363636365,
+    "fade30": 0.22959183673469388,
+    "medianFade": -0.0577249713242054
+  },
+  {
+    "tier": "Tier50\u002B",
+    "bucket": "\u003E= 50%",
+    "days": 26,
+    "closeBelowOpen": 0.2692307692307692,
+    "fade30": 0.20833333333333334,
+    "medianFade": -0.03314160369336605
+  },
+  {
+    "tier": "Tier20\u002B, another gapper formed by t",
+    "bucket": "\u003C 10%",
+    "days": 3369,
+    "closeBelowOpen": 0.4882754526565746,
+    "fade30": 0.12971208073612348,
+    "medianFade": -0.09897611290216446
+  },
+  {
+    "tier": "Tier20\u002B, another gapper formed by t",
+    "bucket": "10-25%",
+    "days": 1592,
+    "closeBelowOpen": 0.28957286432160806,
+    "fade30": 0.07726130653266332,
+    "medianFade": 0.022516053169965744
+  },
+  {
+    "tier": "Tier20\u002B, another gapper formed by t",
+    "bucket": "25-50%",
+    "days": 216,
+    "closeBelowOpen": 0.28703703703703703,
+    "fade30": 0.11574074074074074,
+    "medianFade": 0.03620426170527935
+  },
+  {
+    "tier": "Tier20\u002B, another gapper formed by t",
+    "bucket": "\u003E= 50%",
+    "days": 17,
+    "closeBelowOpen": 0.35294117647058826,
+    "fade30": 0.17647058823529413,
+    "medianFade": 0.08732394129037857
+  },
+  {
+    "tier": "Tier20\u002B, alone at t",
+    "bucket": "\u003C 10%",
+    "days": 405,
+    "closeBelowOpen": 0.5209876543209877,
+    "fade30": 0.10864197530864197,
+    "medianFade": -0.11544642597436905
+  },
+  {
+    "tier": "Tier20\u002B, alone at t",
+    "bucket": "10-25%",
+    "days": 193,
+    "closeBelowOpen": 0.29533678756476683,
+    "fade30": 0.06217616580310881,
+    "medianFade": 0.014164306223392487
+  },
+  {
+    "tier": "Tier20\u002B, alone at t",
+    "bucket": "25-50%",
+    "days": 25,
+    "closeBelowOpen": 0.32,
+    "fade30": 0,
+    "medianFade": -0.009900989942252636
+  },
+  {
+    "tier": "Tier20\u002B, alone at t",
+    "bucket": "\u003E= 50%",
+    "days": 1,
+    "closeBelowOpen": 0,
+    "fade30": 0,
+    "medianFade": -0.1071428582072258
+  }
+]

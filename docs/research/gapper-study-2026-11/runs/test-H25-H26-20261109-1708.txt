@@ -1,0 +1,17 @@
+stage: test-H25-H26
+started: 2026-11-09 12:08:07 ET
+seconds: 61
+status: Ok
+message: 
+
+hypothesis  part                     n  days  effect     min       p       q    holm  verdict
+----------  ------------------  ------  ----  ------  ------  ------  ------  ------  ---------
+H25         hitRateDifference     3543   249   0.087   0.030  2.0e-4  2.0e-4  2.0e-4  supported
+H25         faPer100Difference  105413   249   0.480   0.100     n/a     n/a  2.0e-4  refuted
+H26         medianLeadMinutes     1392   247  67.000  30.000     n/a     n/a     n/a  supported
+split:    validation
+runs:     H25=refuted, H26=supported
+files:    D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H25-validation-20261109-1709.json
+          D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\test-H26-validation-20261109-1709.json
+holdout:  not a holdout run
+minutes:  1.01

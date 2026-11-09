@@ -1,6 +1,6 @@
 # Gapper study — results (IP-T442)
 
-Generated 2026-11-09 4:29 AM ET by `research gappers report` at `22a90dfb`. The protocol, hypotheses and parameters were frozen at `13f14521` before any data was pulled and are not restated here; this file is appended to, the protocol is never edited. Paper-only research: no orders, read-only market data.
+Generated 2026-11-09 12:20 PM ET by `research gappers report` at `ab01e15e`. The protocol, hypotheses and parameters were frozen at `13f14521` before any data was pulled and are not restated here; this file is appended to, the protocol is never edited. Paper-only research: no orders, read-only market data.
 
 ## Protocol (fixed before running)
 
@@ -219,6 +219,37 @@ Registered 2026-11-07 15:58 UTC before any test on study data ([`amendment-03.md
 - H24 on train: top novelty decile reaches +20% by 09:45 at 4.57 % against a base rate of 0.57 % (lift 7.962 [7.746, 8.176]).
 - H24 on validation: top novelty decile reaches +20% by 09:45 at 5.66 % against a base rate of 1.12 % (lift 5.054 [4.898, 5.219]).
 
+## Amendment A04: detection alarm R4 against gainers + news B4 (IP-T475)
+
+Registered 2026-11-09 16:45 UTC before any A04 result on validation or holdout ([`amendment-04.md`](gapper-study-2026-11/amendment-04.md), sha256 `ead8b04b62dd`), corrected as its own set (Holm on H25, its only primary), on amendment 01's weighted population. Every population morning is swept minute by minute 06:00-09:10 ET (bars ending at or before each minute; the frozen train time-of-day profile; nothing fitted on the split) and each rule's first alarm is kept. **R4** `rank composite top5, gap [5%,15%), $50k, conf>=0.5`; **B4** `B3 gainers+news top10, gap [2%,15%), $50k`. Hit rate: weighted share of mornings that reach +20% by 09:45 and were still below +20% at 06:00, alarmed before the first +20% touch; FA/100: weighted alarms on mornings that do not reach +20%, per 100 weighted scorable mornings; alarms/day: weighted alarms on every population row per day; lead: weighted median minutes from the alarm to the first +20% (IQR unweighted). Detection only: no trading rule is registered, and the train run only checks the code reproduces the exploration.
+
+Exploration reference on train (mean of four folds' evaluation windows; hit rate / FA/100 / lead): R4 32.6% / 0.83 / lead 62 min; B4 27.6% / 0.83 / lead 62 min.
+
+| split | rule | hit rate | FA/100 scorable (all rows) | alarms/day | median lead min [IQR] | hits / false alarms (rows) | gap at alarm (median) |
+|---|---|---|---|---|---|---|---|
+| train | R4 | 30.8% | 0.86 (0.85) | 25.3 | 57.0 [18.0, 119.0] | 1626 / 7679 | 9.2% |
+| train | B4 | 25.6% | 0.82 (0.82) | 23.5 | 54.5 [17.0, 122.0] | 1329 / 6387 | 9.3% |
+| train | R4 - B4 | +5.2 pt [+4.0, +6.5] | +0.03 [-0.01, 0.07] | | | | |
+| validation | R4 | 36.1% | 1.56 (1.55) | 55.7 | 67.0 [21.0, 137.0] | 1392 / 5487 | 8.8% |
+| validation | B4 | 27.3% | 1.08 (1.07) | 39.9 | 64.0 [22.0, 137.0] | 1060 / 3655 | 9.7% |
+| validation | R4 - B4 | +8.7 pt [+6.9, +10.6] | +0.48 [0.38, 0.58] | | | | |
+
+- train: 755 days, 253115 mornings (103044 candidate, 150071 sample), 250287 scorable, 4641 forming.
+- validation: 249 days, 107669 mornings (50904 candidate, 56765 sample), 105413 scorable, 3543 forming.
+
+| hypothesis | split | n (days) | effect vs minimum | corrected statistic | verdict |
+|---|---|---|---|---|---|
+| H25 · hitRateDifference | train | 4,641 (755) | hitRateDifference 0.052 [0.040, 0.065] vs >= 0.030 | p 2.0e-4, BH q 2.0e-4, Holm p 2.0e-4 | **supported** |
+| H25 · faPer100Difference | train | 250,287 (755) | faPer100Difference 0.031 [-0.009, 0.073] vs <= 0.100 | p n/a, BH q n/a, Holm p 2.0e-4 | **supported** |
+| H25 overall | train | | | | **supported** |
+| H25 · hitRateDifference | validation | 3,543 (249) | hitRateDifference 0.087 [0.069, 0.106] vs >= 0.030 | p 2.0e-4, BH q 2.0e-4, Holm p 2.0e-4 | **supported** |
+| H25 · faPer100Difference | validation | 105,413 (249) | faPer100Difference 0.480 [0.385, 0.578] vs <= 0.100 | p n/a, BH q n/a, Holm p 2.0e-4 | **refuted** |
+| H25 overall | validation | | | | **refuted** |
+| H26 (secondary) · medianLeadMinutes | train | 1,626 (639) | medianLeadMinutes 57.000 [49.000, 62.000] vs >= 30.000 | 95% interval only (descriptive) | **supported** |
+| H26 overall | train | | | | **supported** |
+| H26 (secondary) · medianLeadMinutes | validation | 1,392 (247) | medianLeadMinutes 67.000 [60.000, 73.000] vs >= 30.000 | 95% interval only (descriptive) | **supported** |
+| H26 overall | validation | | | | **supported** |
+
 ## Catalyst-latency benchmark (H11, the gatekeeper)
 
 The honest prior: a premarket volume/velocity detector at 08:00 mostly re-encodes "a catalyst was published 10–90 minutes ago". H11 scores an L2 logistic detector (fit on train, standardized 08:00 price/volume/run-up/filing-age features, no catalyst inputs) against the benchmark indicator "a news item or 8-K with pubToT ≤ 60 min exists at 08:00" on `reach20By0945`, with a day-block bootstrap of the AUC difference.
@@ -292,15 +323,7 @@ Ticket note 10972 found the frozen velocity death trivially early on a trend day
 
 ## Exports
 
-Under `gapper-study-2026-11/data/` with `manifest.json` (row count and SHA-256 of the rows per file):
-
-| file | rows | sha256 |
-|---|---|---|
-| `events.csv` | 16,734 | `87caeadba934b0fe71fc6a43dbaec2013bb29d45577a268a45447353f176aa64` |
-| `snapshots.csv` | 2,853,795 | `b459f58fd8ced5a287c4736d8f5d50afa3cb96ef37614d5464606cc8261e9d9a` |
-| `labels.csv` | 2,853,795 | `308410b713a21cf77535690e9b3d5b2fba2bf5bfc4183f8f1ca6b38220ef454e` |
-
-Holdout rows are excluded from every export until holdout-run.json exists.
+No CSV export in this run.
 
 ## Run files
 
@@ -334,6 +357,8 @@ Holdout rows are excluded from every export until holdout-run.json exists.
 | H22 | train | 2026-11-09 04:09 | `22a90dfb` | `test-H22-train-20261109-0909.json` |
 | H23 | train | 2026-11-09 04:09 | `22a90dfb` | `test-H23-train-20261109-0909.json` |
 | H24 | train | 2026-11-09 04:09 | `22a90dfb` | `test-H24-train-20261109-0909.json` |
+| H25 | train | 2026-11-09 12:07 | `ea76f12d` | `test-H25-train-20261109-1707.json` |
+| H26 | train | 2026-11-09 12:07 | `ea76f12d` | `test-H26-train-20261109-1707.json` |
 | H1 | validation | 2026-11-09 03:57 | `22a90dfb` | `test-H1-validation-20261109-0857.json` |
 | H1p | validation | 2026-11-09 03:57 | `22a90dfb` | `test-H1p-validation-20261109-0857.json` |
 | H2 | validation | 2026-11-09 03:57 | `22a90dfb` | `test-H2-validation-20261109-0857.json` |
@@ -362,4 +387,6 @@ Holdout rows are excluded from every export until holdout-run.json exists.
 | H22 | validation | 2026-11-09 04:22 | `22a90dfb` | `test-H22-validation-20261109-0922.json` |
 | H23 | validation | 2026-11-09 04:22 | `22a90dfb` | `test-H23-validation-20261109-0922.json` |
 | H24 | validation | 2026-11-09 04:22 | `22a90dfb` | `test-H24-validation-20261109-0922.json` |
+| H25 | validation | 2026-11-09 12:09 | `ea76f12d` | `test-H25-validation-20261109-1709.json` |
+| H26 | validation | 2026-11-09 12:09 | `ea76f12d` | `test-H26-validation-20261109-1709.json` |
 

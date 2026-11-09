@@ -1,0 +1,46 @@
+[
+  {
+    "group": "Tier20\u002B",
+    "days": 6855,
+    "hodMedian": 595,
+    "deathMedian": 541,
+    "deathToHodMedian": 42,
+    "vwapLossMedian": 585
+  },
+  {
+    "group": "Tier50\u002B",
+    "days": 1922,
+    "hodMedian": 519.5,
+    "deathMedian": 523,
+    "deathToHodMedian": -5,
+    "vwapLossMedian": 591
+  },
+  {
+    "group": "Tier20\u002B with news \u003C= 24h",
+    "days": 5565,
+    "hodMedian": 596,
+    "deathMedian": 542,
+    "deathToHodMedian": 43,
+    "vwapLossMedian": 585
+  },
+  {
+    "group": "Tier20\u002B without news",
+    "days": 1290,
+    "hodMedian": 591,
+    "deathMedian": 539,
+    "deathToHodMedian": 34,
+    "vwapLossMedian": 585
+  },
+  {
+    "group": "Tier20\u002B pauses",
+    "days": 6855,
+    "pausedShare": 0.04040846097738877,
+    "hodAtOrBeforePause": 0.24187725631768953
+  },
+  {
+    "group": "Tier50\u002B pauses",
+    "days": 1922,
+    "pausedShare": 0.10353798126951093,
+    "hodAtOrBeforePause": 0.3969849246231156
+  }
+]

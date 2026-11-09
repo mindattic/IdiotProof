@@ -1,0 +1,41 @@
+stage: explore-fade
+started: 2026-11-09 11:26:22 ET
+seconds: 25
+status: Ok
+message: 
+
+command:        fade
+report:         D:\Projects\MindAttic\IdiotProof\docs\research\gapper-study-2026-11\runs\explore\fade-20261109-1626.md
+trials logged:  0
+ledger total:   599
+minutes:        0.42
+# Explore: fade leg: extension from the open at 09:45 vs how the day ends (gapper days, descriptive)
+
+Train only. Weighted (amendment 01 population). Folds:
+- fold 1 (fit 2021-11..2022-10, eval 2022-11..2023-04)
+- fold 2 (fit 2021-11..2023-04, eval 2023-05..2023-10)
+- fold 3 (fit 2021-11..2023-10, eval 2023-11..2024-04)
+- fold 4 (fit 2021-11..2024-04, eval 2024-05..2024-10)
+
+| tier | extension at 09:45 | days | close below open | fade >= 30% from PM high | median close vs PM high |
+|---|---|---|---|---|---|
+| Tier20+ | < 10% | 4,382 | 46.5 % | 12.0 % | -8.7% |
+| Tier20+ | 10-25% | 2,156 | 26.6 % | 6.8 % | +3.4% |
+| Tier20+ | 25-50% | 284 | 28.2 % | 9.7 % | +3.9% |
+| Tier20+ | >= 50% | 22 | 27.3 % | 15.0 % | +9.4% |
+| Tier50+ | < 10% | 1,096 | 70.2 % | 52.9 % | -31.3% |
+| Tier50+ | 10-25% | 596 | 48.3 % | 30.4 % | -18.7% |
+| Tier50+ | 25-50% | 198 | 36.4 % | 23.0 % | -5.8% |
+| Tier50+ | >= 50% | 26 | 26.9 % | 20.8 % | -3.3% |
+| Tier20+, another gapper formed by t | < 10% | 3,369 | 48.8 % | 13.0 % | -9.9% |
+| Tier20+, another gapper formed by t | 10-25% | 1,592 | 29.0 % | 7.7 % | +2.3% |
+| Tier20+, another gapper formed by t | 25-50% | 216 | 28.7 % | 11.6 % | +3.6% |
+| Tier20+, another gapper formed by t | >= 50% | 17 | 35.3 % | 17.6 % | +8.7% |
+| Tier20+, alone at t | < 10% | 405 | 52.1 % | 10.9 % | -11.5% |
+| Tier20+, alone at t | 10-25% | 193 | 29.5 % | 6.2 % | +1.4% |
+| Tier20+, alone at t | 25-50% | 25 | 32.0 % | 0.0 % | -1.0% |
+| Tier20+, alone at t | >= 50% | 1 | 0.0 % | 0.0 % | -10.7% |
+
+Descriptive only: no trial is logged. Gapper days are a census (candidates), so no weights.
+
+Trials logged: 0 (ids none); ledger total 599.

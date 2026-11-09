@@ -1,0 +1,17 @@
+{
+  "stage": "explore-ssr",
+  "startedUtc": "2026-11-09T15:09:18.4078233Z",
+  "seconds": 13.2206188,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Command": "ssr",
+    "ReportFile": "D:\\IdiotProofData\\gapper-study\\explore\\ssr.csv",
+    "Trials": 0,
+    "LedgerTotal": 0,
+    "Lines": [
+      "wrote 261,531 symbol-days (19,705 with Rule 201 active on D) to D:\\IdiotProofData\\gapper-study\\explore\\ssr.csv"
+    ],
+    "Minutes": 0.22
+  }
+}

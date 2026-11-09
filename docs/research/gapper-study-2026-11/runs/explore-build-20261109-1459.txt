@@ -1,0 +1,12 @@
+stage: explore-build
+started: 2026-11-09 09:59:16 ET
+seconds: 600
+status: Ok
+message: 
+
+command:        build
+report:         none
+trials logged:  0
+ledger total:   0
+minutes:        10.00
+built 13 decision times over 261,809 train population symbol-days (105,964 candidates, 155,845 sample) into D:\IdiotProofData\gapper-study\explore

@@ -1,0 +1,12 @@
+stage: explore-ssr
+started: 2026-11-09 10:09:18 ET
+seconds: 13
+status: Ok
+message: 
+
+command:        ssr
+report:         D:\IdiotProofData\gapper-study\explore\ssr.csv
+trials logged:  0
+ledger total:   0
+minutes:        0.22
+wrote 261,531 symbol-days (19,705 with Rule 201 active on D) to D:\IdiotProofData\gapper-study\explore\ssr.csv
