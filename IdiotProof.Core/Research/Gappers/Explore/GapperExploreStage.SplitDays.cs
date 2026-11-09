@@ -642,6 +642,13 @@ public sealed partial class GapperExploreStage
         double Dsr(WlStats st) => st.Trades >= 2 ? MultipleTesting.DeflatedSharpe(st.Moments, nTrials, varSr) : double.NaN;
         double dsrMin = p.Statistics.DsrMin;
         string Cfg(int ci) => $"{SplitEntryNames[configs[ci].E]} | {exits[configs[ci].X].Name}";
+        if (capture is not null)
+            foreach (var ci in CaptureTop(stats.Select(st => (st.Trades, st.Net[2]?.Mean)).ToList()))
+            {
+                var (e, x) = configs[ci];
+                foreach (var (row, sim, ev) in trades[e].Where(z => !float.IsNaN(z.Sim.Gross[x])))
+                    capture.Trades.Add(new CapturedTrade("split-days", Cfg(ci), ev.Sym.Symbol, trainDays[row.DayIdx], 240 + sim.Minute, row.Weight, sim.Gross[x], sim.Cost.Select(c => (double)c).ToArray()));
+            }
         foreach (var (c, ci) in configs.Select((c, i) => (c, i)))
         {
             var st = stats[ci];

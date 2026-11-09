@@ -958,6 +958,18 @@ public sealed partial class GapperExploreStage
             stats[ci] = TradeStats(lists[(gi, ic, fi)].Where(z => !float.IsNaN(z.Sim.Gross[x])).ToList(), x, nEvalDays, dayFold, dayMonth, months.Count, folds.Count);
         });
         string Cfg(int ci) { var (gi, ic, fi, x) = configs[ci]; return $"{groups2[gi].Name} | {IgnName(ic)} | {fills[fi]} | {exits[x].Name}"; }
+        if (capture is not null)
+        {
+            foreach (var ci in CaptureTop(stats.Select(st => (st.Trades, st.Net[2]?.Mean)).ToList()))
+            {
+                var (gi, ic, fi, x) = configs[ci];
+                foreach (var (row, sim) in lists[(gi, ic, fi)].Where(z => !float.IsNaN(z.Sim.Gross[x])))
+                    capture.Trades.Add(new CapturedTrade("watchlist", Cfg(ci), t.Symbols[row.R], t.Days[row.R], 240 + sim.Minute, row.Weight, sim.Gross[x], sim.Cost.Select(c => (double)c).ToArray()));
+            }
+            // The D-1 16:00 watchlist itself (eval mornings, primary learner and target) for `explore orb`'s selection ablation.
+            foreach (var w in scorable.Where(w => w.Fold >= 0 && w.Rank[PrimaryLearner, PrimaryTarget] < 100))
+                capture.Watchlist.Add(new WatchMember(t.Symbols[w.R], t.Days[w.R], w.Rank[PrimaryLearner, PrimaryTarget], w.Fold));
+        }
         foreach (var (c, ci) in configs.Select((c, i) => (c, i)))
         {
             var st = stats[ci];

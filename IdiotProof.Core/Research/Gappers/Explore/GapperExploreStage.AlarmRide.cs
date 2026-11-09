@@ -351,6 +351,15 @@ public sealed partial class GapperExploreStage
 
         // ── trials and the deflated Sharpe ──
         string Cfg(int si, int fi, int ei) => $"long {signals[si].Name} entry={fills[fi]} exit={exits[ei].Name}";
+        if (capture is not null)
+            foreach (var ci in CaptureTop(configs.Select(c => (c.St.Trades, c.St.Net[2]?.Mean)).ToList()))
+            {
+                var (si, fi, ei, _) = configs[ci];
+                foreach (var a in alarms.Where(signals[si].Pass))
+                    if (a.Entries[fi] is { } en && en.Exits[ei] is { } x)
+                        // Known before entry = by the end of the alarm minute (the entry is the next bar).
+                        capture.Trades.Add(new CapturedTrade("alarm-ride", Cfg(si, fi, ei), a.Symbol, a.Day, (int)AlarmSweep.WindowStartEt.TotalMinutes + a.AlarmIdx + 1, a.Weight, x.Gross, en.Cost.ToArray()));
+            }
         var trials = configs.Select(c => new ExploreTrial
         {
             Track = "alarm-ride", Config = Cfg(c.Sig, c.Fill, c.Exit), Metric = "meanNetReturn (long, frozen cost, eval windows)",
