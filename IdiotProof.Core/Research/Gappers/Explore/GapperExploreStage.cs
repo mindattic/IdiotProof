@@ -26,7 +26,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
     public const double FormedGapPct = 20;
 
-    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow", "regsho-pull", "alarms", "exit-routes"];
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow", "regsho-pull", "alarms", "exit-routes", "fade-short"];
 
     /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -86,6 +86,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             "regsho-pull" => await RegShoPullAsync(req, ct),
             "exit-routes" => await ExitRoutesAsync(times, req, ct),
             "alarms" => await AlarmsAsync(req, ct),
+            "fade-short" => await FadeShortAsync(times, ct),
             _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
         };
         return new ExploreResult(command, file, trials, Ledger.Count, lines, Math.Round(sw.Elapsed.TotalMinutes, 2));
