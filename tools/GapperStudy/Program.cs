@@ -25,6 +25,7 @@ using Microsoft.Extensions.Logging;
 //   dotnet run --project tools/GapperStudy -- test <H1 H2 ...|all> --split <train|validation|holdout> [--smoke]
 //   dotnet run --project tools/GapperStudy -- report [--skip-export]
 //   dotnet run --project tools/GapperStudy -- explore <build|visibility|models|exits|news|fade|entries|corobs|ssr|float-import|tradeflow-pull|tradeflow|regsho-pull|alarms|exit-routes|fade-short|fade-short-deep|alarm-ride> [--times "08:00,08:30"] [--force] [--from D --to D] (train only, IP-T453)
+//   dotnet run --project tools/GapperStudy -- explore catalyst-events, then python -I tools/gapper-catalyst-ml/catalyst_ml.py --events <cache>\catalyst-ml\events.csv --out <same dir> --names tools/gapper-catalyst-ml/names.json, then explore catalyst-ml (IP-T488, train only)
 //   dotnet run --project tools/GapperStudy -- casestudy [--from 2026-09-10 --to 2026-11-09 --top 5] [--extra "2026-11-09:CKX,GFR;2026-11-06:NWGL"] (IP-T486: recent-runner case studies on the window amendment 05 opened; refuses any date before 2026-09-10)
 //   dotnet run --project tools/GapperStudy -- status
 //   --user <guid> names the owner whose Alpaca keys are used when the host has none; --db <name> overrides the research DB name.

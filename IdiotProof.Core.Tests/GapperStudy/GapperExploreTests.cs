@@ -88,7 +88,7 @@ public class GapperExploreTests
     {
         using var host = new GapperStudyHost();
         var stage = host.Get<GapperExploreStage>();
-        foreach (var command in new[] { "visibility", "alarms", "fade-short", "fade-short-deep", "alarm-ride", "watchlist", "split-days-pull", "split-days" })
+        foreach (var command in new[] { "visibility", "alarms", "fade-short", "fade-short-deep", "alarm-ride", "watchlist", "split-days-pull", "split-days", "orb-pull", "orb", "catalyst-split", "catalyst-events", "catalyst-ml" })
             foreach (var split in new[] { "validation", "holdout", "smoke" })
                 Assert.ThrowsAsync<InvalidOperationException>(() => stage.RunAsync(new ExploreRequest(command, split, [], false), CancellationToken.None), $"{command} {split}");
     }

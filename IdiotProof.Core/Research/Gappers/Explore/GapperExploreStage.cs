@@ -26,7 +26,7 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
     /// <summary>A morning already up this much at t has formed; visibility is scored on mornings still below it.</summary>
     public const double FormedGapPct = 20;
 
-    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow", "regsho-pull", "alarms", "exit-routes", "fade-short", "fade-short-deep", "alarm-ride", "watchlist", "split-days-pull", "split-days", "orb-pull", "orb", "catalyst-split"];
+    public static readonly string[] Commands = ["build", "visibility", "models", "exits", "news", "fade", "entries", "corobs", "ssr", "float-import", "tradeflow-pull", "tradeflow", "regsho-pull", "alarms", "exit-routes", "fade-short", "fade-short-deep", "alarm-ride", "watchlist", "split-days-pull", "split-days", "orb-pull", "orb", "catalyst-split", "catalyst-events", "catalyst-ml"];
 
     /// <summary>Feature blocks for the ablation track: a block is removed by name prefix.</summary>
     public static readonly IReadOnlyDictionary<string, string[]> Blocks = new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -95,6 +95,8 @@ public sealed partial class GapperExploreStage(GapperStudyServices s, GapperSnap
             "orb-pull" => await OrbPullAsync(req, ct),
             "orb" => await OrbAsync(req, ct),
             "catalyst-split" => await CatalystSplitAsync(req, ct),
+            "catalyst-events" => await CatalystEventsAsync(req, ct),
+            "catalyst-ml" => await CatalystMlAsync(req, ct),
             _ => throw new ArgumentException($"Unknown explore command '{req.Command}'. Use {string.Join(", ", Commands)}."),
         };
         return new ExploreResult(command, file, trials, Ledger.Count, lines, Math.Round(sw.Elapsed.TotalMinutes, 2));
