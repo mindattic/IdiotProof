@@ -528,16 +528,54 @@ def stage_validate(a):
     print("\n".join(L))
 
 
+def stage_holdout_h1(a):
+    """Amendment 03: H1 on the holdout, one run ever."""
+    unlock = os.path.join(STUDY, "holdout.unlock")
+    mark = os.path.join(RUNS, "holdout-run.json")
+    if not os.path.exists(unlock):
+        sys.exit(f"missing {unlock}")
+    if os.path.exists(mark):
+        sys.exit(f"the holdout was already run ({mark})")
+    calls, movers = load(a)
+    calls = [c for c in calls if c["d"] <= "2026-11-09"]
+    r1 = h1(calls, movers, "holdout")
+    lo1, lo2 = r1["diff_s1Hi"][1], r1["diff_s2Hi"][1]
+    ok = lo1 > 0 and lo2 > 0
+
+    # reported, not tested: share of his picks and of all liquid names reaching +50%
+    def rate50(split):
+        his, base = [], []
+        for c in calls:
+            if c["k"] == "wl" and c.get("sym") and c.get("rk") and split_of(c["d"]) == split:
+                r = (movers.get(c["d"]) or {}).get("rows", {}).get(c["sym"])
+                if r and r.get("HighPct") is not None:
+                    his.append(r["HighPct"] >= 50)
+        for d, md in movers.items():
+            if split_of(d) == split and (split != "holdout" or d <= "2026-11-09"):
+                base += [r["HighPct"] >= 50 for r in md["rows"].values() if r.get("HighPct") is not None]
+        return (float(np.mean(his)) if his else None, len(his), float(np.mean(base)) if base else None)
+
+    L = ["# Momentum. edge study: H1 holdout (IP-T500 amendment 03)", "", f"Holdout trade dates {SPL['holdoutStart']}..2026-11-09. One run.", ""]
+    L += h1_lines(r1, "H1 on the holdout")
+    L += [f"Pass rule: both high-difference lower bounds > 0: S1 {fmt(lo1, 1)}, S2 {fmt(lo2, 1)} -> **{'PASS' if ok else 'FAIL'}**.", ""]
+    for s in ("fit", "validation", "holdout"):
+        hr, n, br = rate50(s)
+        L.append(f"- {s}: his picks high >= +50% {fmt(100 * hr if hr is not None else None, 1, False)}% of {n}; liquid-name base {fmt(100 * br if br is not None else None, 2, False)}%" + (f"; lift {hr / br:.1f}x" if hr and br else ""))
+    stamp = write("holdout-h1", L, {"h1": r1, "pass": ok})
+    json.dump({"stamp": stamp, "test": "H1", "pass": ok, "lo": [lo1, lo2]}, open(mark, "w"))
+    print("\n".join(L))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["fit", "validate"])
+    ap.add_argument("stage", choices=["fit", "validate", "holdout-h1"])
     ap.add_argument("--calls", default="D:/IdiotProofData/momentum/edge-calls.json")
     ap.add_argument("--movers", default="D:/IdiotProofData/momentum/movers")
     ap.add_argument("--bars", default="D:/IdiotProofData/momentum/bars")
     ap.add_argument("--force", action="store_true")
     a = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    {"fit": stage_fit, "validate": stage_validate}[a.stage](a)
+    {"fit": stage_fit, "validate": stage_validate, "holdout-h1": stage_holdout_h1}[a.stage](a)
 
 
 if __name__ == "__main__":
