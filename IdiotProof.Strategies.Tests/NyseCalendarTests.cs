@@ -94,6 +94,8 @@ public sealed class NyseCalendarTests
     [TestCase(2026, 11, 26, false, TestName = "Thanksgiving itself")]
     [TestCase(2026, 12, 23, false, TestName = "Dec 23")]
     [TestCase(2026, 12, 31, false, TestName = "New Year's Eve")]
+    [TestCase(2025, 7, 3, true, TestName = "July 3 2025 Thursday")]
+    [TestCase(2026, 7, 3, false, TestName = "July 3 2026 is the observed Independence Day")]
     public void IsEarlyCloseDay(int y, int m, int d, bool expected) =>
         Assert.That(MarketTime.IsEarlyCloseDay(new DateOnly(y, m, d)), Is.EqualTo(expected));
 
@@ -152,8 +154,9 @@ public sealed class NyseCalendarTests
     [TestCase(2026, 1, 14, 20, 5, TradingWindow.Hibernate, TestName = "Winter 20:05 hibernate")]
     [TestCase(2026, 1, 14, 0, 30, TradingWindow.Hibernate, TestName = "Overnight")]
     [TestCase(2026, 11, 27, 13, 4, TradingWindow.Active, TestName = "Black Friday 13:04 active")]
-    [TestCase(2026, 11, 27, 13, 5, TradingWindow.Hibernate, TestName = "Black Friday 13:05 hibernate (no after-hours)")]
-    [TestCase(2026, 12, 24, 16, 30, TradingWindow.Hibernate, TestName = "Christmas Eve afternoon hibernate")]
+    [TestCase(2026, 11, 27, 13, 5, TradingWindow.Active, TestName = "Black Friday 13:05 active (extended session 1-5 PM)")]
+    [TestCase(2026, 11, 27, 17, 5, TradingWindow.Hibernate, TestName = "Black Friday 17:05 hibernate")]
+    [TestCase(2026, 12, 24, 17, 30, TradingWindow.Hibernate, TestName = "Christmas Eve after the extended session hibernates")]
     [TestCase(2026, 11, 26, 10, 0, TradingWindow.Hibernate, TestName = "Thanksgiving hibernate")]
     [TestCase(2021, 12, 24, 10, 0, TradingWindow.Hibernate, TestName = "Dec 24 that is the observed Christmas hibernates all day")]
     [TestCase(2026, 7, 18, 10, 0, TradingWindow.Hibernate, TestName = "Saturday hibernate")]

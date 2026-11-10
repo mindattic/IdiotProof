@@ -135,7 +135,9 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
         string? pageToken = null;
         int pages = 0;
         string tierUsed = feedTier;
-        do
+        // while(true), not do/while: the tier downgrade's `continue` must retry the same page on IEX,
+        // and in a do/while it jumped to the page-token test and ended the loop on the first page.
+        while (true)
         {
             if (onPage is not null) await onPage(ct).ConfigureAwait(false);
             var tier = feedTier;
@@ -181,8 +183,8 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
                     }
                 }
             }
+            if (string.IsNullOrEmpty(pageToken)) break;
         }
-        while (!string.IsNullOrEmpty(pageToken));
         return new MultiSymbolBars(Freeze(bars), pages, tierUsed);
     }
 
@@ -205,7 +207,9 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
         string? pageToken = null;
         int pages = 0;
         string tierUsed = feedTier;
-        do
+        // while(true), not do/while: the tier downgrade's `continue` must retry the same page on IEX,
+        // and in a do/while it jumped to the page-token test and ended the loop on the first page.
+        while (true)
         {
             if (onPage is not null) await onPage(ct).ConfigureAwait(false);
             var tier = feedTier;
@@ -234,8 +238,8 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
                             t.TryGetProperty("x", out var x) && x.ValueKind == JsonValueKind.String ? x.GetString() ?? "" : ""));
                     }
                 }
+            if (string.IsNullOrEmpty(pageToken)) break;
         }
-        while (!string.IsNullOrEmpty(pageToken));
         return (trades, pages, tierUsed);
     }
 

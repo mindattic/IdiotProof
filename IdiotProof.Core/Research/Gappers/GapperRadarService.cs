@@ -153,6 +153,7 @@ public sealed class GapperRadarService(
         var keys = await study.ResolveKeysAsync(owner, ct);
         await using var md = new MomentumMarketData(root, keys, new AlpacaDataRateGate(300, clock), c => study.LoadAssetsAsync(keys, c), log);
         var sessions = MarketCalendar.TradingDays(from, to);
+        if (sessions.Count == 0) return []; // from > to, or no session in range (basisDays.Min() threw)
         var basisDays = sessions.Select(MarketCalendar.PreviousTradingDay).ToList();
         await md.EnsureMoversAsync(sessions.Concat(basisDays), ct);
         var union = new HashSet<string>(StringComparer.Ordinal);

@@ -54,15 +54,16 @@ public static class BacktestDayRunner
     }
 
     /// <summary>
-    /// The ET trading days (weekends skipped) a <paramref name="days"/>-day replay covers, starting at
-    /// <paramref name="firstDayEt"/>: the window a sequenced strategy needs to hand off between steps.
+    /// The ET trading days (weekends and NYSE holidays skipped) a <paramref name="days"/>-day replay
+    /// covers, starting at <paramref name="firstDayEt"/>: the window a sequenced strategy needs to hand
+    /// off between steps. A holiday counted as a day replayed an empty session and covered one fewer.
     /// </summary>
     public static IReadOnlyList<DateOnly> TradingDays(DateOnly firstDayEt, int days)
     {
         if (days < 1) throw new ArgumentOutOfRangeException(nameof(days), "At least one day.");
         var result = new List<DateOnly>();
         for (var day = firstDayEt; result.Count < days; day = day.AddDays(1))
-            if (day.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) result.Add(day);
+            if (day.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday) && !MarketTime.IsMarketHoliday(day)) result.Add(day);
         return result;
     }
 

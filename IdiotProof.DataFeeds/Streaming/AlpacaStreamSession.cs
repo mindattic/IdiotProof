@@ -188,7 +188,7 @@ public sealed class AlpacaStreamSession
     {
         var json = MsgPackFrames && frame.Binary ? MsgPack.ToJson(frame.Data) : Encoding.UTF8.GetString(frame.Data);
         JsonElement root;
-        try { root = JsonDocument.Parse(json).RootElement.Clone(); }
+        try { using var doc = JsonDocument.Parse(json); root = doc.RootElement.Clone(); } // dispose returns the pooled buffer
         catch (JsonException) { return []; }
         return root.ValueKind == JsonValueKind.Array ? [.. root.EnumerateArray()] : [root];
     }

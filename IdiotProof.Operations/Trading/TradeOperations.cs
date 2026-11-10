@@ -245,6 +245,17 @@ public sealed class TradeConfirmOperation : IOperation<TradeConfirmArgs>
     public async Task<OperationResult> ExecuteAsync(TradeConfirmArgs args, OperationContext ctx)
     {
         var owner = ctx.RequireOwner();
+        // A code for something other than one order (a strategy activation, a close-all batch) is
+        // refused by the gateway's rehash as "tampered"; say what it actually is, without using it up.
+        var code = args.Code.Trim().ToUpperInvariant();
+        var pending = (await ctx.Get<ConfirmationStore>().ListActiveAsync(owner, ctx.CancellationToken)).FirstOrDefault(p => p.Code == code);
+        if (pending is not null && pending.Kind != ConfirmationStore.KindOrder)
+            return OperationResult.Usage(pending.Kind switch
+            {
+                ConfirmationStore.KindOrderBatch => "That code confirms a batch (close-all / flatten); re-run that same command with --confirm <code>.",
+                ConfirmationStore.KindActivateLive => "That code confirms a strategy activation, not an order — use `idiotproof strategy mode <id> live --confirm <code>`.",
+                _ => $"That code confirms a {pending.Kind}, not an order; re-run the command that issued it with --confirm <code>.",
+            });
         try
         {
             var outcome = await ctx.Get<TransactionGateway>().ConfirmAsync(args.Code, owner, ctx.Caller.ToString().ToLowerInvariant(), null, ctx.CancellationToken);

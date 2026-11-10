@@ -147,10 +147,12 @@ def fmt(x, d=2, sign=True):
 # ── H1: his evening picks vs a D-1 screen ────────────────────────────────────
 def h1(calls, movers, split):
     sc = P["screen"]
+    # Keyed by trade date (not by video): two evening videos for one date share the screen baseline,
+    # and as two units they made the day-clustered bootstrap count one market day twice.
     by_video = defaultdict(list)
     for c in calls:
         if c["k"] == "wl" and c.get("sym") and c.get("rk") and split_of(c["d"]) == split:
-            by_video[(c["vid"], c["d"])].append(c["sym"])
+            by_video[("all", c["d"])].append(c["sym"])
     days, ranks, outside = [], [], 0
     for (vid, d), syms in sorted(by_video.items(), key=lambda kv: kv[0][1]):
         syms = list(dict.fromkeys(syms))
@@ -544,9 +546,12 @@ def stage_holdout_h1(a):
 
     # reported, not tested: share of his picks and of all liquid names reaching +50%
     def rate50(split):
-        his, base = [], []
+        his, base, seen = [], [], set()
         for c in calls:
             if c["k"] == "wl" and c.get("sym") and c.get("rk") and split_of(c["d"]) == split:
+                if (c["d"], c["sym"]) in seen:  # one row per scenario: count each pick once
+                    continue
+                seen.add((c["d"], c["sym"]))
                 r = (movers.get(c["d"]) or {}).get("rows", {}).get(c["sym"])
                 if r and r.get("HighPct") is not None:
                     his.append(r["HighPct"] >= 50)

@@ -164,12 +164,13 @@ public static class GapperExitEvaluator
         //    When a target price has been reached, the ladder logic owns the exit
         //    decision for this tick — it must NOT fall through to TakeProfitPrice,
         //    otherwise a rung that was already sold triggers a spurious full exit.
+        var rungAlreadySold = false;
         if (def.TakeProfitTargets.Count > 0 && initialQty > 0)
         {
             var targetsHit = def.TakeProfitTargets.Where(t => current >= t.Price).ToList();
             if (targetsHit.Count > 0)
             {
-                // Price has reached at least one rung — ladder logic handles this tick entirely.
+                // Price has reached at least one rung — the ladder owns the take-profit decision.
                 var cumulativePercent = targetsHit.Sum(t => t.PercentToSell);
                 var allHit = targetsHit.Count == def.TakeProfitTargets.Count || cumulativePercent >= 100;
 
@@ -190,18 +191,19 @@ public static class GapperExitEvaluator
                         QuantityToSell = isFullExit ? null : sellQty,
                     };
                 }
-                // This rung was already sold (alreadySold >= shouldHaveSold).
-                // Hold until price reaches the next rung. Do NOT fall through to
-                // TakeProfitPrice — it would fire a spurious full exit here.
-                return null;
+                // This rung was already sold (alreadySold >= shouldHaveSold): hold for the next rung.
+                // Skip the single TakeProfitPrice below (it would fire a spurious full exit), but keep
+                // evaluating the later exits (prior high, rolling high/low, velocity, giveback): an
+                // early return here switched them all off while price sat above a sold rung.
+                rungAlreadySold = true;
             }
             // No rung reached yet — fall through: single TakeProfitPrice may apply.
         }
         // 4a. Single take-profit price (no ladder, or ladder with unknown qty).
-        if (def.TakeProfitPrice is { } tp && current >= tp)
+        if (!rungAlreadySold && def.TakeProfitPrice is { } tp && current >= tp)
             return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
                 $"Price {current:F2} reached the {tp:F2} take-profit target.");
-        if (def.TakeProfitPercent is { } tpPct && current >= entryPrice * (1 + tpPct / 100.0))
+        if (!rungAlreadySold && def.TakeProfitPercent is { } tpPct && current >= entryPrice * (1 + tpPct / 100.0))
             return new GapperExitDecision(GapperExitReason.TargetHit, current, peak,
                 $"Price {current:F2} hit the {tpPct:F1}% take-profit target.");
 
@@ -336,6 +338,7 @@ public static class GapperExitEvaluator
                 $"Price {current:F2} bounced {tslPct:F1}% off the {trough:F2} low-water mark.");
 
         // 4. Multi-target scale-out ladder for shorts (price falls to each target).
+        var rungAlreadyCovered = false;
         if (def.TakeProfitTargets.Count > 0 && initialQty > 0)
         {
             var targetsHit = def.TakeProfitTargets.Where(t => current <= t.Price).ToList();
@@ -359,15 +362,16 @@ public static class GapperExitEvaluator
                         QuantityToSell = isFullExit ? null : sellQty,
                     };
                 }
-                // This rung already covered — hold until next rung. Don't fall through.
-                return null;
+                // This rung already covered — hold until the next rung: skip the single take-profit
+                // below, but keep the later exits (rolling high, giveback...) live, as for longs.
+                rungAlreadyCovered = true;
             }
         }
         // 4a. Single take-profit price (no ladder, or ladder with unknown qty).
-        if (def.TakeProfitPrice is { } tp && current <= tp)
+        if (!rungAlreadyCovered && def.TakeProfitPrice is { } tp && current <= tp)
             return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
                 $"Price {current:F2} reached the {tp:F2} take-profit target.");
-        if (def.TakeProfitPercent is { } tpPct && current <= entryPrice * (1 - tpPct / 100.0))
+        if (!rungAlreadyCovered && def.TakeProfitPercent is { } tpPct && current <= entryPrice * (1 - tpPct / 100.0))
             return new GapperExitDecision(GapperExitReason.TargetHit, current, trough,
                 $"Short: price {current:F2} hit the {tpPct:F1}% take-profit target.");
 

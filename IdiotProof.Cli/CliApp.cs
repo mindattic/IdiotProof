@@ -157,7 +157,7 @@ public sealed class CliApp(CliEnvironment env)
         if (result.Kind == HubCallKind.Cancelled)
         {
             await env.Err.WriteLineAsync("Stopped.");
-            return CliExitCodes.Ok;
+            return CliExitCodes.Failed; // the contract: Ctrl+C is 1, as for non-streaming commands
         }
         if (result.Kind != HubCallKind.Completed || result.Response is null)
             return await ClientErrorAsync(flags, CliExitCodes.Failed, ErrorCode(result.Kind), result.Error ?? "The Hub stream failed.");

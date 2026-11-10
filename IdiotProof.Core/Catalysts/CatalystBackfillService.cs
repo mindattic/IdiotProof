@@ -3,7 +3,11 @@ using Microsoft.Extensions.Logging;
 
 namespace IdiotProof.Core.Catalysts;
 
-public sealed record CatalystBackfillSummary(int NewsSeen, int EdgarSeen, int Inserted, int Duplicates, int NoSymbol, int LlmClassified, List<string> Notes);
+public sealed record CatalystBackfillSummary(int NewsSeen, int EdgarSeen, int Inserted, int Duplicates, int NoSymbol, int LlmClassified, List<string> Notes)
+{
+    /// <summary>False when the Alpaca news read stopped early (a failed page or the page cap).</summary>
+    public bool NewsComplete { get; init; } = true;
+}
 
 /// <summary>
 /// Fills <see cref="Data.CatalystEvent"/> for past dates (IP-T443): Alpaca news by date range with
@@ -39,7 +43,10 @@ public sealed class CatalystBackfillService(
                 keys = (k.AlpacaApiKeyId, k.AlpacaApiSecretKey);
         }
 
-        await foreach (var item in alpacaNews.GetNewsRangeAsync(syms, fromUtc, toUtc, keys: keys, ct: ct))
+        var (newsItems, newsComplete) = await alpacaNews.GetNewsRangeCheckedAsync(syms, fromUtc, toUtc, keys: keys, ct: ct);
+        if (!newsComplete)
+            notes.Add($"Alpaca news stopped early (a failed page or the page cap) after {newsItems.Count} item(s); later news in the range was not read.");
+        foreach (var item in newsItems)
         {
             newsSeen++;
             var ordered = item.Symbols.OrderBy(s => syms.Contains(s) ? 0 : 1).ToList();
@@ -79,7 +86,7 @@ public sealed class CatalystBackfillService(
         }
         if (llmBudget > 0 && insertedIds.Count > llmBudget) notes.Add($"{insertedIds.Count - llmBudget} new row(s) left unclassified (budget {llmBudget}).");
         if (keys is null && ownerUserId is not null) notes.Add("owner has no Alpaca data keys; news pulled with the Hub's keys.");
-        return new CatalystBackfillSummary(newsSeen, edgarSeen, inserted, duplicates, noSymbol, classified, notes);
+        return new CatalystBackfillSummary(newsSeen, edgarSeen, inserted, duplicates, noSymbol, classified, notes) { NewsComplete = newsComplete };
 
         void Count(CatalystIngestResult r)
         {

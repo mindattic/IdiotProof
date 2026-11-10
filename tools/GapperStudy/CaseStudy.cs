@@ -64,7 +64,11 @@ internal static class CaseStudyCommand
         {
             double f = R.TryGetValue(barDate, out var a) && R.TryGetValue(asOf, out var b) && a > 0 && b > 0 ? a / b : 1;
             if (Math.Abs(f - 1) < 0.02) f = 1;
-            foreach (var (ex, factor, _) in Inferred) if (ex > barDate && ex <= asOf) f *= factor;
+            foreach (var (ex, factor, _) in Inferred)
+            {
+                if (ex > barDate && ex <= asOf) f *= factor;       // an older bar onto a later basis
+                else if (ex > asOf && ex <= barDate) f /= factor;  // a later bar (D+1, D+2) back onto D's basis
+            }
             return f;
         }
     }

@@ -59,7 +59,9 @@ public static class GapperRuleSimulator
         {
             if (b.StartUtc < entryBar.StartUtc) continue;
             if (b.StartUtc >= sellBy) return Fill(config, real, b.StartUtc, "sell-by", entry, entryBar.StartUtc, roundTripCost);
-            if (b.StartUtc > entryBar.StartUtc && b.Low <= stopPrice && b.Volume > 0)
+            // The entry bar counts too: entry fills at its open, so a low under the stop later in that
+            // same minute stops the trade out (as the other simulators do); skipping it flattered H12.
+            if (b.Low <= stopPrice && b.Volume > 0)
             {
                 var fill = b.Open <= stopPrice ? b.Open : stopPrice;
                 return Trade(entry, entryBar.StartUtc, b.StartUtc, fill, "stop", roundTripCost, false);

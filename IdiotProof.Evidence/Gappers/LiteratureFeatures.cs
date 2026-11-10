@@ -51,7 +51,9 @@ public sealed class PriorDaysCorwinSchultzFeature(int minBars = 60) : IGapperFea
 
     public double? Compute(GapperFeatureInputs inputs, GapperFormationSnapshot core)
     {
-        var bars = inputs.PriorDayMinuteBars.SelectMany(d => d).Where(b => b.Volume > 0 && b.Low > 0).OrderBy(b => b.StartUtc).ToList();
+        // Only bars ended by the decision time: at the D-1 16:00 decision the prior days include D-1
+        // itself, read through 20:00, so its after-hours bars were up to 4 hours in the future.
+        var bars = inputs.PriorDayMinuteBars.SelectMany(d => d).Where(b => b.EndUtc <= inputs.DecisionUtc && b.Volume > 0 && b.Low > 0).OrderBy(b => b.StartUtc).ToList();
         if (bars.Count < minBars) return null;
         var s = TradingCosts.CorwinSchultzSpread(bars);
         return double.IsNaN(s) ? null : s;

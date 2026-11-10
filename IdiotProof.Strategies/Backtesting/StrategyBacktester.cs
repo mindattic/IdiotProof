@@ -342,17 +342,20 @@ public static class StrategyBacktester
         List<(decimal Price, int Pct, string Label)> targets, decimal stop,
         StrategyDefinition def)
     {
-        // High-water mark since entry — feeds the trailing-stop and
-        // peak-giveback exits below. Long-shaped, like the live exit brain.
-        if (isLong && bar.High > trade.PeakSinceEntry) trade.PeakSinceEntry = bar.High;
+        // High-water mark BEFORE this bar: within one bar we can't know whether the high printed
+        // before the low, so the trailing stop works off the peak already seen (worst case), and
+        // this bar's high only raises the peak afterwards. Using it first booked fills at a floor
+        // the trade never reached (O 10, H 12, L 9.9 sold at 11.40).
+        var peakBefore = trade.PeakSinceEntry;
 
-        // Stop first (conservative): assume the adverse extreme traded through the stop.
+        // Stop first (conservative): assume the adverse extreme traded through the stop. A bar that
+        // opens beyond the stop gaps through it and fills at the open, not at the stop.
         bool stopHit = stop > 0m && (isLong ? bar.Low <= stop : bar.High >= stop);
         if (stopHit)
         {
             trade.Exits.Add(new BacktestFill
             {
-                Utc = bar.StartUtc, Price = stop, Shares = remaining, Reason = "Stop loss",
+                Utc = bar.StartUtc, Price = isLong ? Math.Min(stop, bar.Open) : Math.Max(stop, bar.Open), Shares = remaining, Reason = "Stop loss",
             });
             remaining = 0;
             return;
@@ -361,19 +364,22 @@ public static class StrategyBacktester
         // Trailing stop off the peak (Risk phase). The replay used to ignore
         // TrailingStopLoss entirely, silently holding through pullbacks the
         // live evaluator would have sold — backtest ≠ live divergence.
-        if (isLong && def.TrailingStopPercent is { } tslPct && trade.PeakSinceEntry > trade.EntryPrice)
+        if (isLong && def.TrailingStopPercent is { } tslPct && peakBefore > trade.EntryPrice)
         {
-            var trailFloor = trade.PeakSinceEntry * (1m - (decimal)(tslPct / 100.0));
+            var trailFloor = peakBefore * (1m - (decimal)(tslPct / 100.0));
             if (bar.Low <= trailFloor)
             {
                 trade.Exits.Add(new BacktestFill
                 {
-                    Utc = bar.StartUtc, Price = trailFloor, Shares = remaining, Reason = "Trailing stop",
+                    Utc = bar.StartUtc, Price = Math.Min(trailFloor, bar.Open), Shares = remaining, Reason = "Trailing stop",
                 });
                 remaining = 0;
                 return;
             }
         }
+
+        // Feeds the trailing-stop (next bar) and peak-giveback exits. Long-shaped, like the live exit brain.
+        if (isLong && bar.High > trade.PeakSinceEntry) trade.PeakSinceEntry = bar.High;
 
         // Scale-out targets, in order.
         while (nextTarget < targets.Count && remaining > 0)

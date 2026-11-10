@@ -219,6 +219,13 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>
+    /// A time of day as the canon and the script write it: "HH:mm", or "HH:mm:ss" when it has seconds
+    /// (ParseTimeOfDay accepts both). Writing only HH:mm turned SellBy("09:28:30") into 09:28 in the canon.
+    /// </summary>
+    internal static string TimeText(TimeSpan t) =>
+        t.ToString(t.Seconds == 0 ? @"hh\:mm" : @"hh\:mm\:ss", System.Globalization.CultureInfo.InvariantCulture);
+
     internal static TimeSpan ParseTimeOfDay(string text)
     {
         if (!TimeSpan.TryParseExact(text.Trim().Trim('"'), [@"h\:mm", @"hh\:mm", @"h\:mm\:ss", @"hh\:mm\:ss"],
@@ -1161,15 +1168,20 @@ public sealed class StrategyBuilder
 
         // Exit conditions. Emit the multi-target form when the strategy scales out so
         // T2/T3 survive a round trip (the single TakeProfitPrice is only T1).
-        if (strategy.TakeProfitTargets.Count > 1 && IsShorthandTargetSplit(strategy.TakeProfitTargets))
-            parts.Add($"TakeProfit({string.Join(", ", strategy.TakeProfitTargets.Select(t => Inv(t.Price)))})");
-        else if (strategy.TakeProfitTargets.Count > 1)
-            // A ladder TakeProfit(t1, t2, t3) can't express (4+ targets, custom splits) keeps
-            // every price and percent by spelling each target out.
-            foreach (var t in strategy.TakeProfitTargets)
+        var targets = strategy.TakeProfitTargets;
+        if (targets.Count > 1 && IsShorthandTargetSplit(targets) && strategy.TakeProfitPrice == targets[0].Price)
+            parts.Add($"TakeProfit({string.Join(", ", targets.Select(t => Inv(t.Price)))})");
+        else
+        {
+            // Anything the ladder TakeProfit(t1, t2, t3) can't express (one partial target, 4+
+            // targets, custom splits, a primary price that is not T1) spells the price and every
+            // target out, so a single AddTarget(5, 50) no longer comes back as a 100% TakeProfit(5).
+            // AddTarget only sets the primary price when it is unset, so emitting it first keeps it.
+            if (strategy.TakeProfitPrice is { } primary && (targets.Count == 0 || primary != targets[0].Price))
+                parts.Add($"TakeProfit({Inv(primary)})");
+            foreach (var t in targets)
                 parts.Add($"AddTarget({Inv(t.Price)}, {t.PercentToSell}, \"{t.Label}\")");
-        else if (strategy.TakeProfitPrice.HasValue)
-            parts.Add($"TakeProfit({Inv(strategy.TakeProfitPrice.Value)})");
+        }
         if (strategy.TakeProfitPercent.HasValue)
             parts.Add($"TakeProfitPercent({Inv(strategy.TakeProfitPercent.Value)})");
         if (strategy.StopLossPrice.HasValue)
@@ -1179,16 +1191,16 @@ public sealed class StrategyBuilder
         if (strategy.TrailingStopPercent.HasValue)
             parts.Add($"TrailingStopLoss({Inv(strategy.TrailingStopPercent.Value)})");
         if (strategy.ExitTime is { } exitTime)
-            parts.Add($"SellBy(\"{exitTime:hh\\:mm}\")");
+            parts.Add($"SellBy(\"{TimeText(exitTime)}\")");
         if (strategy.PeakGivebackPercent is { } giveback)
             parts.Add(strategy.PeakGivebackArmTime is { } arm
-                ? $"PeakGiveback({Inv(giveback)}, \"{arm:hh\\:mm}\")"
+                ? $"PeakGiveback({Inv(giveback)}, \"{TimeText(arm)}\")"
                 : $"PeakGiveback({Inv(giveback)})");
         if (strategy.VelocityExhaustionPctPerMin is { } velocity)
         {
             var window = strategy.VelocityExhaustionWindowMinutes ?? 3;
             parts.Add(strategy.VelocityExhaustionArmTime is { } velocityArm
-                ? $"VelocityExhaustion({Inv(velocity)}, {window}, \"{velocityArm:hh\\:mm}\")"
+                ? $"VelocityExhaustion({Inv(velocity)}, {window}, \"{TimeText(velocityArm)}\")"
                 : $"VelocityExhaustion({Inv(velocity)}, {window})");
             if (strategy.VelocityExhaustionMinRunPercent is { } minRun)
                 parts.Add($"VelocityExhaustionMinRun({Inv(minRun)})");
@@ -1992,7 +2004,7 @@ public static class MarketTime
             || date == PresidentsDay(y)             // Presidents' Day (3rd Mon Feb)
             || date == GoodFriday(y)               // Good Friday
             || date == MemorialDay(y)              // Memorial Day (last Mon May)
-            || date == ObservedHoliday(y, 6, 19)   // Juneteenth
+            || (y >= 2022 && date == ObservedHoliday(y, 6, 19)) // Juneteenth (an NYSE holiday from 2022)
             || date == ObservedHoliday(y, 7,  4)   // Independence Day
             || date == LaborDay(y)                 // Labor Day (1st Mon Sep)
             || date == Thanksgiving(y)             // Thanksgiving (4th Thu Nov)
@@ -2000,14 +2012,27 @@ public static class MarketTime
     }
 
     /// <summary>
-    /// True when the NYSE closes early at 1:00 PM ET: Christmas Eve (Dec 24)
-    /// when it falls on a weekday, and Black Friday (day after Thanksgiving).
+    /// True when the NYSE closes early at 1:00 PM ET: Christmas Eve (Dec 24) and July 3
+    /// when they fall on a weekday that is not itself the observed holiday, and Black Friday
+    /// (day after Thanksgiving).
     /// </summary>
     public static bool IsEarlyCloseDay(DateOnly date)
     {
         if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return false;
+        if (IsMarketHoliday(date)) return false;
         if (date.Month == 12 && date.Day == 24) return true;
+        if (date.Month == 7 && date.Day == 3) return true;
         return date == Thanksgiving(date.Year).AddDays(1);
+    }
+
+    /// <summary>
+    /// True during the post-close extended session of an early-close day, 1:00 PM to 5:00 PM ET.
+    /// </summary>
+    public static bool IsEarlyCloseAfterHours(DateTime utc)
+    {
+        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Eastern);
+        var tod = et.TimeOfDay;
+        return IsEarlyCloseDay(DateOnly.FromDateTime(et)) && tod >= new TimeSpan(13, 0, 0) && tod < new TimeSpan(17, 0, 0);
     }
 
     private static DateOnly ObservedHoliday(int year, int month, int day)
@@ -2107,7 +2132,7 @@ public sealed class TimeWindowCondition(TimeSpan startEt, TimeSpan endEt) : ICon
 
     public StrategyPhase Phase => StrategyPhase.Filters;
 
-    public string ToScript() => $"RequireEntryWindow(\"{StartEt:hh\\:mm}\", \"{EndEt:hh\\:mm}\")";
+    public string ToScript() => $"RequireEntryWindow(\"{StrategyBuilder.TimeText(StartEt)}\", \"{StrategyBuilder.TimeText(EndEt)}\")";
 
     public bool Evaluate(IndicatorSnapshot s)
     {

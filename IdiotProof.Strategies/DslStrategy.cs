@@ -78,7 +78,10 @@ public sealed class DslStrategy : IStrategy
             SuggestedStop     = resolved.StopLossPrice.HasValue
                                     ? (decimal)resolved.StopLossPrice.Value
                                     : resolved.StopLossPercent.HasValue
-                                        ? (decimal)(snapshot.Price * (1.0 - resolved.StopLossPercent.Value / 100.0))
+                                        // a short's stop sits ABOVE entry (RiskGuardian refuses it below)
+                                        ? (decimal)(snapshot.Price * (resolved.Direction == TradeDirection.Short
+                                            ? 1.0 + resolved.StopLossPercent.Value / 100.0
+                                            : 1.0 - resolved.StopLossPercent.Value / 100.0))
                                         : 0m,
             // Full scale-out ladder, not just T1 — TakeProfit(t1, t2, t3) sets
             // TakeProfitPrice = t1 AND populates TakeProfitTargets; emitting

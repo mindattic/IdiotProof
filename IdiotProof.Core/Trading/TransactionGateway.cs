@@ -308,6 +308,11 @@ public sealed partial class TransactionGateway(
         }
 
         // 7 ── place / replace / cancel
+        // Past this point the caller's token is no longer honoured: a client that disconnects (Ctrl+C,
+        // an MCP tool-call cancel, a CLI timeout) mid-send could otherwise abort after the broker
+        // accepted the order and skip the diary and audit rows for a live order. The broker client's
+        // own HTTP timeout still bounds the call.
+        var sendCt = CancellationToken.None;
         OrderResult placed;
         var threw = false;
         try
@@ -315,16 +320,16 @@ public sealed partial class TransactionGateway(
             var symbol = string.IsNullOrWhiteSpace(intent.Order.Symbol) || intent.Order.Symbol == "*" ? null : intent.Order.Symbol.Trim().ToUpperInvariant();
             placed = intent.Action switch
             {
-                OrderAction.Replace => await client.ReplaceOrderAsync(intent.TargetOrderId!, intent.Order, ct),
-                OrderAction.Cancel => await client.CancelOrderAsync(intent.TargetOrderId!, ct),
-                OrderAction.CancelAll => await client.CancelAllOrdersAsync(symbol, ct),
-                _ => await client.PlaceOrderAsync(intent.Order, ct),
+                OrderAction.Replace => await client.ReplaceOrderAsync(intent.TargetOrderId!, intent.Order, sendCt),
+                OrderAction.Cancel => await client.CancelOrderAsync(intent.TargetOrderId!, sendCt),
+                OrderAction.CancelAll => await client.CancelAllOrdersAsync(symbol, sendCt),
+                _ => await client.PlaceOrderAsync(intent.Order, sendCt),
             };
         }
-        // An HttpClient timeout surfaces as TaskCanceledException without our token being cancelled:
-        // the order may have reached the broker, so it is audited as BrokerThrew (callers reconcile
-        // on that) instead of escaping the gateway.
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        // An HttpClient timeout surfaces as TaskCanceledException: the order may have reached the
+        // broker, so it is audited as BrokerThrew (callers reconcile on that) instead of escaping the
+        // gateway.
+        catch (Exception ex)
         {
             logger.LogError(ex, "Broker threw on {Order}", intent.Describe());
             placed = new OrderResult { IsSuccess = false, Message = ex.Message };
@@ -344,8 +349,8 @@ public sealed partial class TransactionGateway(
             Order = placed,
             BrokerThrew = threw,
         };
-        if (outcome.Status == GatewayStatus.Placed) await DiaryAsync(outcome, client, options, ct);
-        return await AuditAsync(outcome, options, ct);
+        if (outcome.Status == GatewayStatus.Placed) await DiaryAsync(outcome, client, options, sendCt);
+        return await AuditAsync(outcome, options, sendCt);
     }
 
     /// <summary>

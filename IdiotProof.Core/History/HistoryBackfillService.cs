@@ -163,10 +163,18 @@ public sealed class HistoryBackfillService(
         if (held.Any(r => r.From <= job.FromEt && r.To >= job.ToEt)) return 0;
         var from = FileBackedBarStore.EtToUtc(job.FromEt, TimeOnly.MinValue);
         var to = FileBackedBarStore.EtToUtc(job.ToEt.AddDays(1), TimeOnly.MinValue);
-        var items = new List<AlpacaNewsItem>();
-        await foreach (var item in news.GetNewsRangeAsync([job.Symbol], from, to, ct: ct).ConfigureAwait(false)) items.Add(item);
+        var (items, complete) = await news.GetNewsRangeCheckedAsync([job.Symbol], from, to, ct: ct).ConfigureAwait(false);
         bool multiYear = job.ToEt.DayNumber - job.FromEt.DayNumber > 365;
-        if (items.Count == 0 && multiYear) return 0;
+        if (items.Count == 0 && (multiYear || !complete)) return 0;
+        // A read cut short (a failed page, the page cap) covers only through the day before its last
+        // item (pages run oldest first; that day may be partial). Marking the whole range lost the
+        // rest for good, since a covered range is never fetched again.
+        var coveredTo = job.ToEt;
+        if (!complete)
+        {
+            coveredTo = DateOnly.FromDateTime(IdiotProof.Evidence.Gappers.MinuteBarMath.ToEastern(items.Max(i => i.CreatedAt))).AddDays(-1);
+            if (coveredTo < job.FromEt) coveredTo = job.FromEt.AddDays(-1);
+        }
 
         var rows = new System.Data.DataTable();
         foreach (var (name, type) in new (string, Type)[] { ("Id", typeof(Guid)), ("Source", typeof(string)), ("ExternalId", typeof(string)), ("PublishedUtc", typeof(DateTime)), ("Headline", typeof(string)), ("Url", typeof(string)), ("PreClass", typeof(string)), ("Direction", typeof(int)), ("SourceName", typeof(string)), ("Symbols", typeof(string)) })
@@ -197,7 +205,8 @@ public sealed class HistoryBackfillService(
             SELECT COUNT(*) FROM @new;
             """, c, tx))
             inserted = (int)(await insert.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
-        await SqlHistoryBarCache.AddRangeAsync(c, tx, job.Symbol, HistoryDatabase.Kinds.News, job.FromEt, job.ToEt, items.Count, time.GetUtcNow().UtcDateTime, IdiotProof.Core.Catalysts.CatalystIntake.AlpacaNews, ct).ConfigureAwait(false);
+        if (coveredTo >= job.FromEt)
+            await SqlHistoryBarCache.AddRangeAsync(c, tx, job.Symbol, HistoryDatabase.Kinds.News, job.FromEt, coveredTo, items.Count, time.GetUtcNow().UtcDateTime, IdiotProof.Core.Catalysts.CatalystIntake.AlpacaNews, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return inserted;
     }

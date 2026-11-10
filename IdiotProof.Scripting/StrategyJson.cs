@@ -96,7 +96,7 @@ public static class StrategyJson
         return root;
     }
 
-    private static string Time(TimeSpan t) => t.ToString(@"hh\:mm");
+    private static string Time(TimeSpan t) => StrategyBuilder.TimeText(t);
 
     private static JsonNode WriteCondition(ICondition c) => c switch
     {

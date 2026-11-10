@@ -234,11 +234,20 @@ public sealed partial class GapperTestStage
         string selection;
         var carried = split is "train" ? null : LatestTrainSelection(labels, h.Id);
         if (carried is { } c) { selected = c; selection = "carried from the latest train run of " + h.Id; }
-        else
+        else if (split is "train")
         {
             var eligible = Enumerable.Range(0, labels.Count).Where(k => summaries[k].Trades >= minTrades && !double.IsNaN(summaries[k].LowerBoundPct)).ToList();
             if (eligible.Count > 0) selected = eligible.OrderByDescending(k => summaries[k].LowerBoundPct).ThenByDescending(k => summaries[k].MeanNetPct).First();
-            selection = split is "train" ? "highest weighted day-clustered lower bound on this split among configs with enough unweighted trades" : "in-sample selection on this split (no train run file found)";
+            selection = "highest weighted day-clustered lower bound on this split among configs with enough unweighted trades";
+        }
+        else
+        {
+            // Validation and holdout test train's choice; choosing on the split under test is in-sample.
+            part.Statistic["selection"] = "none: no train run selected a configuration to carry";
+            part.Verdict = HypothesisVerdict.Void;
+            part.Reasons.Add($"no train selection of {h.Id} to carry into {split} (run the train split first); choosing on {split} itself would be in-sample");
+            run.Parts.Add(part);
+            return;
         }
         part.Statistic["configs"] = summaries;
         part.Statistic["configCount"] = labels.Count;

@@ -98,7 +98,10 @@ public sealed record OrderIntent
     /// code is bound to this hash, so ANY change to the order produces a different intent that needs
     /// its own confirmation; a field added to the model later is covered automatically. Symbols and
     /// TIF are upper-cased and decimals written without trailing zeros so "131.2" and "131.20" agree.
-    /// The note is excluded (it is commentary, not the order).
+    /// The note is excluded (it is commentary, not the order), and so is <see cref="ReferencePrice"/>:
+    /// a market order's preview reads a fresh quote, so re-sending the same command with --confirm
+    /// always carried a different reference price and was refused as tampered. The confirmed order is
+    /// the stored intent, priced and risk-checked at its own reference.
     /// </summary>
     public string Hash()
     {
@@ -106,6 +109,7 @@ public sealed record OrderIntent
         var normalized = this with
         {
             Note = null,
+            ReferencePrice = null,
             Order = new OrderRequest
             {
                 Symbol = o.Symbol.Trim().ToUpperInvariant(), Quantity = o.Quantity, FractionalQuantity = o.FractionalQuantity,

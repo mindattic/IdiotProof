@@ -105,8 +105,10 @@ public sealed class PrefsSetOperation : IOperation<PrefsSetArgs>
             case "active-account":
                 return OperationResult.Usage("active-account follows the account you pick in the web app; it can't be set here.");
             default:
-                if (!decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var v))
-                    return OperationResult.Usage($"{field.Name} takes a number.");
+                // No thousands separators: NumberStyles.Number let "0,5" through as 5 (a comma decimal).
+                if (!decimal.TryParse(raw, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite,
+                        CultureInfo.InvariantCulture, out var v))
+                    return OperationResult.Usage($"{field.Name} takes a number (use a point for decimals, no commas).");
                 await service.SetRiskConfigAsync(owner,
                     field.Name == "risk.max-loss-per-trade" ? v : p.RiskMaxLossPerTrade,
                     field.Name == "risk.max-loss-per-day" ? v : p.RiskMaxLossPerDay,
@@ -115,6 +117,9 @@ public sealed class PrefsSetOperation : IOperation<PrefsSetArgs>
                     field.Name == "risk.account-balance" ? v : p.RiskAccountBalance,
                     field.Name == "risk.max-account-risk-percent" ? v : p.RiskMaxAccountRiskPercent,
                     ctx.CancellationToken);
+                // Like `risk set`: drop the cached guardian so the new limits apply to the next order,
+                // not after the 2-minute cache refresh.
+                ctx.Get<RiskGuardianService>().Invalidate(owner);
                 break;
         }
 

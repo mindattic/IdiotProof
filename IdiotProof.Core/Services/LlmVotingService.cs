@@ -243,7 +243,9 @@ public sealed class LlmVotingService
         var approveRatio = votes.Count(v => v.Decision == VoteDecision.Approve) / total;
         var rejectRatio  = votes.Count(v => v.Decision == VoteDecision.Reject) / total;
 
-        result.Consensus = approveRatio >= consensusThreshold ? VoteDecision.Approve
+        // Approve also needs more approvals than rejections: at a threshold of 0.5 or below a 2-2 split
+        // (or 1 approve vs 2 rejects at 0.33) met the threshold and approved a fire the panel opposed.
+        result.Consensus = approveRatio >= consensusThreshold && approveRatio > rejectRatio ? VoteDecision.Approve
             : rejectRatio >= consensusThreshold ? VoteDecision.Reject
             : VoteDecision.Abstain;
         result.ConsensusConfidence = votes.Average(v => v.Confidence);

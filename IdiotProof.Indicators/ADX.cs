@@ -53,14 +53,26 @@ public static class ADX
             dx[i] = denom == 0 ? 0 : 100m * Math.Abs(diPlus[i] - diMinus[i]) / denom;
         }
 
-        var adx = WilderSmooth(dx, period);
+        // Wilder's ADX: seed at index first + period - 1 with the MEAN of the first `period` real DX
+        // values (dx[first..first+period-1], where first is the first bar with real DI), then smooth.
+        // WilderSmooth(dx) seeded from dx[1..period], which the DI backfill makes all equal to
+        // dx[period]: the first DX carried ~35% of the weight at 2*period instead of ~6%.
+        var adx = new decimal[n];
+        int firstDx = Math.Min(period, n - 1);
+        int adxSeed = firstDx + period - 1;
+        if (adxSeed < n)
+        {
+            decimal dxSum = 0m;
+            for (int i = firstDx; i <= adxSeed; i++) dxSum += dx[i];
+            adx[adxSeed] = dxSum / period;
+            for (int i = adxSeed + 1; i < n; i++)
+                adx[i] = (adx[i - 1] * (period - 1) + dx[i]) / period;
+        }
 
         // ADX requires 2*period bars to be meaningful: the first period produces
-        // the DI values, the second smooths those into ADX. The DI backfill makes
-        // dx[0..period-1] all identical, so WilderSmooth seeds ADX from that
-        // same constant — yielding adx[0..period-1] equal to the first real ADX.
-        // Zero out the double-warmup window so strategies using RequireAdxAbove
-        // never fire on these undefined early bars.
+        // the DI values, the second smooths those into ADX. Zero out the
+        // double-warmup window so strategies using RequireAdxAbove never fire on
+        // these undefined early bars.
         int adxWarmup = Math.Min(2 * Math.Min(period, n - 1), n);
         for (int i = 0; i < adxWarmup; i++) adx[i] = 0m;
 

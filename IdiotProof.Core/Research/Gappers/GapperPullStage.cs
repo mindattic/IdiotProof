@@ -286,8 +286,26 @@ public sealed partial class GapperPullStage(
                 }
                 catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity or HttpStatusCode.NotFound)
                 {
-                    s.Logger.LogWarning("bars: {Day} chunk rejected ({Status}); skipping {Count} symbols this pass", day.Key, ex.StatusCode, chunk.Length);
+                    // One bad symbol rejects the whole chunk, and symbols are sorted, so the same chunk
+                    // failed on every rerun and its 99 good neighbours never got bars. Retry one by one:
+                    // only a symbol rejected on its own is recorded as having no bars that day.
+                    s.Logger.LogWarning("bars: {Day} chunk rejected ({Status}); retrying {Count} symbols one by one", day.Key, ex.StatusCode, chunk.Length);
                     callCount++;
+                    foreach (var one in chunk)
+                    {
+                        if (!calls.Allow()) { s.Logger.LogWarning("bars: --max-calls reached after {Calls} calls", callCount); return (callCount, written); }
+                        try
+                        {
+                            var single = await feed.GetHistoricalCandlesForSymbolsAsync([one], TimeSpan.FromMinutes(1), startUtc, endUtc, 10000, s.RateGate.WaitAsync, ct);
+                            callCount += single.Pages;
+                            if (store.AppendDay(one, day.Key, single.Bars.TryGetValue(one, out var l1) ? l1 : Array.Empty<Candle>())) written++;
+                        }
+                        catch (HttpRequestException ex1) when (ex1.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity or HttpStatusCode.NotFound)
+                        {
+                            callCount++;
+                            if (store.AppendDay(one, day.Key, Array.Empty<Candle>())) written++;
+                        }
+                    }
                     continue;
                 }
                 foreach (var sym in chunk)
@@ -410,12 +428,15 @@ public sealed partial class GapperPullStage(
             await s.RateGate.WaitAsync(ct);
             var fromUtc = EasternTime.ToUtc(from.ToDateTime(TimeOnly.MinValue));
             var toUtc = EasternTime.ToUtc(to.AddDays(1).ToDateTime(TimeOnly.MinValue));
-            if (toUtc > s.UtcNow) toUtc = s.UtcNow;
+            var clipped = toUtc > s.UtcNow;
+            if (clipped) toUtc = s.UtcNow;
             var r = await backfill.BackfillAsync([symbol], fromUtc, toUtc, 0, req.Owner, includeEdgar: false, ct);
             inserted += r.Inserted;
             seen += r.NewsSeen;
             windows++;
-            await s.MarkAsync(NewsTier, [(key, r.NewsSeen)], ct);
+            // A window that ends in the future, or whose read stopped early, is not covered yet:
+            // marking it skipped every later item for good.
+            if (!clipped && r.NewsComplete) await s.MarkAsync(NewsTier, [(key, r.NewsSeen)], ct);
             if (windows % 50 == 0) s.Logger.LogInformation("[{Now}] news: {Windows} windows, {Seen} items seen, {Inserted} new", GapperStudyServices.Et(s.UtcNow), windows, seen, inserted);
         }
         var population = await PullPopulationNewsAsync(req, calls, ct);
@@ -451,12 +472,13 @@ public sealed partial class GapperPullStage(
             await s.RateGate.WaitAsync(ct);
             var fromUtc = EasternTime.ToUtc(day.AddDays(-window.Before).ToDateTime(TimeOnly.MinValue));
             var toUtc = EasternTime.ToUtc(day.AddDays(window.After + 1).ToDateTime(TimeOnly.MinValue));
-            if (toUtc > s.UtcNow) toUtc = s.UtcNow;
+            var clipped = toUtc > s.UtcNow;
+            if (clipped) toUtc = s.UtcNow;
             var r = await backfill.BackfillAsync(symbols, fromUtc, toUtc, 0, req.Owner, includeEdgar: false, ct);
             inserted += r.Inserted;
             seen += r.NewsSeen;
             done++;
-            await s.MarkAsync(NewsPopulationTier, [(key, r.NewsSeen)], ct);
+            if (!clipped && r.NewsComplete) await s.MarkAsync(NewsPopulationTier, [(key, r.NewsSeen)], ct);
             if (done % 50 == 0) s.Logger.LogInformation("[{Now}] news (population): {Done}/{Total} batches, {Seen} items seen, {Inserted} new", GapperStudyServices.Et(s.UtcNow), done, batches.Count - skipped, seen, inserted);
         }
         return (done, skipped, seen, inserted);
@@ -644,7 +666,11 @@ public sealed partial class GapperPullStage(
                 }
                 await db.SaveChangesAsync(ct);
             }
-            await s.MarkAsync(tier, [(key, rows.Count)], ct);
+            // A quarter still in progress is read again next run (as the dilution puller does): marking it
+            // froze the quarter, so later 8-K / S-1 / 424B filings never reached EdgarFilingIndex.
+            var quarterEnd = new DateOnly(year, quarter * 3, 1).AddMonths(1).AddDays(-1);
+            if (quarterEnd < DateOnly.FromDateTime(EasternTime.FromUtc(s.UtcNow)))
+                await s.MarkAsync(tier, [(key, rows.Count)], ct);
             s.Logger.LogInformation("[{Now}] edgar: {Quarter} → {Rows} rows for mapped CIKs ({Total} inserted so far, {Tier})", GapperStudyServices.Et(s.UtcNow), key, rows.Count, indexRows, tier);
         }
         }

@@ -63,8 +63,10 @@ public sealed class SandboxBrokerClient : IBrokerClient
         // market orders without a reference price fill at 0 (harmless for the
         // position book — quantity tracking is what matters in sandbox).
         var fillPrice = request.LimitPrice ?? request.StopPrice ?? 0m;
-        var qty = request.Quantity > 0
-            ? request.Quantity
+        // SizeQuantity covers FractionalQuantity too; reading Quantity alone booked 0 shares for a
+        // fractional order and still reported it filled.
+        var qty = request.SizeQuantity > 0
+            ? request.SizeQuantity
             : fillPrice > 0m && request.Notional is { } notional
                 ? Math.Floor(notional / fillPrice)
                 : 0m;

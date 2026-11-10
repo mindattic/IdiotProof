@@ -264,7 +264,21 @@ public sealed partial class GapperExploreStage
                             Interlocked.Add(ref calls, r1.Pages);
                             foreach (var kv in r1.Bars) merged[kv.Key] = kv.Value.ToList();
                         }
-                        catch (HttpRequestException) { Interlocked.Increment(ref calls); }
+                        catch (HttpRequestException one1) when (one1.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.UnprocessableEntity or System.Net.HttpStatusCode.NotFound)
+                        {
+                            Interlocked.Increment(ref calls); // that symbol is rejected: it has no bars
+                        }
+                        catch (Exception one2) when (one2 is HttpRequestException or TaskCanceledException && !token.IsCancellationRequested)
+                        {
+                            // 429, 5xx, timeout: transient, so the day must not be cached as complete.
+                            Interlocked.Increment(ref calls);
+                            ok = false;
+                        }
+                    }
+                    if (!ok)
+                    {
+                        s.Logger.LogWarning("orb-pull: {Day} had transient per-symbol failures; the day is left for a rerun", day);
+                        break;
                     }
                     foreach (var sym in chunk) Append(sym, merged.TryGetValue(sym, out var l) ? l : []);
                     continue;

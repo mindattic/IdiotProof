@@ -766,11 +766,22 @@ public sealed partial class GapperTestStage(GapperStudyServices s, GapperStudyPa
         string selection;
         var carried = split is "train" or GapperStudyServices.SmokeSplit ? null : LatestTrainSelection(configs);
         if (carried is { } c) { selected = c; selection = "carried from the latest train run"; }
-        else
+        else if (split is "train" or GapperStudyServices.SmokeSplit)
         {
             var eligible = Enumerable.Range(0, configs.Count).Where(k => summaries[k].Trades >= minTrades && !double.IsNaN(summaries[k].LowerBoundPct)).ToList();
             if (eligible.Count > 0) selected = eligible.OrderByDescending(k => summaries[k].LowerBoundPct).ThenByDescending(k => summaries[k].MeanNetPct).First();
-            selection = split is "train" or GapperStudyServices.SmokeSplit ? "highest day-clustered lower bound on this split among configs with enough trades" : "in-sample selection on this split (no train run file found)";
+            selection = "highest day-clustered lower bound on this split among configs with enough trades";
+        }
+        else
+        {
+            // Validation and holdout test the config train chose; picking the best config on the split
+            // under test would let it pass on its own selection. No train choice = no test.
+            selection = "none: no train run selected a configuration to carry";
+            part.Statistic["selection"] = selection;
+            part.Verdict = HypothesisVerdict.Void;
+            part.Reasons.Add($"no train selection to carry into {split} (run the train split first); choosing on {split} itself would be in-sample");
+            run.Parts.Add(part);
+            return;
         }
         part.Statistic["configs"] = summaries;
         part.Statistic["configCount"] = configs.Count;

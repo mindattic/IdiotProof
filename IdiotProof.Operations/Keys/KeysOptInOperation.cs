@@ -41,6 +41,17 @@ public sealed class KeysOptInOperation : IOperation<KeysOptInArgs>
         if (was == now)
             return OperationResult.Ok(data, $"Routing is already {now}.");
 
+        // A Paper or Live strategy holding a position books its exits through this routing: switching
+        // it would send the Monitor's stop/target/sell-by to the other broker and strand the real
+        // position (the same rule as `strategy mode`). Sandbox-mode strategies never route to Alpaca.
+        var holding = (await ctx.Get<StrategyRepository>().GetAllForUserAsync(owner, ctx.CancellationToken))
+            .Where(s => s.PositionQty > 0 && IdiotProof.Core.Trading.OrderIntent.ParseMode(s.BrokerMode) != IdiotProof.Core.Trading.BrokerMode.Sandbox)
+            .ToList();
+        if (holding.Count > 0)
+            return OperationResult.Blocked(
+                $"{string.Join(", ", holding.Select(s => $"{s.Symbol} ({s.PositionQty} sh, {s.BrokerMode})"))} still hold positions; " +
+                $"switching routing {was} -> {now} would strand them. Flatten first.");
+
         await service.SetDefaultBrokerAsync(owner, on.Value ? "alpaca" : "Sandbox", ctx.CancellationToken);
         var lines = new List<string> { $"Routing: {was} -> {now}." };
         if (on.Value)

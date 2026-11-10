@@ -126,10 +126,20 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
         }
         if (!IsConnected) return; // reconnect path re-subscribes the full set
 
-        if (added.Count > 0)
-            await SendAsync(Subscription("subscribe", added), ct).ConfigureAwait(false);
-        if (removed.Count > 0)
-            await SendAsync(Subscription("unsubscribe", removed), ct).ConfigureAwait(false);
+        try
+        {
+            if (added.Count > 0)
+                await SendAsync(Subscription("subscribe", added), ct).ConfigureAwait(false);
+            if (removed.Count > 0)
+                await SendAsync(Subscription("unsubscribe", removed), ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // subscribedSymbols already holds the new set, so a lost send would never be retried on
+            // this socket. Drop the socket instead: the reconnect loop re-subscribes the full set.
+            socket?.Abort();
+            throw;
+        }
     }
 
     /// <summary>The symbols one owner asked for (empty for an unknown owner).</summary>
@@ -316,11 +326,17 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
     private static string? Str(JsonElement el, string name) =>
         el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
-    private Task SendAsync(object payload, CancellationToken ct)
+    // ClientWebSocket allows one send at a time; the Monitor's and the formation recorder's
+    // subscription updates and the connect-time auth/subscribe can overlap.
+    private readonly SemaphoreSlim sendLock = new(1, 1);
+
+    private async Task SendAsync(object payload, CancellationToken ct)
     {
         var ws = socket ?? throw new InvalidOperationException("Streaming socket not connected.");
         var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
-        return ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, endOfMessage: true, ct);
+        await sendLock.WaitAsync(ct).ConfigureAwait(false);
+        try { await ws.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, endOfMessage: true, ct).ConfigureAwait(false); }
+        finally { sendLock.Release(); }
     }
 
     public async ValueTask DisposeAsync()

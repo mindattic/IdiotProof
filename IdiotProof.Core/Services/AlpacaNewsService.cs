@@ -59,7 +59,7 @@ public sealed class AlpacaNewsService(
                 var source    = Str(item, "source", "Alpaca News");
                 var articleUrl  = Str(item, "url");
                 var published = item.TryGetProperty("created_at", out var d) && d.TryGetDateTime(out var dt)
-                    ? dt : DateTime.UtcNow;
+                    ? dt.ToUniversalTime() : DateTime.UtcNow;
 
                 articles.Add(new AlpacaNewsArticle(headline, summary, source, articleUrl, published));
             }
@@ -83,9 +83,38 @@ public sealed class AlpacaNewsService(
         IReadOnlyList<string> symbols, DateTime startUtc, DateTime endUtc, int limit = 50, string? pageToken = null,
         (string KeyId, string Secret)? keys = null, CancellationToken ct = default)
     {
+        var (items, next, _) = await GetNewsPageCheckedAsync(symbols, startUtc, endUtc, limit, pageToken, keys, ct);
+        return (items, next);
+    }
+
+    /// <summary>
+    /// Every item in the range like <see cref="GetNewsRangeAsync"/>, plus whether the range was read to
+    /// its end. False when a page failed (429, 5xx, no keys) or <paramref name="maxPages"/> stopped it:
+    /// a backfill must not record such a range as fully covered.
+    /// </summary>
+    public async Task<(List<AlpacaNewsItem> Items, bool Complete)> GetNewsRangeCheckedAsync(IReadOnlyList<string> symbols, DateTime startUtc, DateTime endUtc,
+        int maxPages = 400, (string KeyId, string Secret)? keys = null, CancellationToken ct = default)
+    {
+        var all = new List<AlpacaNewsItem>();
+        string? token = null;
+        for (var page = 0; page < maxPages; page++)
+        {
+            var (items, next, ok) = await GetNewsPageCheckedAsync(symbols, startUtc, endUtc, 50, token, keys, ct);
+            if (!ok) return (all, false);
+            all.AddRange(items);
+            if (string.IsNullOrEmpty(next) || items.Count == 0) return (all, true);
+            token = next;
+        }
+        return (all, false);
+    }
+
+    private async Task<(List<AlpacaNewsItem> Items, string? NextPageToken, bool Ok)> GetNewsPageCheckedAsync(
+        IReadOnlyList<string> symbols, DateTime startUtc, DateTime endUtc, int limit, string? pageToken,
+        (string KeyId, string Secret)? keys, CancellationToken ct)
+    {
         var keyId = keys?.KeyId ?? settings.AlpacaApiKeyId;
         var secret = keys?.Secret ?? settings.AlpacaApiSecretKey;
-        if (string.IsNullOrWhiteSpace(keyId) || string.IsNullOrWhiteSpace(secret)) return ([], null);
+        if (string.IsNullOrWhiteSpace(keyId) || string.IsNullOrWhiteSpace(secret)) return ([], null, false);
 
         var url = $"{DataBase}v1beta1/news?limit={Math.Clamp(limit, 1, 50)}&start={Iso(startUtc)}&end={Iso(endUtc)}&include_content=false&sort=ASC";
         if (symbols.Count > 0) url += "&symbols=" + Uri.EscapeDataString(string.Join(",", symbols.Select(s => s.ToUpperInvariant())));
@@ -101,15 +130,16 @@ public sealed class AlpacaNewsService(
             if (!resp.IsSuccessStatusCode)
             {
                 logger.LogDebug("Alpaca news page returned {Status}", resp.StatusCode);
-                return ([], null);
+                return ([], null, false);
             }
             using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
-            return ParsePage(doc.RootElement);
+            var (items, next) = ParsePage(doc.RootElement);
+            return (items, next, true);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Alpaca news page fetch failed");
-            return ([], null);
+            return ([], null, false);
         }
     }
 

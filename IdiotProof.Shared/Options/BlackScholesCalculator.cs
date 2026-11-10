@@ -24,12 +24,27 @@ public static class BlackScholesCalculator
 {
     private const double SqrtTwoPi = 2.5066282746310002;
 
+    private static readonly TimeZoneInfo Eastern = ResolveEastern();
+
+    private static TimeZoneInfo ResolveEastern()
+    {
+        try { return TimeZoneInfo.FindSystemTimeZoneById("America/New_York"); }
+        catch (TimeZoneNotFoundException) { return TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time"); }
+    }
+
     /// <summary>Theoretical price per share. T in years. Returns intrinsic when T ≤ 0 or σ ≤ 0.</summary>
     public static double TheoreticalPrice(double s, double k, double t, double r, double sigma, OptionRight right)
     {
         if (s <= 0 || k <= 0) return 0;
-        if (t <= 0 || sigma <= 0)
+        if (t <= 0)
             return right == OptionRight.Call ? Math.Max(0, s - k) : Math.Max(0, k - s);
+        if (sigma <= 0)
+        {
+            // No volatility but time left: the zero-vol limit discounts the strike (as ImpliedVolatility's
+            // floor does). The undiscounted intrinsic priced an ATM call at 0 instead of S - K·e^(-rT).
+            var discounted = k * Math.Exp(-r * t);
+            return right == OptionRight.Call ? Math.Max(0, s - discounted) : Math.Max(0, discounted - s);
+        }
 
         var (d1, d2) = D1D2(s, k, t, r, sigma);
         var discountedStrike = k * Math.Exp(-r * t);
@@ -137,8 +152,9 @@ public static class BlackScholesCalculator
     /// <summary>Calendar-day fraction of a year, floored at a small positive value so 0DTE still prices.</summary>
     public static double YearsUntil(DateOnly expiration, DateTime nowUtc)
     {
-        // Options expire at 4:00 PM ET on expiration day; approximate with end-of-day UTC-4/5.
-        var expiryUtc = expiration.ToDateTime(new TimeOnly(20, 0), DateTimeKind.Utc);
+        // Options expire at 4:00 PM ET on expiration day: 20:00 UTC in daylight time, 21:00 UTC in
+        // standard time (a fixed 20:00 made every November-March T an hour short, which matters at 0DTE).
+        var expiryUtc = TimeZoneInfo.ConvertTimeToUtc(expiration.ToDateTime(new TimeOnly(16, 0), DateTimeKind.Unspecified), Eastern);
         var years = (expiryUtc - nowUtc).TotalDays / 365.0;
         return Math.Max(years, 1.0 / (365.0 * 24 * 4)); // ≥ 15 minutes
     }

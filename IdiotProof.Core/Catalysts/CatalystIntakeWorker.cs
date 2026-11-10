@@ -75,7 +75,11 @@ public sealed class CatalystIntakeWorker(
         var wantNews = config.Enabled && leader && config.OwnerUserId is not null && Now >= blockedUntilUtc;
         var wantEdgar = wantNews && config.EdgarPolling;
 
-        if (wantNews && (newsTask is null || newsTask.IsCompleted))
+        // A stream that ended on its own (an error other than a refusal) is finished first: without this
+        // its token source leaked on every restart and the status kept showing Running while it was down.
+        if (newsTask is { IsCompleted: true }) await StopNewsAsync("the stream ended");
+
+        if (wantNews && newsTask is null)
         {
             var keys = await ResolveKeysAsync(config.OwnerUserId!.Value, ct);
             if (keys is null)

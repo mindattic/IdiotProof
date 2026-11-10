@@ -47,7 +47,8 @@ public sealed class PositionsCloseOperation : IOperation<PositionsCloseArgs>
         var what = args.Percentage is { } p ? $"{Fmt.Number(p)}% of" : args.Quantity is { } q ? $"{Fmt.Number(q)} of" : "all of";
         var note = $"{ctx.Caller.ToString().ToLowerInvariant()} positions close {what} {symbol}";
         var plan = PositionExits.Plan(owner, args.Mode, position, want, null, note);
-        var before = await PositionExits.ProtectiveStopCancelsAsync(ctx, owner, args.Mode, [symbol], note);
+        // No exit (e.g. under one whole share) means nothing is sold, so the broker stop must stay.
+        var before = plan.Intent is null ? [] : await PositionExits.ProtectiveStopCancelsAsync(ctx, owner, args.Mode, [symbol], note);
         return await PositionExits.RunAsync([plan], args.Mode, args.Preview, $"close {what} {symbol} · {args.Mode}", ctx, before);
     }
 }

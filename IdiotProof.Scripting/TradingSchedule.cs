@@ -34,7 +34,9 @@ public static class TradingSchedule
     // before the first trade can legally fire.
     private static readonly TimeSpan ActiveStart      = new(3,  55, 0);  // 3:55 AM
     private static readonly TimeSpan ActiveEnd        = new(20,  5, 0);  // 8:05 PM
-    private static readonly TimeSpan EarlyCloseActive = new(13,  5, 0);  // 5 min after 1 PM early-close
+    // Early-close days: RTH ends at 1 PM but the extended session runs 1-5 PM ET, so a position held
+    // into the afternoon (a SellBy past 13:00) is still managed and flattened before it ends.
+    private static readonly TimeSpan EarlyCloseActive = new(17,  5, 0);  // 5 min after the 5 PM extended close
 
     /// <summary>Evaluation interval during active trading hours.</summary>
     public static readonly TimeSpan ActiveInterval    = TimeSpan.FromSeconds(1);
@@ -56,7 +58,7 @@ public static class TradingSchedule
         if (et.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return TradingWindow.Hibernate;
         if (MarketTime.IsMarketHoliday(today)) return TradingWindow.Hibernate;
 
-        // Early-close days: RTH ends at 1 PM ET; no after-hours session.
+        // Early-close days: RTH ends at 1 PM ET; the extended session ends at 5 PM ET.
         var activeEnd = MarketTime.IsEarlyCloseDay(today) ? EarlyCloseActive : ActiveEnd;
         if (tod < ActiveStart || tod >= activeEnd) return TradingWindow.Hibernate;
 

@@ -333,7 +333,8 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
     {
         var query = $"/v2/orders?status={(openOnly ? "open" : "all")}&limit=100&direction=desc&nested=false&symbols={Uri.EscapeDataString(symbol.Trim().ToUpperInvariant())}";
         if (afterUtc is { } after)
-            query += "&after=" + Uri.EscapeDataString(after.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture));
+            // SQL hands back UTC with Kind=Unspecified; ToUniversalTime() would read that as local time and shift it hours later.
+            query += "&after=" + Uri.EscapeDataString((after.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(after, DateTimeKind.Utc) : after.ToUniversalTime()).ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture));
         using var response = await httpClient.GetAsync(query, ct).ConfigureAwait(false);
         var content = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
@@ -591,6 +592,10 @@ public sealed class AlpacaBrokerClient : IBrokerClient, IAsyncDisposable
     public async Task<OptionsAccountInfo> GetOptionsAccountAsync(CancellationToken ct = default)
     {
         var account = await GetAccountAsync(ct).ConfigureAwait(false);
+        // A failed account read (429, 5xx) is not "level 0": reporting it as unapproved locked the
+        // options ticket with nothing pointing at the real error.
+        if (account.TryGetValue("error", out var accountError))
+            throw new HttpRequestException($"Alpaca account request failed ({accountError}); the options level is unknown.");
         var trading = Int(account, "options_trading_level") ?? Int(account, "option_trading_level") ?? 0;
         var approved = Int(account, "options_approved_level") ?? Int(account, "option_approved_level") ?? trading;
         var buyingPower = account.TryGetValue("options_buying_power", out var bp)

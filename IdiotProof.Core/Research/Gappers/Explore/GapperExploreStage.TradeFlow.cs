@@ -39,7 +39,10 @@ public sealed partial class GapperExploreStage
                     var prints = r.Trades.TryGetValue(symbol, out var list) ? list : [];
                     var file = TradeFlowFile(symbol, date.Key);
                     Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-                    await File.WriteAllTextAsync(file, TradeFlow.ToCsv(TradeFlow.Aggregate(prints.Select(p => (p.Utc, p.Price, p.Size, p.Exchange)))), ct);
+                    // Write then rename: a day on disk is skipped forever, so a crash mid-write must not
+                    // leave a truncated file under the final name.
+                    await File.WriteAllTextAsync(file + ".tmp", TradeFlow.ToCsv(TradeFlow.Aggregate(prints.Select(p => (p.Utc, p.Price, p.Size, p.Exchange)))), ct);
+                    File.Move(file + ".tmp", file, true);
                     written++;
                 }
             }
