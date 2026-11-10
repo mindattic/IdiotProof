@@ -1,0 +1,16 @@
+{
+  "ticket": "IP-T500",
+  "splits": { "fitEnd": "2025-12-31", "validationStart": "2026-01-01", "validationEnd": "2026-06-30", "holdoutStart": "2026-07-01", "holdoutEnd": "2026-11-10" },
+  "winsorPct": 300,
+  "screen": { "minClose": 0.50, "maxClose": 20.0, "minVolume": 1000000, "topN": 3, "overlapN": [3, 10, 20] },
+  "bootstrap": { "draws": 5000, "seed": 500, "ci": 0.90 },
+  "h2": { "minTriggered": 30, "minLift": 1.5, "maxCarry": 5, "ignoreLift": 0.67,
+          "priceBands": [0, 1, 2, 5, 10, 20, 1000], "gapBands": [-100, 0, 10, 25, 50, 100, 10000],
+          "triggerDistBands": [-100, 0, 10, 25, 50, 100, 10000], "prevRankBands": [1, 4, 11, 21, 51, 301, 100000] },
+  "h3": {
+    "entries": ["his-trigger", "open", "orb5-high", "pm-high-break", "vwap-reclaim"],
+    "takeProfitPct": [5, 10, 20, null], "stop": [-3, -5, -10, "vwap"], "timeExit": ["10:30", "12:00", "15:55"],
+    "vwapReclaimWindow": ["09:35", "11:00"], "orbMinutes": 5,
+    "costRoundTripPct": 2.0, "costSensitivityPct": [1.0, 3.4], "minFitTrades": 50, "carry": 5
+  }
+}
