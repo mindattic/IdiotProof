@@ -49,6 +49,12 @@ public sealed class GapperMomentumArmOperation : IOperation<GapperMomentumArmArg
         var d = args.Date ?? today;
         if (!args.DryRun && (d != today || nowEt.TimeOfDay < ArmAt))
             return OperationResult.Usage($"Strategies are saved only for today at or after 09:29 ET, once the premarket high is known (now {nowEt:yyyy-MM-dd HH:mm} ET). Use --dry-run to look.");
+        // Run daily by MindAttic.Scheduler (which also catches up a missed run late): a non-trading day, or a run
+        // after the 15:30 ET entry window closed, arms nothing and is not an error.
+        if (!args.DryRun && (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday || IdiotProof.Scripting.MarketTime.IsMarketHoliday(d)))
+            return OperationResult.Ok(new { Session = d, Picks = 0, Saved = 0 }, $"{d:yyyy-MM-dd} is not a trading day; nothing armed.");
+        if (!args.DryRun && nowEt.TimeOfDay >= new TimeSpan(15, 30, 0))
+            return OperationResult.Ok(new { Session = d, Picks = 0, Saved = 0 }, $"Past the 15:30 ET entry window ({nowEt:HH:mm} ET); nothing armed today.");
         var forming = args.DryRun && d == today && nowEt.TimeOfDay < ArmAt ? "Before 09:29 ET the premarket high is still forming.\n" : "";
 
         var picks = await ctx.Get<GapperRadarService>().MomentumPicksAsync(d, ctx.UtcNow, ctx.CancellationToken);

@@ -104,9 +104,8 @@ if (settings.MonitorHosted)
 // Graceful shutdown (IP-T79). Hosted services stop in reverse registration order, so the drain
 // (registered after the Monitor) runs first: new /api/op calls get 503, running ones finish; then
 // the Monitor's loop ends its current tick and releases the SQL leader lease explicitly.
-// The 24/7 job runner (IP-T512): scheduled research and arming steps as operations, only in the
-// Hub that hosts the Monitor (IDIOTPROOF_HUB_SCHEDULER=0 turns it off).
-builder.Services.AddHostedService<HubScheduler>();
+// Scheduled research and arming steps are MindAttic.Scheduler jobs (HOUSE-LAW-11, IP-T518): each one is an
+// `idiotproof ...` CLI call, so it still runs here, through the dispatcher, the gateway and the ledger.
 // The gapper study's research database graph (IP-T515): `research gappers ...` operations run there.
 builder.Services.AddSingleton<ResearchHost>();
 builder.Services.AddSingleton<IOperationScopeRouter>(sp => sp.GetRequiredService<ResearchHost>());
