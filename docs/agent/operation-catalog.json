@@ -10747,10 +10747,10 @@
       "noun": "gapper",
       "verb": "radar",
       "tool_name": "gapper_radar",
-      "summary": "Stocks that could gap up next session, ranked by the evening-before signs the gapper study measured (recent \u002B100% day, top-10 mover today, dollar volume 5x, halts, reverse-split timing, price, catalyst type, Momentum. picks), each with its reasons and warnings; Alpaca-untradable names excluded. Read-only.",
+      "summary": "Stocks that could gap up next session, ranked by the evening-before signs the gapper study measured (recent \u002B100% day, top-10 mover today, dollar volume 5x, halts, reverse-split timing, price, catalyst type, Momentum. picks), each with its reasons and warnings; Alpaca-untradable names excluded. Places no orders; --watchlist sets an Alpaca paper watchlist, --save writes the list to a file.",
       "description": null,
-      "risk": "read",
-      "usage": "idiotproof gapper radar [--date \u003Cdate\u003E] [--top \u003Cint\u003E] [--all] [--why] [--dir \u003Cstring\u003E]",
+      "risk": "write",
+      "usage": "idiotproof gapper radar [--date \u003Cdate\u003E] [--top \u003Cint\u003E] [--all] [--why] [--dir \u003Cstring\u003E] [--watchlist \u003Cstring\u003E] [--save]",
       "parameters": [
         {
           "name": "date",
@@ -10811,6 +10811,30 @@
           "description": "Data cache folder (default D:\\IdiotProofData\\radar).",
           "default": null,
           "enum_values": null
+        },
+        {
+          "name": "watchlist",
+          "json_name": "watchlist",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Also set this Alpaca paper-account watchlist to the listed names (created when missing), e.g. \u0022Gapper radar\u0022.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "save",
+          "json_name": "save",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Also write the rendered list to \u003Cdir\u003E\\radar-\u003Csession\u003E.txt.",
+          "default": false,
+          "enum_values": null
         }
       ],
       "examples": [
@@ -10830,7 +10854,7 @@
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "description": "Stocks that could gap up next session, ranked by the evening-before signs the gapper study measured (recent \u002B100% day, top-10 mover today, dollar volume 5x, halts, reverse-split timing, price, catalyst type, Momentum. picks), each with its reasons and warnings; Alpaca-untradable names excluded. Read-only.",
+        "description": "Stocks that could gap up next session, ranked by the evening-before signs the gapper study measured (recent \u002B100% day, top-10 mover today, dollar volume 5x, halts, reverse-split timing, price, catalyst type, Momentum. picks), each with its reasons and warnings; Alpaca-untradable names excluded. Places no orders; --watchlist sets an Alpaca paper watchlist, --save writes the list to a file.",
         "properties": {
           "date": {
             "type": "string",
@@ -10855,6 +10879,15 @@
           "dir": {
             "type": "string",
             "description": "Data cache folder (default D:\\IdiotProofData\\radar)."
+          },
+          "watchlist": {
+            "type": "string",
+            "description": "Also set this Alpaca paper-account watchlist to the listed names (created when missing), e.g. \u0022Gapper radar\u0022."
+          },
+          "save": {
+            "type": "boolean",
+            "description": "Also write the rendered list to \u003Cdir\u003E\\radar-\u003Csession\u003E.txt.",
+            "default": false
           }
         },
         "additionalProperties": false
@@ -14719,6 +14752,48 @@
           "out": {
             "type": "string",
             "description": "Where to write the markdown report (default docs/research/momentum-claims-report.md in the repo, else the data folder)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "momentum reresolve",
+      "noun": "momentum",
+      "verb": "reresolve",
+      "tool_name": "momentum_reresolve",
+      "summary": "Re-resolve every Momentum. claim\u0027s ticker with the current resolver (prior-session movers only, IP-T508) without re-running the LLM; a claim whose symbol changes gets its levels rebuilt and its outcome dropped so \u0060momentum verify\u0060 re-checks it.",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof momentum reresolve [--dir \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "dir",
+          "json_name": "dir",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Market-data cache folder (default D:\\IdiotProofData\\momentum).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof momentum reresolve",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Re-resolve every Momentum. claim\u0027s ticker with the current resolver (prior-session movers only, IP-T508) without re-running the LLM; a claim whose symbol changes gets its levels rebuilt and its outcome dropped so \u0060momentum verify\u0060 re-checks it.",
+        "properties": {
+          "dir": {
+            "type": "string",
+            "description": "Market-data cache folder (default D:\\IdiotProofData\\momentum)."
           }
         },
         "additionalProperties": false

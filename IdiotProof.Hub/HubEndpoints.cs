@@ -183,7 +183,7 @@ public static class HubEndpoints
     }
 
     /// <summary>Resolve, log, run and ledger one call; <paramref name="sink"/> is set only for a streaming call.</summary>
-    private static async Task<(string Name, OperationResult Result)> ExecuteAsync(
+    internal static async Task<(string Name, OperationResult Result)> ExecuteAsync(
         HubOperationRequest request,
         IStreamSink? sink,
         OperationDispatcher dispatcher,

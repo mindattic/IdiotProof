@@ -20,9 +20,15 @@ public sealed record GapperRadarArgs
 
     [Option("dir", Description = @"Data cache folder (default D:\IdiotProofData\radar).")]
     public string? Dir { get; init; }
+
+    [Option("watchlist", Description = "Also set this Alpaca paper-account watchlist to the listed names (created when missing), e.g. \"Gapper radar\".")]
+    public string? Watchlist { get; init; }
+
+    [Option("save", Description = @"Also write the rendered list to <dir>\radar-<session>.txt.")]
+    public bool Save { get; init; }
 }
 
-[Operation("gapper radar", Summary = "Stocks that could gap up next session, ranked by the evening-before signs the gapper study measured (recent +100% day, top-10 mover today, dollar volume 5x, halts, reverse-split timing, price, catalyst type, Momentum. picks), each with its reasons and warnings; Alpaca-untradable names excluded. Read-only.", Risk = OperationRisk.Read)]
+[Operation("gapper radar", Summary = "Stocks that could gap up next session, ranked by the evening-before signs the gapper study measured (recent +100% day, top-10 mover today, dollar volume 5x, halts, reverse-split timing, price, catalyst type, Momentum. picks), each with its reasons and warnings; Alpaca-untradable names excluded. Places no orders; --watchlist sets an Alpaca paper watchlist, --save writes the list to a file.", Risk = OperationRisk.Write)]
 [Example("idiotproof gapper radar")]
 [Example("idiotproof gapper radar --top 10 --why")]
 [Example("idiotproof gapper radar --date 2026-11-10")]
@@ -86,6 +92,21 @@ public sealed class GapperRadarOperation : IOperation<GapperRadarArgs>
                     "Momentum.'s evening picks are the strongest sign measured: 38% of them ran +50% (167x the base rate), and they beat the top-gainer screens on a held-out window (IP-T500); " +
                     "his picks appear once his video is out, usually 19:00-21:00 ET, so run the radar again after it. " +
                     "No long entry on these names, his picks included, has survived costs (IP-T494, IP-T500 H3). Watch them; do not chase them.");
+
+        if (!string.IsNullOrWhiteSpace(args.Watchlist))
+        {
+            await using var api = await IdiotProof.Operations.Reference.ReferenceSupport.TradingAsync(ctx, IdiotProof.Operations.Reference.AlpacaAccount.Paper);
+            await IdiotProof.Operations.Reference.AlpacaWatchlists.ReplaceAsync(api, args.Watchlist.Trim(), shown.Where(r => !r.Score.Excluded).Select(r => r.Facts.Symbol), ctx.CancellationToken);
+            text.Append($"\nAlpaca paper watchlist '{args.Watchlist.Trim()}' set to these {shown.Count(r => !r.Score.Excluded)} names.");
+        }
+        if (args.Save)
+        {
+            var dir = string.IsNullOrWhiteSpace(args.Dir) ? GapperRadarService.DefaultDir : args.Dir;
+            Directory.CreateDirectory(dir);
+            var file = Path.Combine(dir, $"radar-{run.Session:yyyy-MM-dd}.txt");
+            await File.WriteAllTextAsync(file, text.ToString(), ctx.CancellationToken);
+            text.Append($"\nSaved to {file}.");
+        }
         return OperationResult.Ok(data, text.ToString());
     }
 

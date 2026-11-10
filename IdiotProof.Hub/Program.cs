@@ -42,6 +42,12 @@ using Microsoft.EntityFrameworkCore;
 // `idiotproof hub install-service` / tools\install-hub-service.ps1 to run as the USER (LocalDB and
 // the Data Protection ring are per-user). A service starts in System32 with no visible window, so
 // it roots itself at its exe folder and mirrors its would-be window to Logs\hub-service.log.
+// Operation output promises culture-invariant numbers, but several renderers format with the current
+// culture: on a de-DE host they printed "0,5" and "1.234". Pin the Hub (every operation runs here).
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+
 // LAMP (IP-T347): `--write-settings-manifest` imports today's app-settings.json into MindAttic Vault, writes the
 // manifest Vault.Desktop reads, and exits (run.ps1 calls it after a deploy; moved here from the web app, IP-T504).
 if (args.Contains(MindAttic.Vault.Settings.Manifest.SettingsManifestCommand.Switch, StringComparer.OrdinalIgnoreCase))
@@ -98,6 +104,9 @@ if (settings.MonitorHosted)
 // Graceful shutdown (IP-T79). Hosted services stop in reverse registration order, so the drain
 // (registered after the Monitor) runs first: new /api/op calls get 503, running ones finish; then
 // the Monitor's loop ends its current tick and releases the SQL leader lease explicitly.
+// The 24/7 job runner (IP-T512): scheduled research and arming steps as operations, only in the
+// Hub that hosts the Monitor (IDIOTPROOF_HUB_SCHEDULER=0 turns it off).
+builder.Services.AddHostedService<HubScheduler>();
 builder.Services.AddSingleton<InFlightOperations>();
 builder.Services.AddHostedService(sp => new OperationDrainService(sp.GetRequiredService<InFlightOperations>(), HubConsole.Line));
 builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(60));

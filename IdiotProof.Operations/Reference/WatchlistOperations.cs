@@ -30,6 +30,21 @@ internal static class AlpacaWatchlists
 
     public static string Id(JsonElement w) => w.Str("id") ?? throw OperationException.Failed("Alpaca returned a watchlist without an id.");
 
+    /// <summary>Sets the watchlist <paramref name="name"/> to exactly <paramref name="symbols"/>, creating it when missing.</summary>
+    public static async Task<JsonElement> ReplaceAsync(AlpacaApi api, string name, IEnumerable<string> symbols, CancellationToken ct)
+    {
+        var list = Normalize(symbols).ToArray();
+        try
+        {
+            var current = await api.GetAsync("/v2/watchlists:by_name", new Dictionary<string, string?> { ["name"] = name }, ct);
+            return await api.SendAsync(HttpMethod.Put, $"/v2/watchlists/{Id(current)}", new { name, symbols = list }, null, ct);
+        }
+        catch (AlpacaApiException ex) when (ex.Status == HttpStatusCode.NotFound)
+        {
+            return await api.SendAsync(HttpMethod.Post, "/v2/watchlists", new { name, symbols = list }, null, ct);
+        }
+    }
+
     public static string[] Symbols(JsonElement w) => [.. w.Items("assets").Select(a => a.Str("symbol")).OfType<string>()];
 
     public static IEnumerable<string> Normalize(IEnumerable<string> symbols) =>

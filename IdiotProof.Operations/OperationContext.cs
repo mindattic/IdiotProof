@@ -10,6 +10,8 @@ public enum OperationCaller
     Mcp,
     Blazor,
     Test,
+    /// <summary>The Hub's own job runner (HubScheduler): scheduled research and arming steps.</summary>
+    Scheduler,
 }
 
 /// <summary>What the caller will do with the result: print <see cref="OperationResult.Human"/>, or serialize it.</summary>
