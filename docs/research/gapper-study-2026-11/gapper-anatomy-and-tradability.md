@@ -18,10 +18,12 @@ against independently pulled Alpaca bars (§5b) and the tradability check (§5).
 | every Tier20+ day in the window amendment 05 opened (2026-09-10..10-30) | 741 |
 | total | **13,291** |
 
-The 210 case-study top-5 days (2026-09-10..11-09) are added on top, for **13,501 rows**. The locked holdout
-(2025-11-03..2026-09-09, 5,139 gapper days) is **deliberately not read**. Its labels and prices stay sealed under the
-frozen protocol and amendment 05 until the single registered holdout run. Validating them now would spend the
-holdout. Lifting that lock is the user's decision, and this pass does not make it.
+The 210 case-study top-5 days (2026-09-10..11-09) are added on top, for **13,501 rows**. These are validated in
+the open (§5b).
+
+The locked holdout (2025-11-03..2026-09-09, 5,139 gapper days) is validated **sealed** (§5d). A script checked every
+day and wrote the per-day results outside the repo. Only aggregate counts were read; no holdout return was looked at.
+That brings the total to every gapper the study has, **18,640 rows**.
 
 Data: [`runs/alpaca-tradability-20261110.csv`](runs/alpaca-tradability-20261110.csv) has one row per gapper day with:
 
@@ -49,18 +51,20 @@ Sources, all from Alpaca, pulled 2026-11-10 00:47-02:30 ET:
    - The ledger holds 4,424 long trials, recounted for this note (§3). 28 have a positive pooled net and 4 are
      positive in every fold. None survives the frozen cost or deflation: the best deflated Sharpe is 0.000. The
      pre-registered long strategies all lose on validation.
+   - A fresh check on independently pulled bars agrees. Buying gappers already up ≥ 20% at the open loses 5.2% by the
+     close (32% win rate). Those up ≥ 100% lose 21%.
    - Detection is good. Making money from it is not.
 4. **When to ignore.** Ignore every gapper on this list as a long. The one exception tested so far is a slow earnings
    beat, which drifts up into D+2 but is not significant after deflation. Ignore anything Alpaca will not trade
    (§5). It is also worth noting that the bigger the run, the more often the stock is delisted later.
-5. **Validate all gappers.** Of 13,501 gapper days, **13,410 (99.3%) are confirmed** by bars pulled fresh from
-   Alpaca: +20% or more over the prior close at the open or high, or at the premarket minute high. The rest:
-   - 64 reach only +10-20% on Alpaca's bars;
-   - 8 are not confirmed and look like data errors, among them FLG on 2024-07-12, a 1:3 reverse-split day labelled
-     +224%;
-   - 19 cannot be checked, because their prior close falls inside the locked holdout (§5b).
-6. **Is it tradable on Alpaca?** **Yes for 89% of permitted gapper days, 98% of opened-window gappers and 97% of
-   recent top runners, judged by Alpaca's status today.**
+5. **Validate all gappers.** Every one of the study's 18,640 gapper rows was checked on bars pulled fresh from
+   Alpaca. The holdout was checked sealed, aggregates only (§5d). **18,550 (99.5%) are confirmed**: +20% or more
+   over the prior close at the open or high, or at the premarket minute high. The rest:
+   - 81 reach only +10-20% on Alpaca's bars;
+   - 9 are not confirmed and look like data errors, among them FLG on 2024-07-12, a 1:3 reverse-split day labelled
+     +224% (§5b).
+6. **Is it tradable on Alpaca?** **Yes for 91.0% of all 18,430 study gapper days, 96% of the most recent year and
+   97% of recent top runners, judged by Alpaca's status today.**
    - **Alpaca blocks a specific group of hot names that still trade on Nasdaq**: OMH, HOLO, MLGO, NXTT, WIMI, TOP,
      JZ, CHSN, JBDI and about 20 more. These are exactly the Asia-linked promotion names that mechanism 2 describes,
      and OMH is the study's flagship example.
@@ -114,6 +118,29 @@ messages:
   recorded DSR has DSR 0.000.
 
 The pre-registered long strategies were tested on validation and lose (H12, H12p, H18 below).
+
+**Fresh check on the validated gappers (this note).** This is independent of the study's simulators. It uses the
+§5b daily bars and every confirmed gapper day in train, validation, the boundary day and the opened window. It
+excludes Alpaca-blocked and unknown names, keeping days whose symbol is tradable today, since moved to OTC, or
+delisted. Single-trade gains are capped at +500%.
+
+Only names whose gap is **already known at the open** (open ≥ threshold × prior close) are bought, so there is no
+look-ahead. A naive "buy every labelled gapper at the open" shows +5.1% only because the label uses the day's later
+high.
+
+| bought at the 09:30 open | days | to the close | to the next open | to the D+2 close | win rate to the close |
+|---|---|---|---|---|---|
+| opened ≥ +20% | 2,484 | **-5.24%** [-6.06, -4.39] | -7.50% | -8.53% | 32% |
+| opened ≥ +50% | 666 | **-13.10%** [-14.69, -11.49] | -17.31% | -19.97% | 22% |
+| opened ≥ +100% | 199 | **-20.95%** [-23.81, -18.21] | -26.15% | -30.10% | 14% |
+
+All figures are before costs. Adding the study's ~3.4% round trip makes each one worse.
+
+Buying the gapper day's **close** also loses: -0.09% to the next open (42% win) and -1.18% [-1.57, -0.77] to the
+D+2 close (39% win), over 12,935 days.
+
+The bigger the gap at the open, the bigger the loss, at every holding period. This confirms the ledger with
+independent data: these are not longs.
 
 Every long tested loses money. Each line below is train-only exploration unless it says validation.
 
@@ -270,6 +297,50 @@ The **8 not confirmed** are likely false gappers in the study's labels:
 All eight are train or validation days. That is 0.06% of the labels, too few to move any study verdict. The
 FLG and RSLS split misses belong in the split guard's to-do list.
 
+## 5d. The locked holdout, validated sealed (IP-T497)
+
+The goal asks for **all** gappers. The user did not choose between keeping the holdout untouched and opening it. So
+the holdout gappers were validated **sealed**:
+
+- A script ran the same §5b bar check and §5 Alpaca status on every holdout gapper day (2025-11-03..2026-09-09). It
+  also ran them on the 19 opened-window days of 2026-09-10 whose prior close lies in the holdout.
+- Per-day results went only to `D:/IdiotProofData/sealed-holdout/validation-sealed.csv`, outside the repo, with a
+  README saying not to open them.
+- Only the aggregate counts below were printed and read.
+
+**What this spends.** No return, outcome or per-day row was looked at, and no rule was scored. The two counts say
+whether the study's gapper labels are correct and whether Alpaca trades the names. Neither can steer rule design,
+which is what the holdout guards against.
+
+**What it does not spend.** The registered holdout run still has untouched returns to test against.
+
+| set | days | confirmed ≥ +20% | partial (+10-20%) | not confirmed |
+|---|---|---|---|---|
+| holdout 2025-11-03..2026-09-09 | 5,139 | **5,121 (99.65%)**: 4,130 on the daily bar, 991 on premarket minute bars | 17 | 1 |
+| opened window, 2026-09-10 | 19 | **19**: 12 on the daily bar, 7 on premarket minute bars | 0 | 0 |
+
+| set | days | tradable now | blocked by Alpaca | moved to OTC | delisted | not in Alpaca |
+|---|---|---|---|---|---|---|
+| holdout | 5,139 | 4,948 (96.3%) | 69 (1.3%) | 107 (2.1%) | 6 (0.1%) | 9 (0.2%) |
+| opened window, 2026-09-10 | 19 | 19 | 0 | 0 | 0 | 0 |
+
+### Every gapper the study has, all splits
+
+| | days | share |
+|---|---|---|
+| **checked** | **18,640** | **100%** (13,501 from §5b + 5,139 holdout) |
+| confirmed real gapper (≥ +20% on fresh Alpaca bars) | **18,550** | **99.5%** |
+| partial (+10-20%) | 81 | 0.4% |
+| not confirmed (likely false labels) | 9 | 0.05% |
+
+| all 18,430 study gapper days | days | share |
+|---|---|---|
+| **tradable on Alpaca today** | **16,778** | **91.0%** |
+| still listed but blocked by Alpaca | 358 | 1.9% |
+| moved to OTC since | 1,134 | 6.2% |
+| delisted | 114 | 0.6% |
+| not in Alpaca | 46 | 0.2% |
+
 ## 5c. Tradability on the gapper's own day
 
 Alpaca's assets endpoint has no history. A past day's status can only be proven by an order placed that day.
@@ -324,8 +395,8 @@ Alpaca's assets endpoint has no history. A past day's status can only be proven 
      how often a gapper is blocked on its own day.
    - It also records borrow availability over time, which `avenues.md` A16 says has no free history.
 3. **Fix the split guard** for the FLG (2024-07-12) and RSLS (2024-11-11) misses found in §5b.
-4. **Holdout gappers (5,139 days, 2025-11-03..2026-09-09):** validate them only when the registered holdout run
-   unseals that window, or if the user decides to lift the lock.
+4. **Holdout gappers (5,139 days):** validated sealed (§5d). Leave the per-day file closed until the registered
+   holdout run.
 5. **Research, still open (from `avenues.md`):**
    - A2: 6-K exhibit text. 48% of recent runners are foreign filers, and the pre-exhibit classifier left about 1 in
      4 catalysts unresolved.
