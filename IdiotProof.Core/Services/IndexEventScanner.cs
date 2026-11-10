@@ -49,10 +49,12 @@ public sealed class IndexEventScanner(IDbContextFactory<AppDbContext> dbFactory,
         public bool IsAdd => Action.Equals("Add", StringComparison.OrdinalIgnoreCase);
         public string IndexLabel => Index.Equals("SP100", StringComparison.OrdinalIgnoreCase) ? "S&P 100" : "S&P 500";
 
-        /// <summary>Stable text used both for display and as the idempotency key (with Ticker).</summary>
+        /// <summary>"Added to the S&amp;P 500": the event's identity with its ticker and announced date.</summary>
+        public string ActionText => $"{(IsAdd ? "Added to" : "Removed from")} the {IndexLabel}";
+
+        /// <summary>Display text; it embeds the effective date, so it is NOT the identity (IP-T511).</summary>
         public string Summary =>
-            $"{(IsAdd ? "Added to" : "Removed from")} the {IndexLabel}" +
-            (EffectiveDate is { } e ? $" (effective {e:yyyy-MM-dd})" : " (effective date TBA)");
+            ActionText + (EffectiveDate is { } e ? $" (effective {e:yyyy-MM-dd})" : " (effective date TBA)");
     }
 
     private sealed class EventsFile
@@ -137,8 +139,23 @@ public sealed class IndexEventScanner(IDbContextFactory<AppDbContext> dbFactory,
             foreach (var ev in events)
             {
                 var happened = ev.EffectiveDate is { } e && e <= today;
+                // Identity = ticker + index + action + announced date. Matching on the summary (which
+                // embeds the effective date) turned "TBA" -> a real date into a second claim and left
+                // the TBA one Pending forever.
                 var match = existing.FirstOrDefault(c =>
-                    c.Ticker.Equals(ev.Ticker, StringComparison.OrdinalIgnoreCase) && c.ClaimSummary == ev.Summary);
+                    c.Ticker.Equals(ev.Ticker, StringComparison.OrdinalIgnoreCase) && c.ArticleDate == ev.AnnouncedDate
+                    && c.ClaimSummary.StartsWith(ev.ActionText + " (", StringComparison.Ordinal));
+
+                if (match is not null && match.ClaimSummary != ev.Summary)
+                {
+                    // The effective date was filled in or edited: update the claim in place.
+                    var updated = ToClaim(ev, happened || match.HasHappenedAlready);
+                    match.ClaimSummary = updated.ClaimSummary;
+                    match.ExpectedTimeline = updated.ExpectedTimeline;
+                    match.PendingTrigger = match.HasHappenedAlready ? match.PendingTrigger : updated.PendingTrigger;
+                    match.LlmAnswer = updated.LlmAnswer;
+                    match.SourceUrl = updated.SourceUrl ?? match.SourceUrl;
+                }
 
                 if (match is not null)
                 {

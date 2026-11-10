@@ -358,7 +358,10 @@ public static class ArgsBinder
         if (!ok)
         {
             value = null;
-            error = $"{label} expects {Expectation(p)}, got '{text}'.";
+            error = $"{label} expects {Expectation(p)}, got '{text}'." +
+                    (p.ValueKind is ParameterValueKind.Decimal or ParameterValueKind.Double && text.Contains(',')
+                        ? " Commas are ambiguous (1,005 vs 1.005): write 1005, 1.005 or 1,005.00."
+                        : "");
         }
         return ok;
     }
@@ -388,9 +391,15 @@ public static class ArgsBinder
     }
 
     /// <summary>Lets <c>$1,250.50</c> through as a number (people paste prices).</summary>
-    /// <summary>No comma at all, or commas only between groups of exactly three digits before any decimal point.</summary>
+    /// <summary>
+    /// No comma at all, or commas only between groups of exactly three digits before any decimal point,
+    /// with a leading group that does not start with 0: "0,001" is a comma decimal (0.001), never a
+    /// thousands group, and reading it as 1 made a 1000x order or withdrawal.
+    /// </summary>
     private static bool ThousandsOk(string text) =>
-        !text.Contains(',') || System.Text.RegularExpressions.Regex.IsMatch(text, @"^[+-]?\d{1,3}(,\d{3})+(\.\d+)?$");
+        // ...and only with a decimal point too (IP-T511): "1,005" is 1005 to some and 1.005 to others,
+        // so a bare comma group is refused; "1,005.00", "1005" and "1.005" are unambiguous.
+        !text.Contains(',') || System.Text.RegularExpressions.Regex.IsMatch(text, @"^[+-]?[1-9]\d{0,2}(,\d{3})+\.\d+$");
 
     private static string StripMoney(string text) => text.Trim().Replace("$", "", StringComparison.Ordinal);
 }
