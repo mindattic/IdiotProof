@@ -81,7 +81,8 @@ public sealed class GapperRadarOperation : IOperation<GapperRadarArgs>
             }
         foreach (var n in run.Notes) text.AppendLine("Note: " + n);
         text.Append("Points are log2 of the gapper study's train lift for a next-day high of +50% or more, strongest sign per group; they rank names, they are not odds. " +
-                    "At the top 10 the study's score caught 15% of runners at 5.6% precision, and no long entry on these names survived costs (IP-T494). Watch them; do not chase them.");
+                    "Out of sample (43 sessions, 2026-09-10..11-09) 7.3% of the radar's top 20 ran +50% (36x the base rate) against 6.6% for a plain top-gainers screen: " +
+                    "not significantly better at the top 20, better at the top 50 (20% of runners caught vs 15%). No long entry on these names has survived costs (IP-T494). Watch them; do not chase them.");
         return OperationResult.Ok(data, text.ToString());
     }
 
