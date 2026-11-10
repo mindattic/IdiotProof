@@ -118,35 +118,63 @@ public sealed class RegulatoryScanner(
         return await db.ResearchClaims.AnyAsync(c => c.IsMacro && c.SourceUrl == htmlUrl, ct);
     }
 
+    /// <summary>
+    /// True when the last <see cref="ScanAsync"/> read the whole window (every page fetched, no
+    /// failure). The scan pass only advances its "regulatory-scan-ran" marker when this is true:
+    /// a failed or truncated read used to move the next window past notices nobody read (IP-T509).
+    /// </summary>
+    public bool LastScanComplete { get; private set; }
+
+    private const int PageSize = 100, MaxPages = 20;
+
     private async Task<List<FederalRegisterDoc>> FetchNoticesAsync(DateTime sinceUtc, CancellationToken ct)
     {
+        LastScanComplete = false;
         var since = DateOnly.FromDateTime(sinceUtc);
-        var url = $"{DocumentsUrl}?conditions%5Bagencies%5D%5B%5D=securities-and-exchange-commission" +
-                  "&conditions%5Bterm%5D=Self-Regulatory+Organizations" +
-                  "&conditions%5Btype%5D%5B%5D=NOTICE" +
-                  "&order=newest&per_page=40";
+        // Every page since the window start (the API filters by publication date), not just the
+        // newest 40: SRO notices run at dozens a day, so a 14-day first window or an outage lost most.
+        var baseUrl = $"{DocumentsUrl}?conditions%5Bagencies%5D%5B%5D=securities-and-exchange-commission" +
+                      "&conditions%5Bterm%5D=Self-Regulatory+Organizations" +
+                      "&conditions%5Btype%5D%5B%5D=NOTICE" +
+                      $"&conditions%5Bpublication_date%5D%5Bgte%5D={since:yyyy-MM-dd}" +
+                      $"&order=newest&per_page={PageSize}";
 
         var http = httpFactory.CreateClient();
-        using var resp = await http.GetAsync(url, ct);
-        if (!resp.IsSuccessStatusCode)
-        {
-            logger.LogWarning("Federal Register returned {Status}", resp.StatusCode);
-            return [];
-        }
-
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
-        if (!doc.RootElement.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Array)
-            return [];
-
         var docs = new List<FederalRegisterDoc>();
-        foreach (var item in results.EnumerateArray())
+        for (var page = 1; page <= MaxPages; page++)
+        {
+            using var resp = await http.GetAsync(baseUrl + $"&page={page}", ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Federal Register returned {Status} on page {Page}", resp.StatusCode, page);
+                return docs;
+            }
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+            if (!doc.RootElement.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Array)
+            {
+                LastScanComplete = true; // no results key: nothing (more) in the window
+                return docs;
+            }
+            var count = 0;
+            foreach (var item in results.EnumerateArray()) { count++; AddDoc(item); }
+            var totalPages = doc.RootElement.TryGetProperty("total_pages", out var tp) && tp.TryGetInt32(out var t) ? t : page;
+            if (count == 0 || page >= totalPages)
+            {
+                LastScanComplete = true;
+                return docs;
+            }
+        }
+        logger.LogWarning("Federal Register: more than {Max} pages of SRO notices since {Since}; the rest is read next pass", MaxPages, since);
+        return docs;
+
+        void AddDoc(JsonElement item)
         {
             var title = Str(item, "title");
             // Safety net beyond the query's own term/agency filter — only true SRO notices.
-            if (!title.StartsWith("Self-Regulatory Organizations", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!title.StartsWith("Self-Regulatory Organizations", StringComparison.OrdinalIgnoreCase)) return;
 
             var pubDateStr = Str(item, "publication_date");
-            if (!DateOnly.TryParse(pubDateStr, out var pubDate) || pubDate < since) continue;
+            if (!DateOnly.TryParse(pubDateStr, out var pubDate) || pubDate < since) return;
 
             docs.Add(new FederalRegisterDoc(
                 Title: title,
@@ -155,8 +183,6 @@ public sealed class RegulatoryScanner(
                 Excerpts: NullStr(item, "excerpts"),
                 PublicationDate: pubDate));
         }
-
-        return docs;
     }
 
     private async Task<RuleAssessment?> AssessAsync(FederalRegisterDoc doc, CancellationToken ct)

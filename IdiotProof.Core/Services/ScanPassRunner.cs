@@ -183,7 +183,11 @@ public sealed class ScanPassRunner(IServiceProvider services, ILogger<ScanPassRu
                 var since = lastRegulatory ?? DateTime.UtcNow.AddDays(-14);
                 var regulatoryCount = await regulatory.ScanAsync(since, ct);
                 scanRun.ClaimsFound += regulatoryCount;
-                scanRun.Notes = (scanRun.Notes ?? "") + $" {RegulatoryMarker} (+{regulatoryCount})";
+                // The marker moves the next window's start: write it only when the whole window was
+                // read, so a failed or truncated pass is retried from the same point (IP-T509).
+                scanRun.Notes = (scanRun.Notes ?? "") + (regulatory.LastScanComplete
+                    ? $" {RegulatoryMarker} (+{regulatoryCount})"
+                    : $" regulatory-scan-incomplete (+{regulatoryCount})");
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -265,7 +269,7 @@ public sealed class ScanPassRunner(IServiceProvider services, ILogger<ScanPassRu
         CancellationToken ct)
     {
         var claimIds = new List<Guid>();
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(EasternTime.FromUtc(DateTime.UtcNow)); // ET day, not the UTC date
 
         // Alpaca news
         var articles = await alpacaThrottle.RunAsync(() => alpacaNews.GetNewsAsync(ticker, daysBack, ct), ct);
@@ -274,7 +278,7 @@ public sealed class ScanPassRunner(IServiceProvider services, ILogger<ScanPassRu
             var text = string.IsNullOrWhiteSpace(article.Summary) ? article.Headline : $"{article.Headline}\n\n{article.Summary}";
             var claims = await llmThrottle.RunAsync(() => research.AnalyzeArticleAsync(
                 ticker, text, article.Source, article.Url, sourceTier: 2,
-                DateOnly.FromDateTime(article.PublishedAt), ct, claudeKey), ct);
+                DateOnly.FromDateTime(EasternTime.FromUtc(article.PublishedAt)), ct, claudeKey), ct);
             claimIds.AddRange(claims.Select(c => c.Id));
         }
 

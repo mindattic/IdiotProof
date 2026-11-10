@@ -138,7 +138,9 @@ public sealed class ResearchService(
         string? claudeApiKey = null)
     {
         var all = new List<ResearchClaim>();
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        // ET calendar day: a UTC date turns evening news (after 20:00 ET) into the next day's claim,
+        // and the outcome backfill then prices it at the session AFTER the reaction.
+        var today = DateOnly.FromDateTime(EasternTime.FromUtc(DateTime.UtcNow));
 
         // 8-K material event filings
         foreach (var filing in await edgar.GetRecentFilingsAsync(ticker, "8-K", daysBack, ct))
@@ -183,7 +185,7 @@ public sealed class ResearchService(
             var text = string.IsNullOrWhiteSpace(article.Summary)
                 ? article.Headline
                 : $"{article.Headline}\n\n{article.Summary}";
-            var articleDate = DateOnly.FromDateTime(article.PublishedAt);
+            var articleDate = DateOnly.FromDateTime(EasternTime.FromUtc(article.PublishedAt));
             all.AddRange(await AnalyzeArticleAsync(
                 ticker, text, article.Source, article.Url, sourceTier: 2, articleDate, ct, claudeApiKey));
         }

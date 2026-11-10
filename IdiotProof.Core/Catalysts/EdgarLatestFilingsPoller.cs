@@ -28,8 +28,12 @@ public sealed class EdgarLatestFilingsPoller(
     private readonly HashSet<string> seen = [];
     private readonly Queue<string> seenOrder = new();
 
-    public static string FeedUrl(string type) =>
-        $"https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type={Uri.EscapeDataString(type)}&count=100&output=atom";
+    public static string FeedUrl(string type, int start = 0) =>
+        $"https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type={Uri.EscapeDataString(type)}&count=100&output=atom" +
+        (start > 0 ? $"&start={start}" : "");
+
+    /// <summary>At most this many 100-entry pages per form per poll.</summary>
+    private const int MaxPagesPerType = 5;
 
     public static bool Accepts(string formType)
     {
@@ -43,14 +47,27 @@ public sealed class EdgarLatestFilingsPoller(
         var all = new List<EdgarAtomEntry>();
         foreach (var type in FeedTypes)
         {
-            var xml = await gate.RunAsync(async c =>
+            // Page back until a page holds only filings already seen (IP-T509): one 100-entry page a
+            // minute covered ~50 Form 4s (each listed twice), so end-of-day and grant-season bursts
+            // silently skipped filings.
+            for (var page = 0; page < MaxPagesPerType; page++)
             {
-                var http = httpFactory.CreateClient("edgar");
-                using var resp = await http.GetAsync(FeedUrl(type), c);
-                return resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync(c) : null;
-            }, ct);
-            if (xml is null) continue;
-            all.AddRange(EdgarAtomFeed.Parse(xml));
+                var start = page * 100;
+                var (xml, status) = await gate.RunAsync(async c =>
+                {
+                    var http = httpFactory.CreateClient("edgar");
+                    using var resp = await http.GetAsync(FeedUrl(type, start), c);
+                    return (resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync(c) : null, (int)resp.StatusCode);
+                }, ct);
+                if (xml is null)
+                {
+                    logger.LogWarning("EDGAR latest-filings feed for {Type} (start {Start}) returned {Status}.", type, start, status);
+                    break;
+                }
+                var entries = EdgarAtomFeed.Parse(xml);
+                all.AddRange(entries);
+                if (entries.Count < 100 || entries.All(e => seen.Contains(e.AccessionNumber))) break;
+            }
         }
 
         var candidates = EdgarAtomFeed.OnePerAccession(all.Where(e => Accepts(e.FormType)));
