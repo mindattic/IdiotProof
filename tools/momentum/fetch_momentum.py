@@ -101,6 +101,7 @@ def whisper_transcript(vid, audio_dir):
 
 
 def main():
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # Windows cp1252 console chokes on some titles
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="D:/IdiotProofData/momentum")
     ap.add_argument("--limit", type=int, default=0)
