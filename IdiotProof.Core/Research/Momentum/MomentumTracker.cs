@@ -169,7 +169,7 @@ public sealed partial class MomentumTracker(
             t.TradeDate = tradeDate;
             t.Text = text;
             t.SegmentsJson = segments;
-            t.Source = "youtube-captions";
+            t.Source = Str(r, "source") ?? "youtube-captions"; // whisper-small.en when the collector transcribed the audio
             t.Error = error is null ? null : Trunc(error, 400);
             t.TextHash = hash;
             t.UpdatedUtc = now;

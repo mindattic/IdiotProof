@@ -72,11 +72,41 @@ def transcript(vid, api):
     return {"error": "rate-limited after retries"}
 
 
+_whisper = None
+
+
+def whisper_transcript(vid, audio_dir):
+    """Download the short's audio and transcribe it locally (faster-whisper small.en, CPU int8).
+    Used when YouTube blocks its caption endpoint; the audio stream is not rate-limited the same way."""
+    global _whisper
+    os.makedirs(audio_dir, exist_ok=True)
+    r = ytdlp("-f", "ba[ext=m4a]/ba", "-o", os.path.join(audio_dir, "%(id)s.%(ext)s"),
+              f"https://www.youtube.com/shorts/{vid}")
+    files = [f for f in os.listdir(audio_dir) if f.startswith(vid + ".")]
+    if not files:
+        return {"error": "audio download failed: " + (r.stderr or "")[-300:]}
+    path = os.path.join(audio_dir, files[0])
+    try:
+        if _whisper is None:
+            from faster_whisper import WhisperModel
+            _whisper = WhisperModel("small.en", device="cpu", compute_type="int8")
+        segs, _ = _whisper.transcribe(path, vad_filter=True)
+        out = [{"start": s.start, "dur": s.end - s.start, "text": s.text.strip()} for s in segs]
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="D:/IdiotProofData/momentum")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--pace", type=float, default=120.0, help="seconds between videos")
+    ap.add_argument("--source", choices=["captions", "whisper"], default="whisper",
+                    help="whisper: download audio and transcribe locally (default; YouTube blocks bulk caption requests)")
     a = ap.parse_args()
     from youtube_transcript_api import YouTubeTranscriptApi
     api = YouTubeTranscriptApi()
@@ -113,8 +143,9 @@ def main():
         if td is None and published is not None:
             td = published.date()
         day = td.isoformat() if td else "unknown"
-        tr = transcript(vid, api)
+        tr = whisper_transcript(vid, os.path.join(a.out, "audio")) if a.source == "whisper" else transcript(vid, api)
         rec = {
+            "source": "whisper-small.en" if a.source == "whisper" else "youtube-captions",
             "videoId": vid, "url": f"https://www.youtube.com/shorts/{vid}", "title": title,
             "publishedUtc": published.isoformat() if published else None, "uploadDate": upload_date,
             "durationSec": duration, "titleDate": td.isoformat() if td else None, "tradeDate": day,
