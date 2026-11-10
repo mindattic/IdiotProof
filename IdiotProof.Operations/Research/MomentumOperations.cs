@@ -2,8 +2,8 @@ using IdiotProof.Core.Research.Momentum;
 
 namespace IdiotProof.Operations.Research;
 
-// IP-T493 "Momentum." claim tracker. The same four steps run in-process from tools/MomentumTracker when the
-// Hub has not been republished with these operations. Research only: GET-only Alpaca data reads, no orders.
+// IP-T493 "Momentum." claim tracker. Every step runs in the Hub (the HubScheduler runs them on a schedule, IP-T512;
+// the separate tools/MomentumTracker harness was retired, IP-T514). Research only: GET-only Alpaca data reads, no orders.
 
 public sealed record MomentumImportArgs
 {
@@ -91,6 +91,24 @@ public sealed class MomentumReResolveOperation : IOperation<MomentumReResolveArg
     {
         var owner = ctx.RequireOwner();
         var r = await ctx.Get<MomentumTracker>().ReResolveAsync(owner, args.Dir, ctx.CancellationToken);
+        return r.Ok ? OperationResult.Ok(r.Data, r.Human) : OperationResult.Fail(r.Human, r.Data);
+    }
+}
+
+public sealed record MomentumExportArgs
+{
+    [Option("out", Description = @"Where to write the JSON (default D:\IdiotProofData\momentum\edge-calls.json).")]
+    public string? Out { get; init; }
+}
+
+[Operation("momentum export", Summary = "Write every Momentum. scenario outcome, brag and video as the compact JSON the calls-vs-reality page and tools/momentum/edge read (ET times).", Risk = OperationRisk.Write)]
+[Example("idiotproof momentum export")]
+public sealed class MomentumExportOperation : IOperation<MomentumExportArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(MomentumExportArgs args, OperationContext ctx)
+    {
+        ctx.RequireOwner();
+        var r = await ctx.Get<MomentumTracker>().ExportAsync(args.Out ?? @"D:\IdiotProofData\momentum\edge-calls.json", ctx.CancellationToken);
         return r.Ok ? OperationResult.Ok(r.Data, r.Human) : OperationResult.Fail(r.Human, r.Data);
     }
 }

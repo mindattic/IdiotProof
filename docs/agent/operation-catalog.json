@@ -10894,6 +10894,98 @@
       }
     },
     {
+      "name": "gapper radar-backtest",
+      "noun": "gapper",
+      "verb": "radar-backtest",
+      "tool_name": "gapper_radar_backtest",
+      "summary": "Replay the gapper radar over past sessions point in time and write the rankings with each session\u0027s actual highs as JSON for scoring. Places no orders.",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof gapper radar-backtest [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--out \u003Cstring\u003E] [--dir \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First session to replay, yyyy-MM-dd.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last session to replay, yyyy-MM-dd.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "out",
+          "json_name": "out",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "JSON output (default D:\\IdiotProofData\\radar\\backtest-\u003Cfrom\u003E-\u003Cto\u003E.json; tools/momentum/edge/radar_backtest.py scores it).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "dir",
+          "json_name": "dir",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Data cache folder (default D:\\IdiotProofData\\radar).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper radar-backtest --from 2026-09-10 --to 2026-11-09",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Replay the gapper radar over past sessions point in time and write the rankings with each session\u0027s actual highs as JSON for scoring. Places no orders.",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First session to replay, yyyy-MM-dd."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last session to replay, yyyy-MM-dd."
+          },
+          "out": {
+            "type": "string",
+            "description": "JSON output (default D:\\IdiotProofData\\radar\\backtest-\u003Cfrom\u003E-\u003Cto\u003E.json; tools/momentum/edge/radar_backtest.py scores it)."
+          },
+          "dir": {
+            "type": "string",
+            "description": "Data cache folder (default D:\\IdiotProofData\\radar)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "gapper tune",
       "noun": "gapper",
       "verb": "tune",
@@ -14546,6 +14638,48 @@
           "max": {
             "type": "integer",
             "description": "Stop after this many lines."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "momentum export",
+      "noun": "momentum",
+      "verb": "export",
+      "tool_name": "momentum_export",
+      "summary": "Write every Momentum. scenario outcome, brag and video as the compact JSON the calls-vs-reality page and tools/momentum/edge read (ET times).",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof momentum export [--out \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "out",
+          "json_name": "out",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Where to write the JSON (default D:\\IdiotProofData\\momentum\\edge-calls.json).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof momentum export",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Write every Momentum. scenario outcome, brag and video as the compact JSON the calls-vs-reality page and tools/momentum/edge read (ET times).",
+        "properties": {
+          "out": {
+            "type": "string",
+            "description": "Where to write the JSON (default D:\\IdiotProofData\\momentum\\edge-calls.json)."
           }
         },
         "additionalProperties": false
