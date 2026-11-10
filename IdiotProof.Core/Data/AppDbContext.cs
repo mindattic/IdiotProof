@@ -227,6 +227,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.ToTable("ExhaustionDecisions");
             e.HasIndex(x => new { x.Symbol, x.EtDate });
             e.HasIndex(x => x.StrategyId);
+            e.Property(x => x.RealizedPnL).HasPrecision(18, 2);
+            e.Property(x => x.RealizedReturnPercent).HasPrecision(18, 2);
         });
 
         b.Entity<ResearchClaim>(e =>
