@@ -154,7 +154,9 @@ public static class GapperUniverseBuilder
         {
             var bar = bars[i];
             if (bar.DateEt < start) continue;
-            if (bar.DateEt > d) break;
+            // Bars before D only (IP-T510): D's own close is the outcome, and counting a >+200% close
+            // on D excluded exactly the biggest runners (and the 25 days after) using that outcome.
+            if (bar.DateEt >= d) break;
             var prev = bars[i - 1];
             if (prev.Close <= 0) continue;
             var move = (double)(bar.Close / prev.Close - 1m);
