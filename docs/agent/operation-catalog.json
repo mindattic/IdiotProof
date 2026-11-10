@@ -10028,6 +10028,222 @@
       }
     },
     {
+      "name": "gapper fade-pilot disable",
+      "noun": "gapper",
+      "verb": "fade-pilot disable",
+      "tool_name": "gapper_fade_pilot_disable",
+      "summary": "Turn the fade-short borrow pilot off (settings only; it holds nothing to undo).",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof gapper fade-pilot disable",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper fade-pilot disable",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Turn the fade-short borrow pilot off (settings only; it holds nothing to undo).",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper fade-pilot enable",
+      "noun": "gapper",
+      "verb": "fade-pilot enable",
+      "tool_name": "gapper_fade_pilot_enable",
+      "summary": "Turn the no-order fade-short borrow pilot on for you (paper route only; leader-only; 09:40 and 09:46 ET on trading days). It never places, reserves or cancels anything.",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof gapper fade-pilot enable",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper fade-pilot enable",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Turn the no-order fade-short borrow pilot on for you (paper route only; leader-only; 09:40 and 09:46 ET on trading days). It never places, reserves or cancels anything.",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper fade-pilot list",
+      "noun": "gapper",
+      "verb": "fade-pilot list",
+      "tool_name": "gapper_fade_pilot_list",
+      "summary": "Fade-short borrow pilot rows: day, symbol, premarket high, 09:45 gap and extension, signal, shortable/ETB at 09:40 and 09:46, locate quote (size, fee), SSR and Reg SHO; times in ET.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper fade-pilot list [--since \u003Cdate\u003E] [--symbol \u003Cstring\u003E] [--signals] [--last \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "since",
+          "json_name": "since",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET date to include, yyyy-MM-dd (default: 30 days ago).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "symbol",
+          "json_name": "symbol",
+          "kind": "option",
+          "position": null,
+          "short": "s",
+          "type": "string",
+          "required": false,
+          "description": "Only this ticker.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "signals",
+          "json_name": "signals",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Only rows where the 09:45 signal fired.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "last",
+          "json_name": "last",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Most rows, newest first (default 100, max 1000).",
+          "default": 100,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper fade-pilot list",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof gapper fade-pilot list --since 2026-11-10 --signals",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Fade-short borrow pilot rows: day, symbol, premarket high, 09:45 gap and extension, signal, shortable/ETB at 09:40 and 09:46, locate quote (size, fee), SSR and Reg SHO; times in ET.",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET date to include, yyyy-MM-dd (default: 30 days ago)."
+          },
+          "symbol": {
+            "type": "string",
+            "description": "Only this ticker."
+          },
+          "signals": {
+            "type": "boolean",
+            "description": "Only rows where the 09:45 signal fired.",
+            "default": false
+          },
+          "last": {
+            "type": "integer",
+            "description": "Most rows, newest first (default 100, max 1000).",
+            "default": 100
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper fade-pilot status",
+      "noun": "gapper",
+      "verb": "fade-pilot status",
+      "tool_name": "gapper_fade_pilot_status",
+      "summary": "Whether the no-order fade-short borrow pilot is enabled, its owner, broker mode, whether this Hub leads, its schedule and the rows recorded so far.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper fade-pilot status",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper fade-pilot status",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Whether the no-order fade-short borrow pilot is enabled, its owner, broker mode, whether this Hub leads, its schedule and the rows recorded so far.",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gapper fade-pilot summary",
+      "noun": "gapper",
+      "verb": "fade-pilot summary",
+      "tool_name": "gapper_fade_pilot_summary",
+      "summary": "Of the fade-short signals the pilot saw: the share that were shortable, easy-to-borrow and locate-available at 09:46 ET, the \u002B100% tier, and the quoted locate-fee distribution.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper fade-pilot summary [--since \u003Cdate\u003E]",
+      "parameters": [
+        {
+          "name": "since",
+          "json_name": "since",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First ET date to include, yyyy-MM-dd (default: everything).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper fade-pilot summary",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof gapper fade-pilot summary --since 2026-11-10",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Of the fade-short signals the pilot saw: the share that were shortable, easy-to-borrow and locate-available at 09:46 ET, the \u002B100% tier, and the quoted locate-fee distribution.",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date",
+            "description": "First ET date to include, yyyy-MM-dd (default: everything)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "gapper formation",
       "noun": "gapper",
       "verb": "formation",
@@ -10446,6 +10662,124 @@
       }
     },
     {
+      "name": "gapper radar",
+      "noun": "gapper",
+      "verb": "radar",
+      "tool_name": "gapper_radar",
+      "summary": "Stocks that could gap up next session, ranked by the evening-before signs the gapper study measured (recent \u002B100% day, top-10 mover today, dollar volume 5x, halts, reverse-split timing, price, catalyst type, Momentum. picks), each with its reasons and warnings; Alpaca-untradable names excluded. Read-only.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper radar [--date \u003Cdate\u003E] [--top \u003Cint\u003E] [--all] [--why] [--dir \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "date",
+          "json_name": "date",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "The session to scan for, yyyy-MM-dd (default: today before 16:00 ET, else the next session). A past session reads what was known by 20:00 ET the evening before.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "top",
+          "json_name": "top",
+          "kind": "option",
+          "position": null,
+          "short": "n",
+          "type": "int",
+          "required": false,
+          "description": "How many names to list (default 20, max 300).",
+          "default": 20,
+          "enum_values": null
+        },
+        {
+          "name": "all",
+          "json_name": "all",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Also list names Alpaca will not trade (excluded by default).",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "why",
+          "json_name": "why",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Show every reason, warning and headline under each name.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "dir",
+          "json_name": "dir",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Data cache folder (default D:\\IdiotProofData\\radar).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper radar",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof gapper radar --top 10 --why",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof gapper radar --date 2026-11-10",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Stocks that could gap up next session, ranked by the evening-before signs the gapper study measured (recent \u002B100% day, top-10 mover today, dollar volume 5x, halts, reverse-split timing, price, catalyst type, Momentum. picks), each with its reasons and warnings; Alpaca-untradable names excluded. Read-only.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "The session to scan for, yyyy-MM-dd (default: today before 16:00 ET, else the next session). A past session reads what was known by 20:00 ET the evening before."
+          },
+          "top": {
+            "type": "integer",
+            "description": "How many names to list (default 20, max 300).",
+            "default": 20
+          },
+          "all": {
+            "type": "boolean",
+            "description": "Also list names Alpaca will not trade (excluded by default).",
+            "default": false
+          },
+          "why": {
+            "type": "boolean",
+            "description": "Show every reason, warning and headline under each name.",
+            "default": false
+          },
+          "dir": {
+            "type": "string",
+            "description": "Data cache folder (default D:\\IdiotProofData\\radar)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "gapper tune",
       "noun": "gapper",
       "verb": "tune",
@@ -10760,6 +11094,271 @@
         "required": [
           "symbol"
         ]
+      }
+    },
+    {
+      "name": "history backfill",
+      "noun": "history",
+      "verb": "backfill",
+      "tool_name": "history_backfill",
+      "summary": "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars) and optionally run the queue here; days already held are never fetched again.",
+      "description": "Writes the history database; reads market data from the configured feed, paced month by month. The Hub worker (history.backfill.enabled) drains the same queue.",
+      "risk": "write",
+      "usage": "idiotproof history backfill [--symbols \u003Cstring\u003E] [--discover] [--years \u003Cint\u003E] [--run \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Tickers to queue, comma-separated. Omit with --discover to queue every ticker the app has met.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "discover",
+          "json_name": "discover",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Queue every ticker the app has met (strategies, tracked tickers, gapper candidates) that is not yet held.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "years",
+          "json_name": "years",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Years of history to hold (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "run",
+          "json_name": "run",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Also run queued jobs here, now, up to this many (default 0: leave them for the Hub worker).",
+          "default": 0,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof history backfill --symbols NVDA,TSLA --run 2",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof history backfill --discover",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars) and optionally run the queue here; days already held are never fetched again.",
+        "properties": {
+          "symbols": {
+            "type": "string",
+            "description": "Tickers to queue, comma-separated. Omit with --discover to queue every ticker the app has met."
+          },
+          "discover": {
+            "type": "boolean",
+            "description": "Queue every ticker the app has met (strategies, tracked tickers, gapper candidates) that is not yet held.",
+            "default": false
+          },
+          "years": {
+            "type": "integer",
+            "description": "Years of history to hold (default 5).",
+            "default": 5
+          },
+          "run": {
+            "type": "integer",
+            "description": "Also run queued jobs here, now, up to this many (default 0: leave them for the Hub worker).",
+            "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "history import",
+      "noun": "history",
+      "verb": "import",
+      "tool_name": "history_import",
+      "summary": "Move data already downloaded into the permanent history database so it is never fetched again: the gapper study\u0027s research database and its 1-minute file store. Idempotent: rows already held are skipped.",
+      "description": "Writes only to the history database; reads the research database and the file store; makes no API call.",
+      "risk": "write",
+      "usage": "idiotproof history import [--research] [--research-db \u003Cstring\u003E] [--app-cache] [--minutes] [--bar-root \u003Cstring\u003E] [--symbols \u003Cstring\u003E] [--parallelism \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "research",
+          "json_name": "research",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Import the gapper study\u0027s research database (daily bars, splits, news, filings, coverage ranges).",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "research-db",
+          "json_name": "research_db",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Research database name on LocalDB (default IdiotProof_Research_GAP).",
+          "default": "IdiotProof_Research_GAP",
+          "enum_values": null
+        },
+        {
+          "name": "app-cache",
+          "json_name": "app_cache",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Import the app database\u0027s own bar cache (HistoricalBars) from the app\u0027s connection string.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "minutes",
+          "json_name": "minutes",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Import the 1-minute file store (every covered day, zero-bar days included).",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "bar-root",
+          "json_name": "bar_root",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Minute-bar file store root (default D:\\IdiotProofData\\gapper-study\\bars).",
+          "default": "D:\\IdiotProofData\\gapper-study\\bars",
+          "enum_values": null
+        },
+        {
+          "name": "symbols",
+          "json_name": "symbols",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Minute import only these symbols (comma-separated); default every symbol in the store.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "parallelism",
+          "json_name": "parallelism",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Symbols imported at once (default 4).",
+          "default": 4,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof history import --research --minutes",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Move data already downloaded into the permanent history database so it is never fetched again: the gapper study\u0027s research database and its 1-minute file store. Idempotent: rows already held are skipped.",
+        "properties": {
+          "research": {
+            "type": "boolean",
+            "description": "Import the gapper study\u0027s research database (daily bars, splits, news, filings, coverage ranges).",
+            "default": false
+          },
+          "research_db": {
+            "type": "string",
+            "description": "Research database name on LocalDB (default IdiotProof_Research_GAP).",
+            "default": "IdiotProof_Research_GAP"
+          },
+          "app_cache": {
+            "type": "boolean",
+            "description": "Import the app database\u0027s own bar cache (HistoricalBars) from the app\u0027s connection string.",
+            "default": false
+          },
+          "minutes": {
+            "type": "boolean",
+            "description": "Import the 1-minute file store (every covered day, zero-bar days included).",
+            "default": false
+          },
+          "bar_root": {
+            "type": "string",
+            "description": "Minute-bar file store root (default D:\\IdiotProofData\\gapper-study\\bars).",
+            "default": "D:\\IdiotProofData\\gapper-study\\bars"
+          },
+          "symbols": {
+            "type": "string",
+            "description": "Minute import only these symbols (comma-separated); default every symbol in the store."
+          },
+          "parallelism": {
+            "type": "integer",
+            "description": "Symbols imported at once (default 4).",
+            "default": 4
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "history status",
+      "noun": "history",
+      "verb": "status",
+      "tool_name": "history_status",
+      "summary": "The permanent market history database (IP-T454): its server and size, rows per table (minute bars, daily bars, splits, news, filings), symbols covered per kind, the newest coverage, and the backfill queue.",
+      "description": "Reads the history database on the local SQL Server (ConnectionStrings__IdiotProofHistory, default localhost/IdiotProof_History). Creates the schema if it is missing; never fetches data.",
+      "risk": "read",
+      "usage": "idiotproof history status",
+      "parameters": [],
+      "examples": [
+        {
+          "command_line": "idiotproof history status",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "The permanent market history database (IP-T454): its server and size, rows per table (minute bars, daily bars, splits, news, filings), symbols covered per kind, the newest coverage, and the backfill queue.",
+        "properties": {},
+        "additionalProperties": false
       }
     },
     {
@@ -13833,6 +14432,292 @@
           "max": {
             "type": "integer",
             "description": "Stop after this many lines."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "momentum extract",
+      "noun": "momentum",
+      "verb": "extract",
+      "tool_name": "momentum_extract",
+      "summary": "Extract claims (ranked picks with trigger / confirm / target levels, setup tags, brags, market statements) from every transcript without claims yet, newest first, with a Haiku-class model through Legion on your Claude key; tickers validated against Alpaca assets and movers, spoken prices scaled against real bars.",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof momentum extract [--since \u003Cdate\u003E] [--limit \u003Cint\u003E] [--force] [--dir \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "since",
+          "json_name": "since",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Only transcripts with a trade date on or after this ET date, yyyy-MM-dd.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "limit",
+          "json_name": "limit",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "At most this many transcripts this run (0 = all), newest first.",
+          "default": 0,
+          "enum_values": null
+        },
+        {
+          "name": "force",
+          "json_name": "force",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Re-extract transcripts that already have claims (their claims and outcomes are replaced).",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "dir",
+          "json_name": "dir",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Data folder for the market-data caches (default D:\\IdiotProofData\\momentum).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof momentum extract",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof momentum extract --since 2026-11-01 --limit 10",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Extract claims (ranked picks with trigger / confirm / target levels, setup tags, brags, market statements) from every transcript without claims yet, newest first, with a Haiku-class model through Legion on your Claude key; tickers validated against Alpaca assets and movers, spoken prices scaled against real bars.",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date",
+            "description": "Only transcripts with a trade date on or after this ET date, yyyy-MM-dd."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "At most this many transcripts this run (0 = all), newest first.",
+            "default": 0
+          },
+          "force": {
+            "type": "boolean",
+            "description": "Re-extract transcripts that already have claims (their claims and outcomes are replaced).",
+            "default": false
+          },
+          "dir": {
+            "type": "string",
+            "description": "Data folder for the market-data caches (default D:\\IdiotProofData\\momentum)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "momentum import",
+      "noun": "momentum",
+      "verb": "import",
+      "tool_name": "momentum_import",
+      "summary": "Upsert the Momentum. (@trade.momentum) shorts and their caption transcripts from the collector\u0027s JSON files into MomentumVideos / MomentumTranscripts (idempotent; a changed transcript is queued for re-extraction).",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof momentum import [--dir \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "dir",
+          "json_name": "dir",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "The collector\u0027s output folder (default D:\\IdiotProofData\\momentum).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof momentum import",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof momentum import --dir D:\\IdiotProofData\\momentum",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Upsert the Momentum. (@trade.momentum) shorts and their caption transcripts from the collector\u0027s JSON files into MomentumVideos / MomentumTranscripts (idempotent; a changed transcript is queued for re-extraction).",
+        "properties": {
+          "dir": {
+            "type": "string",
+            "description": "The collector\u0027s output folder (default D:\\IdiotProofData\\momentum)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "momentum report",
+      "noun": "momentum",
+      "verb": "report",
+      "tool_name": "momentum_report",
+      "summary": "The Momentum. claim report, times in ET: counts overall and per month, trigger / target / stop rates, mean and median hypothetical plan P\u0026L, share of picks that were real top gappers, brag accuracy, setup tags by use and by result, and every pick newest first; rewrites docs/research/momentum-claims-report.md.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof momentum report [--since \u003Cdate\u003E] [--out \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "since",
+          "json_name": "since",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Only claims with a trade date on or after this ET date, yyyy-MM-dd.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "out",
+          "json_name": "out",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Where to write the markdown report (default docs/research/momentum-claims-report.md in the repo, else the data folder).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof momentum report",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof momentum report --since 2026-11-01",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "The Momentum. claim report, times in ET: counts overall and per month, trigger / target / stop rates, mean and median hypothetical plan P\u0026L, share of picks that were real top gappers, brag accuracy, setup tags by use and by result, and every pick newest first; rewrites docs/research/momentum-claims-report.md.",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date",
+            "description": "Only claims with a trade date on or after this ET date, yyyy-MM-dd."
+          },
+          "out": {
+            "type": "string",
+            "description": "Where to write the markdown report (default docs/research/momentum-claims-report.md in the repo, else the data folder)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "momentum verify",
+      "noun": "momentum",
+      "verb": "verify",
+      "tool_name": "momentum_verify",
+      "summary": "Check every claim whose session has finished against Alpaca 1-minute SIP bars (04:00-20:00 ET, plus the next session for day-2 language): trigger, confirm, targets, invalidation, run/drawdown, hypothetical plan P\u0026L, verdict, gainer rank; brags against split-adjusted daily bars.",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof momentum verify [--since \u003Cdate\u003E] [--force] [--dir \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "since",
+          "json_name": "since",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Only claims with a trade date on or after this ET date, yyyy-MM-dd.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "force",
+          "json_name": "force",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Re-verify claims that already have outcomes.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "dir",
+          "json_name": "dir",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Data folder for the market-data caches (default D:\\IdiotProofData\\momentum).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof momentum verify",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof momentum verify --since 2026-11-01 --force",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Check every claim whose session has finished against Alpaca 1-minute SIP bars (04:00-20:00 ET, plus the next session for day-2 language): trigger, confirm, targets, invalidation, run/drawdown, hypothetical plan P\u0026L, verdict, gainer rank; brags against split-adjusted daily bars.",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date",
+            "description": "Only claims with a trade date on or after this ET date, yyyy-MM-dd."
+          },
+          "force": {
+            "type": "boolean",
+            "description": "Re-verify claims that already have outcomes.",
+            "default": false
+          },
+          "dir": {
+            "type": "string",
+            "description": "Data folder for the market-data caches (default D:\\IdiotProofData\\momentum)."
           }
         },
         "additionalProperties": false
@@ -19928,6 +20813,81 @@
       }
     },
     {
+      "name": "research gappers calibrate-spread",
+      "noun": "research",
+      "verb": "gappers calibrate-spread",
+      "tool_name": "research_gappers_calibrate_spread",
+      "summary": "Gapper study cost model: the one-time premarket spread multiplier, median of (quoted relative spread at 08:00 ET from /v2/stocks/{s}/quotes) over (Corwin-Schultz on D-1..D-5) across the first 500 training Tier20 events, written to data/spread-multiplier.json.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders. Refuses to run twice unless --force, and a forced run leaves an audit line in the runs log.",
+      "risk": "read",
+      "usage": "idiotproof research gappers calibrate-spread [--split \u003Cstring\u003E] [--events \u003Cint\u003E] [--force]",
+      "parameters": [
+        {
+          "name": "split",
+          "json_name": "split",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Calibration split; must match params.json costModel.spread.calibration.split (train).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "events",
+          "json_name": "events",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Number of Tier20 events in (D, symbol) order; must match params.json (500).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "force",
+          "json_name": "force",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Recalibrate although data/spread-multiplier.json exists; the forced run is written to runs/calibrate-spread-audit.log.",
+          "default": false,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers calibrate-spread --split train --events 500",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Gapper study cost model: the one-time premarket spread multiplier, median of (quoted relative spread at 08:00 ET from /v2/stocks/{s}/quotes) over (Corwin-Schultz on D-1..D-5) across the first 500 training Tier20 events, written to data/spread-multiplier.json.",
+        "properties": {
+          "split": {
+            "type": "string",
+            "description": "Calibration split; must match params.json costModel.spread.calibration.split (train)."
+          },
+          "events": {
+            "type": "integer",
+            "description": "Number of Tier20 events in (D, symbol) order; must match params.json (500)."
+          },
+          "force": {
+            "type": "boolean",
+            "description": "Recalibrate although data/spread-multiplier.json exists; the forced run is written to runs/calibrate-spread-audit.log.",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "research gappers catalysts",
       "noun": "research",
       "verb": "gappers catalysts",
@@ -19972,6 +20932,157 @@
           }
         },
         "additionalProperties": false
+      }
+    },
+    {
+      "name": "research gappers explore",
+      "noun": "research",
+      "verb": "gappers explore",
+      "tool_name": "research_gappers_explore",
+      "summary": "Gapper study exploratory round (IP-T453, explore-plan.md), train only: build the in-memory panel cache at any decision time, then score tracks on four rolling folds inside train, logging every configuration to runs/explore/ledger.jsonl.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders. Refuses any split but train, so no validation or holdout label reaches a search. Writes nothing to SQL.",
+      "risk": "read",
+      "usage": "idiotproof research gappers explore --command \u003Cstring\u003E [--split \u003Cstring\u003E] [--times \u003Cstring\u003E] [--force] [--from \u003Cdate\u003E] [--to \u003Cdate\u003E] [--parallelism \u003Cint\u003E]",
+      "parameters": [
+        {
+          "name": "command",
+          "json_name": "command",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow), tradeflow (retail imbalance collapse vs the high, H17) regsho-pull (Nasdaq and NYSE Reg SHO threshold lists and FINRA daily short volume, 2021-10-01..2026-11-06, resumable), alarms (alarm-time scoring 06:00-09:10 of count-CUSUM and rank-k onset rules vs gainers \u002B news: hit rate, lead to \u002B20%, false alarms per 100 mornings, per fold) or exit-routes (clock exit routes 09:15/09:20, opg limit by 09:27 with a 09:30:05 fallback, 09:31, 09:44, 09:50 with or without the LULD 09:44 exit, alone and with the drift-change and giveback overlays, plus the $1k/$5k/$25k participation capacity curve; default --times 08:30), fade-short (short at 09:45 the names whose premarket high was \u002B30/50/100% and that are still \u002B20% but under 10/5/0% from the 09:30 open, cover by 15:55 or 11:00 with optional stop and VWAP reclaim, net of the frozen cost model, borrow, SSR and Reg SHO variants, against a random short), fade-short-deep (IP-T479: the top fade short and its \u002B50% variant on train: deflated Sharpe vs the ledger, time-of-day profile and MAE timing, MAE-aware exits, shortability tiers, tail sizing, squeeze predictors), alarm-ride (IP-T483: long only, buy the R4 alarm alone, gated by the boosted top k or by fresh news, marketable or a passive -1% limit, sold by take-profit x stop x time-stop/velocity brackets or lottery trailing exits, net at the frozen cost and 0.5x/0.25x spread), watchlist (IP-T484: runner anatomy (\u002B50/\u002B100/\u002B300% by the 04:00-16:00 high), a D-1 16:00 watchlist (boosted, logistic, point score, recall/precision@10/20/50/100, prerequisite and catalyst lifts), all-day ignition (k x trailing 30-min volume, 2% session-high break, gap caps) and the ride (stops, trails, half, cooling exits) net at the frozen cost and 0.5x/0.25x spread), split-days-pull (IP-T490: raw 04:00-20:00 minute bars for D-1..D\u002B10 of every train reverse split, inferred ratio change and excluded unexplained \u003E \u002B200% move, resumable) or split-days (IP-T490: runs by day offset, ratio, announcement, float and promotion profile on those days, and a long calendar / ignition entry x ride grid net at the frozen cost and 0.5x/0.25x spread).",
+          "default": "",
+          "enum_values": null
+        },
+        {
+          "name": "split",
+          "json_name": "split",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Must be train: the exploratory round never reads validation or holdout.",
+          "default": "train",
+          "enum_values": null
+        },
+        {
+          "name": "times",
+          "json_name": "times",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Decision times, comma-separated (\u002208:00,08:30\u0022); default every frozen decision time (models and exits default to 08:00).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "force",
+          "json_name": "force",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "build: rebuild decision times already cached.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "build: first train day (regsho-pull: first trading day) (ET, yyyy-MM-dd), for a partial build.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "build: last train day (regsho-pull: last trading day) (ET, yyyy-MM-dd), for a partial build.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "parallelism",
+          "json_name": "parallelism",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "build: trading days computed at once (default 4).",
+          "default": 4,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers explore --command build --times 08:00",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof research gappers explore --command visibility",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Gapper study exploratory round (IP-T453, explore-plan.md), train only: build the in-memory panel cache at any decision time, then score tracks on four rolling folds inside train, logging every configuration to runs/explore/ledger.jsonl.",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow), tradeflow (retail imbalance collapse vs the high, H17) regsho-pull (Nasdaq and NYSE Reg SHO threshold lists and FINRA daily short volume, 2021-10-01..2026-11-06, resumable), alarms (alarm-time scoring 06:00-09:10 of count-CUSUM and rank-k onset rules vs gainers \u002B news: hit rate, lead to \u002B20%, false alarms per 100 mornings, per fold) or exit-routes (clock exit routes 09:15/09:20, opg limit by 09:27 with a 09:30:05 fallback, 09:31, 09:44, 09:50 with or without the LULD 09:44 exit, alone and with the drift-change and giveback overlays, plus the $1k/$5k/$25k participation capacity curve; default --times 08:30), fade-short (short at 09:45 the names whose premarket high was \u002B30/50/100% and that are still \u002B20% but under 10/5/0% from the 09:30 open, cover by 15:55 or 11:00 with optional stop and VWAP reclaim, net of the frozen cost model, borrow, SSR and Reg SHO variants, against a random short), fade-short-deep (IP-T479: the top fade short and its \u002B50% variant on train: deflated Sharpe vs the ledger, time-of-day profile and MAE timing, MAE-aware exits, shortability tiers, tail sizing, squeeze predictors), alarm-ride (IP-T483: long only, buy the R4 alarm alone, gated by the boosted top k or by fresh news, marketable or a passive -1% limit, sold by take-profit x stop x time-stop/velocity brackets or lottery trailing exits, net at the frozen cost and 0.5x/0.25x spread), watchlist (IP-T484: runner anatomy (\u002B50/\u002B100/\u002B300% by the 04:00-16:00 high), a D-1 16:00 watchlist (boosted, logistic, point score, recall/precision@10/20/50/100, prerequisite and catalyst lifts), all-day ignition (k x trailing 30-min volume, 2% session-high break, gap caps) and the ride (stops, trails, half, cooling exits) net at the frozen cost and 0.5x/0.25x spread), split-days-pull (IP-T490: raw 04:00-20:00 minute bars for D-1..D\u002B10 of every train reverse split, inferred ratio change and excluded unexplained \u003E \u002B200% move, resumable) or split-days (IP-T490: runs by day offset, ratio, announcement, float and promotion profile on those days, and a long calendar / ignition entry x ride grid net at the frozen cost and 0.5x/0.25x spread).",
+            "default": ""
+          },
+          "split": {
+            "type": "string",
+            "description": "Must be train: the exploratory round never reads validation or holdout.",
+            "default": "train"
+          },
+          "times": {
+            "type": "string",
+            "description": "Decision times, comma-separated (\u002208:00,08:30\u0022); default every frozen decision time (models and exits default to 08:00)."
+          },
+          "force": {
+            "type": "boolean",
+            "description": "build: rebuild decision times already cached.",
+            "default": false
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "build: first train day (regsho-pull: first trading day) (ET, yyyy-MM-dd), for a partial build."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "build: last train day (regsho-pull: last trading day) (ET, yyyy-MM-dd), for a partial build."
+          },
+          "parallelism": {
+            "type": "integer",
+            "description": "build: trading days computed at once (default 4).",
+            "default": 4
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "command"
+        ]
       }
     },
     {
@@ -20093,7 +21204,7 @@
           "short": null,
           "type": "string",
           "required": true,
-          "description": "bars (T2 minute bars \u002B gapper classification \u002B controls), news (T3), cik (T5), edgar (T4 form index \u002B acceptance times), splits (T6), or all.",
+          "description": "bars (T2 minute bars \u002B gapper classification \u002B controls), news (T3), cik (T5), edgar (T4 form index \u002B acceptance times), splits (T6), or all. Exploration only, never part of all (IP-T458): edgar-dilution (6-K, F-1/F-3, EFFECT, 424B1/2/7, S-1/A, SC 13G plus 424B5/S-3 rows into D:/IdiotProofData/edgar-dilution, with acceptance times in ET) and edgar-dilution-text (424B5/S-3/F-3 text through the ATM / baby-shelf detector).",
           "default": "all",
           "enum_values": null
         },
@@ -20158,6 +21269,10 @@
         {
           "command_line": "idiotproof research gappers pull --tier edgar --max-calls 5000",
           "description": null
+        },
+        {
+          "command_line": "idiotproof research gappers pull --tier edgar-dilution --max-calls 50000",
+          "description": null
         }
       ],
       "input_schema": {
@@ -20167,7 +21282,7 @@
         "properties": {
           "tier": {
             "type": "string",
-            "description": "bars (T2 minute bars \u002B gapper classification \u002B controls), news (T3), cik (T5), edgar (T4 form index \u002B acceptance times), splits (T6), or all.",
+            "description": "bars (T2 minute bars \u002B gapper classification \u002B controls), news (T3), cik (T5), edgar (T4 form index \u002B acceptance times), splits (T6), or all. Exploration only, never part of all (IP-T458): edgar-dilution (6-K, F-1/F-3, EFFECT, 424B1/2/7, S-1/A, SC 13G plus 424B5/S-3 rows into D:/IdiotProofData/edgar-dilution, with acceptance times in ET) and edgar-dilution-text (424B5/S-3/F-3 text through the ATM / baby-shelf detector).",
             "default": "all"
           },
           "smoke": {
@@ -20195,6 +21310,53 @@
         "required": [
           "tier"
         ]
+      }
+    },
+    {
+      "name": "research gappers report",
+      "noun": "research",
+      "verb": "gappers report",
+      "tool_name": "research_gappers_report",
+      "summary": "Gapper study results document: docs/research/gapper-study-2026-11.md in the evidence sweep\u0027s shape (protocol link, sample, data tiers, one verdict table per family, the H11 gate, exit timing with the post-registration variant marked, kill criteria, promotion), plus events/snapshots/labels CSVs with a hashed manifest under data/.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders. Holdout numbers are withheld unless holdout-run.json exists; hypotheses edited after the unlock are marked post-hoc and void.",
+      "risk": "read",
+      "usage": "idiotproof research gappers report [--skip-export]",
+      "parameters": [
+        {
+          "name": "skip-export",
+          "json_name": "skip_export",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Skip the events/snapshots/labels CSV export and manifest.",
+          "default": false,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers report",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof research gappers report --skip-export",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Gapper study results document: docs/research/gapper-study-2026-11.md in the evidence sweep\u0027s shape (protocol link, sample, data tiers, one verdict table per family, the H11 gate, exit timing with the post-registration variant marked, kill criteria, promotion), plus events/snapshots/labels CSVs with a hashed manifest under data/.",
+        "properties": {
+          "skip_export": {
+            "type": "boolean",
+            "description": "Skip the events/snapshots/labels CSV export and manifest.",
+            "default": false
+          }
+        },
+        "additionalProperties": false
       }
     },
     {
@@ -20320,6 +21482,93 @@
         "description": "What the gapper study holds per split (universe days, candidates, gappers per tier, controls, minute-bar coverage, snapshots, labels), the data tiers\u0027 row counts, and the holdout lock state.",
         "properties": {},
         "additionalProperties": false
+      }
+    },
+    {
+      "name": "research gappers test",
+      "noun": "research",
+      "verb": "gappers test",
+      "tool_name": "research_gappers_test",
+      "summary": "Gapper study hypothesis tests: each pre-registered hypothesis with the primitive hypotheses.json names (bucket-lift, event-study-bmp, proportion-diff-clustered, wilson-ci, quantile-ci, group-diff, auc-delong, search-grid-spa), BH within family, Holm across primaries, one run file per hypothesis under runs/.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders. Every threshold comes from hypotheses.json and params.json. The holdout split goes through the same lock as snapshot and label and opens once.",
+      "risk": "read",
+      "usage": "idiotproof research gappers test --hypothesis \u003Cstring[]\u003E --split \u003Cstring\u003E [--smoke]",
+      "parameters": [
+        {
+          "name": "hypothesis",
+          "json_name": "hypothesis",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string[]",
+          "required": true,
+          "description": "Hypothesis ids to run, comma-separated (H1,H2) or all.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "split",
+          "json_name": "split",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": true,
+          "description": "train, validation or holdout (holdout needs holdout-unlock.txt and runs the test stage once).",
+          "default": "train",
+          "enum_values": null
+        },
+        {
+          "name": "smoke",
+          "json_name": "smoke",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Run on the smoke-tagged rows instead (verdicts are void by construction; checks the plumbing).",
+          "default": false,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers test --hypothesis H1,H9 --split train",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof research gappers test --hypothesis all --split validation",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Gapper study hypothesis tests: each pre-registered hypothesis with the primitive hypotheses.json names (bucket-lift, event-study-bmp, proportion-diff-clustered, wilson-ci, quantile-ci, group-diff, auc-delong, search-grid-spa), BH within family, Holm across primaries, one run file per hypothesis under runs/.",
+        "properties": {
+          "hypothesis": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Hypothesis ids to run, comma-separated (H1,H2) or all."
+          },
+          "split": {
+            "type": "string",
+            "description": "train, validation or holdout (holdout needs holdout-unlock.txt and runs the test stage once).",
+            "default": "train"
+          },
+          "smoke": {
+            "type": "boolean",
+            "description": "Run on the smoke-tagged rows instead (verdicts are void by construction; checks the plumbing).",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "hypothesis",
+          "split"
+        ]
       }
     },
     {
