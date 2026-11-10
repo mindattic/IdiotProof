@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- The one service graph every front door shares (HOUSE-LAW-6): the SQL model, migrations and
-       every non-UI service. Blazor, the Hub, the Monitor and the ResearchScanner reference this;
-       nothing references IdiotProof.Blazor. -->
+       every service. The Hub (which hosts the Monitor loop), the Operations layer behind the CLI and
+       MCP, and the ResearchScanner reference this. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -9,12 +9,8 @@
     <RootNamespace>IdiotProof.Core</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <InternalsVisibleTo Include="IdiotProof.Blazor" />
-    <InternalsVisibleTo Include="IdiotProof.Blazor.Tests" />
     <InternalsVisibleTo Include="IdiotProof.Monitor.Tests" />
     <InternalsVisibleTo Include="IdiotProof.Core.Tests" />
-    <!-- The Monitor exe (assembly idiotproof-monitor) and the Hub host the worker and the operator commands. -->
-    <InternalsVisibleTo Include="idiotproof-monitor" />
     <InternalsVisibleTo Include="IdiotProof.Hub" />
     <InternalsVisibleTo Include="IdiotProof.Operations" />
   </ItemGroup>

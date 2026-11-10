@@ -1,34 +1,30 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Builds and deploys IdiotProof (the Hub, its CLI and MCP server, the Monitor shim and the
-    Blazor web server) to C:\Apps\IdiotProof\, and optionally starts the Hub and Blazor. The one
-    script for publishing and launching IdiotProof. Agents never run it unless the user asks:
-    the app may be trading real money.
+    Builds and deploys IdiotProof (the Hub, its CLI and MCP server) to C:\Apps\IdiotProof\, and
+    optionally starts the Hub. The one script for publishing and launching IdiotProof. Agents
+    never run it unless the user asks: the app may be trading real money. There is no web UI
+    (IP-T504).
 
 .DESCRIPTION
     Publishes (Release, framework-dependent):
       IdiotProof.Hub     -> C:\Apps\IdiotProof\Hub\idiotproof-hub.exe      (hosts the Monitor + every operation)
       IdiotProof.Cli     -> C:\Apps\IdiotProof\Cli\idiotproof.exe          (the `idiotproof` command line)
       IdiotProof.Mcp     -> C:\Apps\IdiotProof\Mcp\idiotproof-mcp.exe      (MCP server for Claude)
-      IdiotProof.Monitor -> C:\Apps\IdiotProof\Monitor\idiotproof-monitor.exe (shim: runs the Hub, IP-T81)
-      IdiotProof.Blazor  -> C:\Apps\IdiotProof\Blazor\IdiotProof.Blazor.exe
     puts C:\Apps\IdiotProof\Cli on the user PATH (once; idempotent) so `idiotproof` resolves
-    anywhere, and writes three generated files:
-      Blazor\run.bat  runs the Blazor exe with ASPNETCORE_URLS preset to
-                      http://localhost:5100, so it never collides with the dev
-                      server (65025/65026).
+    anywhere, removes the retired Blazor and Monitor folders of an older deploy, and writes two
+    generated files:
       run.bat         (C:\Apps\IdiotProof\run.bat) the desktop shortcut points
                       at it; a stale deploy.bat from before the rename is deleted.
                       Opens a menu first:
                       1) Deploy & Run runs this script with -Force (a clean
-                      republish), then starts the Monitor and Blazor and opens the
-                      browser; 2) Run starts the already-deployed copy without
-                      calling this script (deploying first if nothing is there yet).
-                      Written on every run of this script, so an existing install
-                      picks up launcher changes without a republish.
+                      republish), then starts the Hub; 2) Run starts the
+                      already-deployed Hub without calling this script (deploying
+                      first if nothing is there yet). Written on every run of this
+                      script, so an existing install picks up launcher changes
+                      without a republish.
       start.bat       (C:\Apps\IdiotProof\start.bat) the launch half of run.bat with no
-                      menu: starts the Hub (which hosts the Monitor) and Blazor.
+                      menu: starts the Hub (which hosts the Monitor).
 
     A running deployed Hub is asked to stop gracefully (`idiotproof hub stop`: drain the
     running operations, stop the Monitor loop, release the leader lease) before it is
@@ -46,7 +42,7 @@
     Republish every component with a clean bin/obj rebuild even if nothing looks changed.
 
 .PARAMETER Launch
-    After deploying, start the Hub (hosting the Monitor) and Blazor and open the browser (same as run.bat's Run).
+    After deploying, start the Hub (hosting the Monitor), same as run.bat's Run.
 
 .PARAMETER LauncherOnly
     Only (re)write C:\Apps\IdiotProof\run.bat and start.bat, then exit: no build, nothing stopped.
@@ -67,7 +63,6 @@ $ErrorActionPreference = 'Stop'
 
 $repo       = $PSScriptRoot
 $deployDir  = 'C:\Apps\IdiotProof'
-$blazorUrl  = 'http://localhost:5100'
 $launcherBat = Join-Path $deployDir 'run.bat'
 $sourceExts = @('.cs', '.csproj', '.razor', '.cshtml', '.css', '.js', '.json', '.props', '.targets', '.resx')
 
@@ -92,21 +87,14 @@ $components = @(
         OutDir  = Join-Path $deployDir 'Mcp'
         ExeName = 'idiotproof-mcp.exe'
         Extra   = @()
-    },
-    [pscustomobject]@{
-        Name    = 'Monitor'
-        Proj    = Join-Path $repo 'IdiotProof.Monitor\IdiotProof.Monitor.csproj'
-        OutDir  = Join-Path $deployDir 'Monitor'
-        ExeName = 'idiotproof-monitor.exe'
-        Extra   = @()
-    },
-    [pscustomobject]@{
-        Name    = 'Blazor'
-        Proj    = Join-Path $repo 'IdiotProof.Blazor\IdiotProof.Blazor.csproj'
-        OutDir  = Join-Path $deployDir 'Blazor'
-        ExeName = 'IdiotProof.Blazor.exe'
-        Extra   = @('run.bat')
     }
+)
+
+# Folders of components that no longer exist (IP-T504: the web UI and the Monitor shim). A running
+# copy is stopped, then the folder is removed, so an old deploy does not keep a second Alpaca client.
+$retired = @(
+    [pscustomobject]@{ Name = 'Blazor';  OutDir = Join-Path $deployDir 'Blazor';  ExeName = 'IdiotProof.Blazor.exe' },
+    [pscustomobject]@{ Name = 'Monitor'; OutDir = Join-Path $deployDir 'Monitor'; ExeName = 'idiotproof-monitor.exe' }
 )
 
 # The project's directory plus the directories of every project it references, transitively.
@@ -209,25 +197,13 @@ function Publish($c) {
     # Publish skips copying unchanged files; stamp the exe so the next
     # change check compares against this deploy, not an older build.
     (Get-Item $exe).LastWriteTimeUtc = [DateTime]::UtcNow
-
-    if ($c.Name -eq 'Blazor') {
-        $runBat = @"
-@echo off
-rem Generated by $repo\run.ps1 - edits here are overwritten.
-cd /d "%~dp0"
-set ASPNETCORE_URLS=$blazorUrl
-set ASPNETCORE_ENVIRONMENT=Development
-"%~dp0IdiotProof.Blazor.exe"
-"@
-        Write-BatIfChanged (Join-Path $c.OutDir 'run.bat') $runBat
-    }
     Write-Host "Deployed $exe" -ForegroundColor Green
     return $true
 }
 
 # The launch half shared by run.bat and start.bat: the Hub (hosting the Monitor, which trades)
 # through the deployed CLI's `hub start` (it waits until the Hub answers and logs its window),
-# else the Hub exe directly; then Blazor and the browser.
+# else the Hub exe directly.
 function Get-LaunchBlock {
     return @"
 echo.
@@ -237,14 +213,20 @@ if exist "%~dp0Cli\idiotproof.exe" (
 ) else (
     start "IdiotProof Hub" /D "%~dp0Hub" "%~dp0Hub\idiotproof-hub.exe"
 )
-echo  Starting Blazor ($blazorUrl)...
-start "IdiotProof Blazor" "%~dp0Blazor\run.bat"
-echo  Waiting for Blazor to start...
-timeout /t 4 /nobreak >nul
-start "" "$blazorUrl"
 echo.
-echo  Done. The Hub is in its own green window; Blazor is at $blazorUrl
+echo  Done. The Hub is in its own green window; use the idiotproof CLI or MCP.
 "@
+}
+
+function Remove-Retired {
+    foreach ($r in $retired) {
+        if (-not (Test-Path $r.OutDir)) { continue }
+        Stop-Deployed $r
+        try {
+            Remove-Item -Recurse -Force $r.OutDir -ErrorAction Stop
+            Write-Host "  Removed retired $($r.Name) deploy ($($r.OutDir))" -ForegroundColor DarkYellow
+        } catch { Write-Host "  (could not remove $($r.OutDir): $($_.Exception.Message))" -ForegroundColor DarkYellow }
+    }
 }
 
 # Puts the deployed CLI on the user PATH so `idiotproof` resolves in any new shell (IP-T289).
@@ -282,7 +264,6 @@ if exist "%DEPLOY_PS1%" (
 goto launch
 :run
 if not exist "%~dp0Hub\idiotproof-hub.exe" goto notdeployed
-if not exist "%~dp0Blazor\run.bat" goto notdeployed
 goto launch
 :notdeployed
 echo  Nothing is deployed yet - deploying first.
@@ -329,12 +310,13 @@ foreach ($c in $components) {
         }
     }
 }
+Remove-Retired
 Write-Launcher
 Add-CliToUserPath
 
 # LAMP (IP-T347): import app-settings.json into MindAttic Vault once and write the manifest Vault.Desktop reads.
-$blazorExe = Join-Path $deployDir 'Blazor\IdiotProof.Blazor.exe'
-if (Test-Path $blazorExe) { & $blazorExe --write-settings-manifest | Out-Null }
+$hubExe = Join-Path $deployDir 'Hub\idiotproof-hub.exe'
+if (Test-Path $hubExe) { & $hubExe --write-settings-manifest | Out-Null }
 
 if ($published -eq 0) { Write-Host 'IdiotProof is up to date.' -ForegroundColor DarkGray }
 
@@ -351,8 +333,4 @@ Write-Host '  Starting the Hub (it hosts the Monitor)...' -ForegroundColor Cyan
 $cliExe = Join-Path $deployDir 'Cli\idiotproof.exe'
 if (Test-Path $cliExe) { & $cliExe hub start | Out-Host }
 else { Start-Process (Join-Path $deployDir 'Hub\idiotproof-hub.exe') -WorkingDirectory (Join-Path $deployDir 'Hub') }
-Write-Host "  Starting Blazor ($blazorUrl)..." -ForegroundColor Cyan
-Start-Process (Join-Path $deployDir 'Blazor\run.bat')
-Start-Sleep -Seconds 4
-Start-Process $blazorUrl
 exit 0

@@ -10,10 +10,9 @@
       Hub      C:\Apps\IdiotProof\Hub\idiotproof-hub.exe       hosts the Monitor and every operation
       Cli      C:\Apps\IdiotProof\Cli\idiotproof.exe           the `idiotproof` command line (added to the user PATH)
       Mcp      C:\Apps\IdiotProof\Mcp\idiotproof-mcp.exe       the MCP server Claude talks to
-      Monitor  C:\Apps\IdiotProof\Monitor\idiotproof-monitor.exe  backward-compatible shim that runs the Hub
-      Blazor   C:\Apps\IdiotProof\Blazor\IdiotProof.Blazor.exe
 
-    and regenerates C:\Apps\IdiotProof\run.bat and start.bat. A running deployed Hub is asked to
+    removes the retired Blazor and Monitor folders (IP-T504: no web UI), and regenerates
+    C:\Apps\IdiotProof\run.bat and start.bat. A running deployed Hub is asked to
     stop gracefully first (it drains running operations, stops the Monitor loop and releases the
     leader lease).
 
@@ -24,7 +23,7 @@
     Republish only the components whose sources changed since their last deploy (run.ps1 without -Force).
 
 .PARAMETER Launch
-    Start the Hub and Blazor afterwards (run.ps1 -Launch).
+    Start the Hub afterwards (run.ps1 -Launch).
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File tools\publish-all.ps1

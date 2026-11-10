@@ -16,8 +16,10 @@ using Microsoft.EntityFrameworkCore;
 // front doors over loopback HTTP (docs/agent/IDIOTPROOF_PROTOCOL.md):
 //
 //   idiotproof <noun> <verb> --flags   (IdiotProof.Cli)  ─┐
-//   mcp__idiotproof__<noun>_<verb>     (IdiotProof.Mcp)  ─┼─► POST /api/op ─► OperationDispatcher
-//   web pages                          (IdiotProof.Blazor)┘
+//   mcp__idiotproof__<noun>_<verb>     (IdiotProof.Mcp)  ─┴─► POST /api/op ─► OperationDispatcher
+//
+// There is no web UI (IP-T504 removed IdiotProof.Blazor and the Monitor shim); the Hub is the only
+// process that talks to Alpaca.
 //
 // The Monitor brings its scanners with it (IP-T75): PremarketFadeScanner (alert-only, 9-10 AM ET)
 // and BeBexDecayScanner (arms/disarms the BE strategy, 4:30-5 PM ET) run inside the Monitor's tick,
@@ -40,6 +42,15 @@ using Microsoft.EntityFrameworkCore;
 // `idiotproof hub install-service` / tools\install-hub-service.ps1 to run as the USER (LocalDB and
 // the Data Protection ring are per-user). A service starts in System32 with no visible window, so
 // it roots itself at its exe folder and mirrors its would-be window to Logs\hub-service.log.
+// LAMP (IP-T347): `--write-settings-manifest` imports today's app-settings.json into MindAttic Vault, writes the
+// manifest Vault.Desktop reads, and exits (run.ps1 calls it after a deploy; moved here from the web app, IP-T504).
+if (args.Contains(MindAttic.Vault.Settings.Manifest.SettingsManifestCommand.Switch, StringComparer.OrdinalIgnoreCase))
+{
+    IdiotProof.Engine.Settings.AppSettings.Load(new WebStorageProvider());
+    Console.WriteLine(IdiotProof.Engine.Settings.IdiotProofSettings.StoreFactory().Directory);
+    return 0;
+}
+
 var isService = WindowsServiceHelpers.IsWindowsService();
 if (HubHosting.WindowLogPath(isService, Environment.GetEnvironmentVariable(HubConsole.LogEnvVar),
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)) is { } windowLog)

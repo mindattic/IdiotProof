@@ -2,22 +2,7 @@
 
 ## Project Architecture
 
-**IdiotProof.Core** is a **headless background service** with NO console UI. All user interaction happens via **IdiotProof.Web** (Blazor frontend). Core should never have `Console.ReadLine`, `Console.ReadKey`, interactive menus, or user prompts.
-┌─────────────────────────────────────────────────────────────────┐
-│  IdiotProof.Web (Blazor)                                        │
-│  - All UI/UX: Dashboard, Trade, Analyze, Backtest, Orders       │
-│  - Log tab: Shows messages from Core                            │
-│  - Sends commands to Core via SignalR/HTTP                      │
-└───────────────────────────▲─────────────────────────────────────┘
-                            │ HTTP API + SignalR
-┌───────────────────────────▼─────────────────────────────────────┐
-│  IdiotProof.Core (Headless Engine)                              │
-│  - IBKR API connection                                          │
-│  - Strategy execution (StrategyRunner)                          │
-│  - Market data streaming to Web                                 │
-│  - Receives commands: ActivateTrading, ClosePosition, etc.      │
-│  - NO console menus or interactive prompts                      │
-└─────────────────────────────────────────────────────────────────┘
+There is no UI (IP-T504 removed the Blazor web app and the Monitor shim). **IdiotProof.Hub** is the one long-running process: it hosts the Monitor (the only evaluator and order placer) and serves every operation over loopback HTTP. People and agents drive it through **IdiotProof.Cli** (`idiotproof <noun> <verb>`) and **IdiotProof.Mcp** (`mcp__idiotproof__<noun>_<verb>`). The broker is Alpaca only, and only the Hub talks to it. Core is a headless service graph: never add `Console.ReadLine`, `Console.ReadKey`, interactive menus or prompts to it.
 
 ## Project Guidelines
 - User intends IdiotScript chained conditions to be evaluated sequentially (state machine over time), not as a single simultaneous AND condition.
@@ -1127,7 +1112,6 @@ var positionSize = profile.GetPositionSize(currentPrice, riskAmount);
 
 
 ## Note
-Ignore the IdiotProof.Blazor project for now - it has build errors related to HeartbeatMessage that will be addressed later.
 
 ## Repeat Command
 - Use the `Repeat()` command to restart the strategy after it has been completed through Take Profit, Stop Loss, or Trailing Stop Loss. This allows the strategy to re-enter when conditions are met again after an exit.

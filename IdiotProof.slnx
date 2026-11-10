@@ -11,7 +11,6 @@
     <Project Path="IdiotProof.Strategies/IdiotProof.Strategies.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="IdiotProof.Blazor.Tests/IdiotProof.Blazor.Tests.csproj" />
     <Project Path="IdiotProof.Brokers.Tests/IdiotProof.Brokers.Tests.csproj" />
     <Project Path="IdiotProof.Cli.Tests/IdiotProof.Cli.Tests.csproj" />
     <Project Path="IdiotProof.Core.Tests/IdiotProof.Core.Tests.csproj" />
@@ -22,7 +21,6 @@
     <Project Path="IdiotProof.Monitor.Tests/IdiotProof.Monitor.Tests.csproj" />
     <Project Path="IdiotProof.Operations.Tests/IdiotProof.Operations.Tests.csproj" />
     <Project Path="IdiotProof.Strategies.Tests/IdiotProof.Strategies.Tests.csproj" />
-    <Project Path="IdiotProof.UI.Tests/IdiotProof.UI.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/GapperStudy/GapperStudy.csproj" />
@@ -30,11 +28,8 @@
   </Folder>
   <Project Path="IdiotProof.Scripting/IdiotProof.Scripting.csproj" />
   <Project Path="IdiotProof.Shared/IdiotProof.Shared.csproj" />
-  <Project Path="IdiotProof.Blazor/IdiotProof.Blazor.csproj" />
   <Project Path="IdiotProof.Cli/IdiotProof.Cli.csproj" />
   <Project Path="IdiotProof.Hub/IdiotProof.Hub.csproj" />
   <Project Path="IdiotProof.Mcp/IdiotProof.Mcp.csproj" />
-  <Project Path="IdiotProof.Monitor/IdiotProof.Monitor.csproj" />
   <Project Path="IdiotProof.ResearchScanner/IdiotProof.ResearchScanner.csproj" />
-  <Project Path="IdiotProof.UI/IdiotProof.UI.csproj" />
 </Solution>

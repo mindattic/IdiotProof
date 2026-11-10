@@ -16,8 +16,8 @@ IdiotProof turns a plain-English trade idea into a runnable DSL strategy that th
 running 24/7 inside the IdiotProof Hub, evaluates against live market data, fires only when
 every condition matches, an LLM voter panel approves, and the Risk Guardian clears it — then
 places the order through the Hub's transaction gateway and manages the position to its exit.
-A person (or an assistant on their behalf) drives all of it through the `idiotproof` CLI, its
-MCP tools or the web app. The flagship flow is the **Gapper**
+A person (or an assistant on their behalf) drives all of it through the `idiotproof` CLI or its
+MCP tools; there is no UI. The flagship flow is the **Gapper**
 ([§4.4](#IP-§4)): buy the premarket gap at 4AM, sell it off before the 9:30 bell once momentum
 rolls over.
 
@@ -28,13 +28,13 @@ rolls over.
   *reflecting* on the real `StrategyBuilder` + `Conditions` types, so a model can never invent
   syntax that does not compile; generated scripts are parse-checked and the user is told when
   a verb did not parse.
-- **Set and forget.** `IdiotProof.Monitor` is an unattended console host that re-reads every
+- **Set and forget.** The Monitor, hosted unattended inside the Hub, re-reads every
   active strategy from SQL each tick (default **1s**, `IDIOTPROOF_MONITOR_INTERVAL` overrides —
-  UI edits apply to the running console automatically), evaluates against live Alpaca data
+  CLI/MCP edits apply to the running loop automatically), evaluates against live Alpaca data
   (real-time SIP websocket stream + REST, Mock fallback), reports per-condition progress
   (`4/5 — waiting on OnReclaim(9)`), places gated entries, and manages open positions to their
   exit.
-- **The Gapper, done well.** Queue up to 3 tickers on the `/gapper` tab, each with a dialable
+- **The Gapper, done well.** Queue up to 3 tickers (`gapper arm`), each with a dialable
   profile (gap %, volume, price band, entry window, stops, peak-giveback, sell-by). All gappers
   are not the same — every value is per-ticker adjustable; the tuned result is written into the
   strategy's canonical JSON so what you dialed is exactly what runs. A past day can be replayed
@@ -43,17 +43,17 @@ rolls over.
   approves → Risk Guardian clears stop/daily-loss/per-trade-risk. Any gate blocks the fire and
   records the reasoning.
 - **Paper by default, live by explicit opt-in.** The Sandbox broker is always the safe
-  fallback; live trading requires explicit configuration plus a confirmation modal.
+  fallback; live trading requires explicit configuration plus a confirmation code ([IP-LAW-13](#IP-LAW-13)).
 - **Research finds the news for you.** A scheduled scanner sweeps SEC filings, Alpaca news and
   Federal Register notices across the tracked ticker universe and ranks what it finds by
-  significance on the `/research` tab — no search box required.
-- **Options without mental math.** The manual `/options` section shows premium, breakeven and
+  significance (`research claims`) — no search box required.
+- **Options without mental math.** The manual `options *` operations show premium, breakeven and
   the intrinsic ("real") vs extrinsic ("hype") split for every contract, so the trade is "buy
   the idea, sell the hype".
 
 ## 3. What it is NOT {#IP-§3}
-- **Not a charting terminal.** It draws static ASCII charts (`market chart`, `account history`)
-  and a web live chart, but it is not a streaming tick-chart workstation for discretionary
+- **Not a charting terminal.** It draws static terminal charts (`market chart`, `account history`)
+  but it is not a streaming tick-chart workstation for discretionary
   trading; the ghost-overlay work is [planned, not built](#IP-§7).
 - **Not multi-broker today.** The build is **Alpaca-only** (plus the simulated Sandbox).
   `IBrokerClient` is the seam a future broker would implement; no other adapter exists.
@@ -66,12 +66,13 @@ rolls over.
 - **Not an agent that moves real money on its own.** An assistant drives IdiotProof through the
   CLI or MCP, but a Live action only previews and returns a confirmation code; it happens only when
   the person approves and the code comes back ([IP-LAW-13](#IP-LAW-13)).
-- **Not an options autotrader.** Options orders are manual and user-initiated (`/options`, or
-  `options buy|sell|spread|close|exercise` from the CLI/MCP); the DSL, Monitor, `RiskGuardian` and
+- **Not an options autotrader.** Options orders are manual and user-initiated
+  (`options buy|sell|spread|close|exercise` from the CLI/MCP); the DSL, Monitor, `RiskGuardian` and
   `Conditions` catalog know nothing about options.
-- **Not a desktop app.** Its front doors are the `idiotproof` CLI, the `idiotproof` MCP server
-  and the `IdiotProof.Blazor` web app, all over the one Hub ([§4](#IP-§4)); the Hub runs headless
-  as a console window or a Windows Service.
+- **Not a desktop or web app.** Its only front doors are the `idiotproof` CLI and the `idiotproof`
+  MCP server, both over the one Hub ([§4](#IP-§4)); the Hub runs headless as a console window or a
+  Windows Service and is the only process that talks to Alpaca. The Blazor web app, its UI
+  libraries and the `idiotproof-monitor` shim were removed in IP-T504 (recoverable from git history).
 - **Not a research daemon.** `IdiotProof.ResearchScanner` (and `research scan`) runs one pass and
   exits; it is fired by a scheduler job and never shares the Monitor's trading loop. The one
   long-running research worker, the catalyst intake ([§4.4](#IP-§4)), writes research rows only,
@@ -89,7 +90,7 @@ order except through the Hub's `TransactionGateway` ([IP-LAW-12](#IP-LAW-12)).
 ```
  person ─► Claude / any agent ─┬─► idiotproof (CLI, IdiotProof.Cli) ─┐
                                └─► idiotproof MCP (IdiotProof.Mcp) ──┤  HTTP 127.0.0.1:5910
- person ─► browser ─► IdiotProof.Blazor (same Core services) ────────┤  X-IdiotProof-Key
+                                                                     │  X-IdiotProof-Key
                                                                      ▼
  ┌───────────────────────────── IdiotProof.Hub ──────────────────────────────────────┐
  │ /api/op ─► OperationDispatcher ─► [Operation] handlers (IdiotProof.Operations)    │
@@ -120,8 +121,6 @@ order except through the Hub's `TransactionGateway` ([IP-LAW-12](#IP-LAW-12)).
 | `IdiotProof.Operations` | Every capability as one `[Operation("noun verb")]` class with a typed args record (`[Argument]`/`[Option]`); `OperationCatalog` reflects them, `OperationDispatcher` binds argv or JSON, resolves the owner and maps the result to an exit code. The CLI flags, the MCP tool schemas and `docs/CLI_COMMANDS.md` / `docs/MCP_TOOLS.md` are all generated from it. Also the render kit (`Rendering/TextTable`, `KeyValueBlock`, `Fmt`, ET via `EasternClock`) and the knowledge index (`IdiotProof.Operations/Docs`). Runs only inside the Hub. |
 | `IdiotProof.Cli` | `idiotproof` thin client: parses `noun verb --flags`, POSTs to the Hub, prints the result, exits 0 ok · 1 failed · 2 usage · 3 blocked · 4 confirmation required. Runs `help`, `version`, `agent bootstrap`, `agent export`, `hub status/start/stop/logs/version` and `users use/whoami` itself, so they work with the Hub down. `idiotproof.cmd` shim at the repo root. |
 | `IdiotProof.Mcp` | `idiotproof-mcp` stdio MCP server: one tool per operation (`noun_verb`, schema from the args record), forwarded to `/api/op`; money tools take a `confirmation_code`. Resources: the BIBLE, user stories, agent protocol and live catalog. |
-| `IdiotProof.Blazor` | Blazor Server web front door over the same `IdiotProof.Core` services — Strategies, Strategy Builder (Guided/Script/Describe), Gapper, Research, Options, Learning Center, Backtest, Activity Log, Settings, API Keys, Live chart. **MindAttic.Authentication** 6.0.0 (Argon2id + pepper, sessions, MFA scaffolding, self-service reset at `/forgot-password` → `/account/reset`). New work is CLI-first; the web keeps working (HOUSE-LAW-6). |
-| `IdiotProof.Monitor` | `idiotproof-monitor`: a backward-compatible shim that starts the Hub (the Monitor lives there now); its operator subcommands forward to the matching Hub operations (`--local` keeps the old in-process path for replay/scan). |
 | `IdiotProof.Engine` | `AppSettings` overlay chain, `SupervisedLoop`, `AuditLogger`, `WorkspaceManager` (UI layout state only). |
 | `IdiotProof.Scripting` | The IdiotScript DSL: `Stock.Ticker(...)`, `StrategyBuilder`, the `Conditions` catalog, `ScriptParser`, `StrategyJson` + `StrategyLoader` (canonical JSON), `StrategyStamp` (the ASCII stamp), `StrategyHtml`, branching algebra, `EmaPeriodCollector`, `GapperProfile` + `GapperScriptFactory`, `MarketTime` / `TradingSchedule` (ET clock, trading-day gate). |
 | `IdiotProof.Strategies` | `IStrategy` + `DslStrategy` adapter + `IndicatorSnapshotBuilder` + `GapperExitEvaluator` (sell-off brain, long and short, calling the shared `VelocityExitRule`) + `StrategyBacktester`/`BacktestReport` (replays sequences) + `GapperDayBacktester`. |
@@ -131,14 +130,12 @@ order except through the Hub's `TransactionGateway` ([IP-LAW-12](#IP-LAW-12)).
 | `IdiotProof.Brokers` | `AlpacaApi` (raw Trading + Market Data REST: paging, 429 retry, `AlpacaApiException`), `IBrokerClient` + `AlpacaBrokerClient` + `SandboxBrokerClient` + `BrokerRouter` + `AlpacaOAuthClient`. Options-aware (contracts, snapshots, single-leg and multi-leg orders, exercise). |
 | `IdiotProof.Models` | Domain DTOs/enums (the nouns, see 4.2) — incl. `AssetClass` (Equity, Option, Crypto), `OptionContract` (OCC), `OptionQuote`. |
 | `IdiotProof.Shared` | `RiskGuardian` + `RiskGuardianConfig`/`Result`, `IndicatorSnapshot`, `LogMessage`, `SettingsMetadata`, and `Options/` (pure math: `IntrinsicValueCalculator`, `BlackScholesCalculator`, `SellSignalEvaluator`, `OptionsTradingLevel`). |
-| `IdiotProof.UI` | Shared Razor Class Library for the Options components. Presentational only. |
-| `IdiotProof.Settings` | The settings tab as a portable Razor class library, hostable by the web app or MindAttic.Vault.Desktop. |
 | `IdiotProof.ResearchScanner` | One-shot research pass (EDGAR, Alpaca, Federal Register) that writes claims and exits; also reachable as `idiotproof research scan`. |
 
 Test projects: `IdiotProof.Engine.Tests`, `IdiotProof.Indicators.Tests`, `IdiotProof.Strategies.Tests`,
 `IdiotProof.Evidence.Tests`, `IdiotProof.Brokers.Tests`, `IdiotProof.Core.Tests`, `IdiotProof.Operations.Tests`, `IdiotProof.Cli.Tests`,
-`IdiotProof.Mcp.Tests`, `IdiotProof.Blazor.Tests`, `IdiotProof.UI.Tests`, `IdiotProof.Monitor.Tests`
-(see [§6](#IP-§6)); Cypress E2E lives in `tests/IdiotProof.Cypress/`.
+`IdiotProof.Mcp.Tests`, `IdiotProof.Monitor.Tests` (the Monitor's scanners and order shapes)
+(see [§6](#IP-§6)).
 
 ### 4.2 Domain model — the NOUNS (`IdiotProof.Models`, `IdiotProof.Shared`, `IdiotProof.Core/Data`)
 - `Candle` — one OHLCV bar.
@@ -359,8 +356,7 @@ Vault or configuration (the app has no admin path for it). The interactive Claud
 the same rule for the signed-in user: the Describe tab (`StrategyScriptGenerator`), the Gapper
 transcript reader (`GapperInterpreter`) and the Research page's analysis (`ResearchService` →
 `CatalystExtractor`, `ClaimVectorService`) get the key from `IClaudeKeyContext`
-(`OwnerClaudeKeyContext` over the signed-in owner in the web app, over the operation's owner in the
-Hub; resolved on every call, never cached) and pass it per call; with neither a user nor a
+(`OwnerClaudeKeyContext` over the operation's owner in the Hub; resolved on every call, never cached) and pass it per call; with neither a user nor a
 host key they show `UserClaudeKeyResolver.NoKeyMessage`. The scheduled research scan has no
 signed-in user and uses the host key. Voting is on when the host
 (`LlmVotingEnabled`) or the owner enabled it. Approve needs `LlmConsensusThreshold` (default
@@ -368,15 +364,14 @@ signed-in user and uses the host key. Voting is on when the host
 
 **Broker routing.** Each strategy declares `BrokerMode` (Paper | Live | Sandbox).
 `UserBrokerResolver` sends Paper/Live to the owner's own Alpaca account only when the owner has
-opted in on the API Keys page (`DefaultBroker = "alpaca"`) and a key pair for that mode exists
+opted in (`keys opt-in`, `DefaultBroker = "alpaca"`) and a key pair for that mode exists
 (MindAttic.Vault Brokers bucket first, then the DB-encrypted pair); otherwise, and always for
 Sandbox, it returns the global router's active broker (Sandbox by default). Clients are cached
-per (user, mode) for 5 minutes and rebuilt when the key fingerprint changes. The Monitor and the
-Blazor host share one Data Protection key ring (app name "IdiotProof"; dev
+per (user, mode) for 5 minutes and rebuilt when the key fingerprint changes. The Hub uses one Data Protection key ring (app name "IdiotProof"; dev
 `%APPDATA%\MindAttic\DataProtection\IdiotProof`; prod either Azure Blob + Key Vault via
 `DataProtection:AzureBlobUri` + `DataProtection:KeyVaultKeyUri`, or a durable
-`DataProtection:KeyRingPath`; production with neither fails closed) so the console can decrypt
-the keys the UI writes. Market data is one global feed (sip by default,
+`DataProtection:KeyRingPath`; production with neither fails closed) so the Monitor can decrypt
+the keys `keys set` writes. Market data is one global feed (sip by default,
 `IDIOTPROOF_ALPACA_FEED=iex` for the free tier).
 
 **The Gapper.** Profiles are a static JSON catalog
@@ -537,7 +532,7 @@ the headline (does someone trade ahead of it); H20 measures how fast the second-
 H18 is not stopped by the H11 kill criterion, because it is how that edge would be traded, but it
 reaches paper trading only through the same validation, holdout and paper-shadow gate.
 
-**Options (manual).** `/options` (`Options.razor` + `OptionsTradingService`) offers single-leg
+**Options (manual).** The `options *` operations (`OptionsTradingService`) offer single-leg
 calls and puts on Sandbox, Paper or Live, defaulting to Sandbox unless Alpaca routing is opted
 in and keyed. The chain spans today to `AlpacaBrokerClient.ChainHorizon` (3 years). Pricing math
 is pure (`IdiotProof.Shared/Options`): intrinsic/extrinsic/breakeven/DTE, Black-Scholes value +
@@ -545,19 +540,15 @@ implied-vol solver (European exercise, no dividends), and the informational
 `SellSignalEvaluator` (extrinsic within 5% of its observed high after ≥3 samples **and** a
 Bullish claim on the underlying in the last 7 days). Orders are whole contracts, DAY, no
 extended hours, Market/Limit; the ticket locks per action by `OptionsTradingLevel`
-(0 none · 1 covered only · 2 long calls/puts · 3 spreads) and Live needs the 5-minute password
-elevation. Jargon has one source, `OptionsGlossary`. A user-initiated options order is outside
+(0 none · 1 covered only · 2 long calls/puts · 3 spreads) and Live needs a confirmation code
+([IP-LAW-13](#IP-LAW-13)). Jargon has one source, `OptionsGlossary`. A user-initiated options order is outside
 the Monitor, so the three gates do not apply to it ([IP-LAW-1](#IP-LAW-1)).
 
-**Accounts.** Registration and the CLI `create-account` reject malformed and disposable email
-domains (`BlockedEmailDomain`, seeded at startup). Self-service password reset is the
-MindAttic.Authentication token flow: `/forgot-password` (`MaForgotPassword`) emails a single-use
-link to `MindAttic:Auth:Reset:PublicBaseUrl` + `/account/reset` (`MaResetPassword`); the base URL
-is `https://localhost:65025` in `appsettings.Development.json` and the web app's own
-`azurewebsites.net` origin in `infra/main.bicep`. The username listing exists in Development
-only. `/login` forwards only same-site return URLs. The SignalR
-`TradingHub` requires authentication. `AlpacaOAuthClient` + `/connect/alpaca` store a scoped
-token, which is not yet used for order routing.
+**Accounts.** `users create` rejects malformed and disposable email domains
+(`BlockedEmailDomain`, seeded at startup); the CLI and MCP act for an owner chosen with
+`users use` or `IDIOTPROOF_OWNER`. Web login, self-service password reset and the
+`/connect/alpaca` OAuth flow lived in the web app and went with it (IP-T504); `AlpacaOAuthClient`
+remains but nothing calls it, and broker keys come from MindAttic.Vault or `keys set`.
 
 ## 5. The Laws {#IP-§5}
 This bible **inherits** the org-wide laws in
@@ -696,7 +687,8 @@ strategy. (`IdiotProof.Scripting/StrategyJson.cs` — `nextSteps` allowed on the
 Build/test evidence (recorded 2026-10-03, .NET 10 SDK): `dotnet test IdiotProof.slnx -c Debug`
 → build succeeded, **all green, 0 failed**: Engine 85 · Indicators 18 · Strategies 34,681
 (dominated by generated parameter cases) · Brokers 38 (+3 `[Explicit]` real-paper tests) · Blazor
-217 · UI 62 · Monitor 16 (+2 `[Explicit]` real-paper tests).
+217 · UI 62 · Monitor 16 (+2 `[Explicit]` real-paper tests). The Blazor and UI test projects
+were removed with the web app (IP-T504).
 
 Real Alpaca paper account, 2026-10-03 (market closed, run by name): the 3 options tests pass
 (level 3, BE chain + snapshots, a $0.01 buy-to-open placed and cancelled). The short probe
@@ -730,16 +722,6 @@ Test projects and what they pin:
   contract, options wire format + Sandbox chain/basis (`OptionsBrokerTests`), equity short wire
   format, the can't-short 403 and negative short positions (`AlpacaEquityShortWireTests`); the opt-in
   `[Explicit]` `AlpacaPaperOptionsIntegrationTests` runs only by name against the real paper account.
-- `IdiotProof.Blazor.Tests` — verb-catalog reflection, the LLM gate on Legion's voter panel over
-  a fake transport (`LlmVotingServiceTests`), per-owner Claude keys and their isolation (`UserClaudeKeyResolverTests`,
-  `ClaudeKeyIsolationTests`, `UserClaudeKeyRoutingTests`),
-  self-service password reset (`PasswordResetFlowTests`), `ConditionProgressRepository` (SQL Server LocalDB), `StrategyRepositoryGuardTests`,
-  `UserBrokerResolverTests`, `GapperInterpreterTests`, `LegionProviderContractTests`, research
-  (`EdgarServiceTests`, `Form4ParserTests`, `CorporateActionDetectorTests`,
-  `RegulatoryScannerTests`, `SignificanceScorerTests`, `OutcomeBackfillServiceTests`,
-  `IndexEventScannerTests`, `TickerUniverseServiceTests`), `RiskGuardianServiceTests`,
-  `UserPreferencesServiceTests`.
-- `IdiotProof.UI.Tests` — Options presenter / position view / glossary logic.
 - `IdiotProof.Monitor.Tests` — long/short order shapes and a short round trip on the Sandbox
   broker (`DirectionalOrdersTests`); `PremarketFadeScanner` and `BeBexDecayScanner` math; the
   opt-in `[Explicit]` `AlpacaPaperShortIntegrationTests` (keys from the `alpaca-paper` keyring
@@ -754,8 +736,10 @@ has not been re-run since the 2026-10-03 record above.
   [IP-LAW-12](#IP-LAW-12)/[IP-LAW-13](#IP-LAW-13)), `ConfirmationStoreTests` (single use, 120 s,
   owner- and intent-bound), `MonitorGatewayParityTests`, `OptionsGatewayTests`,
   `GatewayDiaryTests`, `MonitorHostingTests`, `MonitorPauseFlagTests`, `OwnerResolverTests`,
-  `SecretRedactorTests`, `CoreServiceRegistrationTests`, plus the services moved from Blazor
-  (research, LLM voting, Claude keys, repositories, `UserBrokerResolver*Tests`); the catalyst
+  `SecretRedactorTests`, `CoreServiceRegistrationTests`, plus the services moved from the old web
+  app (research, LLM voting on Legion's panel over a fake transport, per-owner Claude keys,
+  repositories incl. `ConditionProgressRepository` on LocalDB, `UserBrokerResolver*Tests`,
+  `GapperInterpreterTests`, `LegionProviderContractTests`, `RiskGuardianServiceTests`); the catalyst
   intake (`CatalystPreClassifierTests` fixtures for FDA, 424B, 5.03 reverse split and promo wire,
   `CatalystScorerTests` monotonic freshness decay, `CatalystIngestorTests`,
   `CatalystIntakeParsingTests`, `AlpacaNewsServiceRangeTests`).
@@ -775,17 +759,14 @@ has not been re-run since the 2026-10-03 record above.
   on money tools, risk hints, Hub-down errors (`McpToolTests`), and the doc resources
   (`DocResourceTests`).
 
-Not proven by the solution test run: the Blazor UI flows and the live LLM voting round-trip; a
+Not proven by the solution test run: the live LLM voting round-trip; a
 Live CLI/MCP order confirmed end to end against a real Live account (the confirm path is proven
 against scripted brokers only, by design: no test touches real money).
-The Cypress suite (`tests/IdiotProof.Cypress/cypress/e2e/`, specs 01–09) runs deterministically
-with `IDIOTPROOF_FAKE_LLM=1` (the Development-only `FakeLlmHandler` intercepts Legion calls
-server-side) but needs a live server run to graduate the E-stories to ✅; `08_options.cy.ts` has
-been run green. MonitorWorker itself has no host-level harness test.
+MonitorWorker itself has no host-level harness test.
 
 ## 7. Active frontier {#IP-§7}
 - **Options, phase 2** — the fill-and-close half of a real paper round-trip during market hours
-  (IP-US-U10); extract the duplicated Live elevation modal into one shared component; then option
+  (IP-US-U10); then option
   legs in the strict-JSON strategy schema (v2), IV/Greeks conditions in the `Conditions` catalog,
   and a non-linear `RiskGuardian` model (max loss = premium for long options) before the Monitor
   may ever fire an options order. Multi-leg spreads (`order_class: "mleg"`) after that.
@@ -793,7 +774,7 @@ been run green. MonitorWorker itself has no host-level harness test.
   then re-run `AlpacaPaperShortIntegrationTests` to prove an accepted `sell_to_open`, and during
   market hours a filled short covered by `buy_to_close` (IP-US-K16).
 - **Gapper hardening (Epic K tail)** — host-level MonitorWorker test (queue → 4AM fire → hold →
-  rollover sell), `/gapper` Cypress spec, fill-price reconciliation against the broker's actual fill (entry is recorded at the limit
+  rollover sell), fill-price reconciliation against the broker's actual fill (entry is recorded at the limit
   price), full order-state tracking (pending orders as first-class rows).
 - **Gapper program (IP-T442–T445)** — the study pipeline (universe, tiered pull, snapshots,
   labels, `test H1..H17`, report) and its verdict; the Monitor half of Steps (row step state,
@@ -802,25 +783,19 @@ been run green. MonitorWorker itself has no host-level harness test.
   facts for the voter panel; the time-of-day profile replacing the 20-bar `IsVolumeAbove`
   baseline once `data/tod-profile.json` exists; the short leg only after the long exit survives
   the 20-day paper shadow ([§4.4](#IP-§4)).
-- **Known debts** — DSL generation is single-shot and the Describe tab still emits text, not
-  model JSON; the unused `UserPreferences.OpenStrategyTabs`
-  column awaits removal in a migration; the Azure infra (`tools/azure-provision.md`) is not
-  provisioned; the OAuth token is not
-  yet wired into order placement (needs a registered Alpaca OAuth app + paper testing).
+- **Known debts** — DSL generation is single-shot and `strategy from-text` still emits text, not
+  model JSON; the unused `UserPreferences.OpenStrategyTabs` column (web-only) awaits removal in a
+  migration.
 - **Replay tests (Epic R)** — the replay/scan/export/family commands ship without NUnit coverage.
 - **Adaptive auto-strategy generation (Epic S)** — standardize the `auto-gapper` seed into a
   wait-for-enough-information generator across sessions.
-- **Strategy ghost overlay + branching visualization** — chart integration, simulator timeline,
-  branch fork rendering. (Epic G in [USER_STORIES.md](USER_STORIES.md).)
 - **Roslyn-based IdiotScript parser** — replace the tolerant regex parser with exact
   line/col diagnostics. (IP-US-H1.)
-- **Cypress CI run** — run the suite against a live server with `IDIOTPROOF_FAKE_LLM=1` to
-  graduate IP-US-E1–E6, the Learning Center (Epic I) and Backtest (Epic J) stories.
 
 ## 8. Quality bar {#IP-§8}
 A feature is **done** (`✅`) only when: it builds clean in `IdiotProof.slnx`; it has a green
-automated test (NUnit for backend, Cypress for UI) that is named in
-[USER_STORIES.md](USER_STORIES.md); user-facing changes have an e2e or lifecycle assertion;
+automated NUnit test that is named in
+[USER_STORIES.md](USER_STORIES.md); user-facing (CLI/MCP) changes have an operation or lifecycle assertion;
 and it respects the laws in §5 (gates in order, Sandbox default, Vault/Legion routing, no
 underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HOUSE-LAW-8].)
 
@@ -834,12 +809,12 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
   against the snapshot's window high/low.
 - **Gate** — one of the three pre-fire checks: condition match → LLM voter quorum → Risk Guardian.
 - **Risk Guardian** — `IdiotProof.Shared.Risk.RiskGuardian`, the final pre-trade veto.
-- **Monitor** — `IdiotProof.Monitor`, the unattended 24/7 console evaluator and executor.
+- **Monitor** — `MonitorWorker`, the unattended 24/7 evaluator and executor hosted inside the Hub.
 - **SupervisedLoop** — the fault-tolerant tick loop the Monitor runs.
 - **Voter panel / Legion** — the multi-LLM quorum (configured in `legion.json`, shipped with both
   hosts) that approves or rejects a Claude-generated script / a candidate fire, via MindAttic.Legion.
 - **ConditionProgress** — the SQL row (`N/M`, first failing verb) the Monitor upserts per tick
-  and the Strategies page polls for live badges.
+  and `strategy progress` reads.
 - **Quarantine** — a strategy whose canon cannot be fully understood; never evaluated, reason shown.
 - **Sandbox broker** — the always-registered simulated broker (instant fills into an in-memory
   position book) that is the safe default in `BrokerRouter`.
@@ -850,7 +825,7 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
   buy in the 4AM window, sell before the 9:30 bell.
 - **Gapper profile** — the dialable template (gap %, volume ratio, price band, entry window,
   stops, giveback, arm/sell-by times, notional) in `IdiotProof.Core/Catalogs/gapper-profiles.json`; cloned
-  and tuned per ticker on the `/gapper` tab.
+  and tuned per ticker (`gapper tune`, `gapper apply-tuned`).
 - **Peak giveback** — the momentum-rollover exit: sell once price gives back N% of the run
   from entry to the post-entry peak; armed from a configured ET time ("the last 15 minutes").
 - **Velocity exhaustion** — the exit that fires when the favorable price velocity over a 1/3/5
