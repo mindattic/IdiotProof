@@ -57,6 +57,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<GapperStudyLabel>     GapperStudyLabels    => Set<GapperStudyLabel>();
     public DbSet<EdgarFilingIndexRow>  EdgarFilingIndex     => Set<EdgarFilingIndexRow>();
     public DbSet<FadeShortBorrowObservation> FadeShortBorrowObservations => Set<FadeShortBorrowObservation>();
+    public DbSet<MomentumVideo>        MomentumVideos        => Set<MomentumVideo>();
+    public DbSet<MomentumTranscript>   MomentumTranscripts   => Set<MomentumTranscript>();
+    public DbSet<MomentumClaim>        MomentumClaims        => Set<MomentumClaim>();
+    public DbSet<MomentumClaimOutcome> MomentumClaimOutcomes => Set<MomentumClaimOutcome>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -337,6 +341,36 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.ToTable("FadeShortBorrowObservations");
             e.HasIndex(x => new { x.DateEt, x.Symbol }).IsUnique();
             foreach (var p in new[] { "PrevClose", "PmHigh", "Open0930", "Close0945", "LocateFee0940", "LocateFee" })
+                e.Property(p).HasPrecision(18, 6);
+        });
+        // IP-T493 "Momentum." claim tracker: its own table set, research only.
+        b.Entity<MomentumVideo>(e =>
+        {
+            e.ToTable("MomentumVideos");
+            e.HasIndex(x => x.TradeDate);
+            e.HasIndex(x => x.PublishedUtc);
+        });
+        b.Entity<MomentumTranscript>(e =>
+        {
+            e.ToTable("MomentumTranscripts");
+            e.HasIndex(x => x.TradeDate);
+            e.HasOne<MomentumVideo>().WithOne().HasForeignKey<MomentumTranscript>(x => x.VideoId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<MomentumClaim>(e =>
+        {
+            e.ToTable("MomentumClaims");
+            e.HasIndex(x => x.VideoId);
+            e.HasIndex(x => new { x.TradeDate, x.Symbol });
+            e.HasOne<MomentumVideo>().WithMany().HasForeignKey(x => x.VideoId).OnDelete(DeleteBehavior.Cascade);
+            e.Property(x => x.ReferencePrice).HasPrecision(18, 6);
+        });
+        b.Entity<MomentumClaimOutcome>(e =>
+        {
+            e.ToTable("MomentumClaimOutcomes");
+            e.HasIndex(x => new { x.ClaimId, x.ScenarioIndex }).IsUnique();
+            e.HasOne<MomentumClaim>().WithMany().HasForeignKey(x => x.ClaimId).OnDelete(DeleteBehavior.Cascade);
+            foreach (var p in new[] { "PriorClose", "Open0930", "PremarketHigh", "DayHigh", "DayClose", "TriggerLevel", "TriggerPrice",
+                                      "ConfirmLevel", "EntryPrice", "InvalidationLevel", "ExitPrice" })
                 e.Property(p).HasPrecision(18, 6);
         });
         b.Entity<EdgarFilingIndexRow>(e =>

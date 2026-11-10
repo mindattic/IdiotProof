@@ -26,6 +26,7 @@
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/GapperStudy/GapperStudy.csproj" />
+    <Project Path="tools/MomentumTracker/MomentumTracker.csproj" />
   </Folder>
   <Project Path="IdiotProof.Scripting/IdiotProof.Scripting.csproj" />
   <Project Path="IdiotProof.Shared/IdiotProof.Shared.csproj" />

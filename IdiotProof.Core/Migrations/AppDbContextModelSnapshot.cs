@@ -1764,6 +1764,383 @@ namespace IdiotProof.Core.Migrations
                     b.ToTable("LiveBars");
                 });
 
+            modelBuilder.Entity("IdiotProof.Core.Data.MomentumClaim", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ClaimType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ClaimWindow")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<double?>("ClaimedPct")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<string>("ExtractedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("ExtractedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IdentityHint")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<int?>("Rank")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RawQuote")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("ReferencePrice")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("Scenarios")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SetupTags")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("SpokenSymbol")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<double?>("StatedMovePct")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Symbol")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<double?>("SymbolConfidence")
+                        .HasColumnType("float");
+
+                    b.Property<string>("SymbolNote")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<DateOnly>("TradeDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("VideoId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VideoId");
+
+                    b.HasIndex("TradeDate", "Symbol");
+
+                    b.ToTable("MomentumClaims", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.MomentumClaimOutcome", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AnyTargetHit")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("BragActualClosePct")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("BragActualHighPct")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("BragActualLowToHighPct")
+                        .HasColumnType("float");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<double?>("CloseVsTriggerPct")
+                        .HasColumnType("float");
+
+                    b.Property<bool?>("ConfirmHit")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("ConfirmLevel")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime?>("ConfirmUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool?>("D1AnyTargetHit")
+                        .HasColumnType("bit");
+
+                    b.Property<double?>("D1MaxRunPct")
+                        .HasColumnType("float");
+
+                    b.Property<string>("DataSource")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<decimal?>("DayClose")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<double?>("DayClosePct")
+                        .HasColumnType("float");
+
+                    b.Property<decimal?>("DayHigh")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<double?>("DayHighPct")
+                        .HasColumnType("float");
+
+                    b.Property<decimal?>("EntryPrice")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime?>("EntryUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("ExitPrice")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("ExitReason")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime?>("ExitUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("FirstTargetHit")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("FirstTargetUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("GainerCount")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("GainerRank")
+                        .HasColumnType("int");
+
+                    b.Property<double?>("GapPct0930")
+                        .HasColumnType("float");
+
+                    b.Property<int?>("GapRank")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("InvalidationHitBeforeTarget")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("InvalidationLevel")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("InvalidationSource")
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<double?>("MaxDrawdownAfterTriggerPct")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("MaxRunAfterTriggerPct")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal?>("Open0930")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<double?>("PlanPnlPct")
+                        .HasColumnType("float");
+
+                    b.Property<decimal?>("PremarketHigh")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<double?>("PrevDayClosePct")
+                        .HasColumnType("float");
+
+                    b.Property<int?>("PrevDayGainerRank")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("PriorClose")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<int>("ScenarioIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TargetsHit")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TargetsJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<bool?>("TopGapper")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("TriggerHit")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TriggerKind")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<decimal?>("TriggerLevel")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal?>("TriggerPrice")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime?>("TriggerUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Verdict")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("VerifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimId", "ScenarioIndex")
+                        .IsUnique();
+
+                    b.ToTable("MomentumClaimOutcomes", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.MomentumTranscript", b =>
+                {
+                    b.Property<string>("VideoId")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("ExtractError")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("ExtractedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ExtractedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ImportedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SegmentsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Text")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TextHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateOnly?>("TradeDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("VideoId");
+
+                    b.HasIndex("TradeDate");
+
+                    b.ToTable("MomentumTranscripts", (string)null);
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.MomentumVideo", b =>
+                {
+                    b.Property<string>("VideoId")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<int?>("ChannelIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DurationSec")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("FetchedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ImportedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<DateTime?>("PublishedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateOnly?>("TitleDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("TradeDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("VideoId");
+
+                    b.HasIndex("PublishedUtc");
+
+                    b.HasIndex("TradeDate");
+
+                    b.ToTable("MomentumVideos", (string)null);
+                });
+
             modelBuilder.Entity("IdiotProof.Core.Data.PendingConfirmation", b =>
                 {
                     b.Property<long>("Id")
@@ -3102,6 +3479,33 @@ namespace IdiotProof.Core.Migrations
                     b.HasOne("IdiotProof.Core.Data.Strategy", null)
                         .WithOne()
                         .HasForeignKey("IdiotProof.Core.Data.ConditionProgress", "StrategyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.MomentumClaim", b =>
+                {
+                    b.HasOne("IdiotProof.Core.Data.MomentumVideo", null)
+                        .WithMany()
+                        .HasForeignKey("VideoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.MomentumClaimOutcome", b =>
+                {
+                    b.HasOne("IdiotProof.Core.Data.MomentumClaim", null)
+                        .WithMany()
+                        .HasForeignKey("ClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.MomentumTranscript", b =>
+                {
+                    b.HasOne("IdiotProof.Core.Data.MomentumVideo", null)
+                        .WithOne()
+                        .HasForeignKey("IdiotProof.Core.Data.MomentumTranscript", "VideoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
