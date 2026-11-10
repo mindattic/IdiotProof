@@ -64,7 +64,7 @@ public sealed class GapperRadarOperation : IOperation<GapperRadarArgs>
                 f.PriorClose is { } p ? p.ToString(p < 1 ? "0.0000" : "0.00", CultureInfo.InvariantCulture) : "-",
                 $"{Pct(f.HighPctD1)}/{Pct(f.ClosePctD1)}",
                 f.DollarVolumeRatioD1 is { } v ? v >= 100 ? ">100" : v.ToString("0.0", CultureInfo.InvariantCulture) : "-",
-                string.Join("; ", r.Score.Reasons.Where(x => x.Points > 0 || x.Group == "Momentum.").Select(x => x.Sign)),
+                string.Join("; ", r.Score.Reasons.Where(x => x.Points > 0).Select(x => x.Sign)),
                 r.Score.Flags.Count == 0 ? "" : r.Score.Flags.Count.ToString(CultureInfo.InvariantCulture));
         }
         var text = new System.Text.StringBuilder();
@@ -82,7 +82,10 @@ public sealed class GapperRadarOperation : IOperation<GapperRadarArgs>
         foreach (var n in run.Notes) text.AppendLine("Note: " + n);
         text.Append("Points are log2 of the gapper study's train lift for a next-day high of +50% or more, strongest sign per group; they rank names, they are not odds. " +
                     "Out of sample (43 sessions, 2026-09-10..11-09) 7.3% of the radar's top 20 ran +50% (36x the base rate) against 6.6% for a plain top-gainers screen: " +
-                    "not significantly better at the top 20, better at the top 50 (20% of runners caught vs 15%). No long entry on these names has survived costs (IP-T494). Watch them; do not chase them.");
+                    "not significantly better at the top 20, better at the top 50 (20% of runners caught vs 15%). " +
+                    "Momentum.'s evening picks are the strongest sign measured: 38% of them ran +50% (167x the base rate), and they beat the top-gainer screens on a held-out window (IP-T500); " +
+                    "his picks appear once his video is out, usually 19:00-21:00 ET, so run the radar again after it. " +
+                    "No long entry on these names, his picks included, has survived costs (IP-T494, IP-T500 H3). Watch them; do not chase them.");
         return OperationResult.Ok(data, text.ToString());
     }
 

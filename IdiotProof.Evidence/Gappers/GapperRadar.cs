@@ -62,6 +62,13 @@ public static class GapperRadar
         public const double NewListing = 3.2;
         public const double ForeignProxy = 1.5;
         public const double NoCatalyst = 0.6;
+
+        /// <summary>
+        /// A name on Momentum.'s evening "TOP 3" list for the session (IP-T500): 38.3% of 608 picks reached a +50% high on
+        /// fit + validation against 0.229% of liquid names on the same sessions. His selection beat the top-gainer screens
+        /// on the untouched holdout (amendment 03: +22.8 and +13.7 points of high, both 90% lower bounds above 0).
+        /// </summary>
+        public const double MomentumPick = 167;
     }
 
     /// <summary>Train lift (>= +50%) of a catalyst published in the 5 days to D-1 16:00, by <see cref="CatalystTypes.Keys"/>.</summary>
@@ -73,8 +80,8 @@ public static class GapperRadar
     };
 
     /// <param name="momentumLift">
-    /// The lift of a Momentum. pick, once the IP-T500 edge study validates one; null (the default) shows the pick as a
-    /// reason worth 0 points.
+    /// The lift of a Momentum. pick; null (the default) uses <see cref="Lifts.MomentumPick"/>, the lift the IP-T500 edge
+    /// study measured and confirmed on its holdout.
     /// </param>
     public static GapperRadarScore Score(GapperRadarFacts f, double? momentumLift = null)
     {
@@ -130,7 +137,7 @@ public static class GapperRadar
         if (f.ForeignProxy) Add("profile", "foreign-filer name (Ltd / plc / N.V. / S.A. / AG / SE)", Lifts.ForeignProxy);
 
         if (f.MomentumRank is { } mr)
-            reasons.Add(new("Momentum.", $"Momentum. pick #{mr} for this session", momentumLift ?? 1, momentumLift is { } ml ? Math.Log2(ml) : 0));
+            Add("Momentum.", $"Momentum. pick #{mr} for this session (38% of his picks ran +50%, held out of sample)", momentumLift ?? Lifts.MomentumPick);
 
         // the squeeze profile: biggest runs, worst longs (gapper-anatomy-and-tradability.md section 4)
         if (f.CatalystBits == 0 && f.DaysSinceReverseSplit is >= 0 and <= 90 && f.ForeignProxy)
