@@ -404,3 +404,37 @@ public sealed class MomentumScenarioEvaluatorTests
         });
     }
 }
+
+/// <summary>IP-T500: which session a video is about, so an evening watchlist is never scored on the day it reacts to.</summary>
+[TestFixture]
+public sealed class MomentumTradeDateTests
+{
+    [TestCase("TOP 3 STOCKS FOR TUESDAY (A NEW TRUMP PUMP?!)", "2025-04-28T23:17:51Z", "2025-04-29")]
+    [TestCase("TOP 3 STOCKS FOR FRIDAY  Yesterday went 3/3", "2025-08-29T01:49:36Z", "2025-08-29")]
+    [TestCase("TOP 3 STOCKS FOR FRIDAY  The next big SWING idea is here", "2025-10-30T23:59:10Z", "2025-10-31")]
+    [TestCase("TOP 3 STOCKS FOR BLACK FRIDAY", "2025-11-28T01:32:05Z", "2025-11-28")]
+    [TestCase("TOP 3 STOCKS MONDAY 11/9/26", "2026-11-08T23:00:00Z", "2026-11-09")]
+    [TestCase("TOP 3 STOCKS UPDATE", "2026-11-10T13:00:00Z", "2026-11-10")]
+    [TestCase("TOP 3 STOCKS to watch", "2026-11-06T23:00:00Z", "2026-11-09")]
+    [TestCase("TOP 3 STOCKS to watch", "2026-11-07T15:00:00Z", "2026-11-09")]
+    [TestCase("TOP 3 STOCKS FOR FRIDAY 1/29/26", "2026-01-30T00:01:41Z", "2026-01-30")]
+    [TestCase("TOP 3 STOCKS WEDNESDAY 2/10/26", "2026-06-09T23:01:45Z", "2026-06-10")]
+    [TestCase("TOP 3 STOCKS TUESDAY 6/3/26", "2026-06-23T10:52:43Z", "2026-06-23")]
+    [TestCase("TOP 3 STOCK WATCHLIST MONDAY - July 6 2026", "2026-07-05T21:48:01Z", "2026-07-06")]
+    [TestCase("TOP 3 STOCKS WEDNESDAY", "2026-08-25T23:18:01Z", "2026-08-26")]
+    [TestCase("TOP 3 STOCKS FRIDAY - 7/3/26", "2026-07-02T21:18:21Z", "2026-07-06")]
+    [TestCase("TOP 3 STOCKS FOR THURSDAY  (How I caught $KWEs 180% explosion)", "2025-06-19T00:04:08Z", "2025-06-20")]
+    [TestCase("TOP 3 STOCKS MONDAY 9/7/26", "2026-09-06T21:00:51Z", "2026-09-08")]
+    public void ResolvesTheSessionTheVideoIsFor(string title, string publishedUtc, string expected)
+    {
+        var pu = DateTime.Parse(publishedUtc, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal);
+        Assert.That(MomentumTracker.ResolveTradeDate(title, pu), Is.EqualTo(DateOnly.Parse(expected, System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    [Test]
+    public void WithoutAnUploadTime_OnlyTheWrittenDateCounts()
+    {
+        Assert.That(MomentumTracker.ResolveTradeDate("TOP 3 STOCKS FOR TUESDAY", null), Is.Null);
+        Assert.That(MomentumTracker.ResolveTradeDate("TOP 3 STOCKS 11/9/26", null), Is.EqualTo(new DateOnly(2026, 11, 9)));
+    }
+}

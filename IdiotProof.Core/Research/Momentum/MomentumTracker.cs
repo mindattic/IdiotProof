@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using IdiotProof.Core.Data;
+using IdiotProof.Core.Evidence;
 using IdiotProof.Core.Research.Gappers;
 using IdiotProof.Core.Services;
 using IdiotProof.Evidence.Gappers;
@@ -129,7 +130,9 @@ public sealed partial class MomentumTracker(
             if (string.IsNullOrEmpty(id)) { bad++; continue; }
             var title = Str(r, "title") ?? "";
             var dirDate = DateOnly.TryParseExact(Path.GetFileName(Path.GetDirectoryName(file)), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dd) ? dd : (DateOnly?)null;
-            var tradeDate = DateOf(Str(r, "tradeDate")) ?? dirDate;
+            var published = DateTimeOffset.TryParse(Str(r, "publishedUtc"), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var pub) ? pub.UtcDateTime : (DateTime?)null;
+            // The collector's tradeDate falls back to the upload date, which is the session already over for an evening watchlist.
+            var tradeDate = ResolveTradeDate(title, published) ?? DateOf(Str(r, "tradeDate")) ?? dirDate;
 
             if (!videos.TryGetValue(id, out var v))
             {
@@ -141,8 +144,9 @@ public sealed partial class MomentumTracker(
             else videosUpd++;
             v.Url = Trunc(Str(r, "url") ?? $"https://www.youtube.com/shorts/{id}", 200);
             v.Title = Trunc(title, 300);
-            v.PublishedUtc = DateTimeOffset.TryParse(Str(r, "publishedUtc"), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var pu) ? pu.UtcDateTime : v.PublishedUtc;
-            v.TitleDate = DateOf(Str(r, "titleDate")) ?? TitleDate(title);
+            v.PublishedUtc = published ?? v.PublishedUtc;
+            v.TitleDate = TitleDate(title);
+            var dateMoved = v.TradeDate is { } was && was != tradeDate;
             v.TradeDate = tradeDate;
             v.Kind = KindOf(title, v.PublishedUtc, tradeDate);
             v.DurationSec = Int(r, "durationSec") ?? v.DurationSec;
@@ -164,7 +168,7 @@ public sealed partial class MomentumTracker(
             else
             {
                 trUpd++;
-                if (t.TextHash != hash) { t.ExtractedUtc = null; t.ExtractError = null; trChanged++; }
+                if (t.TextHash != hash || dateMoved) { t.ExtractedUtc = null; t.ExtractError = null; trChanged++; }
             }
             t.TradeDate = tradeDate;
             t.Text = text;
@@ -742,6 +746,33 @@ public sealed partial class MomentumTracker(
         int mo = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture), dd = int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture), y = int.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture);
         if (y < 100) y += 2000;
         try { return new DateOnly(y, mo, dd); } catch (ArgumentOutOfRangeException) { return null; }
+    }
+
+    private static readonly Regex WeekdayRx = new(@"\b(monday|tuesday|wednesday|thursday|friday)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// The session a video is about. Titles carry typos ("FOR FRIDAY 1/29/26" posted Thursday 1/29, "WEDNESDAY 2/10/26"
+    /// posted in June), so a written date is trusted only when it is a session that opens after the upload, within a
+    /// week, and on the weekday the title names. Otherwise a named weekday is the first such session after the upload,
+    /// and an undated video is the session in progress, or the next one when posted after 16:00 ET or on a non-trading
+    /// day. Without an upload time the written date (or null) is all there is.
+    /// </summary>
+    public static DateOnly? ResolveTradeDate(string title, DateTime? publishedUtc)
+    {
+        var dated = TitleDate(title);
+        var m = WeekdayRx.Match(title);
+        DayOfWeek? want = m.Success ? Enum.Parse<DayOfWeek>(m.Groups[1].Value, ignoreCase: true) : null;
+        if (publishedUtc is not { } pu) return dated;
+        var et = MinuteBarMath.ToEastern(pu);
+        var day = DateOnly.FromDateTime(et);
+        var first = MarketCalendar.IsTradingDay(day) && et.TimeOfDay < new TimeSpan(16, 0, 0) ? day : MarketCalendar.NextTradingDay(day);
+        if (dated is { } dd && MarketCalendar.IsTradingDay(dd) && dd >= first && dd.DayNumber - first.DayNumber <= 7 && (want is null || dd.DayOfWeek == want))
+            return dd;
+        if (want is null) return first;
+        var d = et.TimeOfDay >= new TimeSpan(16, 0, 0) ? day.AddDays(1) : day;
+        while (d.DayOfWeek != want) d = d.AddDays(1);
+        // A list for a holiday ("FRIDAY 7/3/26", Juneteenth, Labor Day) is played on the next session.
+        return MarketCalendar.IsTradingDay(d) ? d : MarketCalendar.NextTradingDay(d);
     }
 
     [return: System.Diagnostics.CodeAnalysis.NotNullIfNotNull(nameof(s))]
