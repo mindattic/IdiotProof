@@ -203,6 +203,7 @@ public static class CoreServiceRegistration
         // ── "Momentum." claim tracker (IP-T493): import, LLM extraction, verification against Alpaca bars, report ──
         services.AddScoped<IdiotProof.Core.Research.Momentum.MomentumClaimExtractor>();
         services.AddScoped<IdiotProof.Core.Research.Momentum.MomentumTracker>();
+        services.AddScoped<IdiotProof.Core.Research.Gappers.GapperRadarService>();
 
         // ── Gapper study (IP-T442): research-DB stages behind `research gappers *`; params load lazily from docs/research ──
         services.AddScoped<IdiotProof.Core.Research.Gappers.GapperStudyServices>();

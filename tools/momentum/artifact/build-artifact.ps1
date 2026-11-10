@@ -37,7 +37,7 @@ $vmap = @{}
 foreach ($v in $videos) { $vmap[$v.VideoId] = $v }
 
 $calls = Query @'
-SELECT c.Id, c.VideoId, c.TradeDate, c.Rank, c.ClaimType, c.SpokenSymbol, c.Symbol, c.SetupTags, c.Scenarios, c.RawQuote,
+SELECT c.Id, c.VideoId, c.TradeDate, c.Rank, c.ClaimType, c.SpokenSymbol, c.Symbol, c.SetupTags, c.Scenarios, c.RawQuote, c.IdentityHint, c.StatedMovePct,
        o.ScenarioIndex, o.Verdict, o.PriorClose, o.Open0930, o.PremarketHigh, o.DayHigh, o.DayClose, o.DayHighPct, o.DayClosePct,
        o.GainerRank, o.TopGapper, o.TriggerLevel, o.TriggerHit, o.TriggerUtc, o.EntryPrice, o.EntryUtc, o.ExitPrice, o.ExitUtc, o.ExitReason,
        o.PlanPnlPct, o.MaxRunAfterTriggerPct, o.MaxDrawdownAfterTriggerPct, o.TargetsJson, o.TargetsHit, o.FirstTargetHit,
@@ -91,6 +91,8 @@ foreach ($r in $calls) {
         tg  = $targets.ToArray(); th = [int]$r.TargetsHit; ft = [bool]$r.FirstTargetHit
         st  = Num $r.InvalidationLevel 4; stS = V $r.InvalidationSource
         n   = Clip (V $r.Notes) 200
+        why = Clip $(@((V $r.IdentityHint), (V $r.RawQuote)) -ne $null -join ' | ') 600
+        smv = Num $r.StatedMovePct 0
     })
 }
 

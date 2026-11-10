@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 // against the app database and the owner's keys, so they work before the Hub is republished with them.
 //   dotnet run --project tools/MomentumTracker -- all [--dir D:\IdiotProofData\momentum] [--since 2026-11-01] [--limit N]
 //   dotnet run --project tools/MomentumTracker -- import|extract|verify|report [--force] [--out path] [--user <guid>]
+//   dotnet run --project tools/MomentumTracker -- radar [--date yyyy-MM-dd] [--limit 20] [--why] [--all]   (IP-T500, not part of all)
 // The only migration it applies is AddMomentumClaimTracker (additive: four new tables); it refuses to start when any
 // other migration is pending, so it never moves the app schema further than its own tables.
 
@@ -57,6 +58,24 @@ var since = flags.TryGetValue("since", out var sv) && DateOnly.TryParseExact(sv,
 var limit = flags.TryGetValue("limit", out var lv) && int.TryParse(lv, CultureInfo.InvariantCulture, out var ln) ? ln : 0;
 var dir = flags.GetValueOrDefault("dir");
 
+if (stage == "radar-backtest")
+{
+    DateOnly Day(string key) => DateOnly.ParseExact(flags[key]!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+    var radar = scope.ServiceProvider.GetRequiredService<IdiotProof.Core.Research.Gappers.GapperRadarService>();
+    var days = await radar.BacktestAsync(owner, Day("from"), Day("to"), dir, CancellationToken.None);
+    var outPath = flags.GetValueOrDefault("out") ?? $@"D:\IdiotProofData\radar\backtest-{flags["from"]}-{flags["to"]}.json";
+    var json = days.Select(x => new
+    {
+        Session = x.Session.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), Basis = x.Basis.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), x.Liquid,
+        Rows = x.Rows.Select(r => new { r.Facts.Symbol, r.Score.Points, r.Facts.RankHighD1, r.Facts.RankCloseD1, r.Facts.HighPctD1, r.Facts.ClosePctD1, r.Facts.DollarVolumeRatioD1,
+            r.Facts.PriorClose, Groups = r.Score.Reasons.Where(g => g.Points != 0).Select(g => g.Group).ToList(), r.Score.Flags.Count }),
+        x.HighPct,
+    });
+    await File.WriteAllTextAsync(outPath, System.Text.Json.JsonSerializer.Serialize(json));
+    Console.WriteLine($"radar backtest: {days.Count} session(s) -> {outPath}");
+    return 0;
+}
+
 var steps = stage == "all" ? new[] { "import", "extract", "verify", "report" } : [stage];
 int exit = 0;
 foreach (var step in steps)
@@ -71,7 +90,12 @@ foreach (var step in steps)
             "extract" => await new MomentumExtractOperation().ExecuteAsync(new MomentumExtractArgs { Since = since, Limit = limit, Dir = dir, Force = flags.ContainsKey("force") }, ctx),
             "verify" => await new MomentumVerifyOperation().ExecuteAsync(new MomentumVerifyArgs { Since = since, Force = flags.ContainsKey("force"), Dir = dir }, ctx),
             "report" => await new MomentumReportOperation().ExecuteAsync(new MomentumReportArgs { Since = since, Out = flags.GetValueOrDefault("out") }, ctx),
-            _ => OperationResult.Usage($"Unknown step '{step}'. Use import, extract, verify, report or all."),
+            "radar" => await new IdiotProof.Operations.Gapper.GapperRadarOperation().ExecuteAsync(new IdiotProof.Operations.Gapper.GapperRadarArgs
+            {
+                Date = flags.TryGetValue("date", out var rd) && DateOnly.TryParseExact(rd, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var rdd) ? rdd : null,
+                Top = limit > 0 ? limit : 20, Why = flags.ContainsKey("why"), All = flags.ContainsKey("all"),
+            }, ctx),
+            _ => OperationResult.Usage($"Unknown step '{step}'. Use import, extract, verify, report, radar or all."),
         };
     }
     catch (Exception ex)

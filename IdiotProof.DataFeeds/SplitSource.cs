@@ -63,14 +63,18 @@ public sealed class AlpacaSplitSource : ISplitSource, IDisposable
         return result;
     }
 
-    private async Task<Dictionary<string, List<SplitEvent>>> FetchAsync(string[] symbols, DateOnly from, DateOnly to, CancellationToken ct)
+    /// <summary>Every split on any symbol with an ex-date in [from, to] (calendared future ex-dates included when Alpaca has them). Not cached.</summary>
+    public async Task<IReadOnlyList<SplitEvent>> GetMarketSplitsAsync(DateOnly from, DateOnly to, CancellationToken ct = default) =>
+        (await FetchAsync(null, from, to, ct).ConfigureAwait(false)).Values.SelectMany(x => x).ToList();
+
+    private async Task<Dictionary<string, List<SplitEvent>>> FetchAsync(string[]? symbols, DateOnly from, DateOnly to, CancellationToken ct)
     {
         var result = new Dictionary<string, List<SplitEvent>>(StringComparer.OrdinalIgnoreCase);
         string? page = null;
         do
         {
-            var url = "v1/corporate-actions?symbols=" + Uri.EscapeDataString(string.Join(',', symbols))
-                    + "&types=forward_split,reverse_split"
+            var url = "v1/corporate-actions?" + (symbols is null ? "" : "symbols=" + Uri.EscapeDataString(string.Join(',', symbols)) + "&")
+                    + "types=forward_split,reverse_split"
                     + "&start=" + from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
                     + "&end=" + to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
                     + "&limit=1000" + (page is null ? "" : "&page_token=" + Uri.EscapeDataString(page));
