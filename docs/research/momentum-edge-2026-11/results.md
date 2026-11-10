@@ -26,9 +26,14 @@ Run 2026-11-10 on clean trade dates (amendment 01). Runs: `runs/fit-20261110-110
 
 - `gapper radar` scores a Momentum. pick at lift 167 (7.4 points), the strongest single sign it has. His video
   comes out around 19:00-21:00 ET, so the radar has to be run again after that.
-- No strategy template. The protocol allows one only after a rule passes validation, and none did. Detection
-  works: a top-gainer screen is 30-40x the base rate, the radar's top 50 catches 20% of +50% runners, and his
-  picks are 167x. Buying them at any tested entry loses money net of spread and slippage.
+- Detection works: a top-gainer screen is 30-40x the base rate, the radar's top 50 catches 20% of +50% runners,
+  and his picks are 167x. Buying them loses money at every tested entry once a flat 2% cost is charged.
+- **Strategy, as a paper forward test (amendment 04, IP-T502).** The best rule on his picks (premarket-high break,
+  +10% target, out on VWAP loss, flat 15:55) was +0.49% per trade before costs on fit and +0.62% on validation. Its
+  fail rests on the 2% cost, which the study assumed because it had no quotes. `idiotproof gapper momentum-arm`, run at
+  09:29 ET, saves one 1-share Paper strategy per pick, with the premarket high filled in. Paper fills measure the
+  spread part of the cost; the test ends at 60 fills or 2027-03-31. A pass earns only a small live test; a fail kills
+  the rule.
 
 ## Next (each needs its own pre-registration and a forward window after 2026-11-10)
 

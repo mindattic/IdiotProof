@@ -209,7 +209,8 @@ public sealed class GapperRadarService(
         return new(dv, dvRatio, Count(5, 0.2), Count(10, 0.2), Count(30, 0.2), Count(10, 1.0), daysSince, ratio, newListing);
     }
 
-    private async Task<Dictionary<string, int>> MomentumPicksAsync(DateOnly d, DateTime asOfUtc, CancellationToken ct)
+    /// <summary>Momentum.'s picks for session <paramref name="d"/> (symbol to best rank) from videos published by <paramref name="asOfUtc"/>.</summary>
+    public async Task<Dictionary<string, int>> MomentumPicksAsync(DateOnly d, DateTime asOfUtc, CancellationToken ct)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var picks = await (from c in db.MomentumClaims

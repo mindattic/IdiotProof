@@ -10517,6 +10517,87 @@
       }
     },
     {
+      "name": "gapper momentum-arm",
+      "noun": "gapper",
+      "verb": "momentum-arm",
+      "tool_name": "gapper_momentum_arm",
+      "summary": "Paper forward test (IP-T502): at 09:29 ET or later, save one 1-share Paper strategy per Momentum. pick for today: premarket-high break, \u002B10% target, exit on VWAP loss, -10% backstop, out by 15:55. Saved inactive unless --activate; never Live.",
+      "description": null,
+      "risk": "write",
+      "usage": "idiotproof gapper momentum-arm [--date \u003Cdate\u003E] [--activate] [--dry-run]",
+      "parameters": [
+        {
+          "name": "date",
+          "json_name": "date",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "The session, yyyy-MM-dd (default: today ET). Strategies are saved only for today, at or after 09:29 ET.",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "activate",
+          "json_name": "activate",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Hand the new paper strategies to the Monitor (default: saved inactive).",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "dry-run",
+          "json_name": "dry_run",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Show the picks, premarket highs and scripts without saving anything (any time, any session).",
+          "default": false,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper momentum-arm --dry-run",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof gapper momentum-arm --activate",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Paper forward test (IP-T502): at 09:29 ET or later, save one 1-share Paper strategy per Momentum. pick for today: premarket-high break, \u002B10% target, exit on VWAP loss, -10% backstop, out by 15:55. Saved inactive unless --activate; never Live.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "The session, yyyy-MM-dd (default: today ET). Strategies are saved only for today, at or after 09:29 ET."
+          },
+          "activate": {
+            "type": "boolean",
+            "description": "Hand the new paper strategies to the Monitor (default: saved inactive).",
+            "default": false
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "Show the picks, premarket highs and scripts without saving anything (any time, any session).",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "gapper premarket-fade",
       "noun": "gapper",
       "verb": "premarket-fade",
