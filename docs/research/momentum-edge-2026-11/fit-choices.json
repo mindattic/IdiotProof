@@ -1,0 +1,61 @@
+{
+ "h2": [
+  {
+   "family": "setup tag",
+   "level": "wedge-breakout",
+   "fitLift": 1.7262872628726287,
+   "fitTfRate": 0.3888888888888889
+  },
+  {
+   "family": "opened over trigger",
+   "level": "yes",
+   "fitLift": 1.5501355013550133,
+   "fitTfRate": 0.3492063492063492
+  }
+ ],
+ "h3": [
+  [
+   "pm-high-break",
+   10,
+   "vwap",
+   "15:55"
+  ],
+  [
+   "orb5-high",
+   5,
+   -10,
+   "15:55"
+  ],
+  [
+   "pm-high-break",
+   20,
+   "vwap",
+   "15:55"
+  ],
+  [
+   "pm-high-break",
+   20,
+   -10,
+   "15:55"
+  ],
+  [
+   "orb5-high",
+   20,
+   -3,
+   "15:55"
+  ]
+ ],
+ "h4": {
+  "filter": {
+   "family": "setup tag",
+   "level": "wedge-breakout"
+  },
+  "rule": [
+   "pm-high-break",
+   10,
+   "vwap",
+   "15:55"
+  ]
+ },
+ "madeEt": "2026-11-10T11:01:57.115365-05:00"
+}
