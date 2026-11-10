@@ -1,6 +1,6 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-10-31 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-11-10 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
@@ -9,14 +9,14 @@ IdiotProof turns a plain-English trade idea into a runnable DSL strategy that th
 running 24/7 inside the IdiotProof Hub, evaluates against live market data, fires only when
 every condition matches, an LLM voter panel approves, and the Risk Guardian clears it — then
 places the order through the Hub's transaction gateway and manages the position to its exit.
-A person (or an assistant on their behalf) drives all of it through the `idiotproof` CLI, its
-MCP tools or the web app. The flagship flow is the **Gapper**
+A person (or an assistant on their behalf) drives all of it through the `idiotproof` CLI or its
+MCP tools; there is no UI. The flagship flow is the **Gapper**
 ([§4.4](#IP-§4)): buy the premarket gap at 4AM, sell it off before the 9:30 bell once momentum
 rolls over.
 
 ## What it is NOT
-- **Not a charting terminal.** It draws static ASCII charts (`market chart`, `account history`)
-  and a web live chart, but it is not a streaming tick-chart workstation for discretionary
+- **Not a charting terminal.** It draws static terminal charts (`market chart`, `account history`)
+  but it is not a streaming tick-chart workstation for discretionary
   trading; the ghost-overlay work is [planned, not built](#IP-§7).
 - **Not multi-broker today.** The build is **Alpaca-only** (plus the simulated Sandbox).
   `IBrokerClient` is the seam a future broker would implement; no other adapter exists.
@@ -29,14 +29,20 @@ rolls over.
 - **Not an agent that moves real money on its own.** An assistant drives IdiotProof through the
   CLI or MCP, but a Live action only previews and returns a confirmation code; it happens only when
   the person approves and the code comes back ([IP-LAW-13](#IP-LAW-13)).
-- **Not an options autotrader.** Options orders are manual and user-initiated (`/options`, or
-  `options buy|sell|spread|close|exercise` from the CLI/MCP); the DSL, Monitor, `RiskGuardian` and
+- **Not an options autotrader.** Options orders are manual and user-initiated
+  (`options buy|sell|spread|close|exercise` from the CLI/MCP); the DSL, Monitor, `RiskGuardian` and
   `Conditions` catalog know nothing about options.
-- **Not a desktop app.** Its front doors are the `idiotproof` CLI, the `idiotproof` MCP server
-  and the `IdiotProof.Blazor` web app, all over the one Hub ([§4](#IP-§4)); the Hub runs headless
-  as a console window or a Windows Service.
+- **Not a desktop or web app.** Its only front doors are the `idiotproof` CLI and the `idiotproof`
+  MCP server, both over the one Hub ([§4](#IP-§4)); the Hub runs headless as a console window or a
+  Windows Service and is the only process that talks to Alpaca. The Blazor web app, its UI
+  libraries and the `idiotproof-monitor` shim were removed in IP-T504 (recoverable from git history).
 - **Not a research daemon.** `IdiotProof.ResearchScanner` (and `research scan`) runs one pass and
-  exits; it is fired by a scheduler job and never shares the Monitor's trading loop.
+  exits; it is fired by a scheduler job and never shares the Monitor's trading loop. The one
+  long-running research worker, the catalyst intake ([§4.4](#IP-§4)), writes research rows only,
+  is off by default, and holds no broker client.
+- **Not a trained predictor.** Nothing in the trading path reads a catalyst row or a formation
+  snapshot yet; the gapper study ([§4.4](#IP-§4)) decides whether anything ever will, and its
+  pre-registered prior is that the honest answer may be "catalyst latency is the edge".
 
 ## The Laws
 This bible **inherits** the org-wide laws in
@@ -121,14 +127,20 @@ The Monitor is the only live evaluator and order placer for strategies. UI chang
 through SQL rows, read each tick — no restart, no second evaluation path. Backtest and replay
 surfaces call the same evaluator and exit brain (`IndicatorSnapshotBuilder`, conditions,
 `GapperExitEvaluator`, `EmaPeriodCollector`) so a backtest cannot run different code than live.
-A SQL leader lease keeps at most one Monitor trading per database.
+A SQL leader lease keeps at most one Monitor trading per database; the Monitor re-confirms it at
+the top of every tick and the `TransactionGateway` re-confirms it again immediately before each
+Monitor order reaches a broker (`GatewayOptions.LeaderCheck`), refusing the order if it is lost.
 
 ### {#IP-LAW-11} The repository owns strategy-mutation invariants
-`StrategyRepository` enforces ownership (`NotOwner`), refuses to deactivate or delete a strategy
-holding a position (`PositionOpen`), writes only editor-owned columns on update (never the
-Monitor's position bookkeeping), enforces one active gapper per symbol and the 3-gapper cap
-against SQL (with a post-write recheck), and deletes a strategy's `ConditionProgress` with it.
-No page writes strategy rows around it. (`StrategyRepositoryGuardTests`.)
+`StrategyRepository` enforces ownership (`NotOwner`), refuses to deactivate, delete or change the
+symbol of a strategy holding a position (`PositionOpen`), writes only editor-owned columns on
+update (never the Monitor's position bookkeeping), enforces one active gapper per symbol and the
+3-gapper cap against SQL on every activation path — single, bulk, editor save — with a post-write
+recheck (`SymbolAlreadyActive` / `GapperCapReached`; auto-armed gappers obey their own per-run
+limit instead of the cap), refuses a Live activation the caller has not confirmed
+(`LiveNotConfirmed`: the web asks for the password per activation, as the CLI asks for a code),
+and deletes a strategy's `ConditionProgress` with it. No page writes strategy rows around it.
+(`StrategyRepositoryGuardTests`.)
 
 ### {#IP-LAW-12} Every order goes through the TransactionGateway
 Every order-like action — Monitor entries and exits, CLI/MCP orders, replaces, cancels,
@@ -155,6 +167,16 @@ Live mutations that move money (funding, transfers) use the same `ConfirmationSt
 (`IdiotProof.Core/Trading/ConfirmationStore.cs`; `MoneyPathLawTests`,
 `TransactionGatewayTests`.)
 
+### {#IP-LAW-14} A sequence is one strategy
+A sequenced strategy is one `Strategy` row and one canon: the root definition is step 0, later
+steps live in the root's `nextSteps` inside the same canonical JSON, a step never nests steps,
+and the sequence keys are written only when used, so a strategy with no later steps serializes,
+stamps and scripts byte-identically to a strategy written before steps existed. Runtime sequence
+state (which step is armed, since when) belongs on that same row, never on a second row or a
+settings key, so the repository's guards ([IP-LAW-11](#IP-LAW-11)) and the gapper cap see one
+strategy. (`IdiotProof.Scripting/StrategyJson.cs` — `nextSteps` allowed on the root only;
+`DslSequenceTests` goldens.)
+
 ## Glossary
 - **IdiotScript** — the fluent C# DSL (`Stock.Ticker("NVDA").RequireAdxAbove(20)...Build()`) that
   expresses a strategy as six lifecycle phases; the human view of the canonical JSON.
@@ -165,12 +187,12 @@ Live mutations that move money (funding, transfers) use the same `ConfirmationSt
   against the snapshot's window high/low.
 - **Gate** — one of the three pre-fire checks: condition match → LLM voter quorum → Risk Guardian.
 - **Risk Guardian** — `IdiotProof.Shared.Risk.RiskGuardian`, the final pre-trade veto.
-- **Monitor** — `IdiotProof.Monitor`, the unattended 24/7 console evaluator and executor.
+- **Monitor** — `MonitorWorker`, the unattended 24/7 evaluator and executor hosted inside the Hub.
 - **SupervisedLoop** — the fault-tolerant tick loop the Monitor runs.
 - **Voter panel / Legion** — the multi-LLM quorum (configured in `legion.json`, shipped with both
   hosts) that approves or rejects a Claude-generated script / a candidate fire, via MindAttic.Legion.
 - **ConditionProgress** — the SQL row (`N/M`, first failing verb) the Monitor upserts per tick
-  and the Strategies page polls for live badges.
+  and `strategy progress` reads.
 - **Quarantine** — a strategy whose canon cannot be fully understood; never evaluated, reason shown.
 - **Sandbox broker** — the always-registered simulated broker (instant fills into an in-memory
   position book) that is the safe default in `BrokerRouter`.
@@ -181,9 +203,21 @@ Live mutations that move money (funding, transfers) use the same `ConfirmationSt
   buy in the 4AM window, sell before the 9:30 bell.
 - **Gapper profile** — the dialable template (gap %, volume ratio, price band, entry window,
   stops, giveback, arm/sell-by times, notional) in `IdiotProof.Core/Catalogs/gapper-profiles.json`; cloned
-  and tuned per ticker on the `/gapper` tab.
+  and tuned per ticker (`gapper tune`, `gapper apply-tuned`).
 - **Peak giveback** — the momentum-rollover exit: sell once price gives back N% of the run
   from entry to the post-entry peak; armed from a configured ET time ("the last 15 minutes").
+- **Velocity exhaustion** — the exit that fires when the favorable price velocity over a 1/3/5
+  minute window falls under N %/min after a run (`VelocityExitRule`); sits after the take-profit
+  targets and before peak giveback in the exit ladder, mirrored for shorts.
+- **Step / sequence** — one ordered stage of a sequenced strategy, with its own direction,
+  conditions and exits; the root definition is step 0, `ThenWhen` is the flat-only transition to
+  the next step and `Within(days)` its deadline. One row, one canon ([IP-LAW-14](#IP-LAW-14)).
+- **Catalyst event** — one `CatalystEvent` row: a news item or SEC filing as the intake saw it,
+  with `PublishedUtc` and `ReceivedUtc`, a deterministic pre-class and direction, optional LLM
+  fields and a 0-100 catalyst score. Research data; nothing in trading reads it yet.
+- **Time-of-day profile** — `TimeOfDayProfile`: the median fraction of a day's 04:00–20:00 volume
+  printed by each clock minute, per ADV decile, fit on the study's training controls; the
+  baseline for `VolumeRatioTod`. Not shipped yet; without it volume ratios are plain cumVol / ADV.
 - **Previous close** — the prior trading day's official close; the reference for gap %.
   Gap conditions fail closed without it.
 - **Replay** — re-running a strategy over a past session's bars with the live evaluator; stored
@@ -222,6 +256,6 @@ Live mutations that move money (funding, transfers) use the same `ConfirmationSt
   addition or deletion logged in `IdiotProof.Core/Catalogs/sp-index-events.json`, Pending until effective.
 
 ## Status index (USER_STORIES.md)
-- done: 62
-- partial: 39
-- planned: 16
+- done: 85
+- partial: 15
+- planned: 14
