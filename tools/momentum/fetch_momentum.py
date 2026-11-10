@@ -64,8 +64,9 @@ def transcript(vid, api):
             return [{"start": s.start, "dur": s.duration, "text": s.text} for s in t]
         except Exception as e:  # noqa: BLE001 - library raises many types
             msg = str(e)
-            if "429" in msg or "Too Many" in msg or "blocked" in msg.lower():
-                time.sleep(30 * (attempt + 1))
+            if ("429" in msg or "Too Many" in msg or "blocked" in msg.lower()
+                    or "ConnectionError" in type(e).__name__ or "Connection aborted" in msg or "RemoteDisconnected" in msg):
+                time.sleep(120 * (attempt + 1))  # YouTube's caption limiter needs minutes, not seconds
                 continue
             return {"error": type(e).__name__ + ": " + msg[:300]}
     return {"error": "rate-limited after retries"}
@@ -75,7 +76,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="D:/IdiotProofData/momentum")
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--pace", type=float, default=4.0, help="seconds between videos")
+    ap.add_argument("--pace", type=float, default=120.0, help="seconds between videos")
     a = ap.parse_args()
     from youtube_transcript_api import YouTubeTranscriptApi
     api = YouTubeTranscriptApi()
@@ -88,7 +89,18 @@ def main():
                    "videos": [{"id": v, "title": t, "kept": bool(TITLE_KEEP.search(t))} for v, t in rows]}, f, indent=1)
     print(f"channel shorts {len(rows)}, kept {len(kept)}", flush=True)
 
-    seen = {os.path.splitext(n)[0] for _, _, files in os.walk(os.path.join(a.out, "transcripts")) for n in files}
+    # done = a saved transcript with text; a saved failure is retried (and overwritten) on the next run
+    seen = set()
+    for root, _, files in os.walk(os.path.join(a.out, "transcripts")):
+        for n in files:
+            try:
+                with open(os.path.join(root, n), encoding="utf-8") as f:
+                    if json.load(f).get("text"):
+                        seen.add(os.path.splitext(n)[0])
+                    else:
+                        os.remove(os.path.join(root, n))
+            except (OSError, ValueError):
+                pass
     done = 0
     for i, (vid, title) in enumerate(kept):
         if a.limit and done >= a.limit:
@@ -117,6 +129,9 @@ def main():
             json.dump(rec, f, ensure_ascii=False, indent=1)
         done += 1
         print(f"[{done}] {day} {vid} {'ok' if rec['text'] else rec['error']} :: {title[:70]}", flush=True)
+        if rec["error"] and "rate-limited" in rec["error"]:
+            print("rate-limited/blocked: cooling down 30 minutes", flush=True)
+            time.sleep(1800)
         time.sleep(a.pace)
     print(f"done {done}", flush=True)
 
