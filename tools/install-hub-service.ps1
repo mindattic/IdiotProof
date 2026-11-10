@@ -96,7 +96,8 @@ if (Get-Service $serviceName -ErrorAction SilentlyContinue) {
     throw "$serviceName is already installed. Remove it first: tools\install-hub-service.ps1 -Uninstall"
 }
 
-$domain = if ($env:USERDOMAIN -and $env:USERDOMAIN -ne $env:COMPUTERNAME) { $env:USERDOMAIN } else { '.' }
+# COMPUTERNAME\user, never ".\user": for a Microsoft-account login the service logon only took SNOWCRASH\ryand.
+$domain = if ($env:USERDOMAIN) { $env:USERDOMAIN } else { $env:COMPUTERNAME }
 $account = "$domain\$env:USERNAME"
 $credential = Get-Credential -UserName $account -Message "Windows password for $account (the IdiotProof Hub service runs as you)"
 if (-not $credential) { throw 'No credential given.' }
