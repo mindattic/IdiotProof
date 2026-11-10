@@ -311,6 +311,20 @@ public sealed class RiskGuardian
         }
     }
 
+    /// <summary>
+    /// Restores today's realized loss after a restart (IP-T507): the counter lives in memory, so a Hub
+    /// restarted mid-day began again at $0 and the daily circuit breaker (IP-LAW-2) forgot every loss
+    /// already taken. Never lowers a total this instance has already counted.
+    /// </summary>
+    public void SeedDailyLoss(decimal lossSoFarToday)
+    {
+        lock (sync)
+        {
+            ResetDailyLossIfNewTradingDay();
+            if (lossSoFarToday > dailyLoss) dailyLoss = lossSoFarToday;
+        }
+    }
+
     /// <summary>Resets the daily-loss counter when the US equity trading day rolls over (ET, not server local time).</summary>
     private void ResetDailyLossIfNewTradingDay()
     {

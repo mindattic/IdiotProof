@@ -67,8 +67,27 @@ public sealed class RiskGuardianService(IDbContextFactory<AppDbContext> dbFactor
         }
 
         var config = await LoadConfigAsync(userId, ct);
-        var entry = cache.GetOrAdd(userId, new CacheEntry(new RiskGuardian(config), DateTime.UtcNow));
+        var fresh = new RiskGuardian(config);
+        fresh.SeedDailyLoss(await RealizedLossTodayAsync(userId, ct));
+        var entry = cache.GetOrAdd(userId, new CacheEntry(fresh, DateTime.UtcNow));
         return entry.Guardian;
+    }
+
+    /// <summary>
+    /// Today's (ET) realized loss from the trade diary: the sum of the losing trades closed since ET
+    /// midnight, as <see cref="RiskGuardian.RecordTradePnL"/> counts them. A new Guardian (first use
+    /// after a Hub restart) starts from this instead of $0 (IP-T507).
+    /// </summary>
+    internal async Task<decimal> RealizedLossTodayAsync(Guid userId, CancellationToken ct)
+    {
+        var todayEt = DateOnly.FromDateTime(EasternTime.FromUtc(DateTime.UtcNow));
+        var sinceUtc = EasternTime.ToUtc(todayEt.ToDateTime(TimeOnly.MinValue));
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var losses = await db.TradeDiary
+            .Where(t => t.OwnerUserId == userId && t.ExitUtc >= sinceUtc && t.RealizedPnL < 0m)
+            .Select(t => t.RealizedPnL!.Value)
+            .ToListAsync(ct);
+        return losses.Sum(l => Math.Abs(l));
     }
 
     /// <summary>
