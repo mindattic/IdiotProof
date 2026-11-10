@@ -17,6 +17,39 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
+namespace IdiotProof.Operations.Research.Gappers;
+
+public sealed record GapperCaseStudyArgs
+{
+    [Option("from", Description = "First session (default 2026-09-10; nothing before it is read).")]
+    public string? From { get; init; }
+
+    [Option("to", Description = "Last session (default 2026-11-09).")]
+    public string? To { get; init; }
+
+    [Option("top", Description = "Runners per session (default 5).")]
+    public int Top { get; init; } = 5;
+
+    [Option("extra", Description = "Extra names per day, e.g. \"2026-11-09:CKX,GFR;2026-11-06:NWGL\".")]
+    public string? Extra { get; init; }
+}
+
+/// <summary>The case-study stage as a Hub operation (IP-T515; was the GapperStudy harness's casestudy step).</summary>
+[Operation("research gappers casestudy", Summary = "Recent-runner case studies on the window amendment 05 opened (2026-09-10 onward): per session the top runners with catalyst, prior profile, 1-minute path and whether the R4 alarm would have fired. Reads no market data before 2026-09-10.", Risk = OperationRisk.Read)]
+[Example("idiotproof research gappers casestudy --from 2026-09-10 --to 2026-11-09 --top 5")]
+public sealed class GapperCaseStudyOperation : IOperation<GapperCaseStudyArgs>
+{
+    public Task<OperationResult> ExecuteAsync(GapperCaseStudyArgs args, OperationContext ctx)
+    {
+        var flags = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["from"] = args.From, ["to"] = args.To, ["top"] = args.Top.ToString(CultureInfo.InvariantCulture), ["extra"] = args.Extra,
+        };
+        foreach (var k in flags.Where(kv => kv.Value is null).Select(kv => kv.Key).ToList()) flags.Remove(k);
+        return CaseStudyCommand.RunAsync(ctx.Services, ctx.OwnerId, flags, ctx.CancellationToken);
+    }
+}
+
 /// <summary>
 /// IP-T486 `casestudy`: recent-runner case studies on the window amendment 05 opened (2026-09-10 .. 2026-11-09).
 /// Case study (opened window, not a test): it tests no hypothesis and reads no market data dated before

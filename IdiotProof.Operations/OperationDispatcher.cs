@@ -35,6 +35,14 @@ public sealed record OperationInvocation
 }
 
 /// <summary>
+/// Lets a host run chosen operations in another service graph (IP-T515): null keeps the host's own scopes.
+/// </summary>
+public interface IOperationScopeRouter
+{
+    IServiceScopeFactory? ScopesFor(OperationDescriptor descriptor);
+}
+
+/// <summary>
 /// The owner of the operation currently running in this DI scope. The dispatcher fills it before
 /// the operation is resolved; <see cref="OperationOwnerContext"/> exposes it as an
 /// <see cref="IOwnerContext"/> so scoped services (e.g. <c>OwnerClaudeKeyContext</c>) act for the
@@ -64,7 +72,8 @@ public sealed class OperationOwnerContext(OperationOwner owner) : IOwnerContext
 public sealed class OperationDispatcher(
     OperationCatalog catalog,
     IServiceScopeFactory scopes,
-    ILogger<OperationDispatcher>? logger = null)
+    ILogger<OperationDispatcher>? logger = null,
+    IOperationScopeRouter? router = null)
 {
     public OperationCatalog Catalog => catalog;
 
@@ -117,7 +126,11 @@ public sealed class OperationDispatcher(
         var bound = bind(descriptor);
         if (!bound.Success) return bound.ToUsageResult(descriptor);
 
-        await using var scope = scopes.CreateAsyncScope();
+        // A host may run some operations in another service graph (the Hub's research container, IP-T515).
+        IServiceScopeFactory factory;
+        try { factory = router?.ScopesFor(descriptor) ?? scopes; }
+        catch (Exception ex) { return OperationResult.Fail($"{descriptor.Name}: {FirstLine(ex.Message)}"); }
+        await using var scope = factory.CreateAsyncScope();
         var services = scope.ServiceProvider;
         try
         {

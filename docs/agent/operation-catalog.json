@@ -21178,6 +21178,97 @@
       }
     },
     {
+      "name": "research gappers casestudy",
+      "noun": "research",
+      "verb": "gappers casestudy",
+      "tool_name": "research_gappers_casestudy",
+      "summary": "Recent-runner case studies on the window amendment 05 opened (2026-09-10 onward): per session the top runners with catalyst, prior profile, 1-minute path and whether the R4 alarm would have fired. Reads no market data before 2026-09-10.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof research gappers casestudy [--from \u003Cstring\u003E] [--to \u003Cstring\u003E] [--top \u003Cint\u003E] [--extra \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "First session (default 2026-09-10; nothing before it is read).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Last session (default 2026-11-09).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "top",
+          "json_name": "top",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "Runners per session (default 5).",
+          "default": 5,
+          "enum_values": null
+        },
+        {
+          "name": "extra",
+          "json_name": "extra",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Extra names per day, e.g. \u00222026-11-09:CKX,GFR;2026-11-06:NWGL\u0022.",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers casestudy --from 2026-09-10 --to 2026-11-09 --top 5",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Recent-runner case studies on the window amendment 05 opened (2026-09-10 onward): per session the top runners with catalyst, prior profile, 1-minute path and whether the R4 alarm would have fired. Reads no market data before 2026-09-10.",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "First session (default 2026-09-10; nothing before it is read)."
+          },
+          "to": {
+            "type": "string",
+            "description": "Last session (default 2026-11-09)."
+          },
+          "top": {
+            "type": "integer",
+            "description": "Runners per session (default 5).",
+            "default": 5
+          },
+          "extra": {
+            "type": "string",
+            "description": "Extra names per day, e.g. \u00222026-11-09:CKX,GFR;2026-11-06:NWGL\u0022."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "research gappers catalysts",
       "noun": "research",
       "verb": "gappers catalysts",

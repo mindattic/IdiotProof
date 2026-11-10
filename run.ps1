@@ -313,6 +313,12 @@ foreach ($c in $components) {
 Remove-Retired
 Write-Launcher
 Add-CliToUserPath
+# The Hub runs the gapper study (IP-T515) from C:\Apps, outside the repo: point it at the study folder.
+$studyDir = Join-Path $repo 'docs\research\gapper-study-2026-11'
+if ((Test-Path (Join-Path $studyDir 'params.json')) -and [Environment]::GetEnvironmentVariable('GAPPER_STUDY_DIR', 'User') -ne $studyDir) {
+    [Environment]::SetEnvironmentVariable('GAPPER_STUDY_DIR', $studyDir, 'User')
+    Write-Host "  Set GAPPER_STUDY_DIR=$studyDir for the Hub." -ForegroundColor Green
+}
 
 # LAMP (IP-T347): import app-settings.json into MindAttic Vault once and write the manifest Vault.Desktop reads.
 $hubExe = Join-Path $deployDir 'Hub\idiotproof-hub.exe'

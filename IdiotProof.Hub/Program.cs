@@ -107,6 +107,9 @@ if (settings.MonitorHosted)
 // The 24/7 job runner (IP-T512): scheduled research and arming steps as operations, only in the
 // Hub that hosts the Monitor (IDIOTPROOF_HUB_SCHEDULER=0 turns it off).
 builder.Services.AddHostedService<HubScheduler>();
+// The gapper study's research database graph (IP-T515): `research gappers ...` operations run there.
+builder.Services.AddSingleton<ResearchHost>();
+builder.Services.AddSingleton<IOperationScopeRouter>(sp => sp.GetRequiredService<ResearchHost>());
 builder.Services.AddSingleton<InFlightOperations>();
 builder.Services.AddHostedService(sp => new OperationDrainService(sp.GetRequiredService<InFlightOperations>(), HubConsole.Line));
 builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(60));

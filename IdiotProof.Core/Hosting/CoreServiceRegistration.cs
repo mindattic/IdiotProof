@@ -37,6 +37,12 @@ public sealed class CoreHostOptions
 
     /// <summary>When set, account secrets go to this directory instead of the real Vault (see <see cref="AccountSecretVault.ResolveIsolatedDirectory"/>).</summary>
     public string? AccountVaultDirectory { get; init; }
+
+    /// <summary>
+    /// The database this graph uses, when not the host's own (IP-T515): the Hub's research container points the
+    /// gapper-study operations at their guarded research database while the trading graph stays on IdiotProof.
+    /// </summary>
+    public string? ConnectionString { get; init; }
 }
 
 /// <summary>
@@ -78,7 +84,7 @@ public static class CoreServiceRegistration
         services.AddMindAtticVault(configuration);
 
         // ── SQL ──
-        var connectionString = ResolveConnectionString(configuration);
+        var connectionString = options.ConnectionString ?? ResolveConnectionString(configuration);
         services.AddSingleton(new IdiotProofDatabase(connectionString));
         // Retries transient SQL errors (SqlServerTransientExceptionDetector's list includes -2,
         // the "Execution Timeout Expired" the Monitor's pause-flag poll hit under heavy local
