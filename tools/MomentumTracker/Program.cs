@@ -89,6 +89,7 @@ foreach (var step in steps)
             "import" => await new MomentumImportOperation().ExecuteAsync(new MomentumImportArgs { Dir = dir }, ctx),
             "extract" => await new MomentumExtractOperation().ExecuteAsync(new MomentumExtractArgs { Since = since, Limit = limit, Dir = dir, Force = flags.ContainsKey("force") }, ctx),
             "verify" => await new MomentumVerifyOperation().ExecuteAsync(new MomentumVerifyArgs { Since = since, Force = flags.ContainsKey("force"), Dir = dir }, ctx),
+            "reresolve" => await new MomentumReResolveOperation().ExecuteAsync(new MomentumReResolveArgs { Dir = dir }, ctx),
             "report" => await new MomentumReportOperation().ExecuteAsync(new MomentumReportArgs { Since = since, Out = flags.GetValueOrDefault("out") }, ctx),
             "radar" => await new IdiotProof.Operations.Gapper.GapperRadarOperation().ExecuteAsync(new IdiotProof.Operations.Gapper.GapperRadarArgs
             {

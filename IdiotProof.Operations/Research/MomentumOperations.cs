@@ -77,6 +77,24 @@ public sealed class MomentumVerifyOperation : IOperation<MomentumVerifyArgs>
     }
 }
 
+public sealed record MomentumReResolveArgs
+{
+    [Option("dir", Description = @"Market-data cache folder (default D:\IdiotProofData\momentum).")]
+    public string? Dir { get; init; }
+}
+
+[Operation("momentum reresolve", Summary = "Re-resolve every Momentum. claim's ticker with the current resolver (prior-session movers only, IP-T508) without re-running the LLM; a claim whose symbol changes gets its levels rebuilt and its outcome dropped so `momentum verify` re-checks it.", Risk = OperationRisk.Write)]
+[Example("idiotproof momentum reresolve")]
+public sealed class MomentumReResolveOperation : IOperation<MomentumReResolveArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(MomentumReResolveArgs args, OperationContext ctx)
+    {
+        var owner = ctx.RequireOwner();
+        var r = await ctx.Get<MomentumTracker>().ReResolveAsync(owner, args.Dir, ctx.CancellationToken);
+        return r.Ok ? OperationResult.Ok(r.Data, r.Human) : OperationResult.Fail(r.Human, r.Data);
+    }
+}
+
 public sealed record MomentumReportArgs
 {
     [Option("since", Description = "Only claims with a trade date on or after this ET date, yyyy-MM-dd.")]

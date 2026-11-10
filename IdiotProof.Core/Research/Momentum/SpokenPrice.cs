@@ -51,7 +51,9 @@ public static class SpokenPrice
         }
 
         // "a dollar 78", "a dollar and 60 cents", "one dollar fifty", "2 dollars 20"
-        var dc = Regex.Match(text, @"\b(a|an|\d+|" + WordAlternation + @")\s+(?:dollars?|bucks?)\s*(?:and\s+)?(\d{1,2}|(?:" + WordAlternation + @")(?:\s+(?:" + WordAlternation + @"))?)?\b");
+        // dollars: a tens word may carry its unit ("twenty five bucks" = 25); a single-word group matched
+        // only "five bucks" there and returned $5.
+        var dc = Regex.Match(text, @"\b(a|an|\d+|(?:" + string.Join('|', Tens.Keys) + @")\s+(?:" + string.Join('|', Units.Keys.Where(k => Units[k] is >= 1 and <= 9)) + @")|" + WordAlternation + @")\s+(?:dollars?|bucks?)\s*(?:and\s+)?(\d{1,2}|(?:" + WordAlternation + @")(?:\s+(?:" + WordAlternation + @"))?)?\b");
         if (dc.Success)
         {
             var dollars = dc.Groups[1].Value is "a" or "an" ? 1 : Words(dc.Groups[1].Value) ?? 0;

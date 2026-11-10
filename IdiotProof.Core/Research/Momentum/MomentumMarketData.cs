@@ -171,7 +171,12 @@ public sealed class MomentumMarketData : IAsyncDisposable
                 .ToList();
             var day = new MoversDay(d, p, lines.Count, kept);
             movers[d] = day;
-            await File.WriteAllTextAsync(MoversPath(d), JsonSerializer.Serialize(day, Json), ct);
+            // Only a finished session (past 20:05 ET) is cached: EnsureMoversAsync reuses any file it
+            // finds, so a table written from today's partial bars would be read back as final.
+            var nowEt = MinuteBarMath.ToEastern(DateTime.UtcNow);
+            var complete = d < DateOnly.FromDateTime(nowEt) || (d == DateOnly.FromDateTime(nowEt) && nowEt.TimeOfDay >= new TimeSpan(20, 5, 0));
+            if (complete)
+                await File.WriteAllTextAsync(MoversPath(d), JsonSerializer.Serialize(day, Json), ct);
         }
     }
 

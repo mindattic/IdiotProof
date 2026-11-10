@@ -103,7 +103,8 @@ public sealed partial class MomentumTracker(
                 {
                     index++;
                     if (!(v.TryGetProperty("kept", out var k) && k.ValueKind == JsonValueKind.True)) continue;
-                    var id = v.GetProperty("id").GetString() ?? "";
+                    // TryGetProperty: one entry without an id must not abort the whole import.
+                    var id = v.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String ? idEl.GetString() ?? "" : "";
                     var title = v.TryGetProperty("title", out var tt) ? tt.GetString() ?? "" : "";
                     if (id.Length == 0) continue;
                     listed++;
@@ -245,6 +246,75 @@ public sealed partial class MomentumTracker(
         return new(true, human, new { extracted = ok, failed, claims = claimsAdded, model = MomentumClaimExtractor.Model });
     }
 
+    /// <summary>
+    /// Re-resolves every claim's ticker with the current resolver (IP-T508: prior-session movers only)
+    /// without re-running the LLM extraction: the spoken ticker, stated move, scenarios and transcript
+    /// are already stored. A claim whose symbol changes gets its reference price and resolved levels
+    /// rebuilt from the spoken levels, and its outcome dropped so the next verify re-checks it.
+    /// </summary>
+    public async Task<MomentumRunResult> ReResolveAsync(Guid owner, string? dataDir, CancellationToken ct)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var claims = await db.MomentumClaims.Where(c => c.ClaimType == PickWatchlist || c.ClaimType == PickMorning || c.ClaimType == Brag).ToListAsync(ct);
+        var texts = await db.MomentumTranscripts.Where(t => t.Text != null).Select(t => new { t.VideoId, t.Text }).ToDictionaryAsync(t => t.VideoId, t => t.Text!, ct);
+        await using var md = await MarketAsync(owner, dataDir, ct);
+        var assets = await md.AssetsAsync(ct);
+        int changed = 0, seen = 0;
+        var lines = new List<string>();
+        var changedIds = new List<Guid>();
+        foreach (var video in claims.GroupBy(c => (c.VideoId, c.TradeDate)).OrderBy(g => g.Key.TradeDate))
+        {
+            ct.ThrowIfCancellationRequested();
+            var d = video.Key.TradeDate;
+            var (day, prev) = await MoversForAsync(md, d, ct);
+            var spelled = texts.TryGetValue(video.Key.VideoId, out var text) ? SpelledTicker.FindSpelled(text) : [];
+            var sameDay = claims.Where(o => o.TradeDate == d && o.VideoId != video.Key.VideoId && o.Symbol != null && o.SymbolConfidence >= 0.6 && o.Rank != null)
+                .Select(o => o.Symbol!).ToHashSet(StringComparer.Ordinal);
+            var used = new HashSet<string>(StringComparer.Ordinal);
+            // spoken tickers first, as at extraction, so a described pick never takes a ticker said elsewhere
+            var picks = video.Where(c => c.ClaimType != Brag).OrderBy(c => SpelledTicker.Normalize(c.SpokenSymbol) is null ? 1 : 0).ThenBy(c => c.Rank);
+            foreach (var c in picks.Concat(video.Where(c => c.ClaimType == Brag)))
+            {
+                seen++;
+                var stored = Scenarios(c);
+                var extracted = stored.Select(s => new ExtractedScenario
+                {
+                    Name = s.Name, TriggerKind = s.TriggerKind, TriggerLevel = s.Trigger?.Spoken, RequiresConfirm = s.RequiresConfirm, Quote = s.Quote,
+                    ConfirmLevels = s.Confirm.Select(l => l.Spoken ?? "").ToList(), Targets = s.Targets.Select(l => l.Spoken ?? "").ToList(), Invalidation = s.Invalidation?.Spoken,
+                }).ToList();
+                var exclude = c.ClaimType == Brag ? new HashSet<string>() : used;
+                var (sym, conf, note) = ResolveSymbol(md, assets, c.SpokenSymbol, spelled, c.StatedMovePct, c.ClaimType == Brag ? null : extracted, d, day, prev, exclude, sameDay);
+                if (c.ClaimType != Brag && sym is not null) used.Add(sym);
+                if (string.Equals(sym, c.Symbol, StringComparison.Ordinal)) continue;
+
+                lines.Add($"  {d:yyyy-MM-dd} {c.VideoId} #{c.Rank?.ToString() ?? "-"} '{c.SpokenSymbol ?? "?"}': {c.Symbol ?? "unresolved"} -> {sym ?? "unresolved"}");
+                c.Symbol = sym;
+                c.SymbolConfidence = sym is null ? null : Math.Round(conf, 2);
+                c.SymbolNote = Trunc(note + " (re-resolved, IP-T508)", 400);
+                if (c.ClaimType != Brag)
+                {
+                    decimal? reference = null, prevHigh = null, openD = null;
+                    if (sym is not null)
+                    {
+                        var lastDone = IsComplete(d) ? d : PriorDays(d).FirstOrDefault(d.AddDays(-1));
+                        await md.EnsureDailyAsync([sym], d.AddDays(-14), lastDone, ct);
+                        var (pc, ph, _, today) = md.PriorClose(sym, d);
+                        reference = pc; prevHigh = ph; openD = today?.Open;
+                    }
+                    c.ReferencePrice = reference is { } r ? Math.Round(r, 4) : null;
+                    c.Scenarios = JsonSerializer.Serialize(extracted.Select(s => Store(s, reference, openD, prevHigh)).ToList(), Json);
+                }
+                changed++;
+                changedIds.Add(c.Id);
+            }
+        }
+        var stale = await db.MomentumClaimOutcomes.Where(o => changedIds.Contains(o.ClaimId)).ToListAsync(ct);
+        db.MomentumClaimOutcomes.RemoveRange(stale);
+        await db.SaveChangesAsync(ct);
+        var human = $"momentum re-resolve: {changed} of {seen} claim(s) changed symbol; {stale.Count} outcome(s) dropped for re-verify.\n" + string.Join("\n", lines);
+        return new(true, human, new { seen, changed, outcomesDropped = stale.Count });
+    }
+
     private async Task<MomentumMarketData> MarketAsync(Guid owner, string? dataDir, CancellationToken ct)
     {
         var keys = await study.ResolveKeysAsync(owner, ct);
@@ -279,7 +349,7 @@ public sealed partial class MomentumTracker(
         // candidate symbols' daily bars, so the resolver can see each one's prior close
         var spokenCands = x.Picks.Select(p => SpelledTicker.Normalize(p.SpokenSymbol)).Concat(x.Brags.Select(b => SpelledTicker.Normalize(b.SpokenSymbol)))
             .Where(s => s is not null).Select(s => s!).ToList();
-        var moverSyms = (prev?.Rows ?? []).Select(r => r.S).Concat((day?.Rows ?? []).Select(r => r.S)).Distinct().ToList();
+        var moverSyms = (prev?.Rows ?? []).Select(r => r.S).Distinct().ToList(); // prior session only (IP-T508)
         var lastDone = IsComplete(d) ? d : PriorDays(d).FirstOrDefault(d.AddDays(-1));
         var dailyWanted = spokenCands.Where(s => assets.ContainsKey(s)).ToList();
         foreach (var c in spokenCands) dailyWanted.AddRange(SpelledTicker.Variants(c, moverSyms));
@@ -375,14 +445,16 @@ public sealed partial class MomentumTracker(
         MomentumMarketData md, Dictionary<string, StudyAsset> assets, string? spoken, IReadOnlyList<string> spelledInText, double? statedPct,
         List<ExtractedScenario>? scenarios, DateOnly d, MoversDay? day, MoversDay? prev, HashSet<string> exclude, IReadOnlySet<string>? sameDay = null)
     {
-        var moverSyms = (prev?.Rows ?? []).Select(r => r.S).Concat((day?.Rows ?? []).Select(r => r.S)).Distinct().ToList();
+        // Only what was known when the video went up (IP-T508): the prior session's movers. The trade
+        // day's own movers (a bonus for a name that ran on D, and variants drawn from D's runners)
+        // resolved misheard tickers toward the stocks that ran — look-ahead that inflated the hit rate.
+        _ = day;
+        var moverSyms = (prev?.Rows ?? []).Select(r => r.S).Distinct().ToList();
         double Movement(string s)
         {
             double score = 0;
             var pr = prev?.Find(s);
-            var dr = day?.Find(s);
             if (pr is not null && (pr.RankClose <= 100 || pr.RankHigh <= 100)) score += 0.3;
-            else if (dr is not null && dr.RankHigh <= 100) score += 0.25;
             if (sameDay?.Contains(s) == true) score += 0.1;
             if (statedPct is { } sp && sp > 0 && pr is not null)
             {
