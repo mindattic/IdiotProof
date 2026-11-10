@@ -676,8 +676,18 @@ public sealed class MonitorWorker(
         var endUtc = UtcNow;
         var startUtc = endUtc - (CandleWindow * BarSize);
         var list = new List<Candle>();
-        await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, startUtc, endUtc, BarSize, ct))
-            list.Add(c);
+        try
+        {
+            await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, startUtc, endUtc, BarSize, ct))
+                list.Add(c);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException && cached.Candles is { Count: > 0 })
+        {
+            // A failed REST refresh (429, outage) must not stop stop-loss / sell-by management of a
+            // held position: keep evaluating on the last good bars plus the live stream tick.
+            logger.LogWarning(ex, "Bar refresh for {Symbol} failed; evaluating on the cached bars and the live tick.", symbol);
+            return AppendLiveTick(symbol, cached.Candles);
+        }
 
         candleCache[symbol] = (list, UtcNow);
         return AppendLiveTick(symbol, list);
@@ -730,7 +740,15 @@ public sealed class MonitorWorker(
             && (hit.Close is not null || UtcNow - hit.FetchedUtc < MissingCloseRetry))
             return hit.Close;
 
-        var close = await feed.GetPreviousCloseAsync(symbol, UtcNow, ct);
+        decimal? close;
+        try { close = await feed.GetPreviousCloseAsync(symbol, UtcNow, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Only gap conditions need the prior close; a failed fetch must not skip the symbol's
+            // exits. Treat it like a missing close (retried after MissingCloseRetry).
+            logger.LogWarning(ex, "Previous close for {Symbol} unavailable; gap conditions read it as missing.", symbol);
+            close = null;
+        }
         previousCloseCache[symbol] = (todayEt, close, UtcNow);
         if (close is null)
         {
@@ -1156,8 +1174,10 @@ public sealed class MonitorWorker(
         // a thin book can't fill us far off the evaluated price. A short opens
         // with a sell_to_open at -0.2%; a long buys at +0.2% (DirectionalOrders).
         var extendedHours = IsExtendedHours(UtcNow);
+        var entryClientId = MonitorOrderIds.NewEntry(stored.Id, UtcNow); // IP-T506: findable again by id
+        var entrySentUtc = UtcNow;
         var intent = MonitorOrders.Entry(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, def.Direction,
-            quantity, entryPrice, stopPrice, takeProfit, extendedHours, $"[{stored.Title}] {signal.Reason}");
+            quantity, entryPrice, stopPrice, takeProfit, extendedHours, $"[{stored.Title}] {signal.Reason}", entryClientId);
         var limitPrice = intent.Order.LimitPrice!.Value;
         var entrySide = DirectionalOrders.SideLabel(intent.Order.Side);
 
@@ -1185,7 +1205,29 @@ public sealed class MonitorWorker(
         // flag label the fill, and it is what the ambiguous-throw path reconciles against.
         var broker = await orderRouting.ResolveAsync(stored.OwnerUserId, intent.Mode, ct);
 
-        if (outcome.BrokerThrew)
+        // The order a thrown call actually placed, found by its client order id (IP-T506). Reading
+        // positions alone missed an order Alpaca accepted that was still WORKING (common premarket):
+        // "no position, safe to retry" then sent a second entry, and both could fill.
+        string? entryOrderId = null;
+        if (outcome.BrokerThrew && broker.SupportsOrderQueries)
+        {
+            var found = await FindOwnOrderAsync(broker, stored.Symbol, entryClientId, entrySentUtc, ct);
+            if (found is not null && (found.IsOpen || found.FilledQuantity > 0m))
+            {
+                logger.LogWarning("[{Title}] {Symbol} entry call threw but the broker has order {Id} ({Status}); booking it, not re-firing.",
+                    stored.Title, stored.Symbol, found.Id, found.Status);
+                entryOrderId = found.Id;
+            }
+            else if (found is not null)
+            {
+                await LogAuditAsync("order-placement-exception",
+                    $"[{stored.Title}] {stored.Symbol} entry call threw; the broker ended order {found.Id} unfilled ({found.Status}) — safe to retry next tick.",
+                    userId: stored.OwnerUserId, ct: ct);
+                return;
+            }
+        }
+
+        if (outcome.BrokerThrew && entryOrderId is null)
         {
             // An exception here (timeout, connection reset) is ambiguous —
             // Alpaca may have already accepted the order server-side. Treating
@@ -1252,7 +1294,7 @@ public sealed class MonitorWorker(
             return;
         }
 
-        if (outcome.Status != IdiotProof.Core.Trading.GatewayStatus.Placed || outcome.Order is not { IsSuccess: true } order)
+        if (entryOrderId is null && (outcome.Status != IdiotProof.Core.Trading.GatewayStatus.Placed || outcome.Order is not { IsSuccess: true }))
         {
             var refusal = outcome.Order?.Message ?? outcome.Message;
             logger.LogWarning("[{Title}] {Symbol} entry order REJECTED by {Broker}: {Message}",
@@ -1262,6 +1304,7 @@ public sealed class MonitorWorker(
                 userId: stored.OwnerUserId, ct: ct);
             return;
         }
+        entryOrderId ??= outcome.Order!.BrokerOrderId;
 
         var entryUtc = UtcNow;
         await strategyRepo.RecordFiredAsync(stored.Id, ct);
@@ -1280,7 +1323,7 @@ public sealed class MonitorWorker(
         stored.LastEntryPrice = limitPrice;
         stored.EntryFilledUtc = entryUtc;
         await LogAuditAsync("entry",
-            $"[{stored.Title}] {entrySide} {quantity} {stored.Symbol} @ {limitPrice:F2} ({broker.BrokerType}, {(extendedHours ? "extended-hours" : "RTH")}, order {order.BrokerOrderId})",
+            $"[{stored.Title}] {entrySide} {quantity} {stored.Symbol} @ {limitPrice:F2} ({broker.BrokerType}, {(extendedHours ? "extended-hours" : "RTH")}, order {entryOrderId})",
             userId: stored.OwnerUserId, ct: ct);
 
         // Trade diary — open the entry (log-and-continue: a diary write must
@@ -1300,7 +1343,7 @@ public sealed class MonitorWorker(
                 EntryPrice          = limitPrice,
                 Quantity            = quantity,
                 Notional            = def.NotionalAmount,
-                EntryOrderId        = order.BrokerOrderId,
+                EntryOrderId        = entryOrderId,
                 StopLossPrice       = def.StopLossPrice is { } sp ? (decimal)sp : null,
                 StopLossPercent     = def.StopLossPercent is { } sc ? (decimal)sc : null,
                 TrailingStopPercent = def.TrailingStopPercent is { } ts ? (decimal)ts : null,
@@ -1318,7 +1361,7 @@ public sealed class MonitorWorker(
         logger.LogInformation("[{Title}] ✓ {Side} {Qty} {Symbol} @ {Price:F2} via {Broker} ({Mode}) — position now managed for exit.",
             stored.Title, entrySide, quantity, stored.Symbol, limitPrice, broker.BrokerType, broker.IsPaper ? "paper" : "LIVE");
         PrintFill("ENTRY", stored.Title, stored.Symbol, entrySide, quantity, limitPrice,
-            broker.BrokerType.ToString(), broker.IsPaper, order.BrokerOrderId, entryUtc,
+            broker.BrokerType.ToString(), broker.IsPaper, entryOrderId, entryUtc,
             "position now managed for exit");
     }
 
@@ -1542,6 +1585,9 @@ public sealed class MonitorWorker(
         var sellQty = decision.QuantityToSell.HasValue
             ? Math.Min(decision.QuantityToSell.Value, stored.PositionQty)
             : stored.PositionQty;
+        // Set when the broker holds no more than this exit sells: whatever the rung asked for, it
+        // empties the position, so it must be booked as a full exit (no phantom remainder).
+        var sellsEverything = false;
 
         // Multi-strategy-per-ticker: the broker reports ONE position
         // per symbol, but several of this user's strategies may hold the same
@@ -1577,6 +1623,16 @@ public sealed class MonitorWorker(
                         $"(entry order working — no fill yet after {heldFor.TotalSeconds:F0}s)", ct);
                     return;
                 }
+                // Cancel this strategy's own entry order first (IP-T506): the DAY limit may still be
+                // resting, and re-arming next to it could fill into an untracked position with no stop,
+                // or stack a second entry on top of it. Only the order tagged for this strategy is
+                // touched, never anything else on the account.
+                if (!await CancelOwnEntryAsync(broker, stored, filledUtc, ct))
+                {
+                    await UpsertProgressAsync(stored, root, 1, 1,
+                        $"(entry order still working or part-filled after {heldFor.TotalSeconds:F0}s — re-checking next tick)", ct);
+                    return;
+                }
                 logger.LogWarning("[{Title}] {Symbol} exit ({Reason}) found NO broker position after {Secs:F0}s — " +
                     "the entry order never filled. Clearing bookkeeping so it can re-arm.",
                     stored.Title, stored.Symbol, decision.Reason, heldFor.TotalSeconds);
@@ -1596,6 +1652,7 @@ public sealed class MonitorWorker(
                     stored.Title, stored.Symbol, heldQty, sellQty);
                 sellQty = heldQty;
             }
+            sellsEverything = heldQty <= sellQty;
         }
         catch (Exception ex)
         {
@@ -1609,12 +1666,27 @@ public sealed class MonitorWorker(
         // Through the gateway: exits skip the LLM panel and the Risk Guardian (risk-reducing,
         // IP-LAW-1) and pass on Mock data, but are routed, audited and refused if Live can't
         // actually reach the live account.
+        // Tagged with a client order id (IP-T506) so this exact order can be found again: its real
+        // fill below, or the order a timed-out call may still have placed.
+        var exitClientId = MonitorOrderIds.NewExit(stored.Id, UtcNow);
+        var exitSentUtc = UtcNow;
         var exitOutcome = await gateway.SubmitAsync(
             MonitorOrders.Exit(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, direction, sellQty,
-                (decimal)decision.CurrentPrice, extendedHours, $"[{stored.Title}] exit {decision.Reason}"),
+                (decimal)decision.CurrentPrice, extendedHours, $"[{stored.Title}] exit {decision.Reason}", exitClientId),
             new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LeaderCheck = LeaseHeldAsync }, ct);
 
-        if (exitOutcome.Status != IdiotProof.Core.Trading.GatewayStatus.Placed || exitOutcome.Order is not { IsSuccess: true } order)
+        string exitOrderId;
+        if (exitOutcome.Status == IdiotProof.Core.Trading.GatewayStatus.Placed && exitOutcome.Order is { IsSuccess: true } placedExit)
+            exitOrderId = placedExit.BrokerOrderId;
+        else if (exitOutcome.BrokerThrew && await FindOwnOrderAsync(broker, stored.Symbol, exitClientId, exitSentUtc, ct) is { } thrownExit)
+        {
+            // The call threw but the broker has the order: settle it like a placed one rather than
+            // retrying (a retry would be a second exit; booking nothing misbooked a filled one).
+            logger.LogWarning("[{Title}] {Symbol} exit call threw but the broker has order {Id} ({Status}); settling it.",
+                stored.Title, stored.Symbol, thrownExit.Id, thrownExit.Status);
+            exitOrderId = thrownExit.Id;
+        }
+        else
         {
             var refusal = exitOutcome.Status == IdiotProof.Core.Trading.GatewayStatus.Rejected
                 ? exitOutcome.Order?.Message ?? exitOutcome.Message
@@ -1627,16 +1699,44 @@ public sealed class MonitorWorker(
             return;
         }
 
+        // Book only what actually filled (IP-T506). "Placed" means the broker ACCEPTED the limit; one
+        // resting unfilled (a fast drop past the 0.5% buffer, a halt, a thin book) used to be booked
+        // as sold — after the protective stop was already withdrawn — leaving real shares with no
+        // Monitor management and no broker stop. An exit still resting is cancelled; the next tick
+        // re-protects the position and tries again at the new price.
+        var settled = await SettleExitAsync(broker, stored, exitClientId, exitOrderId, exitSentUtc, ct);
+        if (settled is { StillWorking: true })
+        {
+            logger.LogWarning("[{Title}] {Symbol} exit order {Id} is still working after a cancel request; nothing booked, re-checking next tick.",
+                stored.Title, stored.Symbol, exitOrderId);
+            await UpsertProgressAsync(stored, root, 1, 1, $"(holding {stored.PositionQty} @ {entry:F2} — exit order {exitOrderId} still working)", ct);
+            return;
+        }
+        if (settled is { Quantity: <= 0m })
+        {
+            logger.LogWarning("[{Title}] {Symbol} exit limit {Limit:F2} did not fill; cancelled, nothing booked, retrying next tick.",
+                stored.Title, stored.Symbol, limitPrice);
+            await LogAuditAsync("exit-unfilled",
+                $"[{stored.Title}] {stored.Symbol} exit ({decision.Reason}) limit {limitPrice:F2} rested unfilled at {broker.BrokerType} — " +
+                $"cancelled (order {exitOrderId}); position still held, protective stop restored next tick.",
+                userId: stored.OwnerUserId, ct: ct);
+            return;
+        }
+        var requestedQty = sellQty;
+        if (settled is { } fill) sellQty = (int)Math.Min(sellQty, Math.Floor(fill.Quantity));
+        if (sellQty < requestedQty) sellsEverything = false; // part-filled: shares remain
+        var exitPrice = settled?.AvgPrice ?? limitPrice;
+
         // Feed realized P&L into the daily circuit breaker (IP-LAW-2) — the
         // audit found RecordTradePnL was never called in production, so the
-        // daily-loss guard could never trip. Uses the reconciled quantity.
-        var realized = DirectionalOrders.RealizedPnl(direction, (decimal)entry, limitPrice, sellQty);
+        // daily-loss guard could never trip. Uses the filled quantity and price.
+        var realized = DirectionalOrders.RealizedPnl(direction, (decimal)entry, exitPrice, sellQty);
         var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
         guardian?.RecordTradePnL(realized);
 
         var exitUtc = UtcNow;
         var remainingQty = stored.PositionQty - sellQty;
-        var isPartialExit = decision.QuantityToSell.HasValue && remainingQty > 0;
+        var isPartialExit = remainingQty > 0 && !sellsEverything;
 
         if (isPartialExit)
         {
@@ -1644,14 +1744,14 @@ public sealed class MonitorWorker(
             // EntryFilledUtc is preserved so subsequent ticks continue exit management.
             await strategyRepo.RecordPartialExitAsync(stored.Id, sellQty, ct);
             await LogAuditAsync("exit-partial",
-                $"[{stored.Title}] {exitSide} {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason} (partial, {remainingQty} shares remain): {decision.Detail} " +
-                $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
+                $"[{stored.Title}] {exitSide} {sellQty} {stored.Symbol} @ {exitPrice:F2} — {decision.Reason} (partial, {remainingQty} shares remain): {decision.Detail} " +
+                $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {exitOrderId})",
                 userId: stored.OwnerUserId, ct: ct);
         }
         else
         {
             var moreSteps = stored.StepIndex + 1 < root.StepCount;
-            await strategyRepo.RecordExitFillAsync(stored.Id, limitPrice, decision.Reason.ToString(), exitUtc, ct, moreSteps: moreSteps);
+            await strategyRepo.RecordExitFillAsync(stored.Id, exitPrice, decision.Reason.ToString(), exitUtc, ct, moreSteps: moreSteps);
             stored.PositionQty = 0;
             stored.LastExitedUtc = exitUtc;
             stored.AwaitingTransition = moreSteps;
@@ -1663,16 +1763,16 @@ public sealed class MonitorWorker(
                 _                             => "exit",
             };
             await LogAuditAsync(exitCategory,
-                $"[{stored.Title}] {exitSide} {sellQty} {stored.Symbol} @ {limitPrice:F2} — {decision.Reason}: {decision.Detail} " +
-                $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {order.BrokerOrderId})",
+                $"[{stored.Title}] {exitSide} {sellQty} {stored.Symbol} @ {exitPrice:F2} — {decision.Reason}: {decision.Detail} " +
+                $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {exitOrderId})",
                 userId: stored.OwnerUserId, ct: ct);
 
             // Trade diary — close the entry (log-and-continue: the sell already
             // happened; a diary write must never throw into the trade path).
             try
             {
-                await tradeDiary.CloseAsync(stored.Id, limitPrice, decision.Reason.ToString(),
-                    order.BrokerOrderId, realized, sellQty, exitUtc, ct);
+                await tradeDiary.CloseAsync(stored.Id, exitPrice, decision.Reason.ToString(),
+                    exitOrderId, realized, sellQty, exitUtc, ct);
             }
             catch (Exception ex)
             {
@@ -1684,11 +1784,11 @@ public sealed class MonitorWorker(
         }
 
         logger.LogInformation("[{Title}] ✓ {Side} {Qty} {Symbol} @ {Price:F2} — {Reason} ({Mode}, P&L {Pnl:+0.00;-0.00})",
-            stored.Title, exitSide, sellQty, stored.Symbol, limitPrice, decision.Reason,
+            stored.Title, exitSide, sellQty, stored.Symbol, exitPrice, decision.Reason,
             isPartialExit ? $"{remainingQty} remaining" : "full exit", realized);
         var pnlText = realized >= 0 ? $"+${realized:0.00}" : $"-${Math.Abs(realized):0.00}";
-        PrintFill("EXIT", stored.Title, stored.Symbol, exitSide, sellQty, limitPrice,
-            broker.BrokerType.ToString(), broker.IsPaper, order.BrokerOrderId, exitUtc,
+        PrintFill("EXIT", stored.Title, stored.Symbol, exitSide, sellQty, exitPrice,
+            broker.BrokerType.ToString(), broker.IsPaper, exitOrderId, exitUtc,
             isPartialExit ? $"{decision.Reason} (partial, {remainingQty} left)  -  P&L {pnlText}"
                           : $"{decision.Reason}  -  P&L {pnlText}");
     }
@@ -2029,11 +2129,134 @@ public sealed class MonitorWorker(
     private static bool IsInsideSession(TradingSession session, DateTime utc) =>
         MarketTime.IsInsideSession(session, utc);
 
+    // ── Order tracking by client order id (IP-T506) ─────────────────────
+
+    private static readonly TimeSpan OrderPoll = TimeSpan.FromMilliseconds(500);
+    private const int OrderPolls = 6;
+
+    /// <summary>What an exit actually did at the broker: the filled quantity and average price, or still working.</summary>
+    private sealed record ExitSettlement(decimal Quantity, decimal? AvgPrice, bool StillWorking = false);
+
+    /// <summary>
+    /// The Monitor's own order (by its client order id) placed since <paramref name="sinceUtc"/>, polled
+    /// briefly because a just-sent order can take a moment to list. Null when the broker can't be asked,
+    /// the call fails, or no such order exists.
+    /// </summary>
+    private async Task<BrokerOrder?> FindOwnOrderAsync(IdiotProof.Brokers.IBrokerClient broker, string symbol, string clientId, DateTime sinceUtc, CancellationToken ct)
+    {
+        if (!broker.SupportsOrderQueries) return null;
+        try
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                var found = (await broker.GetOrdersAsync(symbol, openOnly: false, afterUtc: sinceUtc.AddMinutes(-1), ct: ct))
+                    .FirstOrDefault(o => string.Equals(o.ClientOrderId, clientId, StringComparison.Ordinal));
+                if (found is not null) return found;
+                await Task.Delay(OrderPoll, ct);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex) { logger.LogWarning(ex, "Order lookup for {Symbol} ({ClientId}) failed.", symbol, clientId); }
+        return null;
+    }
+
+    /// <summary>
+    /// Waits briefly for an exit limit to fill; one still resting is cancelled and re-read. Returns
+    /// what filled (0 = nothing: don't book), StillWorking when a cancel did not take, or null when the
+    /// broker can't be asked (the Sandbox simulator fills on placement, so it books as before).
+    /// </summary>
+    private async Task<ExitSettlement?> SettleExitAsync(IdiotProof.Brokers.IBrokerClient broker, IdiotProof.Core.Data.Strategy stored,
+        string clientId, string orderId, DateTime sentUtc, CancellationToken ct)
+    {
+        if (!broker.SupportsOrderQueries) return null;
+        try
+        {
+            BrokerOrder? order = null;
+            for (var i = 0; i < OrderPolls; i++)
+            {
+                order = (await broker.GetOrdersAsync(stored.Symbol, openOnly: false, afterUtc: sentUtc.AddMinutes(-1), ct: ct))
+                    .FirstOrDefault(o => string.Equals(o.ClientOrderId, clientId, StringComparison.Ordinal) || o.Id == orderId);
+                if (order is { } o && (o.IsFilled || !o.IsOpen)) return new(o.FilledQuantity, o.FilledAvgPrice);
+                await Task.Delay(OrderPoll, ct);
+            }
+            // Unlisted after the wait: can't tell, so book as before rather than risk a second exit.
+            if (order is null) return null;
+
+            var cancel = await gateway.SubmitAsync(MonitorOrders.Cancel(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, order.Id,
+                    $"[{stored.Title}] exit limit unfilled after {OrderPolls * OrderPoll.TotalSeconds:0.#}s, cancelled"),
+                new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LeaderCheck = LeaseHeldAsync }, ct);
+            if (cancel.Status != IdiotProof.Core.Trading.GatewayStatus.Placed)
+                logger.LogWarning("[{Title}] cancelling the resting exit {Id} for {Symbol} failed ({Status}): {Why}",
+                    stored.Title, order.Id, stored.Symbol, cancel.Status, MonitorOrders.WhyNot(cancel));
+            for (var i = 0; i < OrderPolls; i++)
+            {
+                await Task.Delay(OrderPoll, ct);
+                order = (await broker.GetOrdersAsync(stored.Symbol, openOnly: false, afterUtc: sentUtc.AddMinutes(-1), ct: ct))
+                    .FirstOrDefault(o => o.Id == order.Id) ?? order;
+                if (!order.IsOpen) return new(order.FilledQuantity, order.FilledAvgPrice);
+            }
+            return new(order.FilledQuantity, order.FilledAvgPrice, StillWorking: true);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[{Title}] could not confirm the exit fill for {Symbol}; booking it as placed.", stored.Title, stored.Symbol);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Cancels this strategy's own still-working entry orders before an unfilled entry is cleared.
+    /// True when none is left working and nothing filled (safe to clear and re-arm); false when one
+    /// part-filled, a cancel did not take, or the broker could not be asked (re-check next tick).
+    /// Entries placed before client order ids existed can't be identified and are left alone.
+    /// </summary>
+    private async Task<bool> CancelOwnEntryAsync(IdiotProof.Brokers.IBrokerClient broker, IdiotProof.Core.Data.Strategy stored, DateTime entryUtc, CancellationToken ct)
+    {
+        if (!broker.SupportsOrderQueries) return true;
+        try
+        {
+            List<BrokerOrder> Mine(IReadOnlyList<BrokerOrder> orders) => orders.Where(o => MonitorOrderIds.IsEntryOf(o, stored.Id)).ToList();
+            var since = entryUtc.AddMinutes(-5);
+            var open = Mine(await broker.GetOrdersAsync(stored.Symbol, openOnly: true, ct: ct));
+            foreach (var o in open)
+            {
+                var cancel = await gateway.SubmitAsync(MonitorOrders.Cancel(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, o.Id,
+                        $"[{stored.Title}] entry limit never filled, cancelled before re-arming"),
+                    new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LeaderCheck = LeaseHeldAsync }, ct);
+                if (cancel.Status != IdiotProof.Core.Trading.GatewayStatus.Placed)
+                    logger.LogWarning("[{Title}] cancelling the resting entry {Id} for {Symbol} failed ({Status}): {Why}",
+                        stored.Title, o.Id, stored.Symbol, cancel.Status, MonitorOrders.WhyNot(cancel));
+            }
+            for (var i = 0; i < OrderPolls && open.Count > 0; i++)
+            {
+                await Task.Delay(OrderPoll, ct);
+                open = Mine(await broker.GetOrdersAsync(stored.Symbol, openOnly: true, ct: ct));
+            }
+            if (open.Count > 0) return false;
+            // Anything of ours that filled, even partly, means shares exist: let the next tick reconcile.
+            var recent = Mine(await broker.GetOrdersAsync(stored.Symbol, openOnly: false, afterUtc: since, ct: ct));
+            if (recent.Any(o => o.FilledQuantity > 0m))
+            {
+                logger.LogWarning("[{Title}] {Symbol} entry order filled (part) while being cleared; not re-arming, reconciling next tick.", stored.Title, stored.Symbol);
+                return false;
+            }
+            return true;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[{Title}] could not check the entry order for {Symbol}; not clearing this tick.", stored.Title, stored.Symbol);
+            return false;
+        }
+    }
+
     private static bool IsExtendedHours(DateTime utc)
     {
         var tod = MarketTime.ToEasternTimeOfDay(utc);
         return (tod >= new TimeSpan(4, 0, 0) && tod < new TimeSpan(9, 30, 0))
-            || (tod >= new TimeSpan(16, 0, 0) && tod < new TimeSpan(20, 0, 0));
+            || (tod >= new TimeSpan(16, 0, 0) && tod < new TimeSpan(20, 0, 0))
+            || MarketTime.IsEarlyCloseAfterHours(utc);
     }
 
     private static bool IsSameEasternDay(DateTime aUtc, DateTime bUtc)

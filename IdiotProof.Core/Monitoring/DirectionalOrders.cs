@@ -28,19 +28,23 @@ public static class DirectionalOrders
     /// <summary>"BUY"/"SELL" for logs and console fills.</summary>
     public static string SideLabel(OrderSide side) => side == OrderSide.Buy ? "BUY" : "SELL";
 
-    /// <summary>Marketable entry limit, rounded to the cent.</summary>
+    /// <summary>Marketable entry limit, rounded to Alpaca's tick (cents at $1 and above, 4 decimals below).</summary>
     public static decimal EntryLimit(TradeDirection direction, decimal price) =>
-        Math.Round(price * (IsShort(direction) ? 1m - EntryBuffer : 1m + EntryBuffer), 2);
+        Tick(price * (IsShort(direction) ? 1m - EntryBuffer : 1m + EntryBuffer));
 
-    /// <summary>Marketable exit limit, rounded to the cent.</summary>
+    /// <summary>Marketable exit limit, rounded to Alpaca's tick (cents at $1 and above, 4 decimals below).</summary>
     public static decimal ExitLimit(TradeDirection direction, decimal price) =>
-        Math.Round(price * (IsShort(direction) ? 1m + ExitBuffer : 1m - ExitBuffer), 2);
+        Tick(price * (IsShort(direction) ? 1m + ExitBuffer : 1m - ExitBuffer));
+
+    // Cent rounding under $1 erased the buffer (0.30 * 1.002 = 0.3006 -> 0.30, the last price), so a
+    // "marketable" limit sat at the market and could rest unfilled.
+    private static decimal Tick(decimal price) => Math.Round(price, price >= 1m ? 2 : 4);
 
     /// <summary>
     /// Entry order. A short carries <c>sell_to_open</c> so the broker opens a short rather than
     /// selling shares the account may already hold long. Long entries carry no intent (unchanged).
     /// </summary>
-    public static OrderRequest Entry(string symbol, TradeDirection direction, int quantity, decimal price, bool extendedHours) => new()
+    public static OrderRequest Entry(string symbol, TradeDirection direction, int quantity, decimal price, bool extendedHours, string? clientOrderId = null) => new()
     {
         Symbol         = symbol,
         Quantity       = quantity,
@@ -50,13 +54,14 @@ public static class DirectionalOrders
         TimeInForce    = "DAY",
         ExtendedHours  = extendedHours,
         PositionIntent = IsShort(direction) ? "sell_to_open" : null,
+        ClientOrderId  = clientOrderId,
     };
 
     /// <summary>
     /// Exit order. The intent is always a <c>_to_close</c> value so a stale quantity can only
     /// close, never flip the account into the opposite position.
     /// </summary>
-    public static OrderRequest Exit(string symbol, TradeDirection direction, int quantity, decimal price, bool extendedHours) => new()
+    public static OrderRequest Exit(string symbol, TradeDirection direction, int quantity, decimal price, bool extendedHours, string? clientOrderId = null) => new()
     {
         Symbol         = symbol,
         Quantity       = quantity,
@@ -66,6 +71,7 @@ public static class DirectionalOrders
         TimeInForce    = "DAY",
         ExtendedHours  = extendedHours,
         PositionIntent = IsShort(direction) ? "buy_to_close" : "sell_to_close",
+        ClientOrderId  = clientOrderId,
     };
 
     /// <summary>

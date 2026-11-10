@@ -13,6 +13,26 @@ namespace IdiotProof.Core.Monitoring;
 /// <see cref="OrderOrigin.Monitor"/>: entries need the voter panel's verdict, exits skip it, and a
 /// Live strategy's orders need no confirmation code — activating it in Live was the confirmed act.
 /// </summary>
+/// <summary>
+/// Client order ids for the Monitor's own entries and exits (IP-T506), like the protective stops'
+/// "ips-": they name the strategy, so the Monitor can find exactly its own order at the broker (its
+/// fill, a resting limit to cancel, an order a timed-out call may have placed) and never touch an
+/// order something else placed on the same account.
+/// </summary>
+public static class MonitorOrderIds
+{
+    private const string EntryPrefix = "ipe-";
+    private const string ExitPrefix = "ipx-";
+
+    public static string NewEntry(Guid strategyId, DateTime utc) => $"{EntryPrefix}{strategyId:N}-{utc:yyyyMMddHHmmssfff}";
+
+    public static string NewExit(Guid strategyId, DateTime utc) => $"{ExitPrefix}{strategyId:N}-{utc:yyyyMMddHHmmssfff}";
+
+    /// <summary>An entry order the Monitor placed for this strategy.</summary>
+    public static bool IsEntryOf(BrokerOrder order, Guid strategyId) =>
+        order.ClientOrderId?.StartsWith($"{EntryPrefix}{strategyId:N}-", StringComparison.Ordinal) == true;
+}
+
 public static class MonitorOrders
 {
     /// <summary>The verdict passed for an entry when the owner has no voter panel configured.</summary>
@@ -24,14 +44,14 @@ public static class MonitorOrders
     /// (<paramref name="price"/>) against <paramref name="stop"/>.
     /// </summary>
     public static OrderIntent Entry(Guid owner, Guid strategyId, string? brokerMode, string symbol, TradeDirection direction,
-        int quantity, decimal price, decimal stop, decimal? takeProfit, bool extendedHours, string? note) => new()
+        int quantity, decimal price, decimal stop, decimal? takeProfit, bool extendedHours, string? note, string? clientOrderId = null) => new()
     {
         OwnerUserId = owner,
         Mode = OrderIntent.ParseMode(brokerMode),
         Purpose = OrderPurpose.Entry,
         Origin = OrderOrigin.Monitor,
         StrategyId = strategyId,
-        Order = DirectionalOrders.Entry(symbol, direction, quantity, price, extendedHours),
+        Order = DirectionalOrders.Entry(symbol, direction, quantity, price, extendedHours, clientOrderId),
         ReferencePrice = price,
         StopLossPrice = stop,
         TakeProfitPrice = takeProfit,
@@ -40,14 +60,14 @@ public static class MonitorOrders
 
     /// <summary>An exit: <see cref="DirectionalOrders.Exit"/> — always a <c>*_to_close</c>, so it can only reduce.</summary>
     public static OrderIntent Exit(Guid owner, Guid strategyId, string? brokerMode, string symbol, TradeDirection direction,
-        int quantity, decimal price, bool extendedHours, string? note) => new()
+        int quantity, decimal price, bool extendedHours, string? note, string? clientOrderId = null) => new()
     {
         OwnerUserId = owner,
         Mode = OrderIntent.ParseMode(brokerMode),
         Purpose = OrderPurpose.Exit,
         Origin = OrderOrigin.Monitor,
         StrategyId = strategyId,
-        Order = DirectionalOrders.Exit(symbol, direction, quantity, price, extendedHours),
+        Order = DirectionalOrders.Exit(symbol, direction, quantity, price, extendedHours, clientOrderId),
         ReferencePrice = price,
         Note = note,
     };
@@ -98,6 +118,10 @@ public static class MonitorOrders
         Order = new OrderRequest { Symbol = symbol.Trim().ToUpperInvariant() },
         Note = "monitor test-order cleanup",
     };
+
+    /// <summary>Cancels one of the Monitor's own working orders (an unfilled entry or exit limit) by broker order id.</summary>
+    public static OrderIntent Cancel(Guid owner, Guid strategyId, string? brokerMode, string symbol, string brokerOrderId, string? note) =>
+        ProtectiveStops.Cancel(owner, strategyId, OrderIntent.ParseMode(brokerMode), OrderOrigin.Monitor, symbol, brokerOrderId, note);
 
     /// <summary>One line naming why the gateway did not place it: the first gate that refused, else its message.</summary>
     public static string WhyNot(GatewayOutcome outcome) =>
