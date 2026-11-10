@@ -13,8 +13,11 @@
       2. grants that account "Log on as a service" (SeServiceLogonRight) via secedit, if missing;
       3. sc.exe create IdiotProof.Hub binPath= <exe> obj= <you> password= <...> start= delayed-auto;
       4. sc.exe description / failure (restart after a crash, twice a day at most);
-      5. writes the service's environment: IDIOTPROOF_HUB_MONITOR=0 unless -Monitor, and
-         IDIOTPROOF_HUB_LOG=%LOCALAPPDATA%\MindAttic\IdiotProof\Logs\hub-service.log.
+      5. writes the service's environment: IDIOTPROOF_HUB_MONITOR=0 unless -Monitor,
+         IDIOTPROOF_HUB_LOG=%LOCALAPPDATA%\MindAttic\IdiotProof\Logs\hub-service.log, and GAPPER_STUDY_DIR
+         (the gapper study folder the Hub's research operations read, IP-T515).
+    The Hub's scheduler (IP-T512) runs only where the Monitor is hosted, so a 24/7 service that should
+    scan for gappers and arm the paper forward test needs -Monitor.
     It does NOT start the service unless -Start. Stop any interactive Hub first (`idiotproof hub
     stop`): both listen on 127.0.0.1:5910 and the second one exits with "port in use".
 
@@ -128,6 +131,10 @@ Invoke-Checked 'sc.exe' @('failure', $serviceName, 'reset=', '86400', 'actions='
 # The service's environment (REG_MULTI_SZ under the service key).
 $windowLog = Join-Path $env:LOCALAPPDATA 'MindAttic\IdiotProof\Logs\hub-service.log'
 $environment = @("IDIOTPROOF_HUB_MONITOR=$(if ($Monitor) { '1' } else { '0' })", "IDIOTPROOF_HUB_LOG=$windowLog")
+# The gapper study folder (IP-T515): the Hub runs the study from C:\Apps, outside the repo.
+$studyDir = [Environment]::GetEnvironmentVariable('GAPPER_STUDY_DIR', 'User')
+if (-not $studyDir) { $studyDir = Join-Path (Split-Path $PSScriptRoot) 'docs\research\gapper-study-2026-11' }
+if (Test-Path (Join-Path $studyDir 'params.json')) { $environment += "GAPPER_STUDY_DIR=$studyDir" }
 New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\$serviceName" -Name 'Environment' -PropertyType MultiString -Value $environment -Force | Out-Null
 
 Write-Host ''
