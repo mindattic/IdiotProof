@@ -1,0 +1,414 @@
+<title>Momentum Calls vs Reality</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one reading column; verdict first, then outcome bar, trend, breakdowns, call-by-call explorer with a price ladder per call */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #14181f; --muted: #5b6472; --line: #dfe3ea; --soft: #eef1f5;
+  --accent: #3a4fd0; --accent-soft: #e6e9fb;
+  --win: #1d8a5a; --win-soft: #dcf2e7; --loss: #c63a3a; --loss-soft: #f9e1e1; --mid: #c08214; --mid-soft: #f8edd6; --none: #9aa3b0; --none-soft: #eceef2;
+  --font-display: ui-sans-serif, "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-body: ui-sans-serif, "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-data: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1216; --panel: #171b21; --ink: #e8ebf0; --muted: #98a1ae; --line: #2a303a; --soft: #1e232b;
+  --accent: #8d9cff; --accent-soft: #252b4d;
+  --win: #4cc68c; --win-soft: #16352a; --loss: #f07a7a; --loss-soft: #3d1e21; --mid: #e3ac48; --mid-soft: #3a2e17; --none: #6f7887; --none-soft: #242a33;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1216; --panel: #171b21; --ink: #e8ebf0; --muted: #98a1ae; --line: #2a303a; --soft: #1e232b;
+  --accent: #8d9cff; --accent-soft: #252b4d;
+  --win: #4cc68c; --win-soft: #16352a; --loss: #f07a7a; --loss-soft: #3d1e21; --mid: #e3ac48; --mid-soft: #3a2e17; --none: #6f7887; --none-soft: #242a33;
+  color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--font-body); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 40px }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0 }
+h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.08; letter-spacing: -0.02em; font-weight: 750 }
+h2 { font-size: 22px; letter-spacing: -0.01em; font-weight: 700 }
+h3 { font-size: 15px; font-weight: 650 }
+p { margin: 0; max-width: 68ch }
+.eyebrow { font: 600 12px/1.3 var(--font-data); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.muted { color: var(--muted) }
+.num, td.n, .data { font-family: var(--font-data); font-variant-numeric: tabular-nums }
+section { display: grid; gap: 16px; min-width: 0 }
+.head { display: grid; gap: 14px }
+.lede { font-size: 17px; line-height: 1.6 }
+.lede b { font-weight: 650 }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
+.kpi { background: var(--panel); padding: 14px 16px; display: grid; gap: 2px; align-content: start }
+.kpi .v { font: 700 26px/1.1 var(--font-data); font-variant-numeric: tabular-nums }
+.kpi .l { font-size: 13px; color: var(--muted) }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0 }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px }
+.stack { display: flex; height: 34px; border-radius: 6px; overflow: hidden; background: var(--soft) }
+.stack > div { display: flex; align-items: center; justify-content: center; font: 600 12px var(--font-data); color: var(--bg); min-width: 0; overflow: hidden; white-space: nowrap }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted) }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px }
+.c-win { background: var(--win) } .c-loss { background: var(--loss) } .c-mid { background: var(--mid) } .c-none { background: var(--none) } .c-acc { background: var(--accent) }
+.scroll { overflow-x: auto; min-width: 0 }
+table { border-collapse: collapse; width: 100%; font-size: 14px }
+th { text-align: left; font: 600 12px var(--font-data); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap }
+td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
+td.n, th.n { text-align: right; white-space: nowrap }
+tr:last-child td { border-bottom: 0 }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font: 600 12px var(--font-data); white-space: nowrap }
+.p-target-hit { background: var(--win-soft); color: var(--win) }
+.p-stopped { background: var(--loss-soft); color: var(--loss) }
+.p-triggered-no-target { background: var(--mid-soft); color: var(--mid) }
+.p-not-triggered, .p-unverifiable { background: var(--none-soft); color: var(--muted) }
+.p-brag-accurate { background: var(--win-soft); color: var(--win) }
+.p-brag-exaggerated { background: var(--loss-soft); color: var(--loss) }
+.pos { color: var(--win) } .neg { color: var(--loss) }
+svg text { fill: var(--muted); font: 11px var(--font-data) }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end }
+.filters label { display: grid; gap: 4px; font-size: 12px; color: var(--muted) }
+input, select, button { font: inherit; font-size: 14px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px }
+input:focus-visible, select:focus-visible, button:focus-visible, .call:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+button { cursor: pointer; background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 600 }
+.calls { display: grid; gap: 8px }
+.call { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; min-width: 0 }
+.call > .row { display: grid; grid-template-columns: 92px 70px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 14px; cursor: pointer }
+.call > .row:hover { background: var(--soft) }
+.call .sym { font: 700 15px var(--font-data) }
+.call .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 13px }
+.call .detail { border-top: 1px solid var(--line); padding: 14px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px }
+.quote { font-size: 14px; line-height: 1.6; border-left: 3px solid var(--line); padding-left: 12px; color: var(--ink) }
+dl.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: 13px }
+dl.facts dt { color: var(--muted) }
+dl.facts dd { margin: 0; font-family: var(--font-data); font-variant-numeric: tabular-nums }
+a { color: var(--accent) }
+.foot { font-size: 13px; color: var(--muted); display: grid; gap: 8px }
+.foot li { margin-bottom: 4px }
+@media (max-width: 640px) {
+  .call > .row { grid-template-columns: 74px minmax(0, 1fr) auto; }
+  .call > .row .d-only { display: none }
+  .call .detail { grid-template-columns: 1fr }
+}
+@media (prefers-reduced-motion: no-preference) { .call > .row { transition: background .12s } }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div class="eyebrow" id="eyebrow">Momentum. (@trade.momentum) &middot; TOP 3 STOCKS shorts</div>
+    <h1>Did Momentum.'s calls come true?</h1>
+    <p class="lede" id="lede"></p>
+    <div class="kpis" id="kpis"></div>
+  </header>
+
+  <section>
+    <h2>What happened to each setup</h2>
+    <p class="muted">Every trade plan he described (break over a level, confirm, targets, a stop) checked minute by minute against real Alpaca SIP bars on the day it was for, 4:00 AM to 8:00 PM ET.</p>
+    <div class="panel">
+      <div class="stack" id="outcomeBar" role="img"></div>
+      <div class="legend" id="outcomeLegend"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>He finds stocks that move. The levels are the problem.</h2>
+    <div class="grid2">
+      <div class="panel" id="moverPanel"></div>
+      <div class="panel" id="pnlPanel"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Month by month</h2>
+    <div class="panel">
+      <h3>Outcome of setups that reached their entry</h3>
+      <div class="scroll"><svg id="monthStack"></svg></div>
+      <div class="legend"><span><i class="c-win"></i>Target before stop</span><span><i class="c-mid"></i>Neither by the close</span><span><i class="c-loss"></i>Stop first</span></div>
+      <h3>Average result per plan if you followed it exactly</h3>
+      <div class="scroll"><svg id="monthPnl"></svg></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Which calls work better</h2>
+    <div class="grid2">
+      <div class="panel"><h3>By video and rank</h3><div class="scroll"><table id="rankTable"></table></div></div>
+      <div class="panel"><h3>By setup he named</h3><div class="scroll"><table id="tagTable"></table></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>His claims about past winners</h2>
+    <p class="muted">Statements like "PARA squeezed 400% last week", checked against split-adjusted daily bars over the window he named.</p>
+    <div class="grid2">
+      <div class="panel" id="bragSummary"></div>
+      <div class="panel"><h3>Biggest overstatements</h3><div class="scroll"><table id="bragTable"></table></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Every call</h2>
+    <div class="filters">
+      <label for="fSym">Ticker<input id="fSym" type="search" placeholder="e.g. PARA" autocomplete="off"></label>
+      <label for="fVerdict">Outcome<select id="fVerdict"></select></label>
+      <label for="fKind">Video<select id="fKind"><option value="">Both</option><option value="wl">Evening watchlist</option><option value="am">Morning update</option></select></label>
+      <label for="fYear">Year<select id="fYear"></select></label>
+      <label for="fSort">Sort<select id="fSort"><option value="date">Newest first</option><option value="pnl-">Best result</option><option value="pnl+">Worst result</option><option value="hi">Biggest day high</option></select></label>
+    </div>
+    <p class="muted" id="callCount"></p>
+    <div class="calls" id="calls"></div>
+    <div><button id="more" type="button">Show 50 more</button></div>
+  </section>
+
+  <footer class="foot">
+    <h3>How this was checked</h3>
+    <ul id="method"></ul>
+  </footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+(function () {
+  const $ = id => document.getElementById(id);
+  const calls = DATA.calls, brags = DATA.brags;
+  const VERD = {
+    'target-hit': ['Target before stop', 'win'], 'triggered-no-target': ['Entry hit, neither', 'mid'],
+    'stopped': ['Stop first', 'loss'], 'not-triggered': ['Entry never reached', 'none'], 'unverifiable': ['Could not check', 'none']
+  };
+  const EVAL = new Set(['target-hit', 'triggered-no-target', 'stopped', 'not-triggered']);
+  const TRIG = new Set(['target-hit', 'triggered-no-target', 'stopped']);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pct = (a, b) => b ? Math.round(100 * a / b) + '%' : '-';
+  const mean = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+  const median = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  const sgn = (x, d = 1) => x == null ? '-' : (x > 0 ? '+' : '') + x.toFixed(d) + '%';
+  const cls = x => x == null ? '' : x > 0 ? 'pos' : x < 0 ? 'neg' : '';
+  const price = p => p == null ? '-' : '$' + (p >= 10 ? p.toFixed(2) : p >= 1 ? p.toFixed(2) : p.toFixed(4));
+  const fmtDate = d => { const [y, m, dd] = d.split('-'); return `${+m}/${+dd}/${y.slice(2)}`; };
+
+  const ev = calls.filter(c => EVAL.has(c.v));
+  const trig = ev.filter(c => TRIG.has(c.v));
+  const entered = ev.filter(c => c.pnl != null);
+  const count = v => ev.filter(c => c.v === v).length;
+  const nT = count('target-hit'), nS = count('stopped'), nN = count('triggered-no-target'), nX = count('not-triggered');
+  const pnls = entered.map(c => c.pnl);
+  const wins = pnls.filter(x => x > 0).length;
+  const dates = calls.map(c => c.d).sort();
+  const first = dates[0], last = dates[dates.length - 1];
+
+  // one row per pick for "did he pick movers"
+  const pickMap = new Map();
+  for (const c of calls) { const k = c.vid + '|' + c.k + '|' + c.rk + '|' + (c.sym || c.sp); if (!pickMap.has(k)) pickMap.set(k, c); }
+  const picks = [...pickMap.values()].filter(c => c.sym && c.hiP != null);
+  const topN = picks.filter(c => c.top === true).length;
+  const medHi = median(picks.map(c => c.hiP)), medCl = median(picks.filter(c => c.clP != null).map(c => c.clP));
+  const closeUp = picks.filter(c => c.clP > 0).length;
+
+  $('eyebrow').textContent = `Momentum. (@trade.momentum) · TOP 3 STOCKS shorts · ${fmtDate(first)} to ${fmtDate(last)}`;
+  $('lede').innerHTML =
+    `I checked <b>${ev.length.toLocaleString()} trade setups</b> from ${new Set(ev.map(c => c.vid)).size} of his videos.` +
+    `Price reached his entry level on <b>${pct(trig.length, ev.length)}</b> of them. Once it did, it hit his first target before his stop ` +
+    `<b>${pct(nT, trig.length)}</b> of the time and hit the stop first <b>${pct(nS, trig.length)}</b> of the time. ` +
+    `Following every plan exactly as stated averaged <b class="${cls(mean(pnls))}">${sgn(mean(pnls), 1)}</b> per trade before fees and slippage ` +
+    `(median ${sgn(median(pnls), 1)}), and ${pct(wins, pnls.length)} of trades made money. His stock picks themselves were real movers: ` +
+    `the median pick ran <b>${sgn(medHi, 0)}</b> above the prior close at its high that day.`;
+
+  const kpi = (v, l) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  $('kpis').innerHTML =
+    kpi(ev.length.toLocaleString(), 'setups checked') +
+    kpi(pct(trig.length, ev.length), 'reached his entry') +
+    kpi(`<span class="pos">${pct(nT, trig.length)}</span>`, 'hit target before stop') +
+    kpi(`<span class="neg">${pct(nS, trig.length)}</span>`, 'hit stop first') +
+    kpi(`<span class="${cls(mean(pnls))}">${sgn(mean(pnls), 1)}</span>`, 'average per plan, before costs');
+
+  // outcome bar
+  const parts = [['target-hit', nT, 'c-win'], ['triggered-no-target', nN, 'c-mid'], ['stopped', nS, 'c-loss'], ['not-triggered', nX, 'c-none']];
+  $('outcomeBar').innerHTML = parts.map(([v, n, c]) => `<div class="${c}" style="width:${100 * n / ev.length}%" title="${VERD[v][0]}: ${n}">${n / ev.length > 0.07 ? pct(n, ev.length) : ''}</div>`).join('');
+  $('outcomeBar').setAttribute('aria-label', parts.map(([v, n]) => `${VERD[v][0]} ${pct(n, ev.length)}`).join(', '));
+  $('outcomeLegend').innerHTML = parts.map(([v, n, c]) => `<span><i class="${c}"></i>${VERD[v][0]} <span class="num">${n.toLocaleString()} (${pct(n, ev.length)})</span></span>`).join('');
+
+  // movers panel + histogram of day close
+  const bins = [[-Infinity, -20, '< -20%'], [-20, -10, '-20 to -10'], [-10, 0, '-10 to 0'], [0, 10, '0 to +10'], [10, 25, '+10 to +25'], [25, 50, '+25 to +50'], [50, Infinity, '> +50%']];
+  const hist = (vals) => bins.map(([a, b, l]) => [l, vals.filter(x => x >= a && x < b).length, a]);
+  function histSvg(rows, total, label) {
+    const W = 460, H = 150, pad = 26, bw = (W - 10) / rows.length, mx = Math.max(...rows.map(r => r[1]), 1);
+    let s = `<svg viewBox="0 0 ${W} ${H + pad + 14}" width="100%" role="img" aria-label="${esc(label)}">`;
+    rows.forEach(([l, n, a], i) => {
+      const h = (H - 16) * n / mx, x = 5 + i * bw, y = H - h;
+      s += `<rect x="${x + 4}" y="${y}" width="${bw - 8}" height="${h}" rx="2" fill="var(--${a < 0 ? 'loss' : 'win'})" opacity=".85"></rect>`;
+      s += `<text x="${x + bw / 2}" y="${y - 4}" text-anchor="middle">${pct(n, total)}</text>`;
+      s += `<text x="${x + bw / 2}" y="${H + 16}" text-anchor="middle">${l}</text>`;
+    });
+    return s + `<line x1="5" x2="${W - 5}" y1="${H}" y2="${H}" stroke="var(--line)"></line></svg>`;
+  }
+  const clVals = picks.filter(c => c.clP != null).map(c => c.clP);
+  $('moverPanel').innerHTML =
+    `<h3>His picks on the day</h3>` +
+    `<dl class="facts"><dt>Picks with a ticker and bars</dt><dd>${picks.length.toLocaleString()}</dd>` +
+    `<dt>Top-20 gainer that day</dt><dd>${pct(topN, picks.length)}</dd>` +
+    `<dt>Median high vs prior close</dt><dd class="${cls(medHi)}">${sgn(medHi, 1)}</dd>` +
+    `<dt>Median close vs prior close</dt><dd class="${cls(medCl)}">${sgn(medCl, 1)}</dd>` +
+    `<dt>Closed green</dt><dd>${pct(closeUp, clVals.length)}</dd></dl>` +
+    `<p class="muted">Where his picks closed the day, versus the prior close:</p>` + histSvg(hist(clVals), clVals.length, 'Distribution of pick close vs prior close');
+
+  const runs = trig.filter(c => c.run != null).map(c => c.run), dds = trig.filter(c => c.dd != null).map(c => c.dd);
+  const exitBy = r => entered.filter(c => c.xr === r).length;
+  $('pnlPanel').innerHTML =
+    `<h3>After price reached his entry</h3>` +
+    `<dl class="facts"><dt>Plans entered</dt><dd>${entered.length.toLocaleString()}</dd>` +
+    `<dt>Median best run after entry</dt><dd class="pos">${sgn(median(runs), 1)}</dd>` +
+    `<dt>Median worst drop after entry</dt><dd class="neg">${sgn(median(dds), 1)}</dd>` +
+    `<dt>Exits: target / stop / 3:55 PM</dt><dd>${exitBy('target')} / ${exitBy('stop')} / ${exitBy('time')}</dd>` +
+    `<dt>Winning trades</dt><dd>${pct(wins, pnls.length)}</dd>` +
+    `<dt>Average / median result</dt><dd><span class="${cls(mean(pnls))}">${sgn(mean(pnls), 1)}</span> / <span class="${cls(median(pnls))}">${sgn(median(pnls), 1)}</span></dd></dl>` +
+    `<p class="muted">Result of each plan followed exactly:</p>` + histSvg(hist(pnls), pnls.length, 'Distribution of plan results');
+
+  // months
+  const months = [...new Set(calls.map(c => c.d.slice(0, 7)))].sort();
+  const byMonth = months.map(m => {
+    const e = ev.filter(c => c.d.startsWith(m)), t = e.filter(c => TRIG.has(c.v)), p = e.filter(c => c.pnl != null).map(c => c.pnl);
+    return { m, n: t.length, w: t.filter(c => c.v === 'target-hit').length, s: t.filter(c => c.v === 'stopped').length, x: t.filter(c => c.v === 'triggered-no-target').length, pnl: mean(p), np: p.length };
+  });
+  const mlab = m => { const [y, mo] = m.split('-'); return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+mo - 1] + (mo === '01' || m === months[0] ? ' ' + y.slice(2) : ''); };
+  const bw = 26, L = 40, W = Math.max(600, L + months.length * bw + 10);
+  (function () {
+    const H = 170; let s = '';
+    for (const g of [0, 50, 100]) { const y = 10 + (H - 10) * (1 - g / 100); s += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"></line><text x="${L - 6}" y="${y + 4}" text-anchor="end">${g}%</text>`; }
+    byMonth.forEach((r, i) => {
+      const x = L + i * bw + 3, w = bw - 6; let y = H;
+      if (!r.n) return;
+      for (const [k, col] of [['w', 'win'], ['x', 'mid'], ['s', 'loss']]) {
+        const h = (H - 10) * r[k] / r.n; y -= h;
+        s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="var(--${col})"><title>${r.m}: ${k === 'w' ? 'target' : k === 's' ? 'stop' : 'neither'} ${r[k]}/${r.n}</title></rect>`;
+      }
+      if (i % 3 === 0 || i === months.length - 1) s += `<text x="${x + w / 2}" y="${H + 16}" text-anchor="middle">${mlab(r.m)}</text>`;
+    });
+    $('monthStack').setAttribute('viewBox', `0 0 ${W} ${H + 24}`); $('monthStack').setAttribute('width', W); $('monthStack').innerHTML = s;
+  })();
+  (function () {
+    const H = 150, vals = byMonth.filter(r => r.pnl != null).map(r => r.pnl), mx = Math.max(4, ...vals.map(Math.abs)), lim = Math.ceil(mx / 2) * 2;
+    const y = v => 10 + (H - 10) * (lim - v) / (2 * lim); let s = '';
+    for (const g of [-lim, -lim / 2, 0, lim / 2, lim]) s += `<line x1="${L}" x2="${W}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" ${g === 0 ? '' : 'stroke-dasharray="2 3"'}></line><text x="${L - 6}" y="${y(g) + 4}" text-anchor="end">${g > 0 ? '+' : ''}${g}%</text>`;
+    byMonth.forEach((r, i) => {
+      if (r.pnl == null) return;
+      const x = L + i * bw + 3, w = bw - 6, y0 = y(0), y1 = y(r.pnl);
+      s += `<rect x="${x}" y="${Math.min(y0, y1)}" width="${w}" height="${Math.max(1, Math.abs(y1 - y0))}" fill="var(--${r.pnl >= 0 ? 'win' : 'loss'})"><title>${r.m}: ${sgn(r.pnl, 1)} over ${r.np} plans</title></rect>`;
+      if (i % 3 === 0 || i === months.length - 1) s += `<text x="${x + w / 2}" y="${H + 16}" text-anchor="middle">${mlab(r.m)}</text>`;
+    });
+    $('monthPnl').setAttribute('viewBox', `0 0 ${W} ${H + 24}`); $('monthPnl').setAttribute('width', W); $('monthPnl').innerHTML = s;
+  })();
+
+  // breakdown tables
+  function statRow(label, set) {
+    const e = set.filter(c => EVAL.has(c.v)), t = e.filter(c => TRIG.has(c.v)), p = e.filter(c => c.pnl != null).map(c => c.pnl), m = mean(p);
+    return `<tr><td>${label}</td><td class="n">${e.length}</td><td class="n">${pct(t.length, e.length)}</td><td class="n pos">${pct(t.filter(c => c.v === 'target-hit').length, t.length)}</td><td class="n neg">${pct(t.filter(c => c.v === 'stopped').length, t.length)}</td><td class="n ${cls(m)}">${sgn(m, 1)}</td></tr>`;
+  }
+  const thead = first => `<thead><tr><th>${first}</th><th class="n">Setups</th><th class="n">Entry hit</th><th class="n">Target first</th><th class="n">Stop first</th><th class="n">Avg result</th></tr></thead>`;
+  $('rankTable').innerHTML = thead('Call') + '<tbody>' +
+    statRow('Evening watchlist', calls.filter(c => c.k === 'wl')) + statRow('Morning update', calls.filter(c => c.k === 'am')) +
+    [1, 2, 3].map(r => statRow(`Pick #${r}`, calls.filter(c => c.rk === r))).join('') + '</tbody>';
+  const tagCount = new Map();
+  for (const c of ev) for (const t of c.tags || []) tagCount.set(t, (tagCount.get(t) || 0) + 1);
+  const tags = [...tagCount.entries()].filter(([, n]) => n >= 20).sort((a, b) => b[1] - a[1]).slice(0, 14);
+  $('tagTable').innerHTML = thead('Setup') + '<tbody>' + tags.map(([t]) => statRow(esc(t.replace(/-/g, ' ')), calls.filter(c => (c.tags || []).includes(t)))).join('') + '</tbody>';
+
+  // brags
+  const bChecked = brags.filter(b => b.v === 'brag-accurate' || b.v === 'brag-exaggerated');
+  const bOk = bChecked.filter(b => b.v === 'brag-accurate').length;
+  const over = bChecked.filter(b => b.cp != null && b.ah != null).map(b => ({ ...b, gap: b.cp - b.ah })).sort((a, b) => b.gap - a.gap);
+  $('bragSummary').innerHTML = `<h3>Checked claims</h3>` +
+    `<div class="stack"><div class="c-win" style="width:${100 * bOk / bChecked.length}%">${pct(bOk, bChecked.length)}</div><div class="c-loss" style="width:${100 - 100 * bOk / bChecked.length}%">${pct(bChecked.length - bOk, bChecked.length)}</div></div>` +
+    `<div class="legend"><span><i class="c-win"></i>Accurate ${bOk}</span><span><i class="c-loss"></i>Overstated ${bChecked.length - bOk}</span></div>` +
+    `<dl class="facts"><dt>Claims checked</dt><dd>${bChecked.length}</dd><dt>Median move he claimed</dt><dd>${sgn(median(over.map(b => b.cp)), 0)}</dd>` +
+    `<dt>Median actual move to the high</dt><dd>${sgn(median(over.map(b => b.ah)), 0)}</dd></dl>` +
+    `<p class="muted">A claim counts as accurate when the stock's real move over the window he named (prior close to the highest high, or low to high) reaches what he said.</p>`;
+  $('bragTable').innerHTML = `<thead><tr><th>Date</th><th>Ticker</th><th class="n">Claimed</th><th class="n">Actual high</th></tr></thead><tbody>` +
+    over.filter(b => b.v === 'brag-exaggerated').slice(0, 12).map(b => `<tr><td class="data">${fmtDate(b.d)}</td><td class="data"><b>${esc(b.sym || b.sp || '?')}</b></td><td class="n">${sgn(b.cp, 0)}</td><td class="n ${cls(b.ah)}">${sgn(b.ah, 0)}</td></tr>`).join('') + '</tbody>';
+
+  // explorer
+  const vOpts = [['', 'All outcomes'], ...Object.entries(VERD).map(([k, [l]]) => [k, l])];
+  $('fVerdict').innerHTML = vOpts.map(([k, l]) => `<option value="${k}">${l}</option>`).join('');
+  const years = [...new Set(calls.map(c => c.d.slice(0, 4)))].sort().reverse();
+  $('fYear').innerHTML = `<option value="">All years</option>` + years.map(y => `<option>${y}</option>`).join('');
+  let shown = 50, list = [];
+
+  function ladder(c) {
+    const lv = [];
+    const add = (p, label, col, dash, strong) => { if (p != null && p > 0) lv.push({ p, label, col, dash, strong }); };
+    add(c.pc, 'Prior close', 'none', true);
+    add(c.pmh, 'Premarket high', 'none', true);
+    add(c.op, '9:30 open', 'none', true);
+    add(c.hi, 'Day high', 'ink', false, true);
+    add(c.cl, 'Close', 'ink', false, true);
+    add(c.tr, 'His entry' + (c.trT ? ' (hit ' + c.trT + ')' : ' (not hit)'), 'accent', false, true);
+    (c.tg || []).forEach((t, i) => add(t.p, `Target ${i + 1}` + (t.t ? ' (hit ' + t.t + ')' : ''), t.t ? 'win' : 'mid', !t.t, true));
+    add(c.st, 'Stop', 'loss', false, true);
+    if (lv.length < 2) return '<p class="muted">Not enough price levels to draw.</p>';
+    let lo = Math.min(...lv.map(l => l.p)), hi = Math.max(...lv.map(l => l.p));
+    if (hi / lo > 30) { lv.splice(0, lv.length, ...lv.filter(l => l.p >= hi / 30)); lo = Math.min(...lv.map(l => l.p)); }
+    const pad = (hi - lo) * 0.08 || hi * 0.05; lo -= pad; hi += pad;
+    const H = 260, W = 420, x0 = 70, x1 = 200;
+    const y = p => 10 + (H - 20) * (hi - p) / (hi - lo);
+    lv.sort((a, b) => b.p - a.p);
+    let lastY = -99; const ys = lv.map(l => { let yy = Math.max(y(l.p), lastY + 14); lastY = yy; return yy; });
+    const over = lastY - (H - 6); if (over > 0) for (let i = 0; i < ys.length; i++) ys[i] -= over * (i + 1) / ys.length;
+    let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="His levels against the day's real prices">`;
+    if (c.pc != null && c.hi != null) s += `<rect x="${x0}" y="${y(c.hi)}" width="${x1 - x0}" height="${Math.max(1, y(Math.min(c.pc, c.op ?? c.pc, c.cl ?? c.pc)) - y(c.hi))}" fill="var(--soft)"></rect>`;
+    lv.forEach((l, i) => {
+      const col = l.col === 'ink' ? 'var(--ink)' : `var(--${l.col})`;
+      s += `<line x1="${x0}" x2="${x1}" y1="${y(l.p)}" y2="${y(l.p)}" stroke="${col}" stroke-width="${l.strong ? 2 : 1}" ${l.dash ? 'stroke-dasharray="4 3"' : ''}></line>`;
+      s += `<line x1="${x1}" x2="${x1 + 12}" y1="${y(l.p)}" y2="${ys[i]}" stroke="var(--line)"></line>`;
+      s += `<text x="${x0 - 6}" y="${y(l.p) + 4}" text-anchor="end">${price(l.p)}</text>`;
+      s += `<text x="${x1 + 16}" y="${ys[i] + 4}" style="fill:${col}">${esc(l.label)}</text>`;
+    });
+    return s + '</svg>';
+  }
+
+  function detail(c) {
+    const tg = (c.tg || []).map(t => price(t.p) + (t.t ? ` hit ${t.t}` : '')).join(', ') || '-';
+    return `<div class="detail"><div style="display:grid;gap:12px;align-content:start;min-width:0">` +
+      (c.q ? `<div class="quote">"${esc(c.q)}"</div>` : '') +
+      `<dl class="facts">` +
+      (c.nm ? `<dt>Setup</dt><dd>${esc(c.nm)}</dd>` : '') +
+      `<dt>His entry</dt><dd>${price(c.tr)}${c.trT ? ' reached ' + c.trT + ' ET' : ' never reached'}</dd>` +
+      `<dt>His targets</dt><dd>${tg}</dd>` +
+      `<dt>Stop</dt><dd>${price(c.st)}${c.stS && c.stS !== 'stated' ? ' (assumed: ' + esc(c.stS.replace('default-', '')) + ')' : ''}</dd>` +
+      (c.en != null ? `<dt>Plan trade</dt><dd>in ${price(c.en)} ${c.enT || ''}, out ${price(c.ex)} ${c.exT || ''} (${esc(c.xr || '')}) <span class="${cls(c.pnl)}">${sgn(c.pnl, 1)}</span></dd>` : '') +
+      `<dt>Day</dt><dd>prior close ${price(c.pc)}, high ${price(c.hi)} (${sgn(c.hiP, 0)}), close ${price(c.cl)} (${sgn(c.clP, 0)})</dd>` +
+      (c.gr ? `<dt>Gainer rank</dt><dd>#${c.gr} by high that day</dd>` : '') +
+      (c.n ? `<dt>Note</dt><dd>${esc(c.n)}</dd>` : '') +
+      `</dl><a href="https://www.youtube.com/shorts/${encodeURIComponent(c.vid)}" target="_blank" rel="noopener">Watch the video</a></div>` +
+      `<div style="min-width:0">${ladder(c)}</div></div>`;
+  }
+
+  function render() {
+    const q = $('fSym').value.trim().toUpperCase(), fv = $('fVerdict').value, fk = $('fKind').value, fy = $('fYear').value, so = $('fSort').value;
+    list = calls.filter(c => (!q || (c.sym || '').includes(q) || (c.sp || '').toUpperCase().includes(q)) && (!fv || c.v === fv) && (!fk || c.k === fk) && (!fy || c.d.startsWith(fy)));
+    const key = { 'pnl-': c => -(c.pnl ?? -1e9), 'pnl+': c => (c.pnl ?? 1e9), hi: c => -(c.hiP ?? -1e9) }[so];
+    if (key) list.sort((a, b) => key(a) - key(b));
+    $('callCount').textContent = `${list.length.toLocaleString()} setups match. Click one to see his levels next to what the stock did.`;
+    $('calls').innerHTML = list.slice(0, shown).map((c, i) => {
+      const [vl, vc] = VERD[c.v] || [c.v, 'none'];
+      return `<div class="call" data-i="${i}"><div class="row" tabindex="0" role="button" aria-expanded="false">` +
+        `<span class="data muted">${fmtDate(c.d)}</span><span class="sym">${esc(c.sym || c.sp || '?')}</span>` +
+        `<span class="what">${c.k === 'am' ? 'Morning update' : 'Watchlist'} #${c.rk ?? '-'} · ${esc(c.nm || (c.tags || []).join(', '))}</span>` +
+        `<span class="data d-only ${cls(c.pnl)}">${c.pnl != null ? sgn(c.pnl, 1) : ''}</span><span class="pill p-${c.v}">${vl}</span></div></div>`;
+    }).join('');
+    $('more').hidden = list.length <= shown;
+  }
+  function toggle(row) {
+    const card = row.parentElement, open = card.querySelector('.detail');
+    if (open) { open.remove(); row.setAttribute('aria-expanded', 'false'); return; }
+    card.insertAdjacentHTML('beforeend', detail(list[+card.dataset.i])); row.setAttribute('aria-expanded', 'true');
+  }
+  $('calls').addEventListener('click', e => { const r = e.target.closest('.row'); if (r) toggle(r); });
+  $('calls').addEventListener('keydown', e => { const r = e.target.closest('.row'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(r); } });
+  for (const id of ['fSym', 'fVerdict', 'fKind', 'fYear', 'fSort']) $(id).addEventListener('input', () => { shown = 50; render(); });
+  $('more').addEventListener('click', () => { shown += 50; render(); });
+  render();
+
+  const unv = calls.filter(c => c.v === 'unverifiable').length;
+  $('method').innerHTML = [
+    `Source: ${DATA.videos.length} "TOP 3 STOCKS" evening watchlists and morning updates from the Momentum. YouTube shorts channel (titles starting with TOP or carrying a date). ${DATA.transcripts.withText} were transcribed locally with Whisper (small.en) from the audio, since YouTube blocked bulk caption requests.`,
+    `An LLM (Claude Haiku) turned each transcript into picks, setups, levels and claims. Spoken tickers ("P A R A") were matched to real symbols that moved that day; spoken levels ("335 over three") were scaled against the prior close.`,
+    `Each setup was replayed on Alpaca SIP 1-minute bars, 4:00 AM to 8:00 PM ET. A setup "reached entry" when price traded through his trigger level. "Target before stop" means his first target printed before a close under his stop. When he gave no stop, the confirm level, trigger level or VWAP stood in, as labeled on each call.`,
+    `Plan result buys at his entry (after his confirm level when he required one) and sells at the first target, the stop, or 3:55 PM ET. No commissions, fees or slippage, which would make every number worse. Gapper fills near the open are often far worse than the printed level.`,
+    `${unv} setups could not be checked (no price level, unresolved ticker or missing bars) and are left out of every rate. Times are Eastern. Generated ${esc(DATA.generatedEt)} from the IdiotProof claim tracker (IP-T493).`
+  ].map(t => `<li>${t}</li>`).join('');
+})();
+</script>
