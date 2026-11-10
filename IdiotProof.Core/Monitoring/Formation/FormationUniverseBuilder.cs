@@ -27,6 +27,8 @@ public sealed class FormationUniverseBuilder(
 
     internal Func<string, string, int, Task<List<(string Symbol, double Percent, double Price)>>> FetchMovers { get; init; } = StrategyScanner.FetchMoversAsync;
     internal Func<string, string, int, Task<List<string>>> FetchMostActives { get; init; } = StrategyScanner.FetchMostActivesAsync;
+    /// <summary>Alpaca's tradable-symbol set (null = unavailable, filter nothing). A test seam.</summary>
+    internal Func<string, string, CancellationToken, Task<HashSet<string>?>> FetchTradable { get; init; } = AlpacaTradableAssets.GetAsync;
 
     public async Task<FormationUniverseResult> BuildAsync(Guid owner, DateTime nowUtc, FormationConfig cfg, CancellationToken ct)
     {
@@ -60,6 +62,25 @@ public sealed class FormationUniverseBuilder(
             try { mostActives = (await FetchMostActives(k.AlpacaApiKeyId, k.AlpacaApiSecretKey, ScreenTop)).Select(s => new ScreenerHit(s)).ToList(); }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex) { notes.Add($"most-actives screen failed: {ex.Message}"); log.LogWarning(ex, "Formation universe: most-actives screen failed."); }
+        }
+
+        // Drop every name Alpaca will not trade before the cap is applied (IP-T495): movers, most-actives and catalyst
+        // symbols arrive from screens that list Alpaca-blocked Nasdaq names (OMH, HOLO, ...) too.
+        if (!string.IsNullOrWhiteSpace(k.AlpacaApiKeyId) && !string.IsNullOrWhiteSpace(k.AlpacaApiSecretKey))
+        {
+            var tradable = await FetchTradable(k.AlpacaApiKeyId, k.AlpacaApiSecretKey, ct);
+            if (tradable is null) notes.Add("Alpaca tradable list unavailable: not filtered");
+            else
+            {
+                var dropped = new SortedSet<string>(StringComparer.Ordinal);
+                bool Keep(string s) { if (tradable.Contains(s.Trim())) return true; dropped.Add(s.Trim().ToUpperInvariant()); return false; }
+                tracked = tracked.Where(t => Keep(t.Symbol)).ToList();
+                catalysts = catalysts.Where(c => Keep(c.Symbol)).ToList();
+                movers = movers.Where(m => Keep(m.Symbol)).ToList();
+                mostActives = mostActives.Where(m => Keep(m.Symbol)).ToList();
+                notes.Add(dropped.Count == 0 ? "all candidates Alpaca-tradable"
+                    : $"{dropped.Count} not tradable on Alpaca dropped ({string.Join(",", dropped.Take(10))}{(dropped.Count > 10 ? ",..." : "")})");
+            }
         }
 
         var members = FormationUniverse.Build(tracked, catalysts, movers, mostActives, cfg);

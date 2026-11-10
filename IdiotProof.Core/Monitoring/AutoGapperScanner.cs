@@ -49,6 +49,10 @@ public sealed class AutoGapperScanner(
     internal Func<string, string, int, Task<List<(string Symbol, double Percent, double Price)>>> FetchMovers { get; init; }
         = StrategyScanner.FetchMoversAsync;
 
+    /// <summary>Alpaca's tradable-symbol set (null = unavailable, filter nothing). A test seam.</summary>
+    internal Func<string, string, CancellationToken, Task<HashSet<string>?>> FetchTradable { get; init; }
+        = AlpacaTradableAssets.GetAsync;
+
     /// <summary>Time-of-day volume profile for the screen's volume ratio; none ships yet, so the ratio stays cumVol / ADV.</summary>
     internal TimeOfDayProfile? TimeOfDayProfile { get; init; }
 
@@ -84,7 +88,14 @@ public sealed class AutoGapperScanner(
         try { movers = await FetchMovers(k.AlpacaApiKeyId!, k.AlpacaApiSecretKey!, 50); }
         catch (Exception ex) { return new ScanSummary(0, 0, 0, 0, $"movers screen failed: {ex.Message}"); }
 
+        // Alpaca lists blocked Nasdaq names (OMH, HOLO, ...) among the movers; never plan or arm one (IP-T495).
+        var tradable = await FetchTradable(k.AlpacaApiKeyId!, k.AlpacaApiSecretKey!, ct);
+        var blocked = tradable is null ? new List<string>() : movers.Where(m => !tradable.Contains(m.Symbol.Trim())).Select(m => m.Symbol.ToUpperInvariant()).Distinct().ToList();
+        if (blocked.Count > 0)
+            logger.LogInformation("Auto-gapper: {Count} mover(s) not tradable on Alpaca skipped: {Symbols}.", blocked.Count, string.Join(",", blocked));
+
         var qualified = movers
+            .Where(m => !blocked.Contains(m.Symbol.ToUpperInvariant()))
             .Where(m => m.Percent >= settings.AutoGapperMinGapPercent && m.Price >= settings.AutoGapperMinPrice)
             .Select(m => m.Symbol)
             .Distinct(StringComparer.OrdinalIgnoreCase)

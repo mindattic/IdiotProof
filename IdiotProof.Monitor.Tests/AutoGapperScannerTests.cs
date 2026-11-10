@@ -76,6 +76,10 @@ public sealed class AutoGapperScannerTests
     }
 
     private AutoGapperScanner Scanner(params (string Symbol, double Percent, double Price)[] movers) =>
+        ScannerWithTradable(null, movers);
+
+    /// <summary>A scanner whose Alpaca tradable set is <paramref name="tradable"/> (null = unavailable, no filter; never the network).</summary>
+    private AutoGapperScanner ScannerWithTradable(HashSet<string>? tradable, params (string Symbol, double Percent, double Price)[] movers) =>
         new(strategies, feed, new UserBrokerResolver(keys, router, NullLogger<UserBrokerResolver>.Instance), keys,
             new AuditLogRepository(db, NullLogger<AuditLogRepository>.Instance), db, settings, NullLogger<AutoGapperScanner>.Instance)
         {
@@ -84,6 +88,7 @@ public sealed class AutoGapperScannerTests
                 moverCalls++;
                 return Task.FromResult(movers.ToList());
             },
+            FetchTradable = (_, _, _) => Task.FromResult(tradable),
         };
 
     private async Task<List<AutoGapperCandidate>> CandidatesAsync()
@@ -108,6 +113,32 @@ public sealed class AutoGapperScannerTests
     {
         await using var c = await db.CreateDbContextAsync();
         return await c.AuditLogs.AsNoTracking().Where(a => a.Category == category).ToListAsync();
+    }
+
+    // ── Alpaca tradability (IP-T495) ────────────────────────────────────────────
+
+    [Test]
+    public async Task MoverAlpacaWillNotTrade_IsNeverPlanned()
+    {
+        // OMH-style: a +300% Nasdaq mover Alpaca marks tradable:false; only AAA is tradable.
+        var scanner = ScannerWithTradable(new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "AAA" }, ("OMH", 300, 25), ("AAA", 30, 10));
+        await scanner.RunScanAsync(user, dryRun: false, "auto", CancellationToken.None);
+
+        var screened = (await CandidatesAsync()).Select(c => c.Symbol).ToList();
+        Assert.That(screened, Does.Not.Contain("OMH"));
+    }
+
+    [Test]
+    public void AlpacaTradableAssets_Parse_KeepsOnlyActiveTradable()
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse("""
+            [{"symbol":"aaa","status":"active","tradable":true},
+             {"symbol":"OMH","status":"active","tradable":false},
+             {"symbol":"OLD","status":"inactive","tradable":true},
+             {"symbol":"BBB","status":"active","tradable":true}]
+            """);
+        var set = AlpacaTradableAssets.Parse(doc.RootElement);
+        Assert.That(set.OrderBy(x => x), Is.EqualTo(new[] { "AAA", "BBB" }));
     }
 
     // ── Guards ──────────────────────────────────────────────────────────────────

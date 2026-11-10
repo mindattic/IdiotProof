@@ -51,13 +51,13 @@ public sealed class TickerUniverseService(
         await RefreshAsync(ct);
     }
 
-    /// <summary>Returns every tracked ticker currently cached.</summary>
+    /// <summary>Returns every tracked ticker Alpaca still trades (rows a refresh marked untradable are left out).</summary>
     public async Task<List<TrackedTicker>> GetUniverseAsync(CancellationToken ct = default)
     {
         try
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
-            return await db.TrackedTickers.ToListAsync(ct);
+            return await db.TrackedTickers.Where(t => t.IsTradable).ToListAsync(ct);
         }
         catch (Exception ex)
         {
@@ -139,7 +139,8 @@ public sealed class TickerUniverseService(
             foreach (var item in doc.RootElement.EnumerateArray())
             {
                 var exchange = Str(item, "exchange");
-                if (exchange != "NASDAQ" && exchange != "NYSE") continue;
+                // NYSE American (AMEX) holds ~10% of recent small-cap runners (IP-T494/T495).
+                if (exchange != "NASDAQ" && exchange != "NYSE" && exchange != "AMEX") continue;
 
                 var tradable = item.TryGetProperty("tradable", out var t) && t.ValueKind == JsonValueKind.True;
                 if (!tradable) continue;
@@ -184,6 +185,16 @@ public sealed class TickerUniverseService(
                 if (touched % SaveChunkSize == 0)
                     await db.SaveChangesAsync(ct);
             }
+
+            // A name Alpaca stopped trading (blocked, delisted, moved to OTC) is absent from the tradable list: mark it so
+            // instead of leaving the stale IsTradable = true from an earlier refresh (IP-T495).
+            var live = assets.Select(a => a.Symbol).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in existing.Values)
+                if (row.IsTradable && !live.Contains(row.Symbol))
+                {
+                    row.IsTradable = false;
+                    row.LastRefreshedUtc = now;
+                }
 
             await db.SaveChangesAsync(ct);
         }
