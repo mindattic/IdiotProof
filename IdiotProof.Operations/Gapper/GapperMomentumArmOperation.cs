@@ -20,6 +20,9 @@ public sealed record GapperMomentumArmArgs
 
     [Option("dry-run", Description = "Show the picks, premarket highs and scripts without saving anything (any time, any session).")]
     public bool DryRun { get; init; }
+
+    [Option("expire", Description = "Only deactivate every active Momentum pick strategy that holds no position (run after the close); arms nothing.")]
+    public bool Expire { get; init; }
 }
 
 /// <summary>
@@ -36,6 +39,23 @@ public sealed class GapperMomentumArmOperation : IOperation<GapperMomentumArmArg
     public const string TitlePrefix = "Momentum pick";
     private static readonly TimeSpan PremarketStart = new(4, 0, 0), ArmAt = new(9, 29, 0), Open = new(9, 30, 0);
 
+    /// <summary>
+    /// Deactivates every active, flat Momentum pick strategy (a held position keeps its strategy so its exits run),
+    /// except, when <paramref name="keepCreatedOn"/> is set, the ones created that ET day. Returns their symbols.
+    /// </summary>
+    private static async Task<List<string>> ExpireAsync(OperationContext ctx, Guid owner, DateOnly? keepCreatedOn)
+    {
+        var repo = ctx.Get<StrategyRepository>();
+        var stale = (await repo.GetAllForUserAsync(owner, ctx.CancellationToken))
+            .Where(s => s.IsActive && s.PositionQty == 0 && s.Title.StartsWith(TitlePrefix, StringComparison.Ordinal)
+                        && (keepCreatedOn is not { } keep || DateOnly.FromDateTime(EasternClock.ToEastern(s.CreatedUtc)) != keep))
+            .ToList();
+        var done = new List<string>();
+        foreach (var s in stale)
+            if ((await StrategyActivateOperation.SetActiveAsync(ctx, s, false)).IsOk) done.Add(s.Symbol);
+        return done;
+    }
+
     public static string Script(string symbol, decimal pmHigh) =>
         $"Stock.Ticker(\"{symbol}\").Name(\"{TitlePrefix} {symbol} PM-high break\").Session(TradingSession.RTH).RequireEntryWindow(\"09:30\", \"15:30\")" +
         $".Breakout({pmHigh.ToString(CultureInfo.InvariantCulture)}).While().IsAboveVwap().EndWhile().ExitWhenFalse()" +
@@ -47,6 +67,18 @@ public sealed class GapperMomentumArmOperation : IOperation<GapperMomentumArmArg
         var nowEt = EasternClock.ToEastern(ctx.UtcNow);
         var today = DateOnly.FromDateTime(nowEt);
         var d = args.Date ?? today;
+
+        // A strategy armed for one session must not carry into the next: its entry window is a time of day, so
+        // yesterday's premarket-high break would fire again on a stale level. --expire (scheduled after the close)
+        // and every arming run first deactivate the flat Momentum pick strategies.
+        if (args.Expire || !args.DryRun)
+        {
+            var expired = await ExpireAsync(ctx, owner, keepCreatedOn: args.Expire ? null : today);
+            if (args.Expire)
+                return OperationResult.Ok(new { Expired = expired }, expired.Count == 0
+                    ? "No active Momentum pick strategy to expire."
+                    : $"Expired {expired.Count} flat Momentum pick strateg{(expired.Count == 1 ? "y" : "ies")}: {string.Join(", ", expired)}.");
+        }
         if (!args.DryRun && (d != today || nowEt.TimeOfDay < ArmAt))
             return OperationResult.Usage($"Strategies are saved only for today at or after 09:29 ET, once the premarket high is known (now {nowEt:yyyy-MM-dd HH:mm} ET). Use --dry-run to look.");
         // Run daily by MindAttic.Scheduler (which also catches up a missed run late): a non-trading day, or a run

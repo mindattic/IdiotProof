@@ -47,7 +47,10 @@ public sealed record HubCallResult(HubCallKind Kind, HubOperationResponse? Respo
 /// </summary>
 public sealed class HubClient : IDisposable
 {
-    public static readonly TimeSpan DefaultHealthTimeout = TimeSpan.FromSeconds(3);
+    // A Hub that is down refuses the connection at once, so this only bounds a Hub that is up but busy. At 3 s a
+    // busy Hub (a long research scan or radar run) was reported "not running" and scheduled jobs silently missed
+    // it (IP-T520); 15 s rides that out.
+    public static readonly TimeSpan DefaultHealthTimeout = TimeSpan.FromSeconds(15);
     public static readonly TimeSpan DefaultSlowNotice = TimeSpan.FromSeconds(8);
     public static readonly TimeSpan DefaultCallTimeout = TimeSpan.FromHours(2);
 

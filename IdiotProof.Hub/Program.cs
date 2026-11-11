@@ -48,6 +48,12 @@ System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalizat
 System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
 System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
 
+// A thread-pool floor (IP-T520): long research operations (scan, radar, study stages) can hold pool threads,
+// and with the default floor the pool grows slowly enough that even /api/health took ~9 s, so the CLI
+// reported the Hub "not running" and scheduled jobs missed it.
+ThreadPool.GetMinThreads(out var minWorkers, out var minIo);
+ThreadPool.SetMinThreads(Math.Max(minWorkers, 64), Math.Max(minIo, 64));
+
 // LAMP (IP-T347): `--write-settings-manifest` imports today's app-settings.json into MindAttic Vault, writes the
 // manifest Vault.Desktop reads, and exits (run.ps1 calls it after a deploy; moved here from the web app, IP-T504).
 if (args.Contains(MindAttic.Vault.Settings.Manifest.SettingsManifestCommand.Switch, StringComparer.OrdinalIgnoreCase))
