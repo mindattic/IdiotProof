@@ -64,4 +64,49 @@ public static class TradingSchedule
 
         return TradingWindow.Active;
     }
+
+    // ── Database online window (IP-T542) ─────────────────────────────────────
+    // The extended session itself, without the Monitor's 5-minute buffers above: premarket opens 4:00 AM ET and
+    // after-hours ends 8:00 PM ET (5:00 PM on an early-close day).
+
+    /// <summary>Premarket open, ET.</summary>
+    public static readonly TimeSpan PremarketOpen = new(4, 0, 0);
+
+    /// <summary>End of after-hours trading on a normal day, ET.</summary>
+    public static readonly TimeSpan AfterHoursClose = new(20, 0, 0);
+
+    /// <summary>End of the extended session on an early-close day (RTH ends 1 PM), ET.</summary>
+    public static readonly TimeSpan EarlyCloseAfterHoursClose = new(17, 0, 0);
+
+    /// <summary>True on a weekday that is not a full market holiday (same calendar as <see cref="Classify"/>).</summary>
+    public static bool IsTradingDay(DateOnly etDay) =>
+        etDay.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday) && !MarketTime.IsMarketHoliday(etDay);
+
+    /// <summary>When the extended session ends on <paramref name="etDay"/>, ET: 8 PM, or 5 PM on an early-close day.</summary>
+    public static TimeSpan SessionClose(DateOnly etDay) =>
+        MarketTime.IsEarlyCloseDay(etDay) ? EarlyCloseAfterHoursClose : AfterHoursClose;
+
+    /// <summary>
+    /// The hours of <paramref name="etDay"/> during which a pay-per-use (serverless) database must be awake, as ET
+    /// times of day: premarket open minus <paramref name="lead"/> to the session close plus <paramref name="tail"/>
+    /// (start inclusive, end exclusive). With 30 minutes each: 03:30-20:30 ET, 03:30-17:30 on an early-close day.
+    /// Null on a weekend or a market holiday. A negative lead or tail counts as zero and the window never leaves
+    /// its own ET day.
+    /// </summary>
+    public static (TimeSpan Start, TimeSpan End)? DatabaseOnlineWindow(DateOnly etDay, TimeSpan lead, TimeSpan tail)
+    {
+        if (!IsTradingDay(etDay)) return null;
+        var start = PremarketOpen - (lead > TimeSpan.Zero ? lead : TimeSpan.Zero);
+        var end = SessionClose(etDay) + (tail > TimeSpan.Zero ? tail : TimeSpan.Zero);
+        if (start < TimeSpan.Zero) start = TimeSpan.Zero;
+        if (end > TimeSpan.FromDays(1)) end = TimeSpan.FromDays(1);
+        return (start, end);
+    }
+
+    /// <summary>True when <paramref name="utcNow"/> falls inside <see cref="DatabaseOnlineWindow"/> of its ET day.</summary>
+    public static bool IsDatabaseOnline(DateTime utcNow, TimeSpan lead, TimeSpan tail)
+    {
+        var et = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcNow, DateTimeKind.Utc), MarketTime.Eastern);
+        return DatabaseOnlineWindow(DateOnly.FromDateTime(et), lead, tail) is { } w && et.TimeOfDay >= w.Start && et.TimeOfDay < w.End;
+    }
 }

@@ -61,7 +61,8 @@ public sealed class MonitorWorker(
     ILogger<MonitorWorker> logger,
     TimeProvider? clock = null,
     IdiotProof.Core.Evidence.IHistoricalBarStore? barStore = null,
-    IdiotProof.Core.Monitoring.Formation.IGapperSnapshotSink? snapshotSink = null) : BackgroundService
+    IdiotProof.Core.Monitoring.Formation.IGapperSnapshotSink? snapshotSink = null,
+    IdiotProof.Core.History.HistoryWakeKeeper? historyWake = null) : BackgroundService
 {
     /// <summary>Streamed bars waiting for a tick; the formation recorder subscribes symbols no strategy holds, so the queue is capped.</summary>
     private const int MaxQueuedBars = 20_000;
@@ -364,6 +365,12 @@ public sealed class MonitorWorker(
     /// <summary>One full evaluation pass.</summary>
     private async Task TickAsync(CancellationToken ct)
     {
+        // History database wake and keep-alive (IP-T542): Azure SQL serverless only, a no-op on a local server.
+        // First in the tick, so it runs under the leader lease at every hour (the window opens at 03:30 ET, while
+        // the Monitor still hibernates) and when paused. It only starts a background open; it never waits for the
+        // database and never throws into the tick.
+        if (historyWake is not null) await historyWake.TickAsync(ct);
+
         // ── Pause gate (IP-T80) ─────────────────────────────────────────────
         // `idiotproof monitor pause` sets a SettingsKv flag; honored here, before anything else, so
         // a paused Monitor runs no scan, no entry and no exit. The loop, heartbeat and lease stay up.

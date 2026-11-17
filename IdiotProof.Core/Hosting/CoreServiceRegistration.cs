@@ -110,6 +110,11 @@ public static class CoreServiceRegistration
 
         services.AddScoped<IdiotProof.Core.History.HistoryReadThrough>();
 
+        // IP-T542: the hours the history database is kept awake when it is serverless on Azure SQL Database.
+        services.AddSingleton(sp => new IdiotProof.Core.History.HistoryOnlineWindow(
+            sp.GetRequiredService<IdiotProof.Core.History.HistoryDatabase>(), sp.GetRequiredService<IdiotProof.Core.Services.SettingsRepository>(),
+            sp.GetService<TimeProvider>() ?? TimeProvider.System));
+
         // IP-T447: the study's validated detector (watch-only 08:00 alert), the history-backed reverse-split and filing
         // inputs for the formation recorder, and the alert's paper-shadow report. Registered here, not with the Monitor,
         // so the status and shadow reads work on any Hub.

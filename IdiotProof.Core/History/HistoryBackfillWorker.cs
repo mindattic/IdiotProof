@@ -15,6 +15,11 @@ namespace IdiotProof.Core.History;
 /// <see cref="NightlyEt"/> it queues the last session for every held symbol and runs the market-wide splits and EDGAR
 /// filings pass, and between those it runs
 /// queued jobs one at a time. Writes only to the history database; never trades.
+/// <para>
+/// When the history database is on Azure SQL Database (IP-T542) all of it happens only inside the database's
+/// online window (<see cref="HistoryOnlineWindow"/>): the worker stays off the database outside it, and the
+/// nightly pass moves from <see cref="NightlyEt"/> to shortly after the session close, inside the window's tail.
+/// </para>
 /// </summary>
 public sealed class HistoryBackfillWorker(
     MonitorRuntimeState monitor,
@@ -52,10 +57,18 @@ public sealed class HistoryBackfillWorker(
         using var scope = scopes.CreateScope();
         var settings = scope.ServiceProvider.GetRequiredService<SettingsRepository>();
         if (!await EnabledAsync(settings, ct)) return;
+        var now = time.GetUtcNow().UtcDateTime;
+
+        // IP-T542: on Azure SQL Database the history database is serverless and sleeps outside its online window
+        // (trading days, 03:30-20:30 ET by default), so nothing here may query it then. Null on a local server,
+        // where every line below runs at any hour exactly as before.
+        var azure = scope.ServiceProvider.GetService<HistoryOnlineWindow>() is { IsAzure: true } window ? window : null;
+        var online = azure is null ? null : await azure.ReadAsync(ct);
+        if (online is not null && !online.IsOnline(now)) return;
+
         var history = scope.ServiceProvider.GetRequiredService<HistoryDatabase>();
         await history.EnsureSchemaAsync(ct);
         var backfill = scope.ServiceProvider.GetRequiredService<HistoryBackfillService>();
-        var now = time.GetUtcNow().UtcDateTime;
 
         if (!requeued)
         {
@@ -69,7 +82,9 @@ public sealed class HistoryBackfillWorker(
         }
         var et = TimeZoneInfo.ConvertTimeFromUtc(now, MarketTime.Eastern);
         var todayEt = DateOnly.FromDateTime(et);
-        if (TimeOnly.FromDateTime(et) >= NightlyEt && lastNightly != todayEt)
+        // On Azure the nightly pass runs inside the window's tail (session close + history.backfill.nightlyAfterCloseMinutes).
+        var nightlyEt = online is { Enforced: true } ? online.NightlyEt(todayEt) : NightlyEt;
+        if (TimeOnly.FromDateTime(et) >= nightlyEt && lastNightly != todayEt)
         {
             var n = await backfill.QueueNightlyTopUpAsync(ct);
             lastNightly = todayEt;
@@ -78,7 +93,9 @@ public sealed class HistoryBackfillWorker(
         }
 
         // Run jobs until the queue is empty or the switch goes off; each job is resumable.
-        while (!ct.IsCancellationRequested && await EnabledAsync(settings, ct) && await backfill.ClaimAsync(ct) is { } job)
+        // On Azure the queue also stops at the end of the online window; what is left is picked up at the next window.
+        while (!ct.IsCancellationRequested && await EnabledAsync(settings, ct) && (azure is null || await azure.IsOpenAsync(ct))
+               && await backfill.ClaimAsync(ct) is { } job)
         {
             var r = await backfill.RunAsync(job, ct);
             log.LogInformation("History backfill {Symbol} ({Reason}): {Daily} daily, {Minute} minute bars over {Months} months, {News} news, {Splits} splits, {Filings} filings{Error}.",

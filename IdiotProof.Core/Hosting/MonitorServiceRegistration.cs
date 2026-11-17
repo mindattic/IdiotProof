@@ -35,6 +35,11 @@ public static class MonitorServiceRegistration
             sp.GetRequiredService<IdiotProof.Core.Services.SettingsRepository>(), sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<IMonitorLeaseProbe, SqlMonitorLeaseProbe>();
 
+        // Wakes the history database at the start of its online window and keeps it from auto-pausing until the
+        // window ends (IP-T542); driven by the Monitor's tick, so leader-only. Does nothing unless that database is
+        // on Azure SQL Database.
+        services.AddSingleton<IdiotProof.Core.History.HistoryWakeKeeper>();
+
         services.AddHostedService<MonitorWorker>();
 
         // Texts the owner (SMTP, not SQL) when the Monitor stops evaluating (IP-T359).

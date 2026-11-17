@@ -26,6 +26,9 @@ public sealed record GapperRadarArgs
 
     [Option("save", Description = @"Also write the rendered list to <dir>\radar-<session>.txt.")]
     public bool Save { get; init; }
+
+    [Option(IdiotProof.Operations.History.HistoryOnlineGuard.OptionName, Description = IdiotProof.Operations.History.HistoryOnlineGuard.OptionDescription)]
+    public bool WakeDatabase { get; init; }
 }
 
 [Operation("gapper radar", Summary = "Stocks that could gap up next session, ranked by the evening-before signs the gapper study measured (recent +100% day, top-10 mover today, dollar volume 5x, halts, reverse-split timing, price, catalyst type, Momentum. picks), each with its reasons and warnings; Alpaca-untradable names excluded. Places no orders; --watchlist sets an Alpaca paper watchlist, --save writes the list to a file.", Risk = OperationRisk.Write)]
@@ -38,6 +41,8 @@ public sealed class GapperRadarOperation : IOperation<GapperRadarArgs>
     {
         if (args.Top is < 1 or > 300) return OperationResult.Usage("--top must be 1-300.");
         var owner = ctx.RequireOwner();
+        // The catalyst headlines are read through the history database (IP-T542).
+        if (await IdiotProof.Operations.History.HistoryOnlineGuard.SkipAsync(ctx, args.WakeDatabase, "gapper radar") is { } skipped) return skipped;
         var run = await ctx.Get<GapperRadarService>().RunAsync(owner, args.Date, args.Dir, ctx.CancellationToken);
         var shown = run.Rows.Where(r => args.All || !r.Score.Excluded).Take(args.Top).ToList();
         var excluded = run.Rows.Count(r => r.Score.Excluded);

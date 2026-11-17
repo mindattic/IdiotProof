@@ -15,6 +15,9 @@ public sealed record ResearchScanArgs
 
     [Option("days-back", Description = "Lookback per source in days, 1-30 (default 2, or IDIOTPROOF_RESEARCHSCAN_DAYSBACK).")]
     public int? DaysBack { get; init; }
+
+    [Option(IdiotProof.Operations.History.HistoryOnlineGuard.OptionName, Description = IdiotProof.Operations.History.HistoryOnlineGuard.OptionDescription)]
+    public bool WakeDatabase { get; init; }
 }
 
 /// <summary>
@@ -41,6 +44,9 @@ public sealed class ResearchScanOperation : IOperation<ResearchScanArgs>
             .ToList();
         if (tickers.Any(t => t.Length > 20 || !t.All(c => char.IsLetterOrDigit(c) || c is '.' or '-')))
             return OperationResult.Usage("--tickers takes symbols like NVDA,BRK.B.");
+
+        // Every pass reads and writes held news and filings in the history database (IP-T542).
+        if (await IdiotProof.Operations.History.HistoryOnlineGuard.SkipAsync(ctx, args.WakeDatabase, "research scan") is { } skipped) return skipped;
 
         // The caller's own Claude key when there is one; the host key otherwise.
         string? claudeKey = null;

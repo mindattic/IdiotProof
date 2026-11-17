@@ -185,6 +185,19 @@ public static class SqlConnect
 
     private static bool LooksLikeAzure(string server) => server.Contains(".database.", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Whether the connection string's server is an Azure SQL Database host (<c>*.database.windows.net</c> and the
+    /// other clouds' <c>.database.</c> names), told from the name alone. Unlike <see cref="IsAzureSqlDatabaseAsync"/>
+    /// it opens nothing, so asking never wakes a paused serverless database. False for a local server, LocalDB and
+    /// an unreadable connection string.
+    /// </summary>
+    public static bool LooksLikeAzureSqlDatabase(string? connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString)) return false;
+        try { return LooksLikeAzure(new SqlConnectionStringBuilder(connectionString).DataSource); }
+        catch (ArgumentException) { return false; }
+    }
+
     private static string NotProvisioned(string purpose, string database, string server, string reason) =>
         $"The {purpose} database '{database}' cannot be opened on {server} ({reason.ReplaceLineEndings(" ")}). " +
         "IdiotProof does not create databases on Azure SQL Database: provision it first (create the database at the service tier you want " +
