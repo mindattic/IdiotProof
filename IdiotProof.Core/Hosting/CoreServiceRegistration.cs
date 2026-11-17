@@ -101,7 +101,9 @@ public static class CoreServiceRegistration
             sp.GetRequiredService<IdiotProof.Core.History.HistoryDatabase>(), sp.GetRequiredService<IdiotProof.DataFeeds.IMarketDataFeed>(),
             sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), sp.GetService<TimeProvider>() ?? TimeProvider.System,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<IdiotProof.Core.History.HistoryBackfillService>>(),
-            sp.GetService<IdiotProof.DataFeeds.ISplitSource>(), sp.GetService<IdiotProof.Core.Services.AlpacaNewsService>()));
+            sp.GetService<IdiotProof.DataFeeds.ISplitSource>(), sp.GetService<IdiotProof.Core.Services.AlpacaNewsService>(),
+            sp.GetService<IdiotProof.Core.Catalysts.EdgarTickerMap>(), sp.GetService<IdiotProof.Core.Catalysts.EdgarSubmissions>(),
+            sp.GetService<IHttpClientFactory>(), sp.GetService<IdiotProof.Core.Catalysts.EdgarRateGate>()));
 
         // ── Engine: storage, AppSettings overlay chain, workspaces, audit logger ──
         // The SQL workspace store is registered first so the engine's TryAdd keeps it.
@@ -192,6 +194,7 @@ public static class CoreServiceRegistration
         services.AddSingleton<IdiotProof.Core.Catalysts.CatalystIntakeState>();
         services.AddSingleton<IdiotProof.Core.Catalysts.EdgarRateGate>();
         services.AddSingleton<IdiotProof.Core.Catalysts.EdgarTickerMap>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.EdgarSubmissions>();
         services.AddSingleton<IdiotProof.Core.Catalysts.EdgarFilingHeaders>();
         services.AddSingleton<IdiotProof.Core.Catalysts.EdgarLatestFilingsPoller>();
         services.AddSingleton<IdiotProof.Core.Catalysts.CatalystClassifier>();

@@ -115,7 +115,7 @@
 | [`gapper radar`](#gapper-radar) | Write | Stocks that could gap up next session, ranked by the evening-before signs the gapper study measured (recent +100% day, top-10 mover today, dollar volume 5x, halts, reverse-split timing, price, catalyst type, Momentum. picks), each with its reasons and warnings; Alpaca-untradable names excluded. Places no orders; --watchlist sets an Alpaca paper watchlist, --save writes the list to a file. |
 | [`gapper radar-backtest`](#gapper-radar-backtest) | Write | Replay the gapper radar over past sessions point in time and write the rankings with each session's actual highs as JSON for scoring. Places no orders. |
 | [`gapper tune`](#gapper-tune) | Write | Dial a gapper profile in for one ticker and show the strategy GapperScriptFactory generates; --save stores it inactive. |
-| [`history backfill`](#history-backfill) | Write | Queue tickers for years of permanent history (daily and 1-minute extended-hours bars) and optionally run the queue here; days already held are never fetched again. |
+| [`history backfill`](#history-backfill) | Write | Queue tickers for years of permanent history (daily and 1-minute extended-hours bars, news, splits, EDGAR filings with Form 4) and optionally run the queue here; --reference runs the nightly market-wide splits and filings pass. Data already held is never fetched again. |
 | [`history import`](#history-import) | Write | Move data already downloaded into the permanent history database so it is never fetched again: the gapper study's research database and its 1-minute file store. Idempotent: rows already held are skipped. |
 | [`history status`](#history-status) | Read | The permanent market history database (IP-T454): its server and size, rows per table (minute bars, daily bars, splits, news, filings), symbols covered per kind, the newest coverage, and the backfill queue. |
 | [`hub install-service`](#hub-install-service) | Destructive | Install the Hub as a Windows service that runs as you (Monitor off unless --monitor). |
@@ -2233,13 +2233,14 @@ Examples:
 ```text
 Paper forward test (IP-T502): at 09:29 ET or later, save one 1-share Paper strategy per Momentum. pick for today: premarket-high break, +10% target, exit on VWAP loss, -10% backstop, out by 15:55. Saved inactive unless --activate; never Live.
 
-Usage: idiotproof gapper momentum-arm [--date <date>] [--activate] [--dry-run]
+Usage: idiotproof gapper momentum-arm [--date <date>] [--activate] [--dry-run] [--expire]
 Risk: write
 
 Parameters:
       --date <date>  The session, yyyy-MM-dd (default: today ET). Strategies are saved only for today, at or after 09:29 ET.
       --activate     Hand the new paper strategies to the Monitor (default: saved inactive). (default: false)
       --dry-run      Show the picks, premarket highs and scripts without saving anything (any time, any session). (default: false)
+      --expire       Only deactivate every active Momentum pick strategy that holds no position (run after the close); arms nothing. (default: false)
 
 Examples:
   idiotproof gapper momentum-arm --dry-run
@@ -2369,11 +2370,11 @@ Examples:
 ### history backfill
 
 ```text
-Queue tickers for years of permanent history (daily and 1-minute extended-hours bars) and optionally run the queue here; days already held are never fetched again.
+Queue tickers for years of permanent history (daily and 1-minute extended-hours bars, news, splits, EDGAR filings with Form 4) and optionally run the queue here; --reference runs the nightly market-wide splits and filings pass. Data already held is never fetched again.
 
 Writes the history database; reads market data from the configured feed, paced month by month. The Hub worker (history.backfill.enabled) drains the same queue.
 
-Usage: idiotproof history backfill [--symbols <string>] [--discover] [--years <int>] [--run <int>]
+Usage: idiotproof history backfill [--symbols <string>] [--discover] [--years <int>] [--run <int>] [--reference] [--days <int>]
 Risk: write
 
 Parameters:
@@ -2381,10 +2382,13 @@ Parameters:
       --discover          Queue every ticker the app has met (strategies, tracked tickers, gapper candidates) that is not yet held. (default: false)
       --years <int>       Years of history to hold (default 5). (default: 5)
       --run <int>         Also run queued jobs here, now, up to this many (default 0: leave them for the Hub worker). (default: 0)
+      --reference         Run the market-wide splits and EDGAR filings pass now (the Hub worker runs it nightly), catching up at most --days calendar days. (default: false)
+      --days <int>        With --reference: how many calendar days back the pass may catch up (default 10). (default: 10)
 
 Examples:
   idiotproof history backfill --symbols NVDA,TSLA --run 2
   idiotproof history backfill --discover
+  idiotproof history backfill --reference
 ```
 
 ### history import

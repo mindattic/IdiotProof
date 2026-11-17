@@ -4928,7 +4928,7 @@ Read-only. Times are US Eastern.
 
 Paper forward test (IP-T502): at 09:29 ET or later, save one 1-share Paper strategy per Momentum. pick for today: premarket-high break, +10% target, exit on VWAP loss, -10% backstop, out by 15:55. Saved inactive unless --activate; never Live.
 
-CLI equivalent: idiotproof gapper momentum-arm [--date <date>] [--activate] [--dry-run]
+CLI equivalent: idiotproof gapper momentum-arm [--date <date>] [--activate] [--dry-run] [--expire]
 Examples:
   idiotproof gapper momentum-arm --dry-run
   idiotproof gapper momentum-arm --activate
@@ -4954,6 +4954,11 @@ Changes saved state. Times are US Eastern.
     "dry_run": {
       "type": "boolean",
       "description": "Show the picks, premarket highs and scripts without saving anything (any time, any session).",
+      "default": false
+    },
+    "expire": {
+      "type": "boolean",
+      "description": "Only deactivate every active Momentum pick strategy that holds no position (run after the close); arms nothing.",
       "default": false
     }
   },
@@ -5245,14 +5250,15 @@ Changes saved state. Times are US Eastern.
 
 ## `history_backfill`
 
-Queue tickers for years of permanent history (daily and 1-minute extended-hours bars) and optionally run the queue here; days already held are never fetched again.
+Queue tickers for years of permanent history (daily and 1-minute extended-hours bars, news, splits, EDGAR filings with Form 4) and optionally run the queue here; --reference runs the nightly market-wide splits and filings pass. Data already held is never fetched again.
 
 Writes the history database; reads market data from the configured feed, paced month by month. The Hub worker (history.backfill.enabled) drains the same queue.
 
-CLI equivalent: idiotproof history backfill [--symbols <string>] [--discover] [--years <int>] [--run <int>]
+CLI equivalent: idiotproof history backfill [--symbols <string>] [--discover] [--years <int>] [--run <int>] [--reference] [--days <int>]
 Examples:
   idiotproof history backfill --symbols NVDA,TSLA --run 2
   idiotproof history backfill --discover
+  idiotproof history backfill --reference
 
 Changes saved state. Times are US Eastern.
 
@@ -5260,7 +5266,7 @@ Changes saved state. Times are US Eastern.
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "description": "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars) and optionally run the queue here; days already held are never fetched again.",
+  "description": "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars, news, splits, EDGAR filings with Form 4) and optionally run the queue here; --reference runs the nightly market-wide splits and filings pass. Data already held is never fetched again.",
   "properties": {
     "symbols": {
       "type": "string",
@@ -5280,6 +5286,16 @@ Changes saved state. Times are US Eastern.
       "type": "integer",
       "description": "Also run queued jobs here, now, up to this many (default 0: leave them for the Hub worker).",
       "default": 0
+    },
+    "reference": {
+      "type": "boolean",
+      "description": "Run the market-wide splits and EDGAR filings pass now (the Hub worker runs it nightly), catching up at most --days calendar days.",
+      "default": false
+    },
+    "days": {
+      "type": "integer",
+      "description": "With --reference: how many calendar days back the pass may catch up (default 10).",
+      "default": 10
     }
   },
   "additionalProperties": false

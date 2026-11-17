@@ -12,7 +12,8 @@ namespace IdiotProof.Core.History;
 /// Hub-hosted history keeper (IP-T454), in the shape of the other leader-only workers: idle unless
 /// SettingsKv <c>history.backfill.enabled</c> is "true" and this instance holds the Monitor leader
 /// lease. When on: every ten minutes it queues any newly met ticker for five years of history, after
-/// <see cref="NightlyEt"/> it queues the last session for every held symbol, and between those it runs
+/// <see cref="NightlyEt"/> it queues the last session for every held symbol and runs the market-wide splits and EDGAR
+/// filings pass, and between those it runs
 /// queued jobs one at a time. Writes only to the history database; never trades.
 /// </summary>
 public sealed class HistoryBackfillWorker(
@@ -73,14 +74,15 @@ public sealed class HistoryBackfillWorker(
             var n = await backfill.QueueNightlyTopUpAsync(ct);
             lastNightly = todayEt;
             log.LogInformation("History backfill: nightly top-up queued {Count} symbols.", n);
+            await backfill.TopUpReferenceAsync(ct: ct); // splits and EDGAR filings for the whole market since the last pass
         }
 
         // Run jobs until the queue is empty or the switch goes off; each job is resumable.
         while (!ct.IsCancellationRequested && await EnabledAsync(settings, ct) && await backfill.ClaimAsync(ct) is { } job)
         {
             var r = await backfill.RunAsync(job, ct);
-            log.LogInformation("History backfill {Symbol} ({Reason}): {Daily} daily, {Minute} minute bars over {Months} months{Error}.",
-                job.Symbol, job.Reason, r.DailyBars, r.MinuteBars, r.MonthsFetched, r.Error is null ? "" : "; failed: " + r.Error);
+            log.LogInformation("History backfill {Symbol} ({Reason}): {Daily} daily, {Minute} minute bars over {Months} months, {News} news, {Splits} splits, {Filings} filings{Error}.",
+                job.Symbol, job.Reason, r.DailyBars, r.MinuteBars, r.MonthsFetched, r.NewsItems, r.Splits, r.Filings, r.Error is null ? "" : "; failed: " + r.Error);
         }
     }
 }

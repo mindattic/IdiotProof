@@ -10524,7 +10524,7 @@
       "summary": "Paper forward test (IP-T502): at 09:29 ET or later, save one 1-share Paper strategy per Momentum. pick for today: premarket-high break, \u002B10% target, exit on VWAP loss, -10% backstop, out by 15:55. Saved inactive unless --activate; never Live.",
       "description": null,
       "risk": "write",
-      "usage": "idiotproof gapper momentum-arm [--date \u003Cdate\u003E] [--activate] [--dry-run]",
+      "usage": "idiotproof gapper momentum-arm [--date \u003Cdate\u003E] [--activate] [--dry-run] [--expire]",
       "parameters": [
         {
           "name": "date",
@@ -10561,6 +10561,18 @@
           "description": "Show the picks, premarket highs and scripts without saving anything (any time, any session).",
           "default": false,
           "enum_values": null
+        },
+        {
+          "name": "expire",
+          "json_name": "expire",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Only deactivate every active Momentum pick strategy that holds no position (run after the close); arms nothing.",
+          "default": false,
+          "enum_values": null
         }
       ],
       "examples": [
@@ -10591,6 +10603,11 @@
           "dry_run": {
             "type": "boolean",
             "description": "Show the picks, premarket highs and scripts without saving anything (any time, any session).",
+            "default": false
+          },
+          "expire": {
+            "type": "boolean",
+            "description": "Only deactivate every active Momentum pick strategy that holds no position (run after the close); arms nothing.",
             "default": false
           }
         },
@@ -11307,10 +11324,10 @@
       "noun": "history",
       "verb": "backfill",
       "tool_name": "history_backfill",
-      "summary": "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars) and optionally run the queue here; days already held are never fetched again.",
+      "summary": "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars, news, splits, EDGAR filings with Form 4) and optionally run the queue here; --reference runs the nightly market-wide splits and filings pass. Data already held is never fetched again.",
       "description": "Writes the history database; reads market data from the configured feed, paced month by month. The Hub worker (history.backfill.enabled) drains the same queue.",
       "risk": "write",
-      "usage": "idiotproof history backfill [--symbols \u003Cstring\u003E] [--discover] [--years \u003Cint\u003E] [--run \u003Cint\u003E]",
+      "usage": "idiotproof history backfill [--symbols \u003Cstring\u003E] [--discover] [--years \u003Cint\u003E] [--run \u003Cint\u003E] [--reference] [--days \u003Cint\u003E]",
       "parameters": [
         {
           "name": "symbols",
@@ -11359,6 +11376,30 @@
           "description": "Also run queued jobs here, now, up to this many (default 0: leave them for the Hub worker).",
           "default": 0,
           "enum_values": null
+        },
+        {
+          "name": "reference",
+          "json_name": "reference",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Run the market-wide splits and EDGAR filings pass now (the Hub worker runs it nightly), catching up at most --days calendar days.",
+          "default": false,
+          "enum_values": null
+        },
+        {
+          "name": "days",
+          "json_name": "days",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "int",
+          "required": false,
+          "description": "With --reference: how many calendar days back the pass may catch up (default 10).",
+          "default": 10,
+          "enum_values": null
         }
       ],
       "examples": [
@@ -11369,12 +11410,16 @@
         {
           "command_line": "idiotproof history backfill --discover",
           "description": null
+        },
+        {
+          "command_line": "idiotproof history backfill --reference",
+          "description": null
         }
       ],
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "description": "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars) and optionally run the queue here; days already held are never fetched again.",
+        "description": "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars, news, splits, EDGAR filings with Form 4) and optionally run the queue here; --reference runs the nightly market-wide splits and filings pass. Data already held is never fetched again.",
         "properties": {
           "symbols": {
             "type": "string",
@@ -11394,6 +11439,16 @@
             "type": "integer",
             "description": "Also run queued jobs here, now, up to this many (default 0: leave them for the Hub worker).",
             "default": 0
+          },
+          "reference": {
+            "type": "boolean",
+            "description": "Run the market-wide splits and EDGAR filings pass now (the Hub worker runs it nightly), catching up at most --days calendar days.",
+            "default": false
+          },
+          "days": {
+            "type": "integer",
+            "description": "With --reference: how many calendar days back the pass may catch up (default 10).",
+            "default": 10
           }
         },
         "additionalProperties": false

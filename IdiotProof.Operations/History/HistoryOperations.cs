@@ -101,17 +101,25 @@ public sealed record HistoryBackfillArgs
 
     [Option("run", Description = "Also run queued jobs here, now, up to this many (default 0: leave them for the Hub worker).")]
     public int Run { get; init; }
+
+    [Option("reference", Description = "Run the market-wide splits and EDGAR filings pass now (the Hub worker runs it nightly), catching up at most --days calendar days.")]
+    public bool Reference { get; init; }
+
+    [Option("days", Description = "With --reference: how many calendar days back the pass may catch up (default 10).")]
+    public int Days { get; init; } = 10;
 }
 
-[Operation("history backfill", Summary = "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars) and optionally run the queue here; days already held are never fetched again.", Risk = OperationRisk.Write,
+[Operation("history backfill", Summary = "Queue tickers for years of permanent history (daily and 1-minute extended-hours bars, news, splits, EDGAR filings with Form 4) and optionally run the queue here; --reference runs the nightly market-wide splits and filings pass. Data already held is never fetched again.", Risk = OperationRisk.Write,
     Description = "Writes the history database; reads market data from the configured feed, paced month by month. The Hub worker (history.backfill.enabled) drains the same queue.")]
 [Example("idiotproof history backfill --symbols NVDA,TSLA --run 2")]
 [Example("idiotproof history backfill --discover")]
+[Example("idiotproof history backfill --reference")]
 public sealed class HistoryBackfillOperation : IOperation<HistoryBackfillArgs>
 {
     public async Task<OperationResult> ExecuteAsync(HistoryBackfillArgs args, OperationContext ctx)
     {
-        if (string.IsNullOrWhiteSpace(args.Symbols) && !args.Discover) return OperationResult.Usage("Pass --symbols or --discover.");
+        if (string.IsNullOrWhiteSpace(args.Symbols) && !args.Discover && !args.Reference) return OperationResult.Usage("Pass --symbols, --discover or --reference.");
+        if (args.Days is < 1 or > 366) return OperationResult.Usage("--days must be 1-366.");
         var h = ctx.Get<HistoryDatabase>();
         await h.EnsureSchemaAsync(ctx.CancellationToken);
         var backfill = ctx.Get<HistoryBackfillService>();
@@ -119,12 +127,22 @@ public sealed class HistoryBackfillOperation : IOperation<HistoryBackfillArgs>
         if (!string.IsNullOrWhiteSpace(args.Symbols))
             queued.AddRange(await backfill.EnqueueAsync(args.Symbols.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), "requested", args.Years, ctx.CancellationToken));
         if (args.Discover) queued.AddRange(await backfill.DiscoverAsync(ctx.CancellationToken));
-        var lines = new List<string> { $"queued: {(queued.Count == 0 ? "none (already held or already queued)" : string.Join(", ", queued))}" };
+        var lines = new List<string>();
+        if (!string.IsNullOrWhiteSpace(args.Symbols) || args.Discover)
+            lines.Add($"queued: {(queued.Count == 0 ? "none (already held or already queued)" : string.Join(", ", queued))}");
         for (int i = 0; i < args.Run && await backfill.ClaimAsync(ctx.CancellationToken) is { } job; i++)
         {
             var r = await backfill.RunAsync(job, ctx.CancellationToken);
-            lines.Add($"{job.Symbol}: {r.DailyBars:N0} daily, {r.MinuteBars:N0} minute bars over {r.MonthsFetched} months{(r.Error is null ? "" : $" — failed: {r.Error}")}");
+            lines.Add($"{job.Symbol}: {r.DailyBars:N0} daily, {r.MinuteBars:N0} minute bars over {r.MonthsFetched} months, {r.NewsItems:N0} news, {r.Splits:N0} splits, {r.Filings:N0} filings{(r.Error is null ? "" : $" — failed: {r.Error}")}");
         }
-        return OperationResult.Ok(new { queued }, string.Join("\n", lines));
+        ReferenceTopUpResult? reference = null;
+        if (args.Reference)
+        {
+            reference = await backfill.TopUpReferenceAsync(args.Days, ctx.CancellationToken);
+            lines.Add($"reference: {reference.Splits:N0} new splits (through {reference.SplitsThrough?.ToString("yyyy-MM-dd") ?? "-"}), " +
+                      $"{reference.Filings:N0} new filings (through {reference.FilingsThrough?.ToString("yyyy-MM-dd") ?? "-"})");
+            lines.AddRange(reference.Notes.Select(n => "  note: " + n));
+        }
+        return OperationResult.Ok(new { queued, reference }, string.Join("\n", lines));
     }
 }

@@ -1,4 +1,5 @@
 using System.Data;
+using IdiotProof.Core.Catalysts;
 using IdiotProof.Core.Data;
 using IdiotProof.Core.Evidence;
 using IdiotProof.DataFeeds;
@@ -13,7 +14,10 @@ namespace IdiotProof.Core.History;
 
 public sealed record BackfillJob(long Id, string Symbol, string Reason, DateOnly FromEt, DateOnly ToEt, string Status);
 
-public sealed record BackfillRunResult(BackfillJob Job, int DailyBars, int MinuteBars, int MonthsFetched, string? Error, int NewsItems = 0);
+public sealed record BackfillRunResult(BackfillJob Job, int DailyBars, int MinuteBars, int MonthsFetched, string? Error, int NewsItems = 0, int Splits = 0, int Filings = 0);
+
+/// <summary>What one nightly market-wide reference pass stored: splits and EDGAR filings, and the days it covered.</summary>
+public sealed record ReferenceTopUpResult(int Splits, int Filings, DateOnly? SplitsThrough, DateOnly? FilingsThrough, IReadOnlyList<string> Notes);
 
 /// <summary>
 /// Keeps the permanent history complete (IP-T454). Every ticker the app has seen (a strategy, a
@@ -30,13 +34,23 @@ public sealed class HistoryBackfillService(
     TimeProvider time,
     ILogger<HistoryBackfillService> log,
     ISplitSource? splits = null,
-    IdiotProof.Core.Services.AlpacaNewsService? news = null)
+    IdiotProof.Core.Services.AlpacaNewsService? news = null,
+    IdiotProof.Core.Catalysts.EdgarTickerMap? edgarTickers = null,
+    IdiotProof.Core.Catalysts.EdgarSubmissions? edgarSubmissions = null,
+    IHttpClientFactory? httpFactory = null,
+    IdiotProof.Core.Catalysts.EdgarRateGate? edgarGate = null)
 {
     public const int Years = 5;
     public const string Pending = "pending";
     public const string Running = "running";
     public const string Done = "done";
     public const string Failed = "failed";
+
+    /// <summary>The CoverageRanges symbol for a market-wide pass (every listed symbol's splits or filings on those days).</summary>
+    public const string AllSymbols = "*";
+
+    /// <summary>A job this long or longer (a new ticker's backfill) also fetches its splits and filings; the nightly one-day jobs leave them to <see cref="TopUpReferenceAsync"/>.</summary>
+    public const int ReferenceMinDays = 31;
 
     /// <summary>Pause between monthly minute-bar requests.</summary>
     public TimeSpan MonthPause { get; init; } = TimeSpan.FromSeconds(2);
@@ -124,7 +138,7 @@ public sealed class HistoryBackfillService(
     public async Task<BackfillRunResult> RunAsync(BackfillJob job, CancellationToken ct)
     {
         var store = new HistoricalBarStore(new SqlHistoryBarCache(history), feed, time, splits: splits);
-        int daily = 0, minute = 0, months = 0, newsItems = 0;
+        int daily = 0, minute = 0, months = 0, newsItems = 0, splitRows = 0, filingRows = 0;
         string? error = null;
         try
         {
@@ -139,6 +153,11 @@ public sealed class HistoryBackfillService(
                 if (MonthPause > TimeSpan.Zero && job.FromEt != job.ToEt) await Task.Delay(MonthPause, time, ct).ConfigureAwait(false);
             }
             newsItems = await BackfillNewsAsync(job, ct).ConfigureAwait(false);
+            if (job.ToEt.DayNumber - job.FromEt.DayNumber >= ReferenceMinDays)
+            {
+                splitRows = await BackfillSplitsAsync(job, ct).ConfigureAwait(false);
+                filingRows = await BackfillFilingsAsync(job, ct).ConfigureAwait(false);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -146,7 +165,220 @@ public sealed class HistoryBackfillService(
             log.LogWarning(ex, "History backfill {Symbol} failed.", job.Symbol);
         }
         await FinishAsync(job.Id, error, ct).ConfigureAwait(false);
-        return new BackfillRunResult(job, daily, minute, months, error, newsItems);
+        return new BackfillRunResult(job, daily, minute, months, error, newsItems, splitRows, filingRows);
+    }
+
+    /// <summary>
+    /// Alpaca's splits for the symbol over the job's window, kept once by (symbol, ex-date), and the window marked
+    /// covered (no splits is an answer, so an empty window is marked too). A failed fetch throws before anything is
+    /// marked. Skipped without a real split source (Mock feed, no keys).
+    /// </summary>
+    private async Task<int> BackfillSplitsAsync(BackfillJob job, CancellationToken ct)
+    {
+        if (splits is null or NullSplitSource) return 0;
+        await using var c = await history.OpenAsync(ct).ConfigureAwait(false);
+        var held = await SqlHistoryBarCache.RangesAsync(c, null, job.Symbol, HistoryDatabase.Kinds.Splits, job.FromEt, job.ToEt, ct).ConfigureAwait(false);
+        if (held.Any(r => r.From <= job.FromEt && r.To >= job.ToEt)) return 0;
+        var got = await splits.GetSplitsAsync([job.Symbol], job.FromEt, job.ToEt, ct).ConfigureAwait(false);
+        var list = got.TryGetValue(job.Symbol, out var l) ? l : [];
+        await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var inserted = await InsertSplitsAsync(c, tx, list, ct).ConfigureAwait(false);
+        await SqlHistoryBarCache.AddRangeAsync(c, tx, job.Symbol, HistoryDatabase.Kinds.Splits, job.FromEt, job.ToEt, list.Count, time.GetUtcNow().UtcDateTime, "alpaca", ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return inserted;
+    }
+
+    /// <summary>
+    /// Every EDGAR filing (all forms: 8-K with its items, Form 4, S-1/424B, 10-Q, ...) of the symbol's issuer over the
+    /// job's window from the SEC submissions history, kept once by (symbol, filed date, accession), and the window
+    /// marked covered. A symbol the SEC's ticker list does not carry (most ETFs, some foreign listings) is marked
+    /// covered with nothing; an SEC outage marks nothing, so the next pass tries again.
+    /// </summary>
+    private async Task<int> BackfillFilingsAsync(BackfillJob job, CancellationToken ct)
+    {
+        if (edgarTickers is null || edgarSubmissions is null) return 0;
+        await using var c = await history.OpenAsync(ct).ConfigureAwait(false);
+        var held = await SqlHistoryBarCache.RangesAsync(c, null, job.Symbol, HistoryDatabase.Kinds.Filings, job.FromEt, job.ToEt, ct).ConfigureAwait(false);
+        if (held.Any(r => r.From <= job.FromEt && r.To >= job.ToEt)) return 0;
+        var cik = await edgarTickers.CikForTickerAsync(job.Symbol, ct).ConfigureAwait(false);
+        if (cik is null && edgarTickers.Count == 0) return 0; // the SEC ticker list itself is unavailable
+        List<SubmissionFiling> filings = [];
+        if (cik is not null)
+        {
+            if (await edgarSubmissions.GetAsync(cik, job.FromEt, job.ToEt, ct).ConfigureAwait(false) is not { } got) return 0;
+            filings = got;
+        }
+        await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var inserted = await InsertFilingsAsync(c, tx, filings.Select(f => (job.Symbol, cik ?? "", f)), ct).ConfigureAwait(false);
+        await SqlHistoryBarCache.AddRangeAsync(c, tx, job.Symbol, HistoryDatabase.Kinds.Filings, job.FromEt, job.ToEt, filings.Count, time.GetUtcNow().UtcDateTime,
+            cik is null ? "sec-submissions (no CIK)" : "sec-submissions", ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return inserted;
+    }
+
+    /// <summary>
+    /// The nightly market-wide reference pass: every split with an ex-date since the last pass (one Alpaca request for
+    /// the whole market, calendared splits a week ahead included), and every filing on each EDGAR business day since
+    /// the last pass, found through EDGAR's daily form index and read in full (items, acceptance time) from each listed
+    /// filer's submissions history. Covered days are recorded under symbol <see cref="AllSymbols"/>; at most
+    /// <paramref name="maxDays"/> calendar days are caught up.
+    /// </summary>
+    public async Task<ReferenceTopUpResult> TopUpReferenceAsync(int maxDays = 10, CancellationToken ct = default)
+    {
+        var notes = new List<string>();
+        var through = TodayEt.AddDays(-1);
+        int splitRows = 0, filingRows = 0;
+        DateOnly? splitsThrough = null, filingsThrough = null;
+        await using var c = await history.OpenAsync(ct).ConfigureAwait(false);
+        var now = time.GetUtcNow().UtcDateTime;
+
+        if (splits is AlpacaSplitSource alpaca)
+        {
+            var from = await NextUncoveredAsync(c, HistoryDatabase.Kinds.Splits, through, maxDays, ct).ConfigureAwait(false);
+            if (from <= through)
+            {
+                try
+                {
+                    var list = await alpaca.GetMarketSplitsAsync(from, through.AddDays(7), ct).ConfigureAwait(false);
+                    await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+                    splitRows = await InsertSplitsAsync(c, tx, list, ct).ConfigureAwait(false);
+                    await SqlHistoryBarCache.AddRangeAsync(c, tx, AllSymbols, HistoryDatabase.Kinds.Splits, from, through, list.Count, now, "alpaca market", ct).ConfigureAwait(false);
+                    await tx.CommitAsync(ct).ConfigureAwait(false);
+                    splitsThrough = through;
+                }
+                catch (Exception ex) when (!ct.IsCancellationRequested && ex is HttpRequestException or TaskCanceledException) { notes.Add("splits: " + ex.Message); }
+            }
+        }
+        else notes.Add("splits: no Alpaca split source");
+
+        // filings day by day, so a failed day stops the pass and the next night resumes there
+        if (edgarTickers is not null && edgarSubmissions is not null && httpFactory is not null && edgarGate is not null)
+        {
+            await edgarTickers.EnsureFreshAsync(ct).ConfigureAwait(false);
+            if (edgarTickers.Count == 0) notes.Add("filings: SEC ticker list unavailable");
+            else
+                for (var day = await NextUncoveredAsync(c, HistoryDatabase.Kinds.Filings, through, maxDays, ct).ConfigureAwait(false); day <= through; day = day.AddDays(1))
+                {
+                    if (await TopUpFilingsDayAsync(c, day, now, notes, ct).ConfigureAwait(false) is not { } n) break;
+                    filingRows += n;
+                    filingsThrough = day;
+                }
+        }
+        else notes.Add("filings: EDGAR clients not registered");
+        log.LogInformation("History reference top-up: {Splits} splits, {Filings} filings{Notes}.", splitRows, filingRows, notes.Count == 0 ? "" : "; " + string.Join("; ", notes));
+        return new(splitRows, filingRows, splitsThrough, filingsThrough, notes);
+    }
+
+    /// <summary>One EDGAR day: the daily form index, then each listed filer's filings of that day. Null when the SEC failed (nothing marked).</summary>
+    private async Task<int?> TopUpFilingsDayAsync(SqlConnection c, DateOnly day, DateTime now, List<string> notes, CancellationToken ct)
+    {
+        string? index = null;
+        if (day.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday))
+        {
+            try
+            {
+                var (status, body) = await edgarGate!.RunAsync(async x =>
+                {
+                    var http = httpFactory!.CreateClient("edgar");
+                    using var resp = await http.GetAsync(IdiotProof.Core.Research.Gappers.EdgarFormIndex.DailyUrl(day), x).ConfigureAwait(false);
+                    return (resp.StatusCode, resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync(x).ConfigureAwait(false) : null);
+                }, ct).ConfigureAwait(false);
+                // EDGAR answers a day it was closed (a federal holiday) with 403/404; any other failure is an outage
+                if (body is null && status is not (System.Net.HttpStatusCode.NotFound or System.Net.HttpStatusCode.Forbidden))
+                {
+                    notes.Add($"filings {day:yyyy-MM-dd}: EDGAR {(int)status}");
+                    return null;
+                }
+                index = body;
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested && ex is HttpRequestException or TaskCanceledException)
+            {
+                notes.Add($"filings {day:yyyy-MM-dd}: {ex.Message}");
+                return null;
+            }
+        }
+
+        var rows = new List<(string Symbol, string Cik, SubmissionFiling Filing)>();
+        if (index is not null)
+        {
+            var ciks = IdiotProof.Core.Research.Gappers.EdgarFormIndex.Parse(new StringReader(index))
+                .Select(e => IdiotProof.Core.Catalysts.EdgarTickerMap.Normalize(e.Cik)).Distinct().ToList();
+            foreach (var cik in ciks)
+            {
+                var tickers = await edgarTickers!.TickersForCikAsync(cik, ct).ConfigureAwait(false);
+                if (tickers.Count == 0) continue; // a fund, an insider, a private filer: no listed symbol
+                if (await edgarSubmissions!.GetAsync(cik, day, day, ct).ConfigureAwait(false) is not { } got)
+                {
+                    notes.Add($"filings {day:yyyy-MM-dd}: submissions for CIK {cik} unavailable");
+                    return null;
+                }
+                foreach (var t in tickers) foreach (var f in got) rows.Add((t, cik, f));
+            }
+        }
+        await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var inserted = await InsertFilingsAsync(c, tx, rows, ct).ConfigureAwait(false);
+        await SqlHistoryBarCache.AddRangeAsync(c, tx, AllSymbols, HistoryDatabase.Kinds.Filings, day, day, rows.Count, now,
+            index is null ? "sec daily index (closed)" : "sec daily index", ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return inserted;
+    }
+
+    /// <summary>The first day after the last market-wide coverage of <paramref name="kind"/>, no earlier than <paramref name="maxDays"/> days before <paramref name="through"/>.</summary>
+    private static async Task<DateOnly> NextUncoveredAsync(SqlConnection c, string kind, DateOnly through, int maxDays, CancellationToken ct)
+    {
+        await using var q = new SqlCommand("SELECT MAX(ToEt) FROM dbo.CoverageRanges WHERE Symbol = @s AND Kind = @k", c);
+        q.Parameters.Add("@s", SqlDbType.VarChar, 16).Value = AllSymbols;
+        q.Parameters.Add("@k", SqlDbType.VarChar, 16).Value = kind;
+        var floor = through.AddDays(1 - maxDays);
+        return await q.ExecuteScalarAsync(ct).ConfigureAwait(false) is DateTime last && DateOnly.FromDateTime(last).AddDays(1) > floor
+            ? DateOnly.FromDateTime(last).AddDays(1) : floor;
+    }
+
+    private static async Task<int> InsertSplitsAsync(SqlConnection c, SqlTransaction tx, IEnumerable<SplitEvent> list, CancellationToken ct)
+    {
+        var rows = new DataTable();
+        rows.Columns.Add("Symbol", typeof(string)); rows.Columns.Add("ExDate", typeof(DateTime)); rows.Columns.Add("OldRate", typeof(decimal)); rows.Columns.Add("NewRate", typeof(decimal));
+        foreach (var e in list.Where(e => e.Symbol.Length is > 0 and <= 16).DistinctBy(e => (e.Symbol.ToUpperInvariant(), e.ExDate)))
+            rows.Rows.Add(e.Symbol.ToUpperInvariant(), e.ExDate.ToDateTime(TimeOnly.MinValue), e.OldRate, e.NewRate);
+        if (rows.Rows.Count == 0) return 0;
+        await using (var create = new SqlCommand("CREATE TABLE #splits (Symbol varchar(16), ExDate date, OldRate decimal(19,6), NewRate decimal(19,6))", c, tx))
+            await create.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        await SqlHistoryBarCache.BulkAsync(c, tx, "#splits", rows, ct).ConfigureAwait(false);
+        await using var insert = new SqlCommand("""
+            INSERT dbo.Splits (Symbol, ExDate, OldRate, NewRate, Source)
+            SELECT s.Symbol, s.ExDate, s.OldRate, s.NewRate, 'alpaca' FROM #splits s
+            WHERE NOT EXISTS (SELECT 1 FROM dbo.Splits d WHERE d.Symbol = s.Symbol AND d.ExDate = s.ExDate);
+            DECLARE @n int = @@ROWCOUNT;
+            DROP TABLE #splits;
+            SELECT @n;
+            """, c, tx);
+        return Convert.ToInt32(await insert.ExecuteScalarAsync(ct).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static async Task<int> InsertFilingsAsync(SqlConnection c, SqlTransaction tx, IEnumerable<(string Symbol, string Cik, SubmissionFiling Filing)> list, CancellationToken ct)
+    {
+        var rows = new DataTable();
+        foreach (var (name, type) in new (string, Type)[] { ("AccessionNumber", typeof(string)), ("Symbol", typeof(string)), ("Cik", typeof(string)), ("FormType", typeof(string)), ("FiledDate", typeof(DateTime)), ("AcceptedUtc", typeof(DateTime)), ("ItemsJson", typeof(string)) })
+            rows.Columns.Add(name, type);
+        foreach (var (sym, cik, f) in list.Where(x => x.Symbol.Length is > 0 and <= 16 && x.Filing.AccessionNumber.Length <= 32).DistinctBy(x => (x.Symbol, x.Filing.FiledDate, x.Filing.AccessionNumber)))
+        {
+            var items = f.Items.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(f.Items);
+            rows.Rows.Add(f.AccessionNumber, sym, cik.Length == 0 ? DBNull.Value : cik.Length <= 16 ? cik : cik[..16], f.FormType.Length <= 24 ? f.FormType : f.FormType[..24],
+                f.FiledDate.ToDateTime(TimeOnly.MinValue), f.AcceptedUtc is { } a ? a : DBNull.Value, items is null ? DBNull.Value : items.Length <= 400 ? items : items[..400]);
+        }
+        if (rows.Rows.Count == 0) return 0;
+        await using (var create = new SqlCommand("CREATE TABLE #filings (AccessionNumber varchar(32), Symbol varchar(16), Cik varchar(16), FormType varchar(24), FiledDate date, AcceptedUtc datetime2(0), ItemsJson nvarchar(400))", c, tx))
+            await create.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        await SqlHistoryBarCache.BulkAsync(c, tx, "#filings", rows, ct).ConfigureAwait(false);
+        await using var insert = new SqlCommand("""
+            INSERT dbo.Filings (AccessionNumber, Symbol, Cik, FormType, FiledDate, AcceptedUtc, ItemsJson)
+            SELECT s.AccessionNumber, s.Symbol, s.Cik, s.FormType, s.FiledDate, s.AcceptedUtc, s.ItemsJson FROM #filings s
+            WHERE NOT EXISTS (SELECT 1 FROM dbo.Filings d WHERE d.Symbol = s.Symbol AND d.FiledDate = s.FiledDate AND d.AccessionNumber = s.AccessionNumber);
+            DECLARE @n int = @@ROWCOUNT;
+            DROP TABLE #filings;
+            SELECT @n;
+            """, c, tx);
+        return Convert.ToInt32(await insert.ExecuteScalarAsync(ct).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>

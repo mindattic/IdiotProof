@@ -11,7 +11,7 @@ public sealed record EdgarFormIndexEntry(string FormType, string CompanyName, st
 }
 
 /// <summary>
-/// Parses <c>https://www.sec.gov/Archives/edgar/full-index/{YYYY}/QTR{q}/form.idx</c>: a text
+/// Parses <c>https://www.sec.gov/Archives/edgar/full-index/{YYYY}/QTR{q}/form.idx</c> (and the daily-index form files, whose dates are yyyyMMdd): a text
 /// preamble, a dashed rule, then rows of Form Type, Company Name, CIK, Date Filed, File Name. The
 /// header's column edges do not match the body's (the body pads the form type wider), so a row is
 /// read from the right: file name, date and CIK are the last three tokens and the form type ends
@@ -20,10 +20,14 @@ public sealed record EdgarFormIndexEntry(string FormType, string CompanyName, st
 /// </summary>
 public static partial class EdgarFormIndex
 {
-    [GeneratedRegex(@"^(?<form>\S+(?: \S+)*?)\s{2,}(?<company>.*?)\s{2,}(?<cik>\d+)\s+(?<date>\d{4}-\d{2}-\d{2})\s+(?<file>\S+)\s*$")]
+    [GeneratedRegex(@"^(?<form>\S+(?: \S+)*?)\s{2,}(?<company>.*?)\s{2,}(?<cik>\d+)\s+(?<date>\d{4}-\d{2}-\d{2}|\d{8})\s+(?<file>\S+)\s*$")]
     private static partial Regex RowPattern();
 
     public static string Url(int year, int quarter) => $"https://www.sec.gov/Archives/edgar/full-index/{year}/QTR{quarter}/form.idx";
+
+    /// <summary>One day's <c>form.idx</c> (same layout, dates as yyyyMMdd); 404 on a day EDGAR was closed.</summary>
+    public static string DailyUrl(DateOnly day) =>
+        $"https://www.sec.gov/Archives/edgar/daily-index/{day.Year}/QTR{(day.Month - 1) / 3 + 1}/form.{day:yyyyMMdd}.idx";
 
     /// <summary>(year, quarter) for every calendar quarter touching [from, to], ascending.</summary>
     public static List<(int Year, int Quarter)> Quarters(DateOnly from, DateOnly to)
@@ -50,7 +54,7 @@ public static partial class EdgarFormIndex
             if (!m.Success) continue;
             var form = m.Groups["form"].Value;
             if (forms is not null && !forms.Contains(form)) continue;
-            if (!DateOnly.TryParseExact(m.Groups["date"].Value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var filed)) continue;
+            if (!DateOnly.TryParseExact(m.Groups["date"].Value, ["yyyy-MM-dd", "yyyyMMdd"], CultureInfo.InvariantCulture, DateTimeStyles.None, out var filed)) continue;
             yield return new EdgarFormIndexEntry(form, m.Groups["company"].Value.Trim(), m.Groups["cik"].Value, filed, m.Groups["file"].Value);
         }
     }

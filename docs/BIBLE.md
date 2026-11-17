@@ -504,11 +504,17 @@ and `CoverageRanges` record what was fetched, empty days included. The schema is
 history database first and the app database's own cache second whenever the history server does not
 answer (`IDIOTPROOF_HISTORY_STORE=app` opts out). `HistoryBackfillService` queues every ticker the app
 meets (strategies, tracked tickers, gapper candidates) for five years of daily and 1-minute
-extended-hours bars plus its news, runs jobs one at a time month by month through the same
-read-through store, and queues the last session nightly for every held symbol; the Hub's
-`HistoryBackfillWorker` runs it when `history.backfill.enabled` is true (leader-only). Ops:
+extended-hours bars plus its news, its Alpaca splits and every EDGAR filing of its issuer (all
+forms, Form 4 included, with 8-K items and the true UTC acceptance time, from the SEC submissions
+history via `EdgarSubmissions`), runs jobs one at a time month by month through the same
+read-through store, and queues the last session nightly for every held symbol. The same nightly
+step runs a market-wide reference pass (`TopUpReferenceAsync`): one Alpaca request for every split
+since the last pass (calendared ones a week ahead included) and, per EDGAR business day, the daily
+form index read into each listed filer's submissions, recorded as coverage under symbol `*`; it
+catches up at most ten days and stops at a failed day so the next night resumes there. The Hub's
+`HistoryBackfillWorker` runs all of it when `history.backfill.enabled` is true (leader-only). Ops:
 `history status`, `history import --research --minutes --app-cache`, `history backfill
---symbols|--discover [--run N]`. Backups: IP-T449.
+--symbols|--discover [--run N] | --reference [--days N]`. Backups: IP-T449.
 
 **How to research a feature.** [`docs/RESEARCH_PLAYBOOK.md`](RESEARCH_PLAYBOOK.md) records this
 study's method as the template for any feature that rests on a market claim: survey, pre-register,

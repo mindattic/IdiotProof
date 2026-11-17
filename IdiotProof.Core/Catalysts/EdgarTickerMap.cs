@@ -16,6 +16,7 @@ public sealed class EdgarTickerMap(IHttpClientFactory httpFactory, EdgarRateGate
 
     private readonly SemaphoreSlim refresh = new(1, 1);
     private Dictionary<string, string> byCik = new();
+    private Dictionary<string, string> byTicker = new(StringComparer.Ordinal);
     private DateTime loadedUtc;
 
     public int Count => byCik.Count;
@@ -26,6 +27,42 @@ public sealed class EdgarTickerMap(IHttpClientFactory httpFactory, EdgarRateGate
     {
         await EnsureFreshAsync(ct);
         return byCik.TryGetValue(Normalize(cik), out var t) ? t : null;
+    }
+
+    /// <summary>Every ticker of a CIK (all share classes, SEC dashes as dots: BRK-B is BRK.B); empty when unknown.</summary>
+    public async Task<IReadOnlyList<string>> TickersForCikAsync(string cik, CancellationToken ct = default)
+    {
+        await EnsureFreshAsync(ct);
+        var n = Normalize(cik);
+        return byTicker.Where(kv => kv.Value == n).Select(kv => kv.Key).ToList();
+    }
+
+    /// <summary>The CIK (no leading zeros) of a ticker, or null when the SEC list does not carry it.</summary>
+    public async Task<string?> CikForTickerAsync(string ticker, CancellationToken ct = default)
+    {
+        await EnsureFreshAsync(ct);
+        return byTicker.TryGetValue(TickerKey(ticker), out var c) ? c : null;
+    }
+
+    /// <summary>The ticker as the app writes it: upper case, SEC's class dash as a dot.</summary>
+    public static string TickerKey(string ticker) => ticker.Trim().ToUpperInvariant().Replace('-', '.');
+
+    /// <summary>Ticker to CIK for every entry of the file (unlike <see cref="Parse"/>, which keeps one ticker per CIK).</summary>
+    public static Dictionary<string, string> ParseTickers(string json)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object) return map;
+        foreach (var entry in doc.RootElement.EnumerateObject())
+        {
+            var e = entry.Value;
+            if (e.ValueKind != JsonValueKind.Object || !e.TryGetProperty("cik_str", out var cikEl) || !e.TryGetProperty("ticker", out var tEl)) continue;
+            var cik = cikEl.ValueKind == JsonValueKind.Number ? cikEl.GetRawText() : cikEl.GetString() ?? "";
+            var ticker = TickerKey(tEl.GetString() ?? "");
+            if (cik.Length == 0 || ticker.Length == 0) continue;
+            map.TryAdd(ticker, Normalize(cik));
+        }
+        return map;
     }
 
     public async Task EnsureFreshAsync(CancellationToken ct = default)
@@ -48,6 +85,7 @@ public sealed class EdgarTickerMap(IHttpClientFactory httpFactory, EdgarRateGate
             if (map.Count > 0)
             {
                 byCik = map;
+                byTicker = ParseTickers(json);
                 loadedUtc = now;
             }
         }
