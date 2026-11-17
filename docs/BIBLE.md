@@ -305,11 +305,11 @@ Shipped: the scripting model, builder verbs and parser (`StepReader` beside `Blo
 recursion, `StrategyBranchResolver`, and the backtester (`StrategyBacktester.cs`: per-step condition
 latches, the flat transition wait, `Within` expiry, `Repeat` restarting at step 0, `BacktestTrade.Step`
 and `report.StepTransitions`, across multi-day candle lists; `StrategyBacktesterSequenceTests`).
-In progress (IP-T445): the Monitor half — `Strategy` row step state (`StepIndex`,
-`AwaitingTransition`, `StepArmedUtc`), `StrategyRepository` advance/reset, the per-tick transition
-block in `MonitorWorker`, `strategy show`'s `sequence: step k/N` row, `strategy step <id> --reset`,
-and one builder card group per step. Until it lands the Monitor evaluates a sequence's step 0 as a
-plain strategy and never arms a later step; only the backtester runs a sequence end to end.
+The Monitor half shipped with it (IP-T445, commit ca15e97f): the `Strategy` row's step state
+(`StepIndex`, `AwaitingTransition`, `StepArmedUtc`), `StrategyRepository` advance/reset
+(`AdvanceStepAsync`, `ResetSequenceAsync`), the per-tick transition block in `MonitorWorker`,
+`strategy show`'s `sequence: step k/N` row and `strategy step <id> [--reset]`. A sequence runs end
+to end in the live Monitor as well as in the backtester.
 
 **Knowledge.** The Hub indexes the BIBLE (by section and law), AMENDMENTS, README, the agent
 docs, every user story and ticket (the USER_STORIES table plus `tickets ticket list --json`,
