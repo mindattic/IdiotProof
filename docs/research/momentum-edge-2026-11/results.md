@@ -38,6 +38,7 @@ Run 2026-11-10 on clean trade dates (amendment 01). Runs: `runs/fit-20261110-110
 ## Next (each needs its own pre-registration and a forward window after 2026-11-10)
 
 1. **After-hours sign.** A D-1 16:00-20:00 ET move from SIP extended-hours minute bars, scored as a new radar group.
-   His after-hours picks are the lead; the radar does not read after-hours prints today.
+   His after-hours picks are the lead. Pre-registered in amendment 06 (IP-T501): the radar now reads after-hours
+   prints and lists the sign at 0 points; one evaluation after 2027-01-29 (`afterhours_forward.py --final`).
 2. **Momentum. pick weight forward check.** The lift of 167 adds to the other groups as if independent; a forward
    window shows whether his picks still sit on top once the other signs are counted.

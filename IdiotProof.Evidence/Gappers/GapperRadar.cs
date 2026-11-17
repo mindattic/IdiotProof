@@ -28,7 +28,10 @@ public sealed record GapperRadarFacts(
     bool NewListing,
     bool ForeignProxy,
     bool? Tradable,
-    int? MomentumRank);
+    int? MomentumRank,
+    double? AfterHoursPct = null,
+    double? AfterHoursHighPct = null,
+    double? AfterHoursDollarVolume = null);
 
 /// <summary>One reason a stock is on the radar: its group, the sign, the train lift it carries and its points.</summary>
 public sealed record GapperRadarReason(string Group, string Sign, double Lift, double Points);
@@ -71,6 +74,18 @@ public static class GapperRadar
         public const double MomentumPick = 167;
     }
 
+    /// <summary>
+    /// The after-hours sign (IP-T501, momentum-edge amendment 06): the last after-hours trade on the basis session
+    /// (16:00-19:59 ET, SIP 1-minute bars) at least <see cref="AfterHoursMinPct"/> percent over the regular close, on at least
+    /// <see cref="AfterHoursMinDollarVolume"/> traded after hours. Frozen by the pre-registration; its lift is unmeasured
+    /// until the forward test ends, so it scores 0 points (lift 1) unless a measured lift is passed in.
+    /// </summary>
+    public const double AfterHoursMinPct = 10, AfterHoursMinDollarVolume = 250_000;
+
+    /// <summary>True when the after-hours facts meet the pre-registered sign (amendment 06).</summary>
+    public static bool AfterHoursSign(GapperRadarFacts f) =>
+        f.AfterHoursPct is >= AfterHoursMinPct && f.AfterHoursDollarVolume is >= AfterHoursMinDollarVolume;
+
     /// <summary>Train lift (>= +50%) of a catalyst published in the 5 days to D-1 16:00, by <see cref="CatalystTypes.Keys"/>.</summary>
     public static readonly IReadOnlyDictionary<string, double> CatalystLift = new Dictionary<string, double>
     {
@@ -79,11 +94,15 @@ public static class GapperRadar
         ["guidance"] = 0.8, ["acqTarget"] = 0.6, ["buyback"] = 0.2, ["uplist"] = 8.7, ["compliance"] = 1.0,
     };
 
+    /// <param name="afterHoursLift">
+    /// The after-hours sign's lift; null (the default) scores it at lift 1 (0 points) because the amendment 06 forward
+    /// test has not measured it yet. The sign is still listed as a reason.
+    /// </param>
     /// <param name="momentumLift">
     /// The lift of a Momentum. pick; null (the default) uses <see cref="Lifts.MomentumPick"/>, the lift the IP-T500 edge
     /// study measured and confirmed on its holdout.
     /// </param>
-    public static GapperRadarScore Score(GapperRadarFacts f, double? momentumLift = null)
+    public static GapperRadarScore Score(GapperRadarFacts f, double? momentumLift = null, double? afterHoursLift = null)
     {
         var reasons = new List<GapperRadarReason>();
         var flags = new List<string>();
@@ -98,6 +117,10 @@ public static class GapperRadar
 
         if (f.RankHighD1 is <= 10 || f.RankCloseD1 is <= 10)
             Add("today's move", $"top-10 mover today (high rank {f.RankHighD1?.ToString() ?? "-"}, close rank {f.RankCloseD1?.ToString() ?? "-"})", Lifts.TopTenMoverD1);
+
+        if (AfterHoursSign(f))
+            Add("after hours", $"up {f.AfterHoursPct:+0}% after hours on ${f.AfterHoursDollarVolume / 1000:#,0}k (high {f.AfterHoursHighPct:+0}%)" +
+                (afterHoursLift is null ? ": unmeasured, 0 pts until the forward test ends (amendment 06)" : ""), afterHoursLift ?? 1.0);
 
         if (f.DollarVolumeRatioD1 is >= 5) Add("volume", $"dollar volume {f.DollarVolumeRatioD1:0.#}x its 20-day mean", Lifts.DollarVolume5x);
 

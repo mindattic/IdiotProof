@@ -97,6 +97,7 @@ public sealed class GapperRadarService(
         await md.EnsureDailyAsync(cands, b.AddDays(-730), b, ct);
         var halts = await HaltsAsync(Path.Combine(root, "halts"), b, now, notes, ct);
         var catalysts = await CatalystsAsync(cands.ToList(), MinuteBarMath.ToUtc(b, Close).AddDays(-5), asOf, keys, notes, ct);
+        var afterHours = await AfterHoursAsync(md, Path.Combine(root, "afterhours"), cands, b, asOf, now, notes, ct);
 
         var rows = new List<GapperRadarRow>();
         var last5 = MarketCalendar.PriorTradingDays(b, 4).Append(b).ToList();
@@ -120,6 +121,8 @@ public sealed class GapperRadarService(
             var onD1 = known.FirstOrDefault(s => s.ExDate == after);
             var onBasis = known.Any(s => s.ExDate == b) || daily.DaysSinceReverseSplit == d.DayNumber - b.DayNumber;
             var cat = catalysts.TryGetValue(sym, out var c) ? c : (Bits: 0, Headlines: new List<string>());
+            var regularClose = bars.Count > 0 && bars[^1].Date == b ? bars[^1].Close : (decimal?)null;
+            var ah = afterHours is not null && regularClose is { } rc && afterHours.TryGetValue(sym, out var ahBars) ? AfterHoursMove(ahBars, rc) : null;
             var facts = new GapperRadarFacts(
                 sym,
                 PriorClose: bars.Count > 0 ? bars[^1].Close : mv?.C,
@@ -134,7 +137,8 @@ public sealed class GapperRadarService(
                 NewListing: daily.NewListing,
                 ForeignProxy: GapperRadar.IsForeignName(assets.TryGetValue(sym, out var asset) ? asset.Name : null),
                 Tradable: tradable is null ? null : tradable.Contains(sym),
-                MomentumRank: momentum.TryGetValue(sym, out var rk) ? rk : null);
+                MomentumRank: momentum.TryGetValue(sym, out var rk) ? rk : null,
+                AfterHoursPct: ah?.LastPct, AfterHoursHighPct: ah?.HighPct, AfterHoursDollarVolume: ah?.DollarVolume);
             rows.Add(new(GapperRadar.Score(facts), facts));
         }
         return rows.OrderBy(r => r.Score.Excluded).ThenByDescending(r => r.Score.Points).ThenBy(r => r.Facts.RankHighD1 ?? int.MaxValue).ToList();
@@ -208,6 +212,61 @@ public sealed class GapperRadarService(
         double? dvRatio = dv is { } v && prior.Count >= 10 && prior.Average() > 0 ? v / prior.Average() : null;
         var newListing = bars[0].Date > basis.AddDays(-720) && bars[0].Date > new DateOnly(2021, 9, 15);
         return new(dv, dvRatio, Count(5, 0.2), Count(10, 0.2), Count(30, 0.2), Count(10, 1.0), daysSince, ratio, newListing);
+    }
+
+    public sealed record AfterHoursValues(double LastPct, double HighPct, double DollarVolume, int Bars);
+
+    /// <summary>
+    /// The basis session's after-hours move from its 16:00-19:59 ET 1-minute bars against the regular close (raw prices,
+    /// the same share basis as the close): last close and highest high in percent over the close, and dollar volume (bar close x volume). No bars means
+    /// no after-hours trading, which is a 0% move on $0, not unknown. Pure.
+    /// </summary>
+    public static AfterHoursValues? AfterHoursMove(IReadOnlyList<AfterHoursBar> bars, decimal regularClose)
+    {
+        if (regularClose <= 0) return null;
+        if (bars.Count == 0) return new(0, 0, 0, 0);
+        var ordered = bars.OrderBy(x => x.T).ToList();
+        return new(((double)(ordered[^1].C / regularClose) - 1) * 100, ((double)(ordered.Max(x => x.H) / regularClose) - 1) * 100, (double)ordered.Sum(x => x.C * x.V), ordered.Count);
+    }
+
+    /// <summary>One after-hours minute as cached on disk (UTC start, high, close, volume).</summary>
+    public sealed record AfterHoursBar(DateTime T, decimal H, decimal C, decimal V);
+
+    /// <summary>
+    /// After-hours bars (16:00 to 20:00 ET, cut at <paramref name="asOfUtc"/>) on the basis session for every candidate. A
+    /// finished evening is cached as <c>{dir}/{basis}.json</c> and only missing symbols are fetched; an evening still in
+    /// progress is fetched fresh and not cached. Null when the data API failed, which leaves the sign unknown.
+    /// </summary>
+    private async Task<Dictionary<string, List<AfterHoursBar>>?> AfterHoursAsync(MomentumMarketData md, string dir, IReadOnlyCollection<string> symbols, DateOnly basis,
+        DateTime asOfUtc, DateTime nowUtc, List<string> notes, CancellationToken ct)
+    {
+        var start = MinuteBarMath.ToUtc(basis, Close);
+        var end = MinuteBarMath.ToUtc(basis, new TimeSpan(20, 0, 0));
+        if (asOfUtc < end) end = asOfUtc;
+        if (end <= start) return []; // before the bell: nothing after hours yet, the sign stays off
+        var complete = end == MinuteBarMath.ToUtc(basis, new TimeSpan(20, 0, 0)) && nowUtc >= end.AddMinutes(5);
+        if (!complete) notes.Add($"After hours on {basis:yyyy-MM-dd} still trading: the after-hours move is as of now (until 20:00 ET)");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, basis.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + ".json");
+        var have = complete && File.Exists(path)
+            ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, List<AfterHoursBar>>>(await File.ReadAllTextAsync(path, ct)) ?? []
+            : new Dictionary<string, List<AfterHoursBar>>();
+        have = new(have, StringComparer.Ordinal);
+        var missing = symbols.Where(s => !have.ContainsKey(s)).ToList();
+        if (missing.Count == 0) return have;
+        try
+        {
+            var got = await md.FetchMinuteWindowAsync(missing, start, end, ct);
+            foreach (var s in missing)
+                have[s] = got.TryGetValue(s, out var bars) ? bars.Select(x => new AfterHoursBar(x.StartUtc, x.High, x.Close, x.Volume)).ToList() : [];
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            notes.Add("After-hours bars unavailable: the after-hours sign is unknown (" + ex.Message + ")");
+            return null;
+        }
+        if (complete) await File.WriteAllTextAsync(path, System.Text.Json.JsonSerializer.Serialize(have), ct);
+        return have;
     }
 
     /// <summary>Momentum.'s picks for session <paramref name="d"/> (symbol to best rank) from videos published by <paramref name="asOfUtc"/>.</summary>

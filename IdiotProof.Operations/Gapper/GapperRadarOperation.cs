@@ -51,7 +51,7 @@ public sealed class GapperRadarOperation : IOperation<GapperRadarArgs>
             {
                 r.Facts.Symbol, r.Score.Points, r.Score.Excluded, r.Facts.PriorClose, r.Facts.HighPctD1, r.Facts.ClosePctD1, r.Facts.RankHighD1,
                 r.Facts.DollarVolumeRatioD1, r.Facts.Up100Last10, r.Facts.Up20Last5, r.Facts.DaysSinceReverseSplit, r.Facts.ReverseSplitOnD, r.Facts.ReverseSplitOnD1,
-                r.Facts.HaltsLast5, r.Facts.Tradable, r.Facts.MomentumRank,
+                r.Facts.HaltsLast5, r.Facts.Tradable, r.Facts.MomentumRank, r.Facts.AfterHoursPct, r.Facts.AfterHoursHighPct, r.Facts.AfterHoursDollarVolume,
                 Reasons = r.Score.Reasons.Select(x => new { x.Group, x.Sign, x.Lift, x.Points }),
                 r.Score.Flags, r.Facts.CatalystHeadlines,
             }).ToList(),
@@ -60,7 +60,7 @@ public sealed class GapperRadarOperation : IOperation<GapperRadarArgs>
             return OperationResult.Ok(data, $"Gapper radar for {run.Session:yyyy-MM-dd}: no candidates. " + string.Join(" ", run.Notes));
 
         var table = new TextTable { MaxWidth = ctx.Width }
-            .Column("#", Align.Right).Column("sym").Column("pts", Align.Right).Column("price", Align.Right).Column("today hi/cl", Align.Right)
+            .Column("#", Align.Right).Column("sym").Column("pts", Align.Right).Column("price", Align.Right).Column("today hi/cl", Align.Right).Column("after hrs", Align.Right)
             .Column("$vol x", Align.Right).Column("reasons", maxWidth: 70).Column("warn");
         int i = 0;
         foreach (var r in shown)
@@ -69,8 +69,9 @@ public sealed class GapperRadarOperation : IOperation<GapperRadarArgs>
             table.Row((++i).ToString(CultureInfo.InvariantCulture), f.Symbol + (r.Score.Excluded ? " (x)" : ""), r.Score.Points.ToString("0.0", CultureInfo.InvariantCulture),
                 f.PriorClose is { } p ? p.ToString(p < 1 ? "0.0000" : "0.00", CultureInfo.InvariantCulture) : "-",
                 $"{Pct(f.HighPctD1)}/{Pct(f.ClosePctD1)}",
+                f.AfterHoursPct is { } a ? Pct(a) : "-",
                 f.DollarVolumeRatioD1 is { } v ? v >= 100 ? ">100" : v.ToString("0.0", CultureInfo.InvariantCulture) : "-",
-                string.Join("; ", r.Score.Reasons.Where(x => x.Points > 0).Select(x => x.Sign)),
+                string.Join("; ", r.Score.Reasons.Where(x => x.Points >= 0).Select(x => x.Sign)),
                 r.Score.Flags.Count == 0 ? "" : r.Score.Flags.Count.ToString(CultureInfo.InvariantCulture));
         }
         var text = new System.Text.StringBuilder();
@@ -91,6 +92,7 @@ public sealed class GapperRadarOperation : IOperation<GapperRadarArgs>
                     "not significantly better at the top 20, better at the top 50 (20% of runners caught vs 15%). " +
                     "Momentum.'s evening picks are the strongest sign measured: 38% of them ran +50% (167x the base rate), and they beat the top-gainer screens on a held-out window (IP-T500); " +
                     "his picks appear once his video is out, usually 19:00-21:00 ET, so run the radar again after it. " +
+                    "'after hrs' is the last after-hours trade against the regular close; a move of +10% or more on $250k+ is listed as a sign but scores 0 points until its forward test ends (IP-T501, amendment 06). " +
                     "No long entry on these names, his picks included, has survived costs (IP-T494, IP-T500 H3). Watch them; do not chase them.");
 
         if (!string.IsNullOrWhiteSpace(args.Watchlist))

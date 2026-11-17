@@ -40,7 +40,8 @@ public sealed class GapperRadarBacktestOperation : IOperation<GapperRadarBacktes
             Rows = x.Rows.Select(r => new
             {
                 r.Facts.Symbol, r.Score.Points, r.Facts.RankHighD1, r.Facts.RankCloseD1, r.Facts.HighPctD1, r.Facts.ClosePctD1, r.Facts.DollarVolumeRatioD1,
-                r.Facts.PriorClose, Groups = r.Score.Reasons.Where(g => g.Points != 0).Select(g => g.Group).ToList(), r.Score.Flags.Count,
+                r.Facts.PriorClose, r.Facts.AfterHoursPct, r.Facts.AfterHoursHighPct, r.Facts.AfterHoursDollarVolume, AfterHoursSign = IdiotProof.Evidence.Gappers.GapperRadar.AfterHoursSign(r.Facts),
+                Groups = r.Score.Reasons.Where(g => g.Points != 0).Select(g => g.Group).ToList(), r.Score.Flags.Count,
             }),
             x.HighPct,
         });

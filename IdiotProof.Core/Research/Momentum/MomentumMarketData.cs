@@ -279,6 +279,35 @@ public sealed class MomentumMarketData : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// 1-minute bars in [<paramref name="startUtc"/>, <paramref name="endUtc"/>) for many symbols, straight from the feed
+    /// and not written to the minute store (the store holds whole 04:00-20:00 days only). A symbol the API refuses gets none.
+    /// </summary>
+    public async Task<Dictionary<string, IReadOnlyList<Candle>>> FetchMinuteWindowAsync(IEnumerable<string> symbols, DateTime startUtc, DateTime endUtc, CancellationToken ct)
+    {
+        var result = new Dictionary<string, IReadOnlyList<Candle>>(StringComparer.Ordinal);
+        async Task Fetch(IReadOnlyList<string> chunk)
+        {
+            try
+            {
+                var got = await feed.GetHistoricalCandlesForSymbolsAsync(chunk, TimeSpan.FromMinutes(1), startUtc, endUtc, 10000, gate.WaitAsync, ct);
+                foreach (var s in chunk)
+                {
+                    var bars = got.Bars.FirstOrDefault(kv => string.Equals(kv.Key, s, StringComparison.OrdinalIgnoreCase)).Value ?? [];
+                    result[s] = bars.Where(b => b.StartUtc >= startUtc && b.StartUtc < endUtc).ToList();
+                }
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity or HttpStatusCode.NotFound)
+            {
+                if (chunk.Count == 1) { result[chunk[0]] = []; return; }
+                await Fetch(chunk.Take(chunk.Count / 2).ToList());
+                await Fetch(chunk.Skip(chunk.Count / 2).ToList());
+            }
+        }
+        foreach (var chunk in symbols.Distinct(StringComparer.Ordinal).Chunk(AlpacaDataFeed.MaxSymbolsPerRequest)) await Fetch(chunk);
+        return result;
+    }
+
     public IReadOnlyList<Candle> Minute(string symbol, DateOnly d) => store.HasDay(symbol, d) ? store.ReadDay(symbol, d) : [];
 
     /// <summary>The day's bars as evaluator input, with ET time of day and VWAP from 04:00.</summary>
