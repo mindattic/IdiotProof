@@ -514,7 +514,13 @@ form index read into each listed filer's submissions, recorded as coverage under
 catches up at most ten days and stops at a failed day so the next night resumes there. The Hub's
 `HistoryBackfillWorker` runs all of it when `history.backfill.enabled` is true (leader-only). Ops:
 `history status`, `history import --research --minutes --app-cache`, `history backfill
---symbols|--discover [--run N] | --reference [--days N]`. Backups: IP-T449.
+--symbols|--discover [--run N] | --reference [--days N]`. News and filings read through the same way
+bars do (`HistoryReadThrough`): the gapper radar's catalysts, the research service and the research
+scan ask it, and it serves what the history database covers, fetches only uncovered finished days
+(stored and marked) and always fetches the current day live (stored, never marked). Filings come
+from the issuer's SEC submissions history, not full-text search, with the primary document kept so
+a Form 4's raw XML can be fetched; a stopped history server falls back to the live calls, unstored.
+Backups: IP-T449.
 
 **How to research a feature.** [`docs/RESEARCH_PLAYBOOK.md`](RESEARCH_PLAYBOOK.md) records this
 study's method as the template for any feature that rests on a market claim: survey, pre-register,

@@ -5,7 +5,17 @@ using Microsoft.Extensions.Logging;
 namespace IdiotProof.Core.Catalysts;
 
 /// <summary>One filing from an issuer's EDGAR submissions history.</summary>
-public sealed record SubmissionFiling(string AccessionNumber, string FormType, DateOnly FiledDate, DateTime? AcceptedUtc, IReadOnlyList<string> Items);
+public sealed record SubmissionFiling(string AccessionNumber, string FormType, DateOnly FiledDate, DateTime? AcceptedUtc, IReadOnlyList<string> Items, string? PrimaryDocument = null)
+{
+    /// <summary>
+    /// The primary document as a raw archive file: ownership forms list a styled copy under an <c>xsl.../</c> folder
+    /// (HTML), while the raw XML a parser needs sits at the same name in the accession folder itself.
+    /// </summary>
+    public static string? RawDocument(string? primaryDocument) =>
+        string.IsNullOrWhiteSpace(primaryDocument) ? null
+        : primaryDocument.StartsWith("xsl", StringComparison.OrdinalIgnoreCase) && primaryDocument.Contains('/') ? primaryDocument[(primaryDocument.LastIndexOf('/') + 1)..]
+        : primaryDocument;
+}
 
 /// <summary>An older page of the submissions history (<c>filings.files</c>) and the filing dates it spans.</summary>
 public sealed record SubmissionPage(string Name, DateOnly From, DateOnly To);
@@ -92,14 +102,15 @@ public sealed class EdgarSubmissions(IHttpClientFactory httpFactory, EdgarRateGa
         }
         if (columns.ValueKind != JsonValueKind.Object) return (filings, pages);
         var acc = Arr(columns, "accessionNumber"); var forms = Arr(columns, "form"); var dates = Arr(columns, "filingDate");
-        var accepted = Arr(columns, "acceptanceDateTime"); var items = Arr(columns, "items");
+        var accepted = Arr(columns, "acceptanceDateTime"); var items = Arr(columns, "items"); var docs = Arr(columns, "primaryDocument");
         for (int i = 0; i < acc.Count; i++)
         {
             if (acc[i].Length == 0 || !DateOnly.TryParse(dates.ElementAtOrDefault(i), CultureInfo.InvariantCulture, out var filed)) continue;
             DateTime? at = DateTime.TryParse(accepted.ElementAtOrDefault(i), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var t)
                 ? DateTime.SpecifyKind(t, DateTimeKind.Utc) : null;
             var codes = (items.ElementAtOrDefault(i) ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            filings.Add(new(acc[i], forms.ElementAtOrDefault(i) ?? "", filed, at, codes));
+            var primary = docs.ElementAtOrDefault(i);
+            filings.Add(new(acc[i], forms.ElementAtOrDefault(i) ?? "", filed, at, codes, string.IsNullOrWhiteSpace(primary) ? null : primary));
         }
         return (filings, pages);
     }

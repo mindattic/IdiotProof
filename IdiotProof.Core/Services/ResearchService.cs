@@ -17,7 +17,8 @@ public sealed class ResearchService(
     AlpacaNewsService                alpacaNews,
     IServiceScopeFactory             scopeFactory,
     IDbContextFactory<AppDbContext>  dbFactory,
-    ILogger<ResearchService>         logger)
+    ILogger<ResearchService>         logger,
+    IdiotProof.Core.History.HistoryReadThrough? readThrough = null)
 {
     // ── Public entry points ───────────────────────────────────────────────
 
@@ -143,7 +144,7 @@ public sealed class ResearchService(
         var today = DateOnly.FromDateTime(EasternTime.FromUtc(DateTime.UtcNow));
 
         // 8-K material event filings
-        foreach (var filing in await edgar.GetRecentFilingsAsync(ticker, "8-K", daysBack, ct))
+        foreach (var filing in await RecentFilingsAsync(ticker, "8-K", daysBack, ct))
         {
             var text = BuildEdgarText(filing);
             all.AddRange(await AnalyzeArticleAsync(
@@ -152,7 +153,7 @@ public sealed class ResearchService(
         }
 
         // Form 4 insider transactions
-        foreach (var filing in await edgar.GetRecentFilingsAsync(ticker, "4", daysBack, ct))
+        foreach (var filing in await RecentFilingsAsync(ticker, "4", daysBack, ct))
         {
             var text = $"SEC Form 4 (insider transaction) filed {filing.FilingDate} by {filing.EntityName}. " +
                        "A director, officer, or 10%+ shareholder changed their beneficial ownership.";
@@ -180,7 +181,7 @@ public sealed class ResearchService(
 
         // Alpaca News — aggregates Benzinga, Reuters, Yahoo Finance and others.
         // Tier 2 (editorial) by default; the LLM may downgrade promotional items.
-        foreach (var article in await alpacaNews.GetNewsAsync(ticker, daysBack, ct))
+        foreach (var article in readThrough is null ? await alpacaNews.GetNewsAsync(ticker, daysBack, ct) : await readThrough.GetRecentNewsAsync(ticker, daysBack, ct: ct))
         {
             var text = string.IsNullOrWhiteSpace(article.Summary)
                 ? article.Headline
@@ -192,6 +193,10 @@ public sealed class ResearchService(
 
         return all;
     }
+
+    /// <summary>Filings through the history read-through when registered (held days served, gaps fetched once), else EDGAR full-text search.</summary>
+    private Task<List<EdgarFiling>> RecentFilingsAsync(string ticker, string forms, int daysBack, CancellationToken ct) =>
+        readThrough is null ? edgar.GetRecentFilingsAsync(ticker, forms, daysBack, ct) : readThrough.GetRecentFilingsAsync(ticker, forms, daysBack, ct);
 
     // ── Queries ───────────────────────────────────────────────────────────
 

@@ -182,7 +182,7 @@ public sealed class HistoryBackfillService(
         var got = await splits.GetSplitsAsync([job.Symbol], job.FromEt, job.ToEt, ct).ConfigureAwait(false);
         var list = got.TryGetValue(job.Symbol, out var l) ? l : [];
         await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
-        var inserted = await InsertSplitsAsync(c, tx, list, ct).ConfigureAwait(false);
+        var inserted = await HistoryWrites.InsertSplitsAsync(c, tx, list, ct).ConfigureAwait(false);
         await SqlHistoryBarCache.AddRangeAsync(c, tx, job.Symbol, HistoryDatabase.Kinds.Splits, job.FromEt, job.ToEt, list.Count, time.GetUtcNow().UtcDateTime, "alpaca", ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return inserted;
@@ -209,7 +209,7 @@ public sealed class HistoryBackfillService(
             filings = got;
         }
         await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
-        var inserted = await InsertFilingsAsync(c, tx, filings.Select(f => (job.Symbol, cik ?? "", f)), ct).ConfigureAwait(false);
+        var inserted = await HistoryWrites.InsertFilingsAsync(c, tx, filings.Select(f => (job.Symbol, cik ?? "", f)), ct).ConfigureAwait(false);
         await SqlHistoryBarCache.AddRangeAsync(c, tx, job.Symbol, HistoryDatabase.Kinds.Filings, job.FromEt, job.ToEt, filings.Count, time.GetUtcNow().UtcDateTime,
             cik is null ? "sec-submissions (no CIK)" : "sec-submissions", ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
@@ -241,7 +241,7 @@ public sealed class HistoryBackfillService(
                 {
                     var list = await alpaca.GetMarketSplitsAsync(from, through.AddDays(7), ct).ConfigureAwait(false);
                     await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
-                    splitRows = await InsertSplitsAsync(c, tx, list, ct).ConfigureAwait(false);
+                    splitRows = await HistoryWrites.InsertSplitsAsync(c, tx, list, ct).ConfigureAwait(false);
                     await SqlHistoryBarCache.AddRangeAsync(c, tx, AllSymbols, HistoryDatabase.Kinds.Splits, from, through, list.Count, now, "alpaca market", ct).ConfigureAwait(false);
                     await tx.CommitAsync(ct).ConfigureAwait(false);
                     splitsThrough = through;
@@ -316,7 +316,7 @@ public sealed class HistoryBackfillService(
             }
         }
         await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
-        var inserted = await InsertFilingsAsync(c, tx, rows, ct).ConfigureAwait(false);
+        var inserted = await HistoryWrites.InsertFilingsAsync(c, tx, rows, ct).ConfigureAwait(false);
         await SqlHistoryBarCache.AddRangeAsync(c, tx, AllSymbols, HistoryDatabase.Kinds.Filings, day, day, rows.Count, now,
             index is null ? "sec daily index (closed)" : "sec daily index", ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
@@ -334,52 +334,6 @@ public sealed class HistoryBackfillService(
             ? DateOnly.FromDateTime(last).AddDays(1) : floor;
     }
 
-    private static async Task<int> InsertSplitsAsync(SqlConnection c, SqlTransaction tx, IEnumerable<SplitEvent> list, CancellationToken ct)
-    {
-        var rows = new DataTable();
-        rows.Columns.Add("Symbol", typeof(string)); rows.Columns.Add("ExDate", typeof(DateTime)); rows.Columns.Add("OldRate", typeof(decimal)); rows.Columns.Add("NewRate", typeof(decimal));
-        foreach (var e in list.Where(e => e.Symbol.Length is > 0 and <= 16).DistinctBy(e => (e.Symbol.ToUpperInvariant(), e.ExDate)))
-            rows.Rows.Add(e.Symbol.ToUpperInvariant(), e.ExDate.ToDateTime(TimeOnly.MinValue), e.OldRate, e.NewRate);
-        if (rows.Rows.Count == 0) return 0;
-        await using (var create = new SqlCommand("CREATE TABLE #splits (Symbol varchar(16), ExDate date, OldRate decimal(19,6), NewRate decimal(19,6))", c, tx))
-            await create.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        await SqlHistoryBarCache.BulkAsync(c, tx, "#splits", rows, ct).ConfigureAwait(false);
-        await using var insert = new SqlCommand("""
-            INSERT dbo.Splits (Symbol, ExDate, OldRate, NewRate, Source)
-            SELECT s.Symbol, s.ExDate, s.OldRate, s.NewRate, 'alpaca' FROM #splits s
-            WHERE NOT EXISTS (SELECT 1 FROM dbo.Splits d WHERE d.Symbol = s.Symbol AND d.ExDate = s.ExDate);
-            DECLARE @n int = @@ROWCOUNT;
-            DROP TABLE #splits;
-            SELECT @n;
-            """, c, tx);
-        return Convert.ToInt32(await insert.ExecuteScalarAsync(ct).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
-    }
-
-    private static async Task<int> InsertFilingsAsync(SqlConnection c, SqlTransaction tx, IEnumerable<(string Symbol, string Cik, SubmissionFiling Filing)> list, CancellationToken ct)
-    {
-        var rows = new DataTable();
-        foreach (var (name, type) in new (string, Type)[] { ("AccessionNumber", typeof(string)), ("Symbol", typeof(string)), ("Cik", typeof(string)), ("FormType", typeof(string)), ("FiledDate", typeof(DateTime)), ("AcceptedUtc", typeof(DateTime)), ("ItemsJson", typeof(string)) })
-            rows.Columns.Add(name, type);
-        foreach (var (sym, cik, f) in list.Where(x => x.Symbol.Length is > 0 and <= 16 && x.Filing.AccessionNumber.Length <= 32).DistinctBy(x => (x.Symbol, x.Filing.FiledDate, x.Filing.AccessionNumber)))
-        {
-            var items = f.Items.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(f.Items);
-            rows.Rows.Add(f.AccessionNumber, sym, cik.Length == 0 ? DBNull.Value : cik.Length <= 16 ? cik : cik[..16], f.FormType.Length <= 24 ? f.FormType : f.FormType[..24],
-                f.FiledDate.ToDateTime(TimeOnly.MinValue), f.AcceptedUtc is { } a ? a : DBNull.Value, items is null ? DBNull.Value : items.Length <= 400 ? items : items[..400]);
-        }
-        if (rows.Rows.Count == 0) return 0;
-        await using (var create = new SqlCommand("CREATE TABLE #filings (AccessionNumber varchar(32), Symbol varchar(16), Cik varchar(16), FormType varchar(24), FiledDate date, AcceptedUtc datetime2(0), ItemsJson nvarchar(400))", c, tx))
-            await create.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        await SqlHistoryBarCache.BulkAsync(c, tx, "#filings", rows, ct).ConfigureAwait(false);
-        await using var insert = new SqlCommand("""
-            INSERT dbo.Filings (AccessionNumber, Symbol, Cik, FormType, FiledDate, AcceptedUtc, ItemsJson)
-            SELECT s.AccessionNumber, s.Symbol, s.Cik, s.FormType, s.FiledDate, s.AcceptedUtc, s.ItemsJson FROM #filings s
-            WHERE NOT EXISTS (SELECT 1 FROM dbo.Filings d WHERE d.Symbol = s.Symbol AND d.FiledDate = s.FiledDate AND d.AccessionNumber = s.AccessionNumber);
-            DECLARE @n int = @@ROWCOUNT;
-            DROP TABLE #filings;
-            SELECT @n;
-            """, c, tx);
-        return Convert.ToInt32(await insert.ExecuteScalarAsync(ct).ConfigureAwait(false), System.Globalization.CultureInfo.InvariantCulture);
-    }
 
     /// <summary>
     /// Alpaca news tagged with the symbol over the job's window, pre-classified, kept once by
@@ -408,35 +362,8 @@ public sealed class HistoryBackfillService(
             if (coveredTo < job.FromEt) coveredTo = job.FromEt.AddDays(-1);
         }
 
-        var rows = new System.Data.DataTable();
-        foreach (var (name, type) in new (string, Type)[] { ("Id", typeof(Guid)), ("Source", typeof(string)), ("ExternalId", typeof(string)), ("PublishedUtc", typeof(DateTime)), ("Headline", typeof(string)), ("Url", typeof(string)), ("PreClass", typeof(string)), ("Direction", typeof(int)), ("SourceName", typeof(string)), ("Symbols", typeof(string)) })
-            rows.Columns.Add(name, type);
-        foreach (var n in items.DistinctBy(n => n.Id))
-        {
-            var pre = IdiotProof.Core.Catalysts.CatalystPreClassifier.Classify(n.Headline, n.Summary, source: n.Source);
-            rows.Rows.Add(Guid.NewGuid(), IdiotProof.Core.Catalysts.CatalystIntake.AlpacaNews, n.Id.Length > 128 ? n.Id[..128] : n.Id, n.CreatedAt,
-                n.Headline.Length > 1000 ? n.Headline[..1000] : n.Headline, n.Url.Length > 1000 ? n.Url[..1000] : n.Url, pre.Class.ToString(), pre.Direction,
-                n.Source.Length > 200 ? n.Source[..200] : n.Source, string.Join(",", n.Symbols.Select(x => x.ToUpperInvariant()).Where(x => x.Length <= 16)));
-        }
         await using var tx = (SqlTransaction)await c.BeginTransactionAsync(ct).ConfigureAwait(false);
-        await using (var create = new SqlCommand("CREATE TABLE #news (Id uniqueidentifier, Source varchar(32), ExternalId varchar(128), PublishedUtc datetime2(0), Headline nvarchar(1000), Url nvarchar(1000), PreClass varchar(32), Direction int, SourceName nvarchar(200), Symbols nvarchar(max))", c, tx))
-            await create.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        await SqlHistoryBarCache.BulkAsync(c, tx, "#news", rows, ct).ConfigureAwait(false);
-        int inserted;
-        await using (var insert = new SqlCommand("""
-            DECLARE @new TABLE (Id uniqueidentifier, Symbols nvarchar(max));
-            INSERT dbo.News (Id, Source, ExternalId, PublishedUtc, ReceivedUtc, StampKind, Headline, Url, SourceTier, PreClass, Direction, SourceName, Snippet)
-            OUTPUT inserted.Id, NULL INTO @new
-            SELECT s.Id, s.Source, s.ExternalId, s.PublishedUtc, NULL, 'realtime', s.Headline, s.Url, NULL, s.PreClass, s.Direction, s.SourceName, NULL FROM #news s
-            WHERE NOT EXISTS (SELECT 1 FROM dbo.News d WHERE d.Source = s.Source AND d.ExternalId = s.ExternalId);
-            INSERT dbo.NewsSymbols (NewsId, Symbol)
-            SELECT DISTINCT n.Id, LEFT(LTRIM(RTRIM(v.value)), 16) FROM #news s
-            JOIN dbo.News n ON n.Source = s.Source AND n.ExternalId = s.ExternalId
-            CROSS APPLY STRING_SPLIT(s.Symbols, ',') v
-            WHERE LEN(v.value) > 0 AND NOT EXISTS (SELECT 1 FROM dbo.NewsSymbols x WHERE x.Symbol = LEFT(LTRIM(RTRIM(v.value)), 16) AND x.NewsId = n.Id);
-            SELECT COUNT(*) FROM @new;
-            """, c, tx))
-            inserted = (int)(await insert.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
+        var inserted = await HistoryWrites.InsertNewsAsync(c, tx, items, ct).ConfigureAwait(false);
         if (coveredTo >= job.FromEt)
             await SqlHistoryBarCache.AddRangeAsync(c, tx, job.Symbol, HistoryDatabase.Kinds.News, job.FromEt, coveredTo, items.Count, time.GetUtcNow().UtcDateTime, IdiotProof.Core.Catalysts.CatalystIntake.AlpacaNews, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);

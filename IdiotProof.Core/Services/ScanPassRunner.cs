@@ -98,6 +98,7 @@ public sealed class ScanPassRunner(IServiceProvider services, ILogger<ScanPassRu
         var tickerUniv  = sp.GetRequiredService<TickerUniverseService>();
         var edgar       = sp.GetRequiredService<EdgarService>();
         var alpacaNews  = sp.GetRequiredService<AlpacaNewsService>();
+        var readThrough = sp.GetService<IdiotProof.Core.History.HistoryReadThrough>(); // held news/filings served, gaps fetched once (IP-T454)
         var research    = sp.GetRequiredService<ResearchService>();
         var backfill    = sp.GetRequiredService<OutcomeBackfillService>();
         var form4Parser = sp.GetRequiredService<Form4Parser>();
@@ -154,7 +155,7 @@ public sealed class ScanPassRunner(IServiceProvider services, ILogger<ScanPassRu
             {
                 newClaimIds.AddRange(await ScanTickerAsync(
                     ticker, daysBack, claudeKey, edgar, alpacaNews, research, form4Parser, corpActions, dbFactory,
-                    edgarThrottle, alpacaThrottle, llmThrottle, ct));
+                    edgarThrottle, alpacaThrottle, llmThrottle, ct, readThrough));
                 scanRun.TickersScanned++;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -266,13 +267,13 @@ public sealed class ScanPassRunner(IServiceProvider services, ILogger<ScanPassRu
         Form4Parser form4Parser, CorporateActionDetector corpActions,
         IDbContextFactory<AppDbContext> dbFactory,
         AsyncThrottle edgarThrottle, AsyncThrottle alpacaThrottle, AsyncThrottle llmThrottle,
-        CancellationToken ct)
+        CancellationToken ct, IdiotProof.Core.History.HistoryReadThrough? readThrough = null)
     {
         var claimIds = new List<Guid>();
         var today = DateOnly.FromDateTime(EasternTime.FromUtc(DateTime.UtcNow)); // ET day, not the UTC date
 
         // Alpaca news
-        var articles = await alpacaThrottle.RunAsync(() => alpacaNews.GetNewsAsync(ticker, daysBack, ct), ct);
+        var articles = await alpacaThrottle.RunAsync(() => readThrough is null ? alpacaNews.GetNewsAsync(ticker, daysBack, ct) : readThrough.GetRecentNewsAsync(ticker, daysBack, ct: ct), ct);
         foreach (var article in articles)
         {
             var text = string.IsNullOrWhiteSpace(article.Summary) ? article.Headline : $"{article.Headline}\n\n{article.Summary}";
@@ -285,7 +286,7 @@ public sealed class ScanPassRunner(IServiceProvider services, ILogger<ScanPassRu
         // 8-K material events — CorporateActionDetector decides which are
         // worth a real document fetch and supplies the fallback boilerplate
         // for the rest.
-        var eightKs = await edgarThrottle.RunAsync(() => edgar.GetRecentFilingsAsync(ticker, "8-K", daysBack, ct), ct);
+        var eightKs = await edgarThrottle.RunAsync(() => readThrough is null ? edgar.GetRecentFilingsAsync(ticker, "8-K", daysBack, ct) : readThrough.GetRecentFilingsAsync(ticker, "8-K", daysBack, ct), ct);
         foreach (var result in await corpActions.DetectAsync(eightKs, ct))
         {
             var articleDate = DateOnly.TryParse(result.Filing.FilingDate, out var d) ? d : today;
@@ -296,7 +297,7 @@ public sealed class ScanPassRunner(IServiceProvider services, ILogger<ScanPassRu
 
         // Form 4 insider transactions — real share/dollar magnitude, not
         // boilerplate. One claim per filing; InsiderTransaction rows link to it.
-        var form4s = await edgarThrottle.RunAsync(() => edgar.GetRecentFilingsAsync(ticker, "4", daysBack, ct), ct);
+        var form4s = await edgarThrottle.RunAsync(() => readThrough is null ? edgar.GetRecentFilingsAsync(ticker, "4", daysBack, ct) : readThrough.GetRecentFilingsAsync(ticker, "4", daysBack, ct), ct);
         foreach (var filing in form4s)
         {
             var articleDate = DateOnly.TryParse(filing.FilingDate, out var d) ? d : today;

@@ -105,6 +105,8 @@ public static class CoreServiceRegistration
             sp.GetService<IdiotProof.Core.Catalysts.EdgarTickerMap>(), sp.GetService<IdiotProof.Core.Catalysts.EdgarSubmissions>(),
             sp.GetService<IHttpClientFactory>(), sp.GetService<IdiotProof.Core.Catalysts.EdgarRateGate>()));
 
+        services.AddScoped<IdiotProof.Core.History.HistoryReadThrough>();
+
         // ── Engine: storage, AppSettings overlay chain, workspaces, audit logger ──
         // The SQL workspace store is registered first so the engine's TryAdd keeps it.
         services.AddSingleton<IWorkspaceStore>(sp =>

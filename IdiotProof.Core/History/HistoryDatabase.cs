@@ -88,6 +88,9 @@ public sealed class HistoryDatabase(string connectionString)
                 Source nvarchar(100) NULL,
                 CONSTRAINT PK_CoverageRanges PRIMARY KEY CLUSTERED (Symbol, Kind, FromEt, ToEt));
             """),
+        (4, "filings primary document (read-through serves a fetchable document name)", """
+            ALTER TABLE dbo.Filings ADD PrimaryDocument nvarchar(260) NULL;
+            """),
     ];
 
     /// <summary>Create the database if missing and apply every schema step not yet applied. Returns the steps applied now.</summary>

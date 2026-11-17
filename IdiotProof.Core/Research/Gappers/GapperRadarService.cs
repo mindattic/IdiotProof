@@ -26,7 +26,8 @@ public sealed class GapperRadarService(
     IHttpClientFactory httpFactory,
     IDbContextFactory<AppDbContext> dbFactory,
     TimeProvider clock,
-    ILogger<GapperRadarService> log)
+    ILogger<GapperRadarService> log,
+    IdiotProof.Core.History.HistoryReadThrough? readThrough = null)
 {
     public const string DefaultDir = @"D:\IdiotProofData\radar";
     private static readonly TimeSpan Close = new(16, 0, 0);
@@ -311,6 +312,16 @@ public sealed class GapperRadarService(
         return new HaltHistory(all.DistinctBy(h => (h.Symbol.ToUpperInvariant(), h.HaltUtc, h.Reason)));
     }
 
+    /// <summary>News in [from, asOf] through the history read-through when it is registered (held days served, gaps fetched once), else live.</summary>
+    private async Task<List<AlpacaNewsItem>> NewsAsync(List<string> symbols, DateTime fromUtc, DateTime asOfUtc, StudyKeys keys, CancellationToken ct)
+    {
+        if (readThrough is not null) return await readThrough.GetNewsAsync(symbols, fromUtc, asOfUtc, (keys.KeyId, keys.Secret), ct);
+        var all = new List<AlpacaNewsItem>();
+        foreach (var chunk in symbols.Chunk(50))
+            await foreach (var n in news.GetNewsRangeAsync(chunk, fromUtc, asOfUtc, maxPages: 40, keys: (keys.KeyId, keys.Secret), ct: ct)) all.Add(n);
+        return all;
+    }
+
     /// <summary>Alpaca news per candidate in [from, asOf], classified by <see cref="CatalystTypes.FromHeadline"/> (coverage items count as nothing).</summary>
     private async Task<Dictionary<string, (int? Bits, List<string> Headlines)>> CatalystsAsync(List<string> symbols, DateTime fromUtc, DateTime asOfUtc, StudyKeys keys,
         List<string> notes, CancellationToken ct)
@@ -318,18 +329,15 @@ public sealed class GapperRadarService(
         var result = new Dictionary<string, (int? Bits, List<string> Headlines)>(StringComparer.Ordinal);
         var want = symbols.ToHashSet(StringComparer.Ordinal);
         int items = 0;
-        foreach (var chunk in symbols.Chunk(50))
+        foreach (var n in await NewsAsync(symbols, fromUtc, asOfUtc, keys, ct))
         {
-            await foreach (var n in news.GetNewsRangeAsync(chunk, fromUtc, asOfUtc, maxPages: 40, keys: (keys.KeyId, keys.Secret), ct: ct))
+            items++;
+            var bits = CatalystTypes.FromHeadline(n.Headline, null) & ~CatalystTypes.Bit("coverage");
+            foreach (var s in n.Symbols.Where(want.Contains))
             {
-                items++;
-                var bits = CatalystTypes.FromHeadline(n.Headline, null) & ~CatalystTypes.Bit("coverage");
-                foreach (var s in n.Symbols.Where(want.Contains))
-                {
-                    if (!result.TryGetValue(s, out var have)) result[s] = have = (0, []);
-                    if (bits != 0 && have.Headlines.Count < 3) have.Headlines.Add($"{MinuteBarMath.ToEastern(n.CreatedAt):MM-dd HH:mm} {n.Headline}");
-                    result[s] = ((have.Bits ?? 0) | bits, have.Headlines);
-                }
+                if (!result.TryGetValue(s, out var have)) result[s] = have = (0, []);
+                if (bits != 0 && have.Headlines.Count < 3) have.Headlines.Add($"{MinuteBarMath.ToEastern(n.CreatedAt):MM-dd HH:mm} {n.Headline}");
+                result[s] = ((have.Bits ?? 0) | bits, have.Headlines);
             }
         }
         if (items == 0) notes.Add("News returned nothing in the window (keys, or a quiet tape): a name without news counts as no catalyst");
