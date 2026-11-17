@@ -16,7 +16,7 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
     {
         var connStr =
             Environment.GetEnvironmentVariable("ConnectionStrings__IdiotProof")
-            ?? @"Server=(localdb)\MSSQLLocalDB;Database=IdiotProof;Trusted_Connection=True;TrustServerCertificate=True;";
+            ?? IdiotProof.Core.Hosting.CoreServiceRegistration.LocalDbConnectionString;
 
         var opts = new DbContextOptionsBuilder<AppDbContext>()
             .UseSqlServer(connStr)

@@ -37,7 +37,13 @@ public sealed class ResearchHost(IConfiguration configuration, ILoggerFactory lo
             var researchDb = parameters.DataTiers.ResearchDb;
             if (!researchDb.Contains(parameters.DataTiers.ResearchDbGuardPattern, StringComparison.Ordinal))
                 throw new InvalidOperationException($"Refusing to run: '{researchDb}' is not a research database name.");
-            var connection = $@"Server=(localdb)\MSSQLLocalDB;Database={researchDb};Trusted_Connection=True;TrustServerCertificate=True;Command Timeout=600;";
+            // Server and credentials come from ConnectionStrings__IdiotProofResearch / ConnectionStrings:IdiotProofResearch
+            // (LocalDB when unset); the study names the database (IP-T542).
+            var connection = ResearchDatabase.ConnectionStringFor(researchDb, configuration);
+            // Wakes a paused serverless database before anything else touches it. On Azure SQL Database a research
+            // database that does not exist stops here with a message to provision it: Migrate below would otherwise
+            // run CREATE DATABASE on the server at a default service tier. On a local server Migrate creates it as before.
+            SqlConnect.DatabaseExistsAsync(connection, "research", CancellationToken.None).GetAwaiter().GetResult();
             Directory.CreateDirectory(paths.RunsDir);
             Directory.CreateDirectory(paths.DataDir);
 

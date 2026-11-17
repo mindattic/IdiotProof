@@ -70,11 +70,16 @@ public sealed class HubPingOperation : IOperation<NoArgs>
     private static async Task<DbProbe> ProbeAsync(string connectionString, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
+        var budgetSeconds = ProbeSeconds * 2;
         try
         {
-            var builder = new SqlConnectionStringBuilder(connectionString) { ConnectTimeout = ProbeSeconds, Pooling = false };
+            // A connect timeout written in the connection string is honoured (a remote server needs longer than a
+            // local one); only a string that sets none gets the short probe default (IP-T542).
+            var builder = new SqlConnectionStringBuilder(connectionString) { Pooling = false };
+            if (!builder.ShouldSerialize("Connect Timeout")) builder.ConnectTimeout = ProbeSeconds;
+            budgetSeconds = builder.ConnectTimeout + ProbeSeconds;
             using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            budget.CancelAfter(TimeSpan.FromSeconds(ProbeSeconds * 2));
+            budget.CancelAfter(TimeSpan.FromSeconds(budgetSeconds));
             await using var connection = new SqlConnection(builder.ConnectionString);
             await connection.OpenAsync(budget.Token);
             await using var cmd = connection.CreateCommand();
@@ -85,7 +90,7 @@ public sealed class HubPingOperation : IOperation<NoArgs>
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            var message = ex is OperationCanceledException ? $"no answer within {ProbeSeconds * 2}s" : ex.Message.ReplaceLineEndings(" ");
+            var message = ex is OperationCanceledException ? $"no answer within {budgetSeconds}s" : ex.Message.ReplaceLineEndings(" ");
             return new DbProbe(false, sw.ElapsedMilliseconds, null, message.Length <= 160 ? message : message[..157] + "...");
         }
     }

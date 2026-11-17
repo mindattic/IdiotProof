@@ -31,6 +31,10 @@ public sealed class HistoryStatusOperation : IOperation<HistoryStatusArgs>
         {
             return OperationResult.Blocked($"History database unreachable ({h.DatabaseName}): {ex.Message}");
         }
+        catch (IdiotProof.Core.Hosting.DatabaseNotProvisionedException ex)
+        {
+            return OperationResult.Blocked(ex.Message);
+        }
     }
 }
 
@@ -72,7 +76,9 @@ public sealed class HistoryImportOperation : IOperation<HistoryImportArgs>
         var results = new List<HistoryImportResult>();
         if (args.Research)
         {
-            var research = $@"Server=(localdb)\MSSQLLocalDB;Database={args.ResearchDb};Trusted_Connection=True;TrustServerCertificate=True;Command Timeout=0;";
+            // Server and credentials from ConnectionStrings__IdiotProofResearch / ConnectionStrings:IdiotProofResearch, LocalDB when unset (IP-T542).
+            var research = IdiotProof.Core.Hosting.ResearchDatabase.ConnectionStringFor(args.ResearchDb,
+                (Microsoft.Extensions.Configuration.IConfiguration?)ctx.Services.GetService(typeof(Microsoft.Extensions.Configuration.IConfiguration)));
             results.AddRange(await importer.ImportResearchAsync(research, ctx.CancellationToken));
         }
         if (args.AppCache)

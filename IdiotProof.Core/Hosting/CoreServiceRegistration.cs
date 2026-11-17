@@ -85,6 +85,8 @@ public static class CoreServiceRegistration
 
         // ── SQL ──
         var connectionString = options.ConnectionString ?? ResolveConnectionString(configuration);
+        // How long a first connection waits for a database resuming from auto-pause (Database:ConnectRetry, IP-T542).
+        SqlConnect.Configure(configuration);
         services.AddSingleton(new IdiotProofDatabase(connectionString));
         // Retries transient SQL errors (SqlServerTransientExceptionDetector's list includes -2,
         // the "Execution Timeout Expired" the Monitor's pause-flag poll hit under heavy local
@@ -95,7 +97,8 @@ public static class CoreServiceRegistration
             sql => sql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorNumbersToAdd: null)));
         services.AddScoped<AppDbContext>(sp => sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
-        // ── Permanent market history (IP-T454): its own database on the local SQL Server Developer instance ──
+        // ── Permanent market history (IP-T454): its own database, on the local SQL Server Developer instance unless
+        //    ConnectionStrings__IdiotProofHistory / ConnectionStrings:IdiotProofHistory says otherwise ──
         services.AddSingleton(_ => IdiotProof.Core.History.HistoryDatabase.FromEnvironment(configuration.GetConnectionString("IdiotProofHistory")));
         services.AddScoped(sp => new IdiotProof.Core.History.HistoryBackfillService(
             sp.GetRequiredService<IdiotProof.Core.History.HistoryDatabase>(), sp.GetRequiredService<IdiotProof.DataFeeds.IMarketDataFeed>(),

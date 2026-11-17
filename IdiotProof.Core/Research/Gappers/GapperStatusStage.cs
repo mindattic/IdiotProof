@@ -49,7 +49,7 @@ public sealed class GapperStatusStage(GapperStudyServices s, Hosting.IdiotProofD
         var run = s.Paths.HoldoutRunFile(p);
         var lockState = File.Exists(run) ? "holdout run recorded (second run refused)" : File.Exists(unlock) ? "unlock file present, not yet run" : "locked";
         return new StudyStatus(
-            database.ConnectionString, store.Root, s.Paths.StudyDir, HoldoutLock.GitFrozenCommit(s.Paths), p.Hypotheses.FrozenUtc, splits,
+            Hosting.SqlConnect.WithoutSecrets(database.ConnectionString), store.Root, s.Paths.StudyDir, HoldoutLock.GitFrozenCommit(s.Paths), p.Hypotheses.FrozenUtc, splits,
             await db.GapperStudyDailyBars.CountAsync(ct), await db.GapperStudyDailyBars.Select(b => b.Symbol).Distinct().CountAsync(ct),
             await db.GapperStudySplits.CountAsync(ct), await db.GapperStudyCikMap.CountAsync(r => r.Cik != null, ct), await db.GapperStudyCikMap.CountAsync(ct),
             await db.CatalystEvents.CountAsync(e => e.Backfilled, ct), await db.EdgarFilingIndex.CountAsync(ct), await db.EdgarFilingIndex.CountAsync(r => r.AcceptedUtc != null, ct),

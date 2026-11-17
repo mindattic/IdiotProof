@@ -9,6 +9,11 @@ namespace IdiotProof.Core.History;
 /// bars, splits, news and filings in rowstore tables; <c>Coverage</c> records every (symbol, kind,
 /// day) already fetched so nothing is ever requested twice. The schema is versioned SQL applied in
 /// order, because a columnstore table without a key is outside what EF migrations create.
+/// <para>
+/// The connection string is env <c>ConnectionStrings__IdiotProofHistory</c>, then configuration
+/// <c>ConnectionStrings:IdiotProofHistory</c>, then the local default. On Azure SQL Database (IP-T542) the database
+/// must already exist: it is never created from here, and a paused serverless database is waited for on open.
+/// </para>
 /// </summary>
 public sealed class HistoryDatabase(string connectionString)
 {
@@ -22,12 +27,8 @@ public sealed class HistoryDatabase(string connectionString)
 
     public string DatabaseName => new SqlConnectionStringBuilder(connectionString).InitialCatalog;
 
-    public async Task<SqlConnection> OpenAsync(CancellationToken ct)
-    {
-        var c = new SqlConnection(connectionString);
-        await c.OpenAsync(ct).ConfigureAwait(false);
-        return c;
-    }
+    /// <summary>A new open connection. Only the open is retried (a database resuming from auto-pause); a command never is.</summary>
+    public Task<SqlConnection> OpenAsync(CancellationToken ct) => IdiotProof.Core.Hosting.SqlConnect.OpenAsync(connectionString, ct);
 
     /// <summary>Kinds of coverage marks.</summary>
     public static class Kinds
@@ -97,15 +98,20 @@ public sealed class HistoryDatabase(string connectionString)
             """),
     ];
 
-    /// <summary>Create the database if missing and apply every schema step not yet applied. Returns the steps applied now.</summary>
+    /// <summary>
+    /// Create the database if missing (a local server only) and apply every schema step not yet applied. Returns
+    /// the steps applied now. On Azure SQL Database a missing database throws
+    /// <see cref="IdiotProof.Core.Hosting.DatabaseNotProvisionedException"/> telling the operator to provision it.
+    /// </summary>
     public async Task<IReadOnlyList<string>> EnsureSchemaAsync(CancellationToken ct)
     {
         var builder = new SqlConnectionStringBuilder(connectionString);
         var name = builder.InitialCatalog;
         if (string.IsNullOrWhiteSpace(name)) throw new InvalidOperationException("The history connection string names no database.");
-        builder.InitialCatalog = "master";
-        await using (var master = new SqlConnection(builder.ConnectionString))
+        if (!await IdiotProof.Core.Hosting.SqlConnect.DatabaseExistsAsync(connectionString, "history", ct).ConfigureAwait(false))
         {
+            builder.InitialCatalog = "master";
+            await using var master = new SqlConnection(builder.ConnectionString);
             await master.OpenAsync(ct).ConfigureAwait(false);
             await using var create = new SqlCommand($"IF DB_ID(@n) IS NULL EXEC('CREATE DATABASE [' + @n + ']')", master);
             create.Parameters.AddWithValue("@n", name);

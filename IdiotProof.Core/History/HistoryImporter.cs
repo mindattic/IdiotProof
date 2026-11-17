@@ -136,9 +136,8 @@ public sealed class HistoryImporter(HistoryDatabase history, Action<string>? log
         await using var target = await history.OpenAsync(ct).ConfigureAwait(false);
         await using (var create = new SqlCommand($"CREATE TABLE #stage ({stageColumns})", target)) await create.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         long staged;
-        await using (var source = new SqlConnection(sourceConnection))
+        await using (var source = await IdiotProof.Core.Hosting.SqlConnect.OpenAsync(sourceConnection, ct).ConfigureAwait(false))
         {
-            await source.OpenAsync(ct).ConfigureAwait(false);
             await using var read = new SqlCommand(sourceSql, source) { CommandTimeout = 0 };
             await using var reader = await read.ExecuteReaderAsync(ct).ConfigureAwait(false);
             using var bulk = new SqlBulkCopy(target) { DestinationTableName = "#stage", BulkCopyTimeout = 0, BatchSize = 200_000, EnableStreaming = true, NotifyAfter = 1_000_000 };
