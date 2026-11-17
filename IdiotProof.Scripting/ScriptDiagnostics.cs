@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using Codes = IdiotProof.Scripting.ScriptDiagnosticCodes;
 
 namespace IdiotProof.Scripting;
 
@@ -38,7 +39,8 @@ public sealed record ScriptDiagnostic(DiagnosticSeverity Severity, string Code, 
 /// value; every verb with a default already takes it as optional), IPS009 (round which way),
 /// IPS011/012/014/015/016 (how the block was meant to be built) and IPS020-025 (step structure).
 /// <see cref="Repair"/> applies the fixes and offers the whole corrected script only after
-/// re-analyzing it clean.
+/// re-analyzing it clean. Every code, its severity and what its fix does are declared once in
+/// <see cref="ScriptDiagnosticCodes"/>; a problem can only be reported through that table (IP-T526).
 /// </para>
 /// </summary>
 public static class ScriptDiagnostics
@@ -123,9 +125,9 @@ public static class ScriptDiagnostics
                 {
                     // Right after another ')' it can only be one closer too many; anywhere else a '(' may be what is missing.
                     var extra = i > 0 && tokens[i - 1].Kind == TokenKind.RParen
-                        ? MakeFix("IPS003", t.Start, 1, "", "Remove the extra ')'.", lineStarts)
+                        ? MakeFix(Codes.IPS003, t.Start, 1, "", "Remove the extra ')'.", lineStarts)
                         : null;
-                    diags.Add(Make(DiagnosticSeverity.Error, "IPS003", "Unexpected ')' with no matching '('.", t.Start, 1, null, src, lineStarts, extra));
+                    diags.Add(Make(Codes.IPS003, "Unexpected ')' with no matching '('.", t.Start, 1, null, src, lineStarts, extra));
                 }
                 else open.Pop();
                 continue;
@@ -145,11 +147,11 @@ public static class ScriptDiagnostics
             if (!IsKnownVerb(name))
             {
                 var (suggestion, unique) = Suggest(name);
-                diags.Add(Make(DiagnosticSeverity.Error, "IPS001",
+                diags.Add(Make(Codes.IPS001,
                     $"Unknown verb '{name}': the parser skips it, so this part of the strategy would silently vanish.",
                     t.Start, name.Length, suggestion, src, lineStarts,
                     suggestion is not null && unique
-                        ? MakeFix("IPS001", t.Start, name.Length, suggestion, $"Replace '{name}' with '{suggestion}'.", lineStarts)
+                        ? MakeFix(Codes.IPS001, t.Start, name.Length, suggestion, $"Replace '{name}' with '{suggestion}'.", lineStarts)
                         : null));
                 continue;
             }
@@ -160,13 +162,13 @@ public static class ScriptDiagnostics
         {
             int at = open.Pop();
             var t = tokens[at];
-            diags.Add(Make(DiagnosticSeverity.Error, "IPS002", "This '(' is never closed.", t.Start, 1, null, src, lineStarts,
+            diags.Add(Make(Codes.IPS002, "This '(' is never closed.", t.Start, 1, null, src, lineStarts,
                 CloseParenFix(tokens, at, lineStarts)));
         }
         CheckBlocks(src, diags, lineStarts);
         CheckSteps(src, diags, lineStarts);
         if (!sawTicker && src.Trim().Length > 0)
-            diags.Add(Make(DiagnosticSeverity.Error, "IPS005", "A script must name its symbol with Ticker(\"SYM\"); without it nothing parses.",
+            diags.Add(Make(Codes.IPS005, "A script must name its symbol with Ticker(\"SYM\"); without it nothing parses.",
                 FirstNonSpace(src), 1, null, src, lineStarts));
 
         return diags.OrderBy(d => d.Line).ThenBy(d => d.Column).ToList();
@@ -261,7 +263,7 @@ public static class ScriptDiagnostics
         bool nextVerb = !atEnd && tokens[j].Kind == TokenKind.Dot && j + 1 < tokens.Count && tokens[j + 1].Kind == TokenKind.Identifier;
         if (!atEnd && !nextVerb) return null;
         var last = tokens[j - 1];
-        return MakeFix("IPS002", last.Start + last.Text.Length, 0, ")", "Insert the missing ')'.", lineStarts);
+        return MakeFix(Codes.IPS002, last.Start + last.Text.Length, 0, ")", "Insert the missing ')'.", lineStarts);
     }
 
     /// <summary>
@@ -275,11 +277,11 @@ public static class ScriptDiagnostics
         bool open = false, isExplicit = false, awaitingThen = false, sawElse = false, emptyIf = false;
         Token ifToken = default;
 
-        void Report(string code, string message, Token at, ScriptFix? fix = null) =>
-            diags.Add(Make(DiagnosticSeverity.Error, code, message, at.Start, at.Text.Length, null, src, lineStarts, fix));
+        void Report(ScriptDiagnosticDescriptor code, string message, Token at, ScriptFix? fix = null) =>
+            diags.Add(Make(code, message, at.Start, at.Text.Length, null, src, lineStarts, fix));
 
         // The parser reads a block the same whether its EndIf() sits right here or was left out, so adding it is exact.
-        ScriptFix EndIfAt(int offset) => MakeFix("IPS013", offset, 0, ".EndIf()", "Insert the missing .EndIf().", lineStarts);
+        ScriptFix EndIfAt(int offset) => MakeFix(Codes.IPS013, offset, 0, ".EndIf()", "Insert the missing .EndIf().", lineStarts);
 
         void Close() { open = false; isExplicit = false; awaitingThen = false; sawElse = false; emptyIf = false; }
 
@@ -290,7 +292,7 @@ public static class ScriptDiagnostics
             {
                 case "if":
                     if (open && isExplicit)
-                        Report("IPS013", "This If(...) is never closed with .EndIf(), so the next If(...) starts while it is still open.", ifToken,
+                        Report(Codes.IPS013, "This If(...) is never closed with .EndIf(), so the next If(...) starts while it is still open.", ifToken,
                             call.NameToken > 0 && chain.Tokens[call.NameToken - 1].Kind == TokenKind.Dot
                                 ? EndIfAt(chain.Tokens[call.NameToken - 1].Start)
                                 : null);
@@ -304,9 +306,9 @@ public static class ScriptDiagnostics
                     if (open && isExplicit)
                     {
                         if (emptyIf)
-                            Report("IPS014", "If() has no condition, so its Then(...) branch can never be chosen; give If a condition or use Else(...).", at);
+                            Report(Codes.IPS014, "If() has no condition, so its Then(...) branch can never be chosen; give If a condition or use Else(...).", at);
                         else if (!awaitingThen)
-                            Report("IPS015", "A second Then(...) in the same If block is ignored; use .ElseIf(condition, ...) for another branch.", at);
+                            Report(Codes.IPS015, "A second Then(...) in the same If block is ignored; use .ElseIf(condition, ...) for another branch.", at);
                         awaitingThen = false;
                     }
                     else
@@ -317,29 +319,29 @@ public static class ScriptDiagnostics
                     break;
                 case "elseif":
                     if (!open)
-                        Report("IPS011", "ElseIf(...) has no If(...)/Then(...) before it, so the parser skips it.", at);
+                        Report(Codes.IPS011, "ElseIf(...) has no If(...)/Then(...) before it, so the parser skips it.", at);
                     else if (sawElse)
-                        Report("IPS012", "ElseIf(...) after Else(...) can never run: Else already catches every remaining case.", at);
+                        Report(Codes.IPS012, "ElseIf(...) after Else(...) can never run: Else already catches every remaining case.", at);
                     else if (awaitingThen)
-                        Report("IPS014", "If(...) must be followed by .Then(...) before .ElseIf(...).", at);
+                        Report(Codes.IPS014, "If(...) must be followed by .Then(...) before .ElseIf(...).", at);
                     else if (call.ArgsFrom >= call.ArgsTo || chain.SplitArguments(call.ArgsFrom, call.ArgsTo).Count < 2)
-                        Report("IPS016", "ElseIf needs a condition and a branch body: .ElseIf(IsBelowVwap(), Short().StopLoss(9)).", at);
+                        Report(Codes.IPS016, "ElseIf needs a condition and a branch body: .ElseIf(IsBelowVwap(), Short().StopLoss(9)).", at);
                     break;
                 case "else":
                     if (!open)
-                        Report("IPS011", "Else(...) has no If(...)/Then(...) before it, so the parser skips it.", at);
+                        Report(Codes.IPS011, "Else(...) has no If(...)/Then(...) before it, so the parser skips it.", at);
                     else if (sawElse)
-                        Report("IPS012", "A second Else(...) in the same block can never run.", at);
+                        Report(Codes.IPS012, "A second Else(...) in the same block can never run.", at);
                     else if (awaitingThen)
-                        Report("IPS014", "If(...) must be followed by .Then(...) before .Else(...).", at);
+                        Report(Codes.IPS014, "If(...) must be followed by .Then(...) before .Else(...).", at);
                     sawElse = true;
                     if (open && !isExplicit) Close();
                     break;
                 case "endif":
                     if (!open || !isExplicit)
-                        Report("IPS011", "EndIf() has no open If(...) to close.", at);
+                        Report(Codes.IPS011, "EndIf() has no open If(...) to close.", at);
                     else if (awaitingThen)
-                        Report("IPS014", "If(...) must be followed by .Then(...) before .EndIf().", ifToken);
+                        Report(Codes.IPS014, "If(...) must be followed by .Then(...) before .EndIf().", ifToken);
                     Close();
                     break;
                 case "and": case "or": case "not":
@@ -347,7 +349,7 @@ public static class ScriptDiagnostics
                 default:
                     if (open && isExplicit && awaitingThen)
                     {
-                        Report("IPS014", "If(...) must be followed directly by .Then(...).", ifToken);
+                        Report(Codes.IPS014, "If(...) must be followed directly by .Then(...).", ifToken);
                         awaitingThen = false;
                     }
                     if (open && !isExplicit) Close();
@@ -355,7 +357,7 @@ public static class ScriptDiagnostics
             }
         }
         if (open && isExplicit)
-            Report("IPS013", "This If(...) is never closed with .EndIf().", ifToken,
+            Report(Codes.IPS013, "This If(...) is never closed with .EndIf().", ifToken,
                 ChainEnd(chain.Tokens) is { } end ? EndIfAt(end) : null);
     }
 
@@ -387,13 +389,13 @@ public static class ScriptDiagnostics
         Token? pendingTransition = null;
         string stepName = "";
 
-        void Report(DiagnosticSeverity severity, string code, string message, Token at) =>
-            diags.Add(Make(severity, code, message, at.Start, at.Text.Length, null, src, lineStarts));
+        void Report(ScriptDiagnosticDescriptor code, string message, Token at) =>
+            diags.Add(Make(code, message, at.Start, at.Text.Length, null, src, lineStarts));
 
         void EndStep()
         {
             if (stepIndex >= 1 && !hasDirection)
-                Report(DiagnosticSeverity.Error, "IPS024", $"Step \"{stepName}\" (step {stepIndex + 1}) has no Long() or Short(), so it would never place an order; give the step a direction.", stepToken);
+                Report(Codes.IPS024, $"Step \"{stepName}\" (step {stepIndex + 1}) has no Long() or Short(), so it would never place an order; give the step a direction.", stepToken);
         }
 
         foreach (var call in chain.TopLevelCalls())
@@ -404,7 +406,7 @@ public static class ScriptDiagnostics
                 case "step":
                 {
                     if (ifOpen || whileOpen)
-                        Report(DiagnosticSeverity.Error, "IPS021", "Step(...) cannot sit inside an If(...)/While() block; close the block with EndIf()/EndWhile() first.", at);
+                        Report(Codes.IPS021, "Step(...) cannot sit inside an If(...)/While() block; close the block with EndIf()/EndWhile() first.", at);
                     var name = call.RawArgs.Trim().Trim('"').Trim();
                     if (stepIndex == 0 && !rootNamed && onlySetupSoFar)
                         rootNamed = true;
@@ -419,12 +421,12 @@ public static class ScriptDiagnostics
                     stepName = name;
                     ifOpen = whileOpen = false;
                     if (name.Length > 0 && !names.Add(name))
-                        Report(DiagnosticSeverity.Error, "IPS023", $"Duplicate step name \"{name}\": every step in a sequence needs its own name.", at);
+                        Report(Codes.IPS023, $"Duplicate step name \"{name}\": every step in a sequence needs its own name.", at);
                     break;
                 }
                 case "thenwhen":
                     if (chain.IsEmpty(call.ArgsFrom, call.ArgsTo) || chain.ReadCondition(call.ArgsFrom, call.ArgsTo) is null)
-                        Report(DiagnosticSeverity.Error, "IPS020", "ThenWhen(...) needs a condition the parser can read, e.g. ThenWhen(IsLowerHigh().And(IsBelowVwap())); without one the transition is dropped.", at);
+                        Report(Codes.IPS020, "ThenWhen(...) needs a condition the parser can read, e.g. ThenWhen(IsLowerHigh().And(IsBelowVwap())); without one the transition is dropped.", at);
                     pendingTransition = at;
                     onlySetupSoFar = false;
                     break;
@@ -434,7 +436,7 @@ public static class ScriptDiagnostics
                     break;
                 case "repeat":
                     if (stepIndex >= 1)
-                        Report(DiagnosticSeverity.Warning, "IPS022", "Repeat() applies to the whole sequence, not one step; the parser treats it as if it were in the first step.", at);
+                        Report(Codes.IPS022, "Repeat() applies to the whole sequence, not one step; the parser treats it as if it were in the first step.", at);
                     onlySetupSoFar = false;
                     break;
                 case "long": case "short":
@@ -464,7 +466,7 @@ public static class ScriptDiagnostics
         }
         EndStep();
         if (pendingTransition is { } dangling)
-            Report(DiagnosticSeverity.Error, "IPS025", "ThenWhen(...)/Within(...) has no following Step(...): the last step of a sequence has nothing to move on to, so the transition would be ignored.", dangling);
+            Report(Codes.IPS025, "ThenWhen(...)/Within(...) has no following Step(...): the last step of a sequence has nothing to move on to, so the transition would be ignored.", dangling);
     }
 
     private static void CheckArguments(string verb, List<Token> tokens, int lparen, List<ScriptDiagnostic> diags, string src, int[] lineStarts)
@@ -482,9 +484,9 @@ public static class ScriptDiagnostics
                 // Plain values the parser drops can go; a nested call (While(IsAboveVwap())) was meant as something else.
                 int from = args[0].Start, span = Math.Max(1, args[^1].End - args[0].Start);
                 bool plain = args[^1].End > from && !src.AsSpan(from, args[^1].End - from).ContainsAny('(', ')');
-                diags.Add(Make(DiagnosticSeverity.Warning, "IPS010", $"{verb}() takes no arguments; these are ignored.",
+                diags.Add(Make(Codes.IPS010, $"{verb}() takes no arguments; these are ignored.",
                     from, span, null, src, lineStarts,
-                    plain ? MakeFix("IPS010", from, args[^1].End - from, "", $"Remove the argument(s) {verb}() ignores.", lineStarts) : null));
+                    plain ? MakeFix(Codes.IPS010, from, args[^1].End - from, "", $"Remove the argument(s) {verb}() ignores.", lineStarts) : null));
             }
             return;
         }
@@ -498,10 +500,10 @@ public static class ScriptDiagnostics
             {
                 // From the end of the last argument the verb reads, so the comma goes with them.
                 int cut = args[a - 1].End;
-                diags.Add(Make(DiagnosticSeverity.Warning, "IPS008", $"{verb} reads at most {kinds.Length} argument(s); the rest are ignored.",
+                diags.Add(Make(Codes.IPS008, $"{verb} reads at most {kinds.Length} argument(s); the rest are ignored.",
                     args[a].Start, Math.Max(1, args[^1].End - args[a].Start), null, src, lineStarts,
                     args[^1].End > cut
-                        ? MakeFix("IPS008", cut, args[^1].End - cut, "", $"Remove the argument(s) {verb} ignores.", lineStarts)
+                        ? MakeFix(Codes.IPS008, cut, args[^1].End - cut, "", $"Remove the argument(s) {verb} ignores.", lineStarts)
                         : null));
                 break;
             }
@@ -516,16 +518,16 @@ public static class ScriptDiagnostics
                 bare = bare.TrimStart('$').Trim();
                 bool readable = bare != arg.Text && bare.Length > 0 && (char.IsDigit(bare[0]) || bare[0] is '-' or '+' or '.')
                                 && TryNumber(bare, out var meant) && (lower != 'i' || meant == decimal.Truncate(meant));
-                diags.Add(Make(DiagnosticSeverity.Error, "IPS006",
+                diags.Add(Make(Codes.IPS006,
                     $"{verb} argument {a + 1} must be a number, not '{arg.Text}'; the parser ignores it and the verb misreads its arguments.",
                     arg.Start, Math.Max(1, arg.End - arg.Start), null, src, lineStarts,
                     readable && arg.End > arg.Start
-                        ? MakeFix("IPS006", arg.Start, arg.End - arg.Start, bare, $"Write the number bare: {bare}.", lineStarts)
+                        ? MakeFix(Codes.IPS006, arg.Start, arg.End - arg.Start, bare, $"Write the number bare: {bare}.", lineStarts)
                         : null));
             }
             else if (lower == 'i' && value != decimal.Truncate(value))
             {
-                diags.Add(Make(DiagnosticSeverity.Error, "IPS009",
+                diags.Add(Make(Codes.IPS009,
                     $"{verb} argument {a + 1} must be a whole number; {arg.Text} would be cut to {decimal.Truncate(value)}.",
                     arg.Start, Math.Max(1, arg.End - arg.Start), null, src, lineStarts));
             }
@@ -535,7 +537,7 @@ public static class ScriptDiagnostics
         {
             if (!char.IsUpper(kinds[a])) break;
             var close = tokens[closeAt];
-            diags.Add(Make(DiagnosticSeverity.Error, "IPS007",
+            diags.Add(Make(Codes.IPS007,
                 $"{verb} needs {kinds.Count(char.IsUpper)} argument(s) but got {args.Count}; without them the verb is skipped.",
                 close.Start, 1, null, src, lineStarts));
             break;
@@ -653,7 +655,7 @@ public static class ScriptDiagnostics
                     i += src[i] == '\\' && i + 1 < src.Length ? 2 : 1;
                 if (i >= src.Length || src[i] != '"')
                 {
-                    diags.Add(Make(DiagnosticSeverity.Error, "IPS004", "This string is never closed with '\"'.", start, 1, null, src, lineStarts,
+                    diags.Add(Make(Codes.IPS004, "This string is never closed with '\"'.", start, 1, null, src, lineStarts,
                         CloseStringFix(src, start, i, tokens, lineStarts)));
                     tokens.Add(new Token(TokenKind.String, src[start..i], start));
                     continue;
@@ -709,17 +711,17 @@ public static class ScriptDiagnostics
         var rest = close < 0 ? "" : content[(close + 1)..].Trim();
         if (value.Trim().Length == 0 || !value.All(c => char.IsLetterOrDigit(c) || c is ' ' or '_' or ':' or '.' or '/' or '-')) return null;
         if (rest.Length > 0 && rest[0] != '.') return null;
-        return MakeFix("IPS004", start + 1 + value.Length, 0, "\"", $"Close the string after \"{value}\".", lineStarts);
+        return MakeFix(Codes.IPS004, start + 1 + value.Length, 0, "\"", $"Close the string after \"{value}\".", lineStarts);
     }
 
-    private static ScriptFix MakeFix(string code, int offset, int length, string replacement, string description, int[] lineStarts)
+    private static ScriptFix MakeFix(ScriptDiagnosticDescriptor code, int offset, int length, string replacement, string description, int[] lineStarts)
     {
         int line = Array.BinarySearch(lineStarts, offset);
         if (line < 0) line = ~line - 1;
-        return new ScriptFix(code, offset, length, line + 1, offset - lineStarts[line] + 1, replacement, description);
+        return new ScriptFix(code.Code, offset, length, line + 1, offset - lineStarts[line] + 1, replacement, description);
     }
 
-    private static ScriptDiagnostic Make(DiagnosticSeverity severity, string code, string message, int offset, int length,
+    private static ScriptDiagnostic Make(ScriptDiagnosticDescriptor code, string message, int offset, int length,
         string? suggestion, string src, int[] lineStarts, ScriptFix? fix = null)
     {
         int line = Array.BinarySearch(lineStarts, offset);
@@ -731,7 +733,7 @@ public static class ScriptDiagnostics
         int column = offset - lineStart;
         int caretLength = Math.Max(1, Math.Min(length, Math.Max(1, lineText.Length - column)));
         var excerpt = "  " + lineText + "\n  " + new string(' ', column) + new string('^', caretLength);
-        return new ScriptDiagnostic(severity, code, message, line + 1, column + 1, length, suggestion, excerpt) { Fix = fix };
+        return new ScriptDiagnostic(code.Severity, code.Code, message, line + 1, column + 1, length, suggestion, excerpt) { Fix = fix };
     }
 
     internal static int[] LineStarts(string src)

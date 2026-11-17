@@ -28,7 +28,7 @@ namespace IdiotProof.Scripting;
 /// <summary>Thrown when canonical strategy JSON cannot be FULLY understood.</summary>
 public sealed class StrategyJsonException(string message) : Exception(message);
 
-public static class StrategyJson
+public static partial class StrategyJson
 {
     public const int CurrentSchemaVersion = 1;
 
@@ -195,6 +195,35 @@ public static class StrategyJson
 
     private static readonly string[] RootKeys = [.. DefinitionKeys, "schemaVersion", "nextSteps"];
 
+    // The allow-lists of every other object the reader accepts. RequireOnly reads them, and
+    // StrategyJson.Schema() is generated from them and from the two tables above (IP-T526), so a
+    // key the reader accepts is in the published schema and no other key is.
+    private static readonly Dictionary<string, string[]> ConditionKeys = new(StringComparer.Ordinal)
+    {
+        ["and"] = ["type", "left", "right"],
+        ["or"] = ["type", "left", "right"],
+        ["not"] = ["type", "inner"],
+        ["indicator"] = ["type", "indicator", "p1", "p2", "phase"],
+        ["pattern"] = ["type", "pattern", "level"],
+        ["entryPrice"] = ["type", "price"],
+        ["priceLevel"] = ["type", "kind", "level", "tolerancePercent"],
+        ["timeWindow"] = ["type", "startEt", "endEt"],
+        ["priceBand"] = ["type", "min", "max"],
+        ["gapBand"] = ["type", "minPercent", "maxPercent"],
+    };
+
+    private static readonly string[] TargetKeys = ["label", "price", "percentToSell"];
+
+    private static readonly string[] BlockKeys = ["branches"];
+
+    private static readonly string[] BranchKeys = ["condition", "overrides"];
+
+    private static readonly string[] OverridesKeys =
+    [
+        "direction", "entryConditions", "takeProfitPrice", "takeProfitTargets",
+        "stopLossPrice", "stopLossPercent", "trailingStopPercent",
+    ];
+
     /// <summary>One step (the root with <paramref name="isRoot"/>, which alone may carry <c>nextSteps</c>; a step never nests steps).</summary>
     private static StrategyDefinition ReadDefinition(JsonElement root, bool isRoot)
     {
@@ -311,20 +340,19 @@ public static class StrategyJson
             throw new StrategyJsonException("Condition must be a JSON object.");
         var type = GetString(el, "type") ?? throw new StrategyJsonException("Condition missing 'type'.");
 
+        // One allow-list per condition type (ConditionKeys); the schema is generated from the same table.
+        if (ConditionKeys.TryGetValue(type, out var conditionKeys)) RequireOnly(el, type + "-condition", conditionKeys);
+
         switch (type)
         {
             case "and":
-                RequireOnly(el, "and-condition", "type", "left", "right");
                 return new AndCondition(ReadCondition(Req(el, "left")), ReadCondition(Req(el, "right")));
             case "or":
-                RequireOnly(el, "or-condition", "type", "left", "right");
                 return new OrCondition(ReadCondition(Req(el, "left")), ReadCondition(Req(el, "right")));
             case "not":
-                RequireOnly(el, "not-condition", "type", "inner");
                 return new NotCondition(ReadCondition(Req(el, "inner")));
             case "indicator":
             {
-                RequireOnly(el, "indicator-condition", "type", "indicator", "p1", "p2", "phase");
                 var indicator = GetEnum<IndicatorType>(el, "indicator")
                     ?? throw new StrategyJsonException($"Unknown indicator '{GetString(el, "indicator")}'.");
                 var phase = GetEnum<StrategyPhase>(el, "phase") ?? StrategyPhase.Entry;
@@ -332,35 +360,29 @@ public static class StrategyJson
             }
             case "pattern":
             {
-                RequireOnly(el, "pattern-condition", "type", "pattern", "level");
                 var pattern = GetEnum<PatternType>(el, "pattern")
                     ?? throw new StrategyJsonException($"Unknown pattern '{GetString(el, "pattern")}'.");
                 return new PatternCondition(pattern, GetDouble(el, "level"));
             }
             case "entryPrice":
-                RequireOnly(el, "entryPrice-condition", "type", "price");
                 return new PriceCondition(ConditionType.Entry,
                     GetDouble(el, "price") ?? throw new StrategyJsonException("entryPrice condition missing 'price'."));
             case "priceLevel":
             {
-                RequireOnly(el, "priceLevel-condition", "type", "kind", "level", "tolerancePercent");
                 var kind = GetEnum<PriceLevelType>(el, "kind")
                     ?? throw new StrategyJsonException($"Unknown price-level kind '{GetString(el, "kind")}'.");
                 var level = GetDouble(el, "level") ?? throw new StrategyJsonException("priceLevel condition missing 'level'.");
                 return new PriceLevelCondition(kind, level, GetDouble(el, "tolerancePercent") ?? 1.0);
             }
             case "timeWindow":
-                RequireOnly(el, "timeWindow-condition", "type", "startEt", "endEt");
                 return new TimeWindowCondition(
                     GetTime(el, "startEt") ?? throw new StrategyJsonException("timeWindow missing 'startEt'."),
                     GetTime(el, "endEt") ?? throw new StrategyJsonException("timeWindow missing 'endEt'."));
             case "priceBand":
-                RequireOnly(el, "priceBand-condition", "type", "min", "max");
                 return new PriceBandCondition(
                     GetDouble(el, "min") ?? throw new StrategyJsonException("priceBand missing 'min'."),
                     GetDouble(el, "max") ?? throw new StrategyJsonException("priceBand missing 'max'."));
             case "gapBand":
-                RequireOnly(el, "gapBand-condition", "type", "minPercent", "maxPercent");
                 return new GapBandCondition(
                     GetDouble(el, "minPercent") ?? throw new StrategyJsonException("gapBand missing 'minPercent'."),
                     GetDouble(el, "maxPercent") ?? throw new StrategyJsonException("gapBand missing 'maxPercent'."));
@@ -371,7 +393,7 @@ public static class StrategyJson
 
     private static TakeProfitTarget ReadTarget(JsonElement el)
     {
-        RequireOnly(el, "takeProfitTarget", "label", "price", "percentToSell");
+        RequireOnly(el, "takeProfitTarget", TargetKeys);
         return new TakeProfitTarget
         {
             Label = GetString(el, "label") ?? "T1",
@@ -382,13 +404,13 @@ public static class StrategyJson
 
     private static ConditionalBlock ReadBlock(JsonElement el)
     {
-        RequireOnly(el, "conditionalBlock", "branches");
+        RequireOnly(el, "conditionalBlock", BlockKeys);
         var block = new ConditionalBlock();
         if (el.TryGetProperty("branches", out var branches) && branches.ValueKind == JsonValueKind.Array)
         {
             foreach (var b in branches.EnumerateArray())
             {
-                RequireOnly(b, "branch", "condition", "overrides");
+                RequireOnly(b, "branch", BranchKeys);
                 var branch = new ConditionalBranch
                 {
                     Condition = b.TryGetProperty("condition", out var c) && c.ValueKind != JsonValueKind.Null
@@ -403,9 +425,7 @@ public static class StrategyJson
 
     private static StrategyOverrides ReadOverrides(JsonElement el)
     {
-        RequireOnly(el, "overrides",
-            "direction", "entryConditions", "takeProfitPrice", "takeProfitTargets",
-            "stopLossPrice", "stopLossPercent", "trailingStopPercent");
+        RequireOnly(el, "overrides", OverridesKeys);
         var o = new StrategyOverrides
         {
             Direction = GetEnum<TradeDirection>(el, "direction"),
