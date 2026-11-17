@@ -1068,6 +1068,27 @@ public sealed class MonitorWorker(
 
     // ── Entry: three gates then the order ───────────────────────────────
 
+    // LLM-gate refusals per strategy (IP-T539): how many in a row and when the panel may be asked again.
+    private readonly Dictionary<Guid, (int Count, DateTime LastUtc, DateTime RetryUtc)> llmVetoes = new();
+    private static readonly TimeSpan LlmVetoFirstWait = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan LlmVetoMaxWait = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan LlmVetoStreakExpiry = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// Records a non-approval and returns how long the panel is left alone for this strategy:
+    /// 2 minutes, doubling with each refusal in a row up to 15. A streak older than 30 minutes
+    /// starts over; an approval clears it.
+    /// </summary>
+    private TimeSpan NoteLlmVeto(Guid strategyId)
+    {
+        var now = UtcNow;
+        var count = llmVetoes.TryGetValue(strategyId, out var prior) && now - prior.LastUtc < LlmVetoStreakExpiry ? prior.Count + 1 : 1;
+        var minutes = Math.Min(LlmVetoMaxWait.TotalMinutes, LlmVetoFirstWait.TotalMinutes * Math.Pow(2, Math.Min(count - 1, 10)));
+        var wait = TimeSpan.FromMinutes(minutes);
+        llmVetoes[strategyId] = (count, now, now + wait);
+        return wait;
+    }
+
     private async Task FireAsync(
         IdiotProof.Core.Data.Strategy stored,
         StrategyDefinition def,
@@ -1133,6 +1154,16 @@ public sealed class MonitorWorker(
             conditions = def.EntryConditions.Select(c => c.ToScript()).ToList(),
         }, new System.Text.Json.JsonSerializerOptions
             { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull });
+        // A panel that just said no is not asked again right away (IP-T539): re-polling every tick
+        // until one run approves is not an approval, and costs a panel of LLM calls a tick. Checked
+        // before the signal-fire row so a waiting strategy does not write one a tick either.
+        if (llmVetoes.TryGetValue(stored.Id, out var veto) && UtcNow < veto.RetryUtc)
+        {
+            logger.LogDebug("[{Title}] {Symbol} conditions met, but the LLM panel declined {Count}x; asking again at {Retry:HH:mm:ss} UTC.",
+                stored.Title, stored.Symbol, veto.Count, veto.RetryUtc);
+            return;
+        }
+
         await LogAuditAsync("signal-fire",
             $"[{stored.Title}] {stored.Symbol} all {def.EntryConditions.Count} conditions met — entering gate checks",
             userId: stored.OwnerUserId, dataJson: signalFireData, ct: ct);
@@ -1158,12 +1189,15 @@ public sealed class MonitorWorker(
                     : voteResult.Consensus == VoteDecision.Reject
                         ? $"vetoed by LLM panel ({voteResult.Votes.Count} voters, conf {voteResult.ConsensusConfidence:F0})"
                         : $"no approval quorum (consensus {voteResult.Consensus}, {voteResult.Votes.Count} voters)";
+                var wait = NoteLlmVeto(stored.Id);
+                why += $"; the panel is asked again in {wait.TotalMinutes:0.#} min";
                 logger.LogInformation("[{Title}] {Symbol} ✗ BLOCKED at LLM gate — {Why}", stored.Title, stored.Symbol, why);
                 await LogAuditAsync("signal-vetoed",
                     $"[{stored.Title}] {stored.Symbol} {why}",
                     userId: stored.OwnerUserId, dataJson: voteResult.ConsensusReasoning, ct: ct);
                 return;
             }
+            llmVetoes.Remove(stored.Id);
             panel = (true, $"approved by the LLM panel ({voteResult.Votes.Count} voters, conf {voteResult.ConsensusConfidence:F0})");
         }
 
