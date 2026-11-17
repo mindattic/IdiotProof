@@ -7,4 +7,13 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591;CS1573;CS1572;CS1574;CS1734;CS1587;CS1570;CS1580;CS1584;CS1658;CS1712;CS1723</NoWarn>
   </PropertyGroup>
+  <!-- Sibling MindAttic repos referenced as projects (Corobs, MindAttic.Helpers) sit beside this repo
+       in the normal checkout. A copy of the repo elsewhere (the /test worktree under
+       MindAttic.worktrees\IdiotProof\main-tests) has no siblings, so fall back to MINDATTIC_ROOT, then
+       to the workspace root (IP-T521). -->
+  <PropertyGroup>
+    <MindAtticRoot Condition="'$(MindAtticRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\MindAttic.Helpers\MindAttic.Helpers\MindAttic.Helpers.csproj')">$(MSBuildThisFileDirectory)..\</MindAtticRoot>
+    <MindAtticRoot Condition="'$(MindAtticRoot)' == '' and '$(MINDATTIC_ROOT)' != ''">$([MSBuild]::EnsureTrailingSlash('$(MINDATTIC_ROOT)'))</MindAtticRoot>
+    <MindAtticRoot Condition="'$(MindAtticRoot)' == ''">D:\Projects\MindAttic\</MindAtticRoot>
+  </PropertyGroup>
 </Project>
