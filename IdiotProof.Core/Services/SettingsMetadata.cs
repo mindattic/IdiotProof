@@ -75,6 +75,8 @@ public static class SettingsMetadata
             "BE/BEX decay scanner: trading days of history compared.", "20", Min: 1m, Max: 250m),
         new("decay.be-bex.threshold", SettingKind.Decimal,
             "BE/BEX decay scanner: decay percent at which the BE long is disarmed.", "8", Min: 0.1m, Max: 100m),
+        new(IdiotProof.Core.History.HistoryBackfillWorker.EnabledKey, SettingKind.Bool,
+            "Permanent market history (IP-T454): the Hub worker backfills every newly met ticker (bars, news, splits, EDGAR filings) and runs the nightly top-up and market-wide splits/filings pass. Leader-only; writes only the history database.", "false"),
         new("decay.be-bex.latest", SettingKind.Json, "BE/BEX decay scanner: its latest reading (written by the scanner).", Internal: true),
         new("decay.be-bex.disarmed.*", SettingKind.Bool, "BE/BEX decay scanner: it disarmed this strategy itself (written by the scanner).", Internal: true),
         new("ui.logAlertLastSeen", SettingKind.Timestamp, "When the log-alert badge was last cleared (written by the web app).", Internal: true),
