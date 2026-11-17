@@ -1454,6 +1454,9 @@ public sealed class MonitorWorker(
         {
             entry     = (double)stored.LastEntryPrice;
             filledUtc = stored.EntryFilledUtc.Value;
+            // Booked at the entry's limit price when the order was placed; move it to the real fill
+            // before any stop, target or P&L is measured from it (IP-T530).
+            entry = await TrueUpEntryPriceAsync(stored, entry, filledUtc, ct);
         }
 
         // The true original position size, so GapperExitEvaluator can calculate
@@ -2167,6 +2170,74 @@ public sealed class MonitorWorker(
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex) { logger.LogWarning(ex, "Order lookup for {Symbol} ({ClientId}) failed.", symbol, clientId); }
         return null;
+    }
+
+    // Entry bookings already checked against the broker's fill, by strategy and booking time, and when
+    // an unfinished one was last looked at.
+    private readonly Dictionary<Guid, DateTime> entryTruedUp = new();
+    private readonly Dictionary<Guid, DateTime> entryTrueUpTriedUtc = new();
+    private static readonly TimeSpan EntryTrueUpInterval = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan EntryTrueUpGiveUp = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// An entry is booked at its limit price the moment the order is placed (IP-T530: a 506.12
+    /// marketable limit that filled at 505.23 left every percent stop, target and the diary's P&amp;L
+    /// measured from 506.12). Once this strategy's own entry order is finished at the broker, the
+    /// row and the open diary entry take its real average fill price, once per booking, with an audit
+    /// row. Returns the price to manage the position from. Never throws; on any doubt the booked
+    /// price stands. The filled quantity is not touched here: a short fill is the stale-entry
+    /// path's business (IP-T506).
+    /// </summary>
+    private async Task<double> TrueUpEntryPriceAsync(IdiotProof.Core.Data.Strategy stored, double booked, DateTime filledUtc, CancellationToken ct)
+    {
+        if (entryTruedUp.TryGetValue(stored.Id, out var done) && done == filledUtc) return booked;
+        var now = UtcNow;
+        if (entryTrueUpTriedUtc.TryGetValue(stored.Id, out var tried) && now - tried < EntryTrueUpInterval) return booked;
+        entryTrueUpTriedUtc[stored.Id] = now;
+        try
+        {
+            var broker = await orderRouting.ResolveAsync(stored.OwnerUserId, IdiotProof.Core.Trading.OrderIntent.ParseMode(stored.BrokerMode), ct);
+            if (!broker.SupportsOrderQueries)
+            {
+                entryTruedUp[stored.Id] = filledUtc;
+                return booked;
+            }
+            // The entry order was sent just before the booking; an adopted or bootstrapped position has
+            // no order of ours and keeps the price it was given.
+            var order = (await broker.GetOrdersAsync(stored.Symbol, openOnly: false, afterUtc: filledUtc.AddMinutes(-2), ct: ct))
+                .Where(o => MonitorOrderIds.IsEntryOf(o, stored.Id) && o.FilledQuantity > 0m)
+                .OrderByDescending(o => o.ClientOrderId, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (order is null || order.IsOpen || order.FilledAvgPrice is not { } fill || fill <= 0m)
+            {
+                // Not listed, still working, or no price yet: look again later, but not forever.
+                if (now - filledUtc > EntryTrueUpGiveUp) entryTruedUp[stored.Id] = filledUtc;
+                return booked;
+            }
+
+            entryTruedUp[stored.Id] = filledUtc;
+            entryTrueUpTriedUtc.Remove(stored.Id);
+            var bookedPrice = (decimal)booked;
+            if (Math.Round(fill, 4) == Math.Round(bookedPrice, 4)) return booked;
+
+            await strategyRepo.SetEntryBookkeepingAsync(stored.Id, fill, filledUtc, ct);
+            stored.LastEntryPrice = fill;
+            try { await tradeDiary.CorrectEntryPriceAsync(stored.Id, fill, ct); }
+            catch (Exception ex) { logger.LogError(ex, "[{Title}] trade-diary entry price correction failed (position unaffected).", stored.Title); }
+            await LogAuditAsync("entry-price-corrected",
+                $"[{stored.Title}] {stored.Symbol} entry booked @ {bookedPrice:F2} (the limit) filled @ {fill:F4} at the broker (order {order.Id}); " +
+                "stops, targets and P&L now measure from the fill",
+                userId: stored.OwnerUserId, ct: ct);
+            logger.LogInformation("[{Title}] {Symbol} entry price corrected {Booked:F2} -> {Fill:F4} (order {Id}).",
+                stored.Title, stored.Symbol, bookedPrice, fill, order.Id);
+            return (double)fill;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[{Title}] could not check the entry fill price for {Symbol}; keeping the booked price.", stored.Title, stored.Symbol);
+            return booked;
+        }
     }
 
     /// <summary>

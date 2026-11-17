@@ -38,6 +38,24 @@ public sealed class TradeDiaryRepository(IDbContextFactory<AppDbContext> dbFacto
     }
 
     /// <summary>
+    /// Sets the open diary row's entry price to the broker's real average fill (IP-T530): the row is
+    /// opened at the entry's limit price when the order is placed, before the fill is known. No-op
+    /// if none is open.
+    /// </summary>
+    public async Task CorrectEntryPriceAsync(Guid strategyId, decimal fillPrice, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var row = await db.TradeDiary
+            .Where(t => t.StrategyId == strategyId && t.Status == TradeDiaryStatus.Open)
+            .OrderByDescending(t => t.EntryUtc)
+            .FirstOrDefaultAsync(ct);
+        if (row is null || row.EntryPrice == fillPrice) return;
+        row.EntryPrice = fillPrice;
+        row.UpdatedUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
     /// Closes the open diary row for a strategy on exit — stamps exit price/
     /// time/reason, the exit order id, and realized P&amp;L / return %. Matches the
     /// most-recent Open row for the strategy (a strategy holds at most one
