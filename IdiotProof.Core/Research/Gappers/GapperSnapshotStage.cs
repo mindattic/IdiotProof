@@ -300,7 +300,7 @@ public sealed class GapperSnapshotStage(GapperStudyServices s)
         var from = t.AddDays(-p.Features.Catalyst.NoveltyLookbackDays);
         var inWindow = rows.Where(r => r.PublishedUtc >= from && r.PublishedUtc <= t).ToList();
         if (inWindow.Count == 0) return null;
-        var promo = inWindow.Count(r => r.PreClass == CatalystPreClass.PromoPr.ToString() || p.Features.Catalyst.PromotionalSources.Contains(r.Source, StringComparer.OrdinalIgnoreCase));
+        var promo = inWindow.Count(r => r.PreClass == CatalystLegacyClass.PromoPr.ToString() || p.Features.Catalyst.PromotionalSources.Contains(r.Source, StringComparer.OrdinalIgnoreCase));
         return (double)promo / inWindow.Count;
     }
 

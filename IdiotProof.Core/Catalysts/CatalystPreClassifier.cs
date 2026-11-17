@@ -1,17 +1,57 @@
-using System.Text.RegularExpressions;
+using IdiotProof.Evidence.Gappers;
 
 namespace IdiotProof.Core.Catalysts;
 
-/// <summary>What the rule tables said about one item: class, price direction (-1/0/+1), confidence 0..1 and which rule fired.</summary>
-public readonly record struct CatalystPreClassification(CatalystPreClass Class, int Direction, double Confidence, string Rule);
+/// <summary>
+/// What the classifier said about one item: the catalyst type and its non-binding-LOI flag, the rule that chose it,
+/// and the frozen version 1 reading (<see cref="Legacy"/> class, <see cref="Direction"/> -1/0/+1, <see cref="Confidence"/>
+/// 0..1, <see cref="LegacyRule"/>) that the catalyst score and the gapper study still use.
+/// </summary>
+public readonly record struct CatalystPreClassification(
+    CatalystPreClass Class, bool NonBindingLoi, int Direction, double Confidence, string Rule, CatalystLegacyClass Legacy, string LegacyRule);
+
+/// <summary>A catalyst type read from stored fields alone: the type, the LOI flag and the rule that chose it.</summary>
+public readonly record struct CatalystTypeResult(CatalystPreClass Class, bool NonBindingLoi, string Rule);
 
 /// <summary>
-/// Deterministic, LLM-free catalyst classification from <c>catalyst-preclass.json</c> (IP-T443):
-/// offering form types, 8-K item codes, ordered keyword rules, then the promotional-wire test.
-/// The same code runs live and over history, so the gapper study and the Monitor agree.
+/// Deterministic, LLM-free catalyst classification (IP-T487). One item gets one <see cref="CatalystPreClass"/>:
+/// a news headline through the keyword classifier fixed on the gapper study's train clusters
+/// (<see cref="CatalystTypes"/>, with the version 1 class as a hint), a filing through its form type and 8-K items,
+/// then one label by a fixed priority (gapper study amendment 08). The version 1 rule tables
+/// (<see cref="CatalystLegacyClassifier"/>) run first and are returned beside the type, unchanged.
+/// The same code runs live, in the backfills and over the stored history.
 /// </summary>
 public static class CatalystPreClassifier
 {
+    /// <summary>
+    /// Which type wins when an item names several, most specific first. LOI wording stands in the contract slot: on its own
+    /// it is a contract / partnership, and it flags whatever type wins.
+    /// </summary>
+    private static readonly (string Key, CatalystPreClass Type)[] Priority =
+    [
+        ("coverage", CatalystPreClass.NoCatalyst),
+        ("rsplit", CatalystPreClass.ReverseSplit),
+        ("acqTarget", CatalystPreClass.AcquisitionTarget),
+        ("merger", CatalystPreClass.Merger),
+        ("acqAcquirer", CatalystPreClass.AcquisitionAcquirer),
+        ("fda", CatalystPreClass.FdaClinical),
+        ("offering", CatalystPreClass.OfferingDilution),
+        ("pipe", CatalystPreClass.OutsideInvestment),
+        ("earnBeat", CatalystPreClass.EarningsBeat),
+        ("earnMiss", CatalystPreClass.EarningsMiss),
+        ("guidance", CatalystPreClass.Guidance),
+        ("earnOther", CatalystPreClass.EarningsReport),
+        ("uplist", CatalystPreClass.Uplisting),
+        ("compliance", CatalystPreClass.ListingCompliance),
+        ("buyback", CatalystPreClass.Buyback),
+        ("contract", CatalystPreClass.ContractPartnership),
+        ("loi", CatalystPreClass.ContractPartnership),
+        ("upgrade", CatalystPreClass.AnalystUpgrade),
+        ("theme", CatalystPreClass.ThemePivot),
+    ];
+
+    private static readonly int LoiBit = CatalystTypes.Bit("loi");
+
     public static CatalystPreClassification Classify(string? headline, string? summary, string? formType = null,
         IReadOnlyList<string>? itemCodes = null, string? source = null) =>
         Classify(CatalystCatalogs.PreClassRules, headline, summary, formType, itemCodes, source);
@@ -19,97 +59,64 @@ public static class CatalystPreClassifier
     public static CatalystPreClassification Classify(CatalystPreClassRules rules, string? headline, string? summary,
         string? formType = null, IReadOnlyList<string>? itemCodes = null, string? source = null)
     {
-        var raw = $"{headline} {summary}".Trim();
-        var text = $" {Regex.Replace(raw, @"\s+", " ").ToLowerInvariant()} ";
+        var legacy = CatalystLegacyClassifier.Classify(rules, headline, summary, formType, itemCodes, source);
+        var type = TypeOf(headline, formType, itemCodes, legacy.Class.ToString());
+        return new(type.Class, type.NonBindingLoi, legacy.Direction, legacy.Confidence, type.Rule, legacy.Class, legacy.Rule);
+    }
 
-        if (!string.IsNullOrWhiteSpace(formType))
+    /// <summary>
+    /// The type of a stored item from the fields every store keeps: the headline and the version 1 class of a news item,
+    /// or the form type and 8-K items of a filing (a filing's headline is its form and filer name, so it is not read).
+    /// Pure; the reclassification of stored rows and the live intake both end here.
+    /// </summary>
+    public static CatalystTypeResult TypeOf(string? headline, string? formType, IReadOnlyList<string>? itemCodes, string? legacyClass)
+    {
+        if (string.IsNullOrWhiteSpace(formType))
         {
-            var form = formType.Trim().ToUpperInvariant();
-            if (rules.OfferingFormPrefixes.Any(p => form.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
-                return new(CatalystPreClass.OfferingDilution, -1, 0.9, $"form {form}");
+            int bits = CatalystTypes.FromHeadline(headline, legacyClass);
+            var (type, loi) = FromBits(bits);
+            return new(type, loi, bits == 0 ? "no type matched" : "headline: " + Keys(bits));
         }
 
-        var fromItems = FromItems(rules, itemCodes, text);
-        var fromKeywords = FromKeywords(rules, text);
-        var best = Pick(fromItems, fromKeywords);
-        if (best is { Class: not CatalystPreClass.Other } hit) return hit;
-
-        if (Promo(rules, raw, text, source) is { } promo) return promo;
-        return best ?? new(CatalystPreClass.Other, 0, 0, "no rule matched");
+        var form = formType.Trim().ToUpperInvariant();
+        if (IsOwnershipForm(form)) return new(CatalystPreClass.NoCatalyst, false, $"form {form} (ownership report)");
+        var items = (itemCodes ?? []).Select(i => i.Trim()).Where(i => i.Length > 0).ToList();
+        int filed = CatalystTypes.FromFiling(form, items);
+        // The version 1 class adds what only its keyword rules can see in a filing's text: FDA, an uplisting, a reverse
+        // split, and a merger when the form and items name no acquisition themselves.
+        filed |= legacyClass switch
+        {
+            nameof(CatalystLegacyClass.Fda) => CatalystTypes.Bit("fda"),
+            nameof(CatalystLegacyClass.Uplisting) => CatalystTypes.Bit("uplist"),
+            nameof(CatalystLegacyClass.ReverseSplit) => CatalystTypes.Bit("rsplit"),
+            nameof(CatalystLegacyClass.MA) when (filed & (CatalystTypes.Bit("acqTarget") | CatalystTypes.Bit("acqAcquirer") | CatalystTypes.Bit("merger"))) == 0 => CatalystTypes.Bit("merger"),
+            _ => 0,
+        };
+        var (filedType, filedLoi) = FromBits(filed);
+        var label = items.Count == 0 ? $"form {form}" : $"form {form} items {string.Join(",", items)}";
+        return new(filedType, filedLoi, filed == 0 ? $"{label}: no mapped event" : $"{label}: {Keys(filed)}");
     }
+
+    /// <summary>One type from a <see cref="CatalystTypes"/> bit set by <see cref="Priority"/>; no bit = other. The LOI flag is the LOI bit.</summary>
+    public static (CatalystPreClass Type, bool NonBindingLoi) FromBits(int bits)
+    {
+        bool loi = (bits & LoiBit) != 0;
+        foreach (var (key, type) in Priority)
+            if ((bits & CatalystTypes.Bit(key)) != 0) return (type, loi);
+        return (CatalystPreClass.Other, loi);
+    }
+
+    /// <summary>Insider and institutional ownership reports: filed on a schedule or after a trade, not an event at the company.</summary>
+    public static bool IsOwnershipForm(string form) =>
+        form is "3" or "3/A" or "4" or "4/A" or "5" or "5/A" or "144" or "144/A"
+        || form.StartsWith("13F", StringComparison.Ordinal)
+        || form.StartsWith("SC 13G", StringComparison.Ordinal) || form.StartsWith("SCHEDULE 13G", StringComparison.Ordinal);
 
     /// <summary>1 primary (EDGAR), 2 editorial, 3 wire/promotional, per the catalog's source table.</summary>
-    public static int SourceTier(CatalystPreClassRules rules, string? sourceName, bool isEdgar)
-    {
-        if (isEdgar) return rules.SourceTiers.Edgar;
-        if (string.IsNullOrWhiteSpace(sourceName)) return rules.SourceTiers.Default;
-        if (rules.SourceTiers.BySource.TryGetValue(sourceName.Trim(), out var tier)) return tier;
-        return IsWire(rules, sourceName) ? rules.SourceTiers.Wire : rules.SourceTiers.Default;
-    }
+    public static int SourceTier(CatalystPreClassRules rules, string? sourceName, bool isEdgar) =>
+        CatalystLegacyClassifier.SourceTier(rules, sourceName, isEdgar);
 
-    public static bool IsWire(CatalystPreClassRules rules, string? sourceName) =>
-        !string.IsNullOrWhiteSpace(sourceName)
-        && rules.Promo.WireSources.Any(w => sourceName.Contains(w, StringComparison.OrdinalIgnoreCase));
+    public static bool IsWire(CatalystPreClassRules rules, string? sourceName) => CatalystLegacyClassifier.IsWire(rules, sourceName);
 
-    private static CatalystPreClassification? Pick(CatalystPreClassification? a, CatalystPreClassification? b)
-    {
-        if (a is null) return b;
-        if (b is null) return a;
-        return b.Value.Confidence > a.Value.Confidence ? b : a;
-    }
-
-    private static CatalystPreClassification? FromItems(CatalystPreClassRules rules, IReadOnlyList<string>? itemCodes, string text)
-    {
-        if (itemCodes is not { Count: > 0 }) return null;
-        var items = itemCodes.Select(i => i.Trim()).Where(i => i.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var hits = new List<CatalystPreClassification>();
-
-        foreach (var combo in rules.EightK.Combos)
-            if (combo.Items.Count > 0 && combo.Items.All(items.Contains))
-                hits.Add(new(combo.Class, combo.Direction, combo.Confidence, $"items {string.Join("+", combo.Items)}"));
-
-        foreach (var item in items)
-            if (rules.EightK.Items.TryGetValue(item, out var rule))
-                hits.Add(new(rule.Class, rule.Direction, rule.Confidence, $"item {item}"));
-
-        var splitItems = items.Where(i => rules.EightK.ReverseSplitItems.Contains(i, StringComparer.OrdinalIgnoreCase)).ToList();
-        if (splitItems.Count > 0)
-        {
-            var wording = rules.ReverseSplitPhrases.FirstOrDefault(p => text.Contains(p, StringComparison.OrdinalIgnoreCase));
-            hits.Add(wording is null
-                ? new(CatalystPreClass.Other, 0, 0.3, $"item {splitItems[0]} without reverse-split wording")
-                : new(CatalystPreClass.ReverseSplit, -1, rules.EightK.ReverseSplitConfidence, $"item {splitItems[0]} + \"{wording}\""));
-        }
-
-        if (hits.Count == 0) return null;
-        foreach (var cls in rules.EightK.Priority)
-            if (hits.FirstOrDefault(h => h.Class == cls) is { Rule.Length: > 0 } ranked) return ranked;
-        return hits.OrderByDescending(h => h.Confidence).First();
-    }
-
-    private static CatalystPreClassification? FromKeywords(CatalystPreClassRules rules, string text)
-    {
-        foreach (var rule in rules.KeywordRules)
-        {
-            var phrase = rule.Any.FirstOrDefault(p => p.Length > 0 && text.Contains(p, StringComparison.OrdinalIgnoreCase));
-            if (phrase is not null) return new(rule.Class, rule.Direction, rule.Confidence, $"\"{phrase.Trim()}\"");
-        }
-        return null;
-    }
-
-    private static CatalystPreClassification? Promo(CatalystPreClassRules rules, string raw, string text, string? source)
-    {
-        var promo = rules.Promo;
-        var superlatives = promo.Superlatives.Where(s => text.Contains(s, StringComparison.OrdinalIgnoreCase)).Take(3).ToList();
-        var exclamations = Math.Min(2, raw.Count(c => c == '!'));
-        var shouting = Math.Min(2, Regex.Matches(raw, @"\b[A-Z]{5,}\b").Count);
-        var signals = superlatives.Count + exclamations + shouting;
-        if (promo.SpecificNumberPattern.Length > 0 && Regex.IsMatch(text, promo.SpecificNumberPattern, RegexOptions.IgnoreCase)) signals--;
-
-        // A wire byline is itself a signal: Benzinga re-posts the same release under its own name.
-        var required = IsWire(rules, source) ? promo.MinSignals : promo.MinSignals + 1;
-        if (signals < required || superlatives.Count == 0) return null;
-        return new(CatalystPreClass.PromoPr, promo.Direction, promo.Confidence,
-            $"promo: {string.Join(", ", superlatives)}{(exclamations > 0 ? ", exclamation" : "")}{(shouting > 0 ? ", caps" : "")}");
-    }
+    private static string Keys(int bits) => string.Join("+", CatalystTypes.Keys.Where(k => (bits & CatalystTypes.Bit(k)) != 0));
 }

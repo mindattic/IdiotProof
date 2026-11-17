@@ -56,12 +56,12 @@ public sealed class CatalystPreClassRules
         public List<ComboRule> Combos { get; init; } = [];
         public List<string> ReverseSplitItems { get; init; } = [];
         public double ReverseSplitConfidence { get; init; } = 0.85;
-        public List<CatalystPreClass> Priority { get; init; } = [];
+        public List<CatalystLegacyClass> Priority { get; init; } = [];
     }
 
     public sealed class ItemRule
     {
-        public CatalystPreClass Class { get; init; }
+        public CatalystLegacyClass Class { get; init; }
         public int Direction { get; init; }
         public double Confidence { get; init; }
     }
@@ -69,14 +69,14 @@ public sealed class CatalystPreClassRules
     public sealed class ComboRule
     {
         public List<string> Items { get; init; } = [];
-        public CatalystPreClass Class { get; init; }
+        public CatalystLegacyClass Class { get; init; }
         public int Direction { get; init; }
         public double Confidence { get; init; }
     }
 
     public sealed class KeywordRule
     {
-        public CatalystPreClass Class { get; init; }
+        public CatalystLegacyClass Class { get; init; }
         public int Direction { get; init; }
         public double Confidence { get; init; }
         public List<string> Any { get; init; } = [];

@@ -13,28 +13,28 @@ namespace IdiotProof.Core.History;
 /// </summary>
 public static class HistoryWrites
 {
-    /// <summary>Alpaca news items kept once by (source, id) with every tagged symbol, pre-classified on the way in. Returns the rows inserted.</summary>
+    /// <summary>Alpaca news items kept once by (source, id) with every tagged symbol, classified on the way in (the frozen version 1 class in PreClass, the catalyst type beside it). Returns the rows inserted.</summary>
     public static async Task<int> InsertNewsAsync(SqlConnection c, SqlTransaction tx, IEnumerable<AlpacaNewsItem> items, CancellationToken ct)
     {
         var rows = new DataTable();
-        foreach (var (name, type) in new (string, Type)[] { ("Id", typeof(Guid)), ("Source", typeof(string)), ("ExternalId", typeof(string)), ("PublishedUtc", typeof(DateTime)), ("Headline", typeof(string)), ("Url", typeof(string)), ("PreClass", typeof(string)), ("Direction", typeof(int)), ("SourceName", typeof(string)), ("Snippet", typeof(string)), ("Symbols", typeof(string)) })
+        foreach (var (name, type) in new (string, Type)[] { ("Id", typeof(Guid)), ("Source", typeof(string)), ("ExternalId", typeof(string)), ("PublishedUtc", typeof(DateTime)), ("Headline", typeof(string)), ("Url", typeof(string)), ("PreClass", typeof(string)), ("Direction", typeof(int)), ("SourceName", typeof(string)), ("Snippet", typeof(string)), ("Symbols", typeof(string)), ("CatalystType", typeof(string)), ("NonBindingLoi", typeof(bool)) })
             rows.Columns.Add(name, type);
         foreach (var n in items.DistinctBy(n => n.Id))
         {
             var pre = CatalystPreClassifier.Classify(n.Headline, n.Summary, source: n.Source);
-            rows.Rows.Add(Guid.NewGuid(), CatalystIntake.AlpacaNews, Clip(n.Id, 128), n.CreatedAt, Clip(n.Headline, 1000), Clip(n.Url, 1000), pre.Class.ToString(), pre.Direction,
+            rows.Rows.Add(Guid.NewGuid(), CatalystIntake.AlpacaNews, Clip(n.Id, 128), n.CreatedAt, Clip(n.Headline, 1000), Clip(n.Url, 1000), pre.Legacy.ToString(), pre.Direction,
                 Clip(n.Source, 200), string.IsNullOrWhiteSpace(n.Summary) ? DBNull.Value : n.Summary,
-                string.Join(",", n.Symbols.Select(x => x.ToUpperInvariant()).Where(x => x.Length <= 16)));
+                string.Join(",", n.Symbols.Select(x => x.ToUpperInvariant()).Where(x => x.Length <= 16)), pre.Class.ToString(), pre.NonBindingLoi);
         }
         if (rows.Rows.Count == 0) return 0;
-        await using (var create = new SqlCommand("CREATE TABLE #news (Id uniqueidentifier, Source varchar(32), ExternalId varchar(128), PublishedUtc datetime2(0), Headline nvarchar(1000), Url nvarchar(1000), PreClass varchar(32), Direction int, SourceName nvarchar(200), Snippet nvarchar(max), Symbols nvarchar(max))", c, tx))
+        await using (var create = new SqlCommand("CREATE TABLE #news (Id uniqueidentifier, Source varchar(32), ExternalId varchar(128), PublishedUtc datetime2(0), Headline nvarchar(1000), Url nvarchar(1000), PreClass varchar(32), Direction int, SourceName nvarchar(200), Snippet nvarchar(max), Symbols nvarchar(max), CatalystType varchar(32), NonBindingLoi bit)", c, tx))
             await create.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         await SqlHistoryBarCache.BulkAsync(c, tx, "#news", rows, ct).ConfigureAwait(false);
         await using var insert = new SqlCommand("""
             DECLARE @new TABLE (Id uniqueidentifier);
-            INSERT dbo.News (Id, Source, ExternalId, PublishedUtc, ReceivedUtc, StampKind, Headline, Url, SourceTier, PreClass, Direction, SourceName, Snippet)
+            INSERT dbo.News (Id, Source, ExternalId, PublishedUtc, ReceivedUtc, StampKind, Headline, Url, SourceTier, PreClass, Direction, SourceName, Snippet, CatalystType, NonBindingLoi)
             OUTPUT inserted.Id INTO @new
-            SELECT s.Id, s.Source, s.ExternalId, s.PublishedUtc, NULL, 'realtime', s.Headline, s.Url, NULL, s.PreClass, s.Direction, s.SourceName, s.Snippet FROM #news s
+            SELECT s.Id, s.Source, s.ExternalId, s.PublishedUtc, NULL, 'realtime', s.Headline, s.Url, NULL, s.PreClass, s.Direction, s.SourceName, s.Snippet, s.CatalystType, s.NonBindingLoi FROM #news s
             WHERE NOT EXISTS (SELECT 1 FROM dbo.News d WHERE d.Source = s.Source AND d.ExternalId = s.ExternalId);
             INSERT dbo.NewsSymbols (NewsId, Symbol)
             SELECT DISTINCT n.Id, LEFT(LTRIM(RTRIM(v.value)), 16) FROM #news s
@@ -76,24 +76,25 @@ public static class HistoryWrites
     public static async Task<int> InsertFilingsAsync(SqlConnection c, SqlTransaction tx, IEnumerable<(string Symbol, string Cik, SubmissionFiling Filing)> list, CancellationToken ct)
     {
         var rows = new DataTable();
-        foreach (var (name, type) in new (string, Type)[] { ("AccessionNumber", typeof(string)), ("Symbol", typeof(string)), ("Cik", typeof(string)), ("FormType", typeof(string)), ("FiledDate", typeof(DateTime)), ("AcceptedUtc", typeof(DateTime)), ("ItemsJson", typeof(string)), ("PrimaryDocument", typeof(string)) })
+        foreach (var (name, type) in new (string, Type)[] { ("AccessionNumber", typeof(string)), ("Symbol", typeof(string)), ("Cik", typeof(string)), ("FormType", typeof(string)), ("FiledDate", typeof(DateTime)), ("AcceptedUtc", typeof(DateTime)), ("ItemsJson", typeof(string)), ("PrimaryDocument", typeof(string)), ("CatalystType", typeof(string)) })
             rows.Columns.Add(name, type);
         foreach (var (sym, cik, f) in list.Where(x => x.Symbol.Length is > 0 and <= 16 && x.Filing.AccessionNumber.Length <= 32).DistinctBy(x => (x.Symbol, x.Filing.FiledDate, x.Filing.AccessionNumber)))
         {
             var items = f.Items.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(f.Items);
             rows.Rows.Add(f.AccessionNumber, sym, cik.Length == 0 ? DBNull.Value : Clip(cik, 16), Clip(f.FormType, 24), f.FiledDate.ToDateTime(TimeOnly.MinValue),
-                f.AcceptedUtc is { } a ? a : DBNull.Value, items is null ? DBNull.Value : Clip(items, 400), f.PrimaryDocument is { Length: > 0 } d ? Clip(d, 260) : DBNull.Value);
+                f.AcceptedUtc is { } a ? a : DBNull.Value, items is null ? DBNull.Value : Clip(items, 400), f.PrimaryDocument is { Length: > 0 } d ? Clip(d, 260) : DBNull.Value, CatalystPreClassifier.TypeOf(null, f.FormType, f.Items, null).Class.ToString());
         }
         if (rows.Rows.Count == 0) return 0;
-        await using (var create = new SqlCommand("CREATE TABLE #filings (AccessionNumber varchar(32), Symbol varchar(16), Cik varchar(16), FormType varchar(24), FiledDate date, AcceptedUtc datetime2(0), ItemsJson nvarchar(400), PrimaryDocument nvarchar(260))", c, tx))
+        await using (var create = new SqlCommand("CREATE TABLE #filings (AccessionNumber varchar(32), Symbol varchar(16), Cik varchar(16), FormType varchar(24), FiledDate date, AcceptedUtc datetime2(0), ItemsJson nvarchar(400), PrimaryDocument nvarchar(260), CatalystType varchar(32))", c, tx))
             await create.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         await SqlHistoryBarCache.BulkAsync(c, tx, "#filings", rows, ct).ConfigureAwait(false);
         await using var insert = new SqlCommand("""
-            UPDATE d SET d.PrimaryDocument = ISNULL(d.PrimaryDocument, s.PrimaryDocument), d.AcceptedUtc = ISNULL(d.AcceptedUtc, s.AcceptedUtc), d.ItemsJson = ISNULL(d.ItemsJson, s.ItemsJson)
+            UPDATE d SET d.PrimaryDocument = ISNULL(d.PrimaryDocument, s.PrimaryDocument), d.AcceptedUtc = ISNULL(d.AcceptedUtc, s.AcceptedUtc), d.ItemsJson = ISNULL(d.ItemsJson, s.ItemsJson),
+                d.CatalystType = CASE WHEN d.ItemsJson IS NULL AND s.ItemsJson IS NOT NULL THEN s.CatalystType ELSE ISNULL(d.CatalystType, s.CatalystType) END
             FROM dbo.Filings d JOIN #filings s ON d.Symbol = s.Symbol AND d.FiledDate = s.FiledDate AND d.AccessionNumber = s.AccessionNumber
             WHERE (d.PrimaryDocument IS NULL AND s.PrimaryDocument IS NOT NULL) OR (d.AcceptedUtc IS NULL AND s.AcceptedUtc IS NOT NULL) OR (d.ItemsJson IS NULL AND s.ItemsJson IS NOT NULL);
-            INSERT dbo.Filings (AccessionNumber, Symbol, Cik, FormType, FiledDate, AcceptedUtc, ItemsJson, PrimaryDocument)
-            SELECT s.AccessionNumber, s.Symbol, s.Cik, s.FormType, s.FiledDate, s.AcceptedUtc, s.ItemsJson, s.PrimaryDocument FROM #filings s
+            INSERT dbo.Filings (AccessionNumber, Symbol, Cik, FormType, FiledDate, AcceptedUtc, ItemsJson, PrimaryDocument, CatalystType)
+            SELECT s.AccessionNumber, s.Symbol, s.Cik, s.FormType, s.FiledDate, s.AcceptedUtc, s.ItemsJson, s.PrimaryDocument, s.CatalystType FROM #filings s
             WHERE NOT EXISTS (SELECT 1 FROM dbo.Filings d WHERE d.Symbol = s.Symbol AND d.FiledDate = s.FiledDate AND d.AccessionNumber = s.AccessionNumber);
             DECLARE @n int = @@ROWCOUNT;
             DROP TABLE #filings;

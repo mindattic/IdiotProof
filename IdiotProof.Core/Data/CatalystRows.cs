@@ -44,10 +44,19 @@ public sealed class CatalystEvent
     /// <summary>A <see cref="IdiotProof.Core.Catalysts.CatalystStampKind"/>: realtime | batch (PublishedUtc is an ingestion upper bound) | unknown.</summary>
     [MaxLength(12)] public string StampKind { get; set; } = "unknown";
 
-    /// <summary>A <see cref="IdiotProof.Core.Catalysts.CatalystPreClass"/> name.</summary>
+    /// <summary>
+    /// A <see cref="IdiotProof.Core.Catalysts.CatalystLegacyClass"/> name: the version 1 class, frozen with the gapper
+    /// study (amendment 08). The score, <see cref="PreDirection"/> and <see cref="PreConfidence"/> come from the same rules.
+    /// </summary>
     [MaxLength(24)] public string PreClass { get; set; } = "Other";
     public int PreDirection { get; set; }
     public double PreConfidence { get; set; }
+
+    /// <summary>A <see cref="IdiotProof.Core.Catalysts.CatalystPreClass"/> name (IP-T487); null on a row no build has typed yet.</summary>
+    [MaxLength(24)] public string? CatalystType { get; set; }
+
+    /// <summary>The item is a letter of intent, MOU, term sheet or otherwise non-binding (IP-T487).</summary>
+    public bool NonBindingLoi { get; set; }
 
     [MaxLength(24)] public string? LlmType { get; set; }
     [MaxLength(10)] public string? LlmSentiment { get; set; }

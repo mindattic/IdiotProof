@@ -2107,7 +2107,7 @@
       "noun": "catalyst",
       "verb": "list",
       "tool_name": "catalyst_list",
-      "summary": "Catalyst events the intake recorded (news and EDGAR filings): published ET, receive lag, symbol, pre-class, direction, score, source, headline.",
+      "summary": "Catalyst events the intake recorded (news and EDGAR filings): published ET, receive lag, symbol, catalyst type, direction, score, source, headline.",
       "description": null,
       "risk": "read",
       "usage": "idiotproof catalyst list [--symbol \u003Cstring\u003E] [--since \u003Cstring\u003E] [--limit \u003Cint\u003E]",
@@ -2162,7 +2162,7 @@
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "description": "Catalyst events the intake recorded (news and EDGAR filings): published ET, receive lag, symbol, pre-class, direction, score, source, headline.",
+        "description": "Catalyst events the intake recorded (news and EDGAR filings): published ET, receive lag, symbol, catalyst type, direction, score, source, headline.",
         "properties": {
           "symbol": {
             "type": "string",
@@ -2176,6 +2176,53 @@
             "type": "integer",
             "description": "Most recent N events (default 50, max 500).",
             "default": 50
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "catalyst reclassify",
+      "noun": "catalyst",
+      "verb": "reclassify",
+      "tool_name": "catalyst_reclassify",
+      "summary": "Write the catalyst type (outside investment / PIPE, acquisition target or acquirer, merger, earnings beat / miss / report, guidance, contract / partnership, FDA / clinical, reverse split, uplisting, listing compliance, buyback, analyst upgrade, offering, theme pivot, other, no catalyst) and the non-binding-LOI flag onto stored catalyst events and the permanent history\u0027s news and filings, and report the share left in other / no catalyst against the old Other.",
+      "description": "Deterministic rules only (headline keywords, form type, 8-K items): no model, no network call. Idempotent: a row whose type already matches is not written. The frozen version 1 class, direction and score are never changed. The gapper study\u0027s research rows are typed by \u0060research gappers catalysts\u0060.",
+      "risk": "write",
+      "usage": "idiotproof catalyst reclassify [--store \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "store",
+          "json_name": "store",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "app (this database\u0027s catalyst events), history (the permanent history\u0027s news and filings) or all (default).",
+          "default": "all",
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof catalyst reclassify",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof catalyst reclassify --store history",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Write the catalyst type (outside investment / PIPE, acquisition target or acquirer, merger, earnings beat / miss / report, guidance, contract / partnership, FDA / clinical, reverse split, uplisting, listing compliance, buyback, analyst upgrade, offering, theme pivot, other, no catalyst) and the non-binding-LOI flag onto stored catalyst events and the permanent history\u0027s news and filings, and report the share left in other / no catalyst against the old Other.",
+        "properties": {
+          "store": {
+            "type": "string",
+            "description": "app (this database\u0027s catalyst events), history (the permanent history\u0027s news and filings) or all (default).",
+            "default": "all"
           }
         },
         "additionalProperties": false
@@ -21434,7 +21481,7 @@
       "noun": "research",
       "verb": "gappers catalysts",
       "tool_name": "research_gappers_catalysts",
-      "summary": "Re-run the deterministic CatalystPreClassifier over every backfilled catalyst row (idempotent) and spend an optional Haiku budget on rows never classified; each article/filing is classified at most once.",
+      "summary": "Re-run the frozen version 1 catalyst rules over every backfilled catalyst row (idempotent), write each row\u0027s catalyst type and non-binding-LOI flag, and spend an optional Haiku budget on rows never classified; each article/filing is classified at most once.",
       "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders.",
       "risk": "read",
       "usage": "idiotproof research gappers catalysts [--llm-budget \u003Cint\u003E]",
@@ -21465,7 +21512,7 @@
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "description": "Re-run the deterministic CatalystPreClassifier over every backfilled catalyst row (idempotent) and spend an optional Haiku budget on rows never classified; each article/filing is classified at most once.",
+        "description": "Re-run the frozen version 1 catalyst rules over every backfilled catalyst row (idempotent), write each row\u0027s catalyst type and non-binding-LOI flag, and spend an optional Haiku budget on rows never classified; each article/filing is classified at most once.",
         "properties": {
           "llm_budget": {
             "type": "integer",

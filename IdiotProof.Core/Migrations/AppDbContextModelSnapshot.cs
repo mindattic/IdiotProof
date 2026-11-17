@@ -338,6 +338,10 @@ namespace IdiotProof.Core.Migrations
                     b.Property<double>("CatalystScore")
                         .HasColumnType("float");
 
+                    b.Property<string>("CatalystType")
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
                     b.Property<int>("Direction")
                         .HasColumnType("int");
 
@@ -380,6 +384,9 @@ namespace IdiotProof.Core.Migrations
                     b.Property<string>("LlmType")
                         .HasMaxLength(24)
                         .HasColumnType("nvarchar(24)");
+
+                    b.Property<bool>("NonBindingLoi")
+                        .HasColumnType("bit");
 
                     b.Property<int>("NoveltyCount")
                         .HasColumnType("int");

@@ -7,7 +7,7 @@ namespace IdiotProof.Core.Catalysts;
 /// <c>Score = clamp((TypePrior × Magnitude × SourceWeight + NoveltyBonus) × Freshness, 0, 100)</c>.
 /// </summary>
 public sealed record CatalystScoreBreakdown(
-    CatalystPreClass PreClass,
+    CatalystLegacyClass PreClass,
     double TypePrior,
     string MagnitudeLabel,
     double Magnitude,
@@ -32,22 +32,22 @@ public sealed record CatalystScoreBreakdown(
 /// </summary>
 public static class CatalystScorer
 {
-    public static (double Score, int Direction) Score(CatalystPreClass preClass, int direction, string? llmMagnitude,
+    public static (double Score, int Direction) Score(CatalystLegacyClass preClass, int direction, string? llmMagnitude,
         int sourceTier, int noveltyCount, double ageMinutes) =>
         Score(CatalystCatalogs.ScoringWeights, preClass, direction, llmMagnitude, sourceTier, noveltyCount, ageMinutes);
 
-    public static (double Score, int Direction) Score(CatalystScoringWeights w, CatalystPreClass preClass, int direction,
+    public static (double Score, int Direction) Score(CatalystScoringWeights w, CatalystLegacyClass preClass, int direction,
         string? llmMagnitude, int sourceTier, int noveltyCount, double ageMinutes)
     {
         var b = Explain(w, preClass, direction, llmMagnitude, sourceTier, noveltyCount, ageMinutes);
         return (b.Score, b.Direction);
     }
 
-    public static CatalystScoreBreakdown Explain(CatalystPreClass preClass, int direction, string? llmMagnitude,
+    public static CatalystScoreBreakdown Explain(CatalystLegacyClass preClass, int direction, string? llmMagnitude,
         int sourceTier, int noveltyCount, double ageMinutes) =>
         Explain(CatalystCatalogs.ScoringWeights, preClass, direction, llmMagnitude, sourceTier, noveltyCount, ageMinutes);
 
-    public static CatalystScoreBreakdown Explain(CatalystScoringWeights w, CatalystPreClass preClass, int direction,
+    public static CatalystScoreBreakdown Explain(CatalystScoringWeights w, CatalystLegacyClass preClass, int direction,
         string? llmMagnitude, int sourceTier, int noveltyCount, double ageMinutes)
     {
         var typePrior = TypePrior(w, preClass);
@@ -64,9 +64,9 @@ public static class CatalystScorer
     public static double Combine(double typePrior, double magnitude, double sourceWeight, double noveltyBonus, double freshness) =>
         Math.Clamp((typePrior * magnitude * sourceWeight + noveltyBonus) * freshness, 0, 100);
 
-    public static double TypePrior(CatalystScoringWeights w, CatalystPreClass preClass) =>
+    public static double TypePrior(CatalystScoringWeights w, CatalystLegacyClass preClass) =>
         w.TypePriors.TryGetValue(preClass.ToString(), out var p) ? p
-        : w.TypePriors.TryGetValue(nameof(CatalystPreClass.Other), out var other) ? other : 0;
+        : w.TypePriors.TryGetValue(nameof(CatalystLegacyClass.Other), out var other) ? other : 0;
 
     public static double Magnitude(CatalystScoringWeights w, string label) =>
         w.Magnitude.TryGetValue(label, out var m) ? m

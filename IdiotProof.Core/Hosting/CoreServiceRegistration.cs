@@ -210,6 +210,7 @@ public static class CoreServiceRegistration
         services.AddScoped<IdiotProof.Core.Catalysts.CatalystIngestor>();
         services.AddScoped<IdiotProof.Core.Catalysts.CatalystBackfillService>();
         services.AddScoped<IdiotProof.Core.Catalysts.CatalystLookup>();
+        services.AddScoped<IdiotProof.Core.Catalysts.CatalystReclassifier>();
 
         // ── Formation recorder (IP-T443): settings, status and the snapshot sink every host can read; the worker is hosted with the Monitor ──
         services.AddSingleton<IdiotProof.Core.Monitoring.Formation.FormationSettings>();

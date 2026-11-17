@@ -471,11 +471,34 @@ with `catalyst.intake.edgarPolling`, polls EDGAR's latest-filings feed every 60 
 with the acceptance time from each filing's index headers, through a 120 ms `EdgarRateGate` and a
 daily-cached CIK→ticker map. Every `CatalystEvent` carries `PublishedUtc` (the source's time) and
 `ReceivedUtc` (this process's time), so catalyst latency is measurable; a backfilled row has
-`ReceivedUtc == PublishedUtc` and `Backfilled = true`. `CatalystPreClassifier` is deterministic
-and LLM-free, driven by `IdiotProof.Core/Catalogs/catalyst-preclass.json` ([IP-LAW-7](#IP-LAW-7)):
-offering form prefixes → 8-K item codes and combos → ordered keyword rules → a promotional-wire
-test, into {Fda, ContractAward, ReverseSplit, OfferingDilution, Uplisting, Earnings, MA, PromoPr,
-Other} with a direction (-1/0/+1), a confidence and the rule that fired; `SourceTier` is 1
+`ReceivedUtc == PublishedUtc` and `Backfilled = true`. Classification is deterministic and
+LLM-free, in two layers. `CatalystLegacyClassifier` is the version 1 rule table
+(`IdiotProof.Core/Catalogs/catalyst-preclass.json`, [IP-LAW-7](#IP-LAW-7)): offering form prefixes
+→ 8-K item codes and combos → ordered keyword rules → a promotional-wire test, into
+`CatalystLegacyClass` {Fda, ContractAward, ReverseSplit, OfferingDilution, Uplisting, Earnings, MA,
+PromoPr, Other} with a direction (-1/0/+1), a confidence and the rule that fired. It is frozen
+with the gapper study (its hypotheses, the news ride and the score read `PreClass`, `PreDirection`
+and `CatalystScore`), so those rules and columns never change. `CatalystPreClassifier` (IP-T487,
+study amendment 08) puts the **catalyst type** on top: `CatalystPreClass` {OutsideInvestment (PIPE,
+strategic stake, 8-K 3.02, SC 13D), AcquisitionTarget, AcquisitionAcquirer, Merger, EarningsBeat,
+EarningsMiss, EarningsReport (results with no verdict word, 8-K 2.02), Guidance,
+ContractPartnership, FdaClinical, ReverseSplit (and ADS ratio changes), Uplisting,
+ListingCompliance (deficiency notice, regained compliance, 8-K 3.01, Form 25 / 15), Buyback,
+AnalystUpgrade, OfferingDilution, ThemePivot, Other (company news of no listed type), NoCatalyst
+(coverage of the move or the market; insider and 13F / 13G ownership forms)} plus a
+`NonBindingLoi` flag (letter of intent, MOU, term sheet), which is a flag on whatever type wins,
+not a type. A headline goes through the keyword classifier fixed on the study's train clusters
+(`CatalystTypes`, `IdiotProof.Evidence`, with the version 1 class as a hint), a filing through its
+form type and 8-K items, and one label is chosen by a fixed priority (`CatalystPreClassifier.Priority`:
+coverage, reverse split, target, merger, acquirer, FDA, offering, outside investment, earnings beat,
+miss, guidance, report, uplisting, compliance, buyback, contract, upgrade, theme). The type is
+stored in `CatalystEvent.CatalystType` / `NonBindingLoi` and in the permanent history
+(`News.CatalystType`, `News.NonBindingLoi`, `Filings.CatalystType`, schema step 5); `catalyst
+reclassify` writes it onto rows stored earlier (the study's research rows through `research gappers
+catalysts`), and a row with no type yet reads as the nearest type of its version 1 class
+(`CatalystPreClassNames.Parse`). The shares before and after on the stored five years, and run
+size, duration and fade by type on the study's train split, are in
+`docs/research/gapper-study-2026-11/catalyst-types.md`. `SourceTier` is 1
 EDGAR, 2 editorial, 3 wire/promotional. `CatalystScorer` is pure:
 `clamp((TypePrior × Magnitude × SourceWeight + NoveltyBonus) × Freshness(ageMinutes), 0, 100)`,
 direction carried beside the score (a dilution scores high and bearish), weights in
@@ -485,7 +508,7 @@ MindAttic.Legion (`CatalystExtractor`) classifies in the background, writing the
 and re-scoring; headline and body travel in the user message only, never the system prompt;
 gated by `catalyst.intake.llmClassify`. `CatalystBackfillService` replays Alpaca news (paged, by
 date range) and EDGAR filings by date range through the same ingestor, pre-classifier and scorer,
-so history and live rows agree. Operations: `catalyst list|show|score|intake-status|backfill`.
+so history and live rows agree. Operations: `catalyst list|show|score|intake-status|backfill|reclassify`.
 Everything is off by default behind `catalyst.intake.enabled|ownerUserId|edgarPolling|llmClassify`
 (`SettingsKv`, `CatalystIntakeSettings`), needs an owner GUID with Alpaca data keys, audits
 `catalyst-intake-start|stop|error`, and backs off 5 minutes after a refusal. The worker holds no
@@ -905,7 +928,8 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
   conditions and exits; the root definition is step 0, `ThenWhen` is the flat-only transition to
   the next step and `Within(days)` its deadline. One row, one canon ([IP-LAW-14](#IP-LAW-14)).
 - **Catalyst event** — one `CatalystEvent` row: a news item or SEC filing as the intake saw it,
-  with `PublishedUtc` and `ReceivedUtc`, a deterministic pre-class and direction, optional LLM
+  with `PublishedUtc` and `ReceivedUtc`, a deterministic catalyst type (what kind of event it is,
+  with a non-binding-LOI flag), the frozen version 1 class and direction, optional LLM
   fields and a 0-100 catalyst score. Research data; nothing in trading reads it yet.
 - **Time-of-day profile** — `TimeOfDayProfile`: the median fraction of a day's 04:00–20:00 volume
   printed by each clock minute, per ADV decile, fit on the study's training controls; the

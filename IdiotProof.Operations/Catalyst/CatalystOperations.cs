@@ -55,11 +55,17 @@ internal static class CatalystReads
 
     public static CatalystScoreBreakdown Explain(CatalystEvent e, DateTime nowUtc)
     {
-        var preClass = Enum.TryParse<CatalystPreClass>(e.PreClass, out var pc) ? pc : CatalystPreClass.Other;
+        var preClass = Enum.TryParse<CatalystLegacyClass>(e.PreClass, out var pc) ? pc : CatalystLegacyClass.Other;
         return CatalystScorer.Explain(preClass, e.Direction, e.LlmMagnitude, e.SourceTier, e.NoveltyCount, Math.Max(0, (nowUtc - e.PublishedUtc).TotalMinutes));
     }
 
     public static string Short(Guid id) => id.ToString("N")[..8];
+
+    /// <summary>The stored catalyst type (a row from before IP-T487 has none: its version 1 class read as the nearest type), with the LOI flag.</summary>
+    public static string Type(CatalystEvent e) => (CatalystPreClassNames.Parse(e.CatalystType ?? e.PreClass) ?? CatalystPreClass.Other) + (e.NonBindingLoi ? " (LOI)" : "");
+
+    public static string TypeLabel(CatalystEvent e) =>
+        CatalystPreClassNames.Label(CatalystPreClassNames.Parse(e.CatalystType ?? e.PreClass) ?? CatalystPreClass.Other) + (e.NonBindingLoi ? ", non-binding (LOI / MOU / term sheet)" : "") + (e.CatalystType is null ? " (not typed yet: from the version 1 class)" : "");
 
     public static string Dir(int d) => d switch { > 0 => "+1", < 0 => "-1", _ => "0" };
 
@@ -76,7 +82,7 @@ internal static class CatalystReads
     {
         e.Id, e.Source, e.ExternalId, e.PublishedUtc, e.ReceivedUtc, LagSeconds = e.Backfilled ? (double?)null : (e.ReceivedUtc - e.PublishedUtc).TotalSeconds,
         e.PrimarySymbol, Symbols = Symbols(e), e.Headline, e.Url, e.FormType, e.ItemsJson, e.SourceTier,
-        e.PreClass, e.PreDirection, e.PreConfidence, e.LlmType, e.LlmSentiment, e.LlmMagnitude, e.LlmHasHappened, e.LlmMechanism, e.LlmClassifiedUtc,
+        e.CatalystType, e.NonBindingLoi, e.PreClass, e.PreDirection, e.PreConfidence, e.LlmType, e.LlmSentiment, e.LlmMagnitude, e.LlmHasHappened, e.LlmMechanism, e.LlmClassifiedUtc,
         e.NoveltyCount, e.CatalystScore, e.Direction, e.ScoreComputedUtc, e.Backfilled,
     };
 }
@@ -93,7 +99,7 @@ public sealed record CatalystListArgs
     public int Limit { get; init; } = 50;
 }
 
-[Operation("catalyst list", Summary = "Catalyst events the intake recorded (news and EDGAR filings): published ET, receive lag, symbol, pre-class, direction, score, source, headline.", Risk = OperationRisk.Read)]
+[Operation("catalyst list", Summary = "Catalyst events the intake recorded (news and EDGAR filings): published ET, receive lag, symbol, catalyst type, direction, score, source, headline.", Risk = OperationRisk.Read)]
 [Example("idiotproof catalyst list --since today")]
 [Example("idiotproof catalyst list --symbol ABCD --since 3d")]
 public sealed class CatalystListOperation : IOperation<CatalystListArgs>
@@ -114,10 +120,10 @@ public sealed class CatalystListOperation : IOperation<CatalystListArgs>
                 "`idiotproof catalyst intake-status` shows whether the intake is running; `catalyst backfill` fills history.");
 
         var table = new TextTable { MaxWidth = ctx.Width }
-            .Column("id").Column("published ET").Column("lag", Align.Right).Column("sym").Column("class").Column("dir", Align.Right)
+            .Column("id").Column("published ET").Column("lag", Align.Right).Column("sym").Column("type").Column("dir", Align.Right)
             .Column("score", Align.Right).Column("src").Column("headline", maxWidth: 70);
         foreach (var e in rows)
-            table.Row(CatalystReads.Short(e.Id), Fmt.Et(e.PublishedUtc), CatalystReads.Lag(e), e.PrimarySymbol, e.PreClass, CatalystReads.Dir(e.Direction),
+            table.Row(CatalystReads.Short(e.Id), Fmt.Et(e.PublishedUtc), CatalystReads.Lag(e), e.PrimarySymbol, CatalystReads.Type(e), CatalystReads.Dir(e.Direction),
                 e.CatalystScore.ToString("0.#", CultureInfo.InvariantCulture), e.Source == CatalystIntake.Edgar ? $"edgar {e.FormType}" : "news", e.Headline);
         return OperationResult.Ok(rows.Select(CatalystReads.Row).ToList(),
             $"Catalyst events since {ctx.Et(since)}{(symbol is null ? "" : $" for {symbol}")}:\n{table.Render()}\n{rows.Count} event(s). `idiotproof catalyst show <id>` explains one.");
@@ -148,7 +154,7 @@ public sealed class CatalystShowOperation : IOperation<CatalystShowArgs>
             .Add("Url", e.Url)
             .Add("Items", e.ItemsJson)
             .Add("Source tier", e.SourceTier.ToString(CultureInfo.InvariantCulture))
-            .Add("Pre-class", $"{e.PreClass} dir {CatalystReads.Dir(e.PreDirection)} conf {e.PreConfidence.ToString("0.##", CultureInfo.InvariantCulture)}")
+            .Add("Catalyst type", CatalystReads.TypeLabel(e)).Add("Version 1 class", $"{e.PreClass} dir {CatalystReads.Dir(e.PreDirection)} conf {e.PreConfidence.ToString("0.##", CultureInfo.InvariantCulture)} (frozen; the score uses it)")
             .Add("LLM", e.LlmClassifiedUtc is null ? "not classified" :
                 $"{e.LlmType} {e.LlmSentiment} {e.LlmMagnitude}{(e.LlmHasHappened is { } h ? (h ? " (happened)" : " (pending)") : "")} at {Fmt.Et(e.LlmClassifiedUtc)}")
             .Add("Mechanism", e.LlmMechanism)
@@ -177,7 +183,7 @@ public sealed class CatalystScoreOperation : IOperation<CatalystScoreArgs>
         var e = await ctx.Get<CatalystLookup>().LatestForSymbolAsync(symbol, ctx.UtcNow, ctx.CancellationToken);
         if (e is null) return OperationResult.Ok(null, $"No catalyst event recorded for {symbol}.");
         var b = CatalystReads.Explain(e, ctx.UtcNow);
-        var text = $"{symbol}: {e.PreClass} {CatalystReads.Dir(b.Direction)} published {Fmt.Et(e.PublishedUtc)} ({b.AgeMinutes:0} min ago) — \"{e.Headline}\"\n" +
+        var text = $"{symbol}: {CatalystReads.Type(e)} {CatalystReads.Dir(b.Direction)} published {Fmt.Et(e.PublishedUtc)} ({b.AgeMinutes:0} min ago) — \"{e.Headline}\"\n" +
                    $"score now {b.Score:0.#}: {b.Describe()}\n" +
                    $"(stored {e.CatalystScore:0.#} at {Fmt.Et(e.ScoreComputedUtc)}; event {CatalystReads.Short(e.Id)})";
         return OperationResult.Ok(new { Event = CatalystReads.Row(e), Breakdown = b }, text);
@@ -276,5 +282,51 @@ public sealed class CatalystBackfillOperation : IOperation<CatalystBackfillArgs>
                    $"{s.NoSymbol} without a symbol, {s.LlmClassified} LLM-classified." +
                    (s.Notes.Count > 0 ? "\n" + string.Join("\n", s.Notes) : "");
         return OperationResult.Ok(new { Symbols = symbols, From = args.From, To = to, s.NewsSeen, s.EdgarSeen, s.Inserted, s.Duplicates, s.NoSymbol, s.LlmClassified, s.Notes }, text);
+    }
+}
+
+public sealed record CatalystReclassifyArgs
+{
+    [Option("store", Description = "app (this database's catalyst events), history (the permanent history's news and filings) or all (default).")]
+    public string Store { get; init; } = "all";
+}
+
+[Operation("catalyst reclassify", Summary = "Write the catalyst type (outside investment / PIPE, acquisition target or acquirer, merger, earnings beat / miss / report, guidance, contract / partnership, FDA / clinical, reverse split, uplisting, listing compliance, buyback, analyst upgrade, offering, theme pivot, other, no catalyst) and the non-binding-LOI flag onto stored catalyst events and the permanent history's news and filings, and report the share left in other / no catalyst against the old Other.", Risk = OperationRisk.Write,
+    Description = "Deterministic rules only (headline keywords, form type, 8-K items): no model, no network call. Idempotent: a row whose type already matches is not written. The frozen version 1 class, direction and score are never changed. The gapper study's research rows are typed by `research gappers catalysts`.")]
+[Example("idiotproof catalyst reclassify")]
+[Example("idiotproof catalyst reclassify --store history")]
+public sealed class CatalystReclassifyOperation : IOperation<CatalystReclassifyArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(CatalystReclassifyArgs args, OperationContext ctx)
+    {
+        var store = args.Store.Trim().ToLowerInvariant();
+        if (store is not ("app" or "history" or "all")) return OperationResult.Usage("--store must be app, history or all.");
+        var reclassifier = ctx.Get<CatalystReclassifier>();
+        var results = new List<CatalystReclassifyResult>();
+        if (store is "app" or "all") results.Add(await reclassifier.AppEventsAsync(ctx.CancellationToken));
+        if (store is "history" or "all")
+        {
+            try
+            {
+                results.Add(await reclassifier.HistoryNewsAsync(ctx.CancellationToken));
+                results.Add(await reclassifier.HistoryFilingsAsync(ctx.CancellationToken));
+            }
+            catch (Microsoft.Data.SqlClient.SqlException ex)
+            {
+                return OperationResult.Blocked($"History database unreachable: {ex.Message}");
+            }
+        }
+
+        static string Share(long part, long whole) => whole == 0 ? "-" : (100.0 * part / whole).ToString("0.0", CultureInfo.InvariantCulture) + "%";
+        var table = new TextTable { MaxWidth = ctx.Width }
+            .Column("store").Column("rows", Align.Right).Column("written", Align.Right).Column("old Other", Align.Right)
+            .Column("other", Align.Right).Column("no catalyst", Align.Right).Column("LOI flag", Align.Right).Column("seconds", Align.Right);
+        foreach (var r in results)
+            table.Row(r.Store, r.Rows.ToString("N0", CultureInfo.InvariantCulture), r.Written.ToString("N0", CultureInfo.InvariantCulture), Share(r.LegacyOther, r.Rows),
+                Share(r.Other, r.Rows), Share(r.NoCatalyst, r.Rows), r.NonBindingLoi.ToString("N0", CultureInfo.InvariantCulture), r.Seconds.ToString("0.0", CultureInfo.InvariantCulture));
+        var lines = new List<string> { table.Render() };
+        foreach (var r in results.Where(r => r.Rows > 0))
+            lines.Add($"{r.Store}: " + string.Join(", ", r.TypeCounts.OrderByDescending(t => t.Value).Select(t => $"{t.Key} {t.Value.ToString("N0", CultureInfo.InvariantCulture)} ({Share(t.Value, r.Rows)})")));
+        return OperationResult.Ok(results, string.Join("\n", lines));
     }
 }

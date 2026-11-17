@@ -97,6 +97,28 @@ public class CatalystTypesTests
     }
 
     [Test]
+    public void AnalystNotes_MoveReports_Scorecards_AndNumericGuidance()
+    {
+        int coverage = CatalystTypes.Bit("coverage");
+        Assert.Multiple(() =>
+        {
+            // IP-T487: a rating kept (with or without a lower target) is coverage; a raised target stays an upgrade
+            Assert.That(CatalystTypes.FromHeadline("HC Wainwright & Co. Maintains Buy on Cartesian Therapeutics, Lowers Price Target to $40", null), Is.EqualTo(coverage));
+            Assert.That(Has("HC Wainwright & Co. Maintains Buy on Cartesian Therapeutics, Raises Price Target to $40", "upgrade"), Is.True);
+            Assert.That(Has("Acme Reiterates Full-Year Guidance", "coverage"), Is.False);
+            // a wire about the move is coverage only when it names no event
+            Assert.That(CatalystTypes.FromHeadline("Why Aldeyra Therapeutics (ALDX) Stock Is Getting Obliterated", null), Is.EqualTo(coverage));
+            Assert.That(Has("Why Acme Shares Are Soaring After FDA Approval", "fda"), Is.True);
+            // a scorecard with no verdict word is an earnings report; a stated range is guidance
+            Assert.That(Has("KULR Technology Group Q2 EPS $(0.47) Down From $0.22 YoY, Sales $2.080M Down From $3.970M YoY", "earnOther"), Is.True);
+            Assert.That(Has("LifeStance Health Group Sees Q4 Sales $215M-$220M Vs. $236.16M Est.", "guidance"), Is.True);
+            // IP-T487 forms
+            Assert.That(CatalystTypes.FromFiling("425", []), Is.EqualTo(CatalystTypes.Bit("merger")));
+            Assert.That(CatalystTypes.FromFiling("25-NSE", []), Is.EqualTo(CatalystTypes.Bit("compliance")));
+        });
+    }
+
+    [Test]
     public void ClusterMap_CoversEveryClusterName_WithKnownKeys()
     {
         foreach (var (name, keys) in CatalystClusterMap.Map)

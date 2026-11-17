@@ -91,6 +91,10 @@ public sealed class HistoryDatabase(string connectionString)
         (4, "filings primary document (read-through serves a fetchable document name)", """
             ALTER TABLE dbo.Filings ADD PrimaryDocument nvarchar(260) NULL;
             """),
+        (5, "catalyst type on news and filings, non-binding LOI flag on news (IP-T487)", """
+            ALTER TABLE dbo.News ADD CatalystType varchar(32) NULL, NonBindingLoi bit NULL;
+            ALTER TABLE dbo.Filings ADD CatalystType varchar(32) NULL;
+            """),
     ];
 
     /// <summary>Create the database if missing and apply every schema step not yet applied. Returns the steps applied now.</summary>

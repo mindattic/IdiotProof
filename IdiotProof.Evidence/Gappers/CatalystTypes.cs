@@ -49,6 +49,29 @@ public static class CatalystTypes
         @"^(us|u\.s\.) stocks|\b(dow|nasdaq|s&p 500)\b (jumps|rises|falls|surges|dips|drops|gains|tumbles|slides|edges|climbs|sinks|turns|up|down)\b|" +
         @"halted on circuit breaker|shares resume trad|52-week (lows|highs)|how much \$\d+ invested|value stocks|week in cannabis|biggest ev stories|trending stocks on", Opt);
 
+    /// <summary>
+    /// IP-T487: an analyst note that changes nothing upward (a rating maintained or reiterated, with or without a lower
+    /// target): coverage, unless the same line raises a target or upgrades.
+    /// </summary>
+    private static readonly Regex AnalystNote = new(
+        @"\b(maintains|reiterates)\b (strong buy|speculative buy|buy|sell|hold|neutral|market outperform|outperform|underperform|overweight|underweight|equal[- ]weight|market perform|sector perform|sector weight|peer perform|perform|positive|negative|in[- ]line|accumulate|reduce)\b|" +
+        @"\bexpert ratings for\b|most accurate analysts", Opt);
+
+    /// <summary>
+    /// IP-T487: wires about the move itself (why it is moving, halts, movers and squeeze lists). They often name the real
+    /// event ("soars after FDA approval"), so they count as coverage only when no type matched.
+    /// </summary>
+    private static readonly Regex MoveReport = new(
+        @"stocks moving (higher|lower)|\b(shares|stock)\b (are|is) (trading|moving|getting|soaring|surging|rising|falling|sliding|plunging|tumbling|jumping|climbing|dropping|rallying|higher|lower|up|down)\b|" +
+        @"\b(shares|stock)\b (spikes?|ticks?|jumps?|slides?|falls?|rises?|surges?|plunges?|climbs?|drops?|pops?|soars?|tumbles?|moves?|rall(y|ies)|gains?|sinks?|slips?|dips?|rockets?|skyrockets?|halted)\b|" +
+        @"^why\b|here's why|what's going on with|what's moving markets|market-moving news|squeeze candidates|stocks insiders are|halted on|trading halt|unusual trading activity", Opt);
+
+    /// <summary>IP-T487: a results scorecard with no verdict word ("Q2 EPS $(0.47) Down From $0.22 YoY", "EPS $0.02, Inline").</summary>
+    private static readonly Regex Scorecard = new(@"\b(EPS|FFO|sales|revenue)\b.{0,60}\b(YoY|year[- ]over[- ]year|inline|in[- ]line|estimate|est\b)", Opt);
+
+    /// <summary>IP-T487: guidance stated as a number ("Sees Q4 Sales $215M-$220M Vs. $236.16M Est.", "Expects FY24 EPS ...").</summary>
+    private static readonly Regex GuidanceNumber = new(@"\b(sees|expects|guides|projects|forecasts)\b.{0,50}\b(EPS|FFO|sales|revenue|EBITDA|net income)\b", Opt);
+
     private static readonly Regex Pipe = new(@"private placement|strategic investment|equity investment|\binvest(s|ment of)? \$|securities purchase agreement|investment from|\d+(\.\d+)?% stake", Opt);
     private static readonly Regex PipeWord = new(@"\bPIPE\b", Cased);
     private static readonly Regex Target = new(@"to be acquired|agrees? to be acquired|acquired by|take[- ]private|go[- ]private|tender offer|buyout|(proposal|offer) to acquire|unsolicited (proposal|offer)|to be taken private", Opt);
@@ -81,6 +104,7 @@ public static class CatalystTypes
     {
         string h = headline ?? "";
         if (Coverage.IsMatch(h)) return Bit("coverage");
+        if (AnalystNote.IsMatch(h) && !Upgrade.IsMatch(h)) return Bit("coverage");
         int bits = 0;
         void Set(string key) => bits |= Bit(key);
         bool selfTender = SelfTender.IsMatch(h);
@@ -102,8 +126,8 @@ public static class CatalystTypes
             }
             else if (Beat.IsMatch(h)) Set("earnBeat");
         }
-        if (Guidance.IsMatch(h)) Set("guidance");
-        if ((preClass == "Earnings" || (earnCtx && EarnOther.IsMatch(h))) && (bits & (Bit("earnBeat") | Bit("earnMiss"))) == 0) Set("earnOther");
+        if (Guidance.IsMatch(h) || GuidanceNumber.IsMatch(h)) Set("guidance");
+        if ((preClass == "Earnings" || (earnCtx && (EarnOther.IsMatch(h) || Scorecard.IsMatch(h)))) && (bits & (Bit("earnBeat") | Bit("earnMiss"))) == 0) Set("earnOther");
         bool loi = Loi.IsMatch(h);
         if (loi) Set("loi");
         else if (Contract.IsMatch(h) || preClass == "ContractAward") Set("contract");
@@ -117,6 +141,7 @@ public static class CatalystTypes
         if (Offering.IsMatch(h) || OfferingCased.IsMatch(h) || preClass == "OfferingDilution") Set("offering");
         if (Theme.IsMatch(h) || ThemeCased.IsMatch(h)) Set("theme");
         if (preClass == "MA" && (bits & (Bit("acqTarget") | Bit("acqAcquirer") | Bit("merger"))) == 0) Set("merger");
+        if (bits == 0 && MoveReport.IsMatch(h)) return Bit("coverage");
         return bits;
     }
 
@@ -124,7 +149,8 @@ public static class CatalystTypes
     /// The types an EDGAR filing implies: registration statements and prospectuses = offering; SC 13D = outside investment;
     /// 8-K items 2.02 earnings, 3.02 unregistered equity sale (PIPE), 1.01 material agreement (contract), 2.01 completed
     /// acquisition (acquirer), 3.01 listing-rule notice (compliance), 3.03 modified holder rights and 5.03 charter amendment
-    /// (usually a reverse split). Other items imply nothing.
+    /// (usually a reverse split). Other items imply nothing. FWP = offering; 425, DEFM14 / PREM14 and S-4 / F-4 = merger;
+    /// SC TO-T and SC 14D9 = acquisition target; SC TO-I = buyback; Form 25 and Form 15 = listing compliance (IP-T487).
     /// </summary>
     public static int FromFiling(string formType, IEnumerable<string> items)
     {
@@ -132,7 +158,16 @@ public static class CatalystTypes
         var f = formType.ToUpperInvariant();
         if (f.StartsWith("S-1", StringComparison.Ordinal) || f.StartsWith("S-3", StringComparison.Ordinal) || f.StartsWith("F-1", StringComparison.Ordinal)
             || f.StartsWith("F-3", StringComparison.Ordinal) || f.StartsWith("424B", StringComparison.Ordinal)) bits |= Bit("offering");
-        if (f.StartsWith("SC 13D", StringComparison.Ordinal)) bits |= Bit("pipe");
+        if (f.StartsWith("SC 13D", StringComparison.Ordinal) || f.StartsWith("SCHEDULE 13D", StringComparison.Ordinal)) bits |= Bit("pipe");
+        // IP-T487: the forms that name their own event. A free-writing prospectus markets an offering; 425, a merger proxy or an
+        // S-4 / F-4 is a merger; a third-party tender (SC TO-T) or the target's answer to one (SC 14D9) is an acquisition target;
+        // an issuer tender (SC TO-I) is a buyback; Form 25 (delisting) and Form 15 (deregistration) are listing compliance.
+        if (f == "FWP") bits |= Bit("offering");
+        if (f == "425" || f.StartsWith("DEFM14", StringComparison.Ordinal) || f.StartsWith("PREM14", StringComparison.Ordinal)
+            || f.StartsWith("S-4", StringComparison.Ordinal) || f.StartsWith("F-4", StringComparison.Ordinal)) bits |= Bit("merger");
+        if (f.StartsWith("SC TO-T", StringComparison.Ordinal) || f.StartsWith("SC 14D9", StringComparison.Ordinal)) bits |= Bit("acqTarget");
+        if (f.StartsWith("SC TO-I", StringComparison.Ordinal)) bits |= Bit("buyback");
+        if (f == "25" || f.StartsWith("25-", StringComparison.Ordinal) || f.StartsWith("15-", StringComparison.Ordinal)) bits |= Bit("compliance");
         if (f.StartsWith("8-K", StringComparison.Ordinal))
             foreach (var it in items)
                 bits |= it.Trim() switch

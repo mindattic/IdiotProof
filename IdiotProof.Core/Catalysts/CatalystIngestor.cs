@@ -16,7 +16,7 @@ public sealed record CatalystIngestResult(CatalystIngestOutcome Outcome, Guid? I
 
 /// <summary>
 /// Turns one <see cref="CatalystIntake"/> into a <see cref="CatalystEvent"/> row (IP-T443): dedupes on
-/// (Source, ExternalId), pre-classifies with the rule tables, counts the symbol's recent events for
+/// (Source, ExternalId), classifies (the catalyst type, and the frozen version 1 class the score uses), counts the symbol's recent events for
 /// novelty, scores, writes the row plus one <see cref="CatalystEventSymbol"/> per symbol, and hands the
 /// id to the LLM queue when <c>catalyst.intake.llmClassify</c> is on. Live and backfill both come through here.
 /// </summary>
@@ -47,7 +47,7 @@ public sealed class CatalystIngestor(
         var novelty = await db.CatalystEvents.CountAsync(
             e => e.PrimarySymbol == primary && e.PublishedUtc >= windowStart && e.PublishedUtc < item.PublishedUtc, ct);
         var age = Math.Max(0, (item.ReceivedUtc - item.PublishedUtc).TotalMinutes);
-        var (score, direction) = CatalystScorer.Score(Weights, pre.Class, pre.Direction, null, tier, novelty, age);
+        var (score, direction) = CatalystScorer.Score(Weights, pre.Legacy, pre.Direction, null, tier, novelty, age);
 
         var row = new CatalystEvent
         {
@@ -64,7 +64,9 @@ public sealed class CatalystIngestor(
             SourceTier = tier,
             SourceName = item.SourceName is { Length: > 0 } sn ? Clip(sn, 64) : null,
             StampKind = CatalystStampKind.Classify(item.Source, item.SourceName, item.Url),
-            PreClass = pre.Class.ToString(),
+            PreClass = pre.Legacy.ToString(),
+            CatalystType = pre.Class.ToString(),
+            NonBindingLoi = pre.NonBindingLoi,
             PreDirection = pre.Direction,
             PreConfidence = pre.Confidence,
             NoveltyCount = novelty,

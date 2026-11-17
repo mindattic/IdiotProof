@@ -53,7 +53,7 @@ public sealed class CatalystScorerTests
     [Test]
     public void Explain_ComponentsRecombineToTheScore()
     {
-        var b = CatalystScorer.Explain(W, CatalystPreClass.Fda, 1, "Medium", 2, 3, 120);
+        var b = CatalystScorer.Explain(W, CatalystLegacyClass.Fda, 1, "Medium", 2, 3, 120);
         var expected = Math.Clamp((70 * 0.7 * 0.9 + 15.0 / 4) * Math.Pow(2, -0.5), 0, 100);
         Assert.Multiple(() =>
         {
@@ -65,14 +65,14 @@ public sealed class CatalystScorerTests
             Assert.That(b.Score, Is.EqualTo(expected).Within(1e-9));
             Assert.That(CatalystScorer.Combine(b.TypePrior, b.Magnitude, b.SourceWeight, b.NoveltyBonus, b.Freshness), Is.EqualTo(b.Score));
             Assert.That(b.Direction, Is.EqualTo(1));
-            Assert.That(CatalystScorer.Score(W, CatalystPreClass.Fda, 1, "Medium", 2, 3, 120), Is.EqualTo((b.Score, 1)));
+            Assert.That(CatalystScorer.Score(W, CatalystLegacyClass.Fda, 1, "Medium", 2, 3, 120), Is.EqualTo((b.Score, 1)));
         });
     }
 
     [Test]
     public void UnknownMagnitude_UsesTheUnknownWeight_AndUnknownTypeFallsBackToOther()
     {
-        var b = CatalystScorer.Explain(W, CatalystPreClass.Earnings, 0, null, 1, 0, 0);
+        var b = CatalystScorer.Explain(W, CatalystLegacyClass.Earnings, 0, null, 1, 0, 0);
         Assert.That(b.MagnitudeLabel, Is.EqualTo("Unknown"));
         Assert.That(b.Magnitude, Is.EqualTo(0.6));
         Assert.That(b.TypePrior, Is.EqualTo(15), "Earnings is absent from these weights, so the Other prior applies");
@@ -82,15 +82,15 @@ public sealed class CatalystScorerTests
     public void Score_IsClampedTo100_AndDirectionIsASign()
     {
         var hot = new CatalystScoringWeights { TypePriors = new() { ["Fda"] = 500 }, Magnitude = new() { ["High"] = 1 }, SourceWeights = new() { ["1"] = 1 } };
-        var (score, direction) = CatalystScorer.Score(hot, CatalystPreClass.Fda, 7, "High", 1, 0, 0);
+        var (score, direction) = CatalystScorer.Score(hot, CatalystLegacyClass.Fda, 7, "High", 1, 0, 0);
         Assert.That((score, direction), Is.EqualTo((100d, 1)));
-        Assert.That(CatalystScorer.Score(hot, CatalystPreClass.Fda, -3, "High", 1, 0, 0).Direction, Is.EqualTo(-1));
+        Assert.That(CatalystScorer.Score(hot, CatalystLegacyClass.Fda, -3, "High", 1, 0, 0).Direction, Is.EqualTo(-1));
     }
 
     [Test]
     public void Describe_ShowsEveryTerm()
     {
-        var text = CatalystScorer.Explain(W, CatalystPreClass.Fda, -1, "High", 1, 0, 0).Describe();
+        var text = CatalystScorer.Explain(W, CatalystLegacyClass.Fda, -1, "High", 1, 0, 0).Describe();
         Assert.That(text, Does.Contain("70").And.Contain("[Fda]").And.Contain("tier 1").And.Contain("novelty 0").And.Contain("direction -1"));
     }
 }

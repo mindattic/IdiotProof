@@ -15,6 +15,15 @@ internal static class GapperStudyOps
         return error is null ? null : OperationResult.Blocked(error);
     }
 
+    /// <summary>Share of rows the version 1 rules left in Other, against the share the catalyst types leave in other or no catalyst.</summary>
+    public static string? OtherShare(CatalystStageResult r)
+    {
+        if (r.TypeCounts is null || r.Rows == 0) return null;
+        int other = r.TypeCounts.GetValueOrDefault("Other"), none = r.TypeCounts.GetValueOrDefault("NoCatalyst");
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"version 1 Other {r.LegacyOther} ({100.0 * r.LegacyOther / r.Rows:0.0}%); now other {other} ({100.0 * other / r.Rows:0.0}%) + no catalyst {none} ({100.0 * none / r.Rows:0.0}%)");
+    }
+
     public static List<string> Symbols(string? csv) =>
         (csv ?? "").Split(new[] { ',', ' ', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(x => x.ToUpperInvariant()).Distinct().ToList();
@@ -121,7 +130,7 @@ public sealed record GapperCatalystsArgs
     public int LlmBudget { get; init; }
 }
 
-[Operation("research gappers catalysts", Summary = "Re-run the deterministic CatalystPreClassifier over every backfilled catalyst row (idempotent) and spend an optional Haiku budget on rows never classified; each article/filing is classified at most once.", Risk = OperationRisk.Read,
+[Operation("research gappers catalysts", Summary = "Re-run the frozen version 1 catalyst rules over every backfilled catalyst row (idempotent), write each row's catalyst type and non-binding-LOI flag, and spend an optional Haiku budget on rows never classified; each article/filing is classified at most once.", Risk = OperationRisk.Read,
     Description = GapperStudyOps.ResearchOnly)]
 [Example("idiotproof research gappers catalysts")]
 [Example("idiotproof research gappers catalysts --llm-budget 200")]
@@ -135,7 +144,11 @@ public sealed class GapperCatalystsOperation : IOperation<GapperCatalystsArgs>
         var r = await ctx.Get<GapperCatalystStage>().RunAsync(args.LlmBudget, ctx.CancellationToken);
         var kv = new KeyValueBlock()
             .Add("backfilled rows", r.Rows.ToString())
-            .Add("re-classified", r.Reclassified.ToString())
+            .Add("version 1 changes", r.Reclassified.ToString())
+            .Add("catalyst type written", r.Typed.ToString())
+            .Add("other / no catalyst", GapperStudyOps.OtherShare(r))
+            .Add("types", r.TypeCounts is null ? null : string.Join(", ", r.TypeCounts.OrderByDescending(t => t.Value).Select(t => $"{t.Key} {t.Value}")))
+            .Add("non-binding LOI", r.NonBindingLoi.ToString())
             .Add("LLM classified", $"{r.LlmClassified} (budget {args.LlmBudget}; {r.LlmSkipped} still unclassified)")
             .Add("minutes", r.Minutes.ToString("0.00"));
         return OperationResult.Ok(r, kv.Render());

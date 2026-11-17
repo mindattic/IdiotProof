@@ -96,7 +96,7 @@ public sealed class CatalystClassifier(
         row.LlmClassifiedUtc = now;
 
         var direction = row.LlmSentiment switch { "Bullish" => 1, "Bearish" => -1, _ => row.PreDirection };
-        var preClass = Enum.TryParse<CatalystPreClass>(row.PreClass, out var pc) ? pc : CatalystPreClass.Other;
+        var preClass = Enum.TryParse<CatalystLegacyClass>(row.PreClass, out var pc) ? pc : CatalystLegacyClass.Other;
         // Freshness at receipt, as the ingestor scores it: aging by the classification time decayed every
         // backfilled (and queued) row to the 0.05 floor, so history and live rows stopped being comparable.
         var age = Math.Max(0, (row.ReceivedUtc - row.PublishedUtc).TotalMinutes);

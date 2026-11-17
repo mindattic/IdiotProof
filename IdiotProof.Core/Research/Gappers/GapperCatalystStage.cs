@@ -5,12 +5,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IdiotProof.Core.Research.Gappers;
 
-public sealed record CatalystStageResult(int Rows, int Reclassified, int LlmClassified, int LlmSkipped, double Minutes);
+/// <summary>
+/// <paramref name="Reclassified"/> counts rows whose frozen version 1 fields moved (0 on a store the rules already ran over);
+/// <paramref name="Typed"/> counts rows whose catalyst type or LOI flag was written; <paramref name="TypeCounts"/> is the
+/// type of every row after the run and <paramref name="LegacyOther"/> the rows the version 1 rules leave in Other.
+/// </summary>
+public sealed record CatalystStageResult(int Rows, int Reclassified, int LlmClassified, int LlmSkipped, double Minutes,
+    int Typed = 0, IReadOnlyDictionary<string, int>? TypeCounts = null, int LegacyOther = 0, int NonBindingLoi = 0);
 
 /// <summary>
-/// <c>research gappers catalysts</c>: re-runs the deterministic <see cref="CatalystPreClassifier"/>
+/// <c>research gappers catalysts</c>: re-runs the frozen version 1 rules (<see cref="CatalystLegacyClassifier"/>)
 /// over every backfilled row (idempotent: a row whose class, direction, confidence or tier already
-/// match is untouched, so the frozen rules are applied exactly once per item), then spends an
+/// match is untouched, so the frozen rules are applied exactly once per item), writes each row's catalyst type and LOI flag (<see cref="CatalystPreClassifier.TypeOf"/>, IP-T487; it never touches the version 1 fields), then spends an
 /// optional Haiku budget on rows never classified (the classifier skips any row with an LLM stamp,
 /// so the cache is the row itself).
 /// </summary>
@@ -21,7 +27,8 @@ public sealed class GapperCatalystStage(GapperStudyServices s, CatalystClassifie
         var sw = Stopwatch.StartNew();
         var rules = CatalystCatalogs.PreClassRules;
         var weights = CatalystCatalogs.ScoringWeights;
-        int rows = 0, changed = 0;
+        int rows = 0, changed = 0, typed = 0, legacyOther = 0, loi = 0;
+        var typeCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var unclassified = new List<Guid>();
         await using (var db = await s.Db.CreateDbContextAsync(ct))
         {
@@ -38,7 +45,7 @@ public sealed class GapperCatalystStage(GapperStudyServices s, CatalystClassifie
                     rows++;
                     var items = row.ItemsJson is null ? null : JsonSerializer.Deserialize<List<string>>(row.ItemsJson);
                     var isEdgar = row.Source == CatalystIntake.Edgar;
-                    var pre = CatalystPreClassifier.Classify(rules, row.Headline, row.RawSnippet, row.FormType, items, isEdgar ? "edgar" : null);
+                    var pre = CatalystLegacyClassifier.Classify(rules, row.Headline, row.RawSnippet, row.FormType, items, isEdgar ? "edgar" : null);
                     var tier = CatalystPreClassifier.SourceTier(rules, isEdgar ? "edgar" : null, isEdgar);
                     if (!isEdgar) tier = row.SourceTier;
                     var preClass = pre.Class.ToString();
@@ -59,11 +66,22 @@ public sealed class GapperCatalystStage(GapperStudyServices s, CatalystClassifie
                         row.ScoreComputedUtc = s.UtcNow;
                         changed++;
                     }
+                    var type = CatalystPreClassifier.TypeOf(row.Headline, row.FormType, items, row.PreClass);
+                    var typeName = type.Class.ToString();
+                    if (row.CatalystType != typeName || row.NonBindingLoi != type.NonBindingLoi)
+                    {
+                        row.CatalystType = typeName;
+                        row.NonBindingLoi = type.NonBindingLoi;
+                        typed++;
+                    }
+                    typeCounts[typeName] = typeCounts.GetValueOrDefault(typeName) + 1;
+                    if (type.NonBindingLoi) loi++;
+                    if (row.PreClass == nameof(CatalystLegacyClass.Other)) legacyOther++;
                     if (row.LlmClassifiedUtc is null) unclassified.Add(row.Id);
                 }
                 await db.SaveChangesAsync(ct);
                 after = page[^1].Id;
-                s.Logger.LogInformation("[{Now}] catalysts: {Rows} rows checked, {Changed} re-classified", GapperStudyServices.Et(s.UtcNow), rows, changed);
+                s.Logger.LogInformation("[{Now}] catalysts: {Rows} rows checked, {Changed} version 1 changes, {Typed} typed", GapperStudyServices.Et(s.UtcNow), rows, changed, typed);
             }
         }
 
@@ -74,6 +92,6 @@ public sealed class GapperCatalystStage(GapperStudyServices s, CatalystClassifie
             catch (OperationCanceledException) { throw; }
             catch (Exception ex) { s.Logger.LogWarning(ex, "catalysts: LLM classification failed for {Id}", id); }
         }
-        return new CatalystStageResult(rows, changed, llm, Math.Max(0, unclassified.Count - llm), Math.Round(sw.Elapsed.TotalMinutes, 2));
+        return new CatalystStageResult(rows, changed, llm, Math.Max(0, unclassified.Count - llm), Math.Round(sw.Elapsed.TotalMinutes, 2), typed, typeCounts, legacyOther, loi);
     }
 }
