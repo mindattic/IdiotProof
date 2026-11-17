@@ -29,9 +29,14 @@ public sealed class GapperFormationScanner(
     FormationState state,
     AuditLogRepository audit,
     TimeProvider time,
-    ILogger<GapperFormationScanner> log)
+    ILogger<GapperFormationScanner> log,
+    FormationDetectorScorer? detector = null,
+    FormationReferenceSource? reference = null)
 {
     public const string BlockedAudit = "formation-blocked";
+
+    /// <summary>The 08:00 watch-only alert from the study's validated detector (IP-T447); never an order.</summary>
+    public const string AlertAudit = "formation-alert";
     public static readonly TimeSpan HaltFreshness = TimeSpan.FromMinutes(2);
     public static readonly TimeSpan CatalystLookback = TimeSpan.FromHours(24);
     public static readonly TimeSpan FirstDecisionEt = new(4, 0, 0);
@@ -46,6 +51,9 @@ public sealed class GapperFormationScanner(
         var dateEt = DateOnly.FromDateTime(nowEt);
         var pending = PendingDecisions(nowEt.TimeOfDay, cfg);
         var catalystsBySymbol = await CatalystsAsync(universe.Select(m => m.Symbol), nowUtc, ct);
+        var references = reference is null || pending.Count == 0 ? [] : await reference.GetCachedAsync(universe.Select(m => m.Symbol).ToList(), dateEt, ct);
+        var detectorLabel = FormationSchedule.Label(FormationDetector.DecisionTimeEt);
+        var scored = new List<(string Symbol, double Score, GapperFormationSnapshot Snap, int Missing)>();
 
         var rows = new List<FormationSnapshotRow>();
         var errors = new List<string>();
@@ -65,6 +73,7 @@ public sealed class GapperFormationScanner(
                 var adv20 = Adv20(daily);
                 var decile = Decile(adv20, cfg.TodDecileEdges);
                 catalystsBySymbol.TryGetValue(symbol, out var symbolCatalysts);
+                references.TryGetValue(symbol, out var symbolReference);
 
                 foreach (var p in owed)
                 {
@@ -84,8 +93,15 @@ public sealed class GapperFormationScanner(
                         PriorDayMinuteBars = prior,
                         Catalysts = symbolCatalysts ?? [],
                         Halted = nowUtc - t <= HaltFreshness ? state.Halted(symbol) : null,
+                        CorporateActions = symbolReference is null ? null : new CorporateActionDates(symbolReference.ReverseSplit),
+                        Filings = symbolReference?.Filings ?? [],
                     };
                     var snap = GapperFormationFeatures.Compute(inputs);
+                    if (p.Label == detectorLabel && p.Reason == FormationSnapshotRow.ScheduleReason && detector?.Score(snap) is { } score)
+                    {
+                        snap = snap with { Extra = new Dictionary<string, double>(snap.Extra, StringComparer.Ordinal) { [FormationDetectorScorer.ScoreExtraKey] = score } };
+                        scored.Add((symbol, score, snap, FormationDetector.Missing(FormationDetector.From(snap)).Count));
+                    }
                     computed++;
                     if (p.Reason == FormationSnapshotRow.GatedReason && !Qualifies(snap, adv20, cfg)) continue;
 
@@ -107,6 +123,7 @@ public sealed class GapperFormationScanner(
         }
 
         if (rows.Count > 0) await sink.WriteAsync(rows, ct);
+        if (scored.Count > 0) await AlertAsync(dateEt, detectorLabel, scored, owner, ct);
         state.RecordTick(nowUtc, rows.Count);
         return new FormationTickSummary(universe.Count, computed, rows.Count, triggered, errors);
     }
@@ -233,6 +250,26 @@ public sealed class GapperFormationScanner(
         log.LogInformation("Formation: {Message}", message);
 
         static string Fmt(double? v) => v is { } x ? x.ToString("0.##", CultureInfo.InvariantCulture) : "n/a";
+    }
+
+    /// <summary>
+    /// The 08:00 watch list: the universe ranked by the detector, top <see cref="FormationDetectorScorer.AlertTop"/>
+    /// written as one audit row. The score ranks names by the chance of a +20% move by 09:45 (base rate under 1%);
+    /// no trading rule on these names survived validation, so it says to watch, never to buy.
+    /// </summary>
+    private async Task AlertAsync(DateOnly dateEt, string label, List<(string Symbol, double Score, GapperFormationSnapshot Snap, int Missing)> scored, Guid? owner, CancellationToken ct)
+    {
+        var top = scored.OrderByDescending(x => x.Score).Take(FormationDetectorScorer.AlertTop).ToList();
+        var list = string.Join(", ", top.Select(x => $"{x.Symbol} {x.Score:P1} (gap {(x.Snap.GapPct is { } g ? g.ToString("+0.#;-0.#", CultureInfo.InvariantCulture) : "n/a")}%)"));
+        var message = $"Formation watch {dateEt:yyyy-MM-dd} {label} ET, {scored.Count} scored by the study's H11p detector (chance of +20% by 09:45): {list}. " +
+                      "Watch only: no trading rule on these names survived validation (H12, H12p, H18); nothing was armed.";
+        var data = JsonSerializer.Serialize(new
+        {
+            dateEt = dateEt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), label, scored = scored.Count,
+            top = top.Select((x, i) => new { rank = i + 1, x.Symbol, score = Math.Round(x.Score, 6), x.Snap.GapPct, x.Snap.VolRatioTod, x.Snap.Velocity3m, x.Snap.CatalystScore, missingInputs = x.Missing }),
+        });
+        await audit.LogAsync(AlertAudit, message, userId: owner, dataJson: data, ct: ct);
+        log.LogInformation("Formation: {Message}", message);
     }
 
     internal static double? AtrPercent(IReadOnlyList<Candle> daily)

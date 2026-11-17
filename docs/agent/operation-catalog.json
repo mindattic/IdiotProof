@@ -10372,6 +10372,70 @@
       }
     },
     {
+      "name": "gapper formation shadow",
+      "noun": "gapper",
+      "verb": "formation shadow",
+      "tool_name": "gapper_formation_shadow",
+      "summary": "The formation alert\u0027s 20-session paper shadow (IP-T447, gapper study amendment 06): live 08:00 rows scored by the study\u0027s H11p detector, labeled with the study\u0027s reach label (\u002B20% over the prior close by 09:45), the detector\u0027s AUC against the catalyst-latency benchmark with a day-clustered 95% interval, top-10 hit rate against the base rate, and inputs missing live far more often than in training. Read-only.",
+      "description": null,
+      "risk": "read",
+      "usage": "idiotproof gapper formation shadow [--from \u003Cdate\u003E] [--to \u003Cdate\u003E]",
+      "parameters": [
+        {
+          "name": "from",
+          "json_name": "from",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "First session, yyyy-MM-dd (default: the first live 08:00 row).",
+          "default": null,
+          "enum_values": null
+        },
+        {
+          "name": "to",
+          "json_name": "to",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "date",
+          "required": false,
+          "description": "Last session, yyyy-MM-dd (default: the latest).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof gapper formation shadow",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof gapper formation shadow --from 2026-11-18",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "The formation alert\u0027s 20-session paper shadow (IP-T447, gapper study amendment 06): live 08:00 rows scored by the study\u0027s H11p detector, labeled with the study\u0027s reach label (\u002B20% over the prior close by 09:45), the detector\u0027s AUC against the catalyst-latency benchmark with a day-clustered 95% interval, top-10 hit rate against the base rate, and inputs missing live far more often than in training. Read-only.",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date",
+            "description": "First session, yyyy-MM-dd (default: the first live 08:00 row)."
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "description": "Last session, yyyy-MM-dd (default: the latest)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "gapper formation status",
       "noun": "gapper",
       "verb": "formation status",
@@ -21365,6 +21429,48 @@
             "type": "integer",
             "description": "At most this many never-classified backfilled rows get a Haiku classification (default 0).",
             "default": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "research gappers detector-export",
+      "noun": "research",
+      "verb": "gappers detector-export",
+      "tool_name": "research_gappers_detector_export",
+      "summary": "Freeze the gapper study\u0027s validated H11p detector (logistic on the 08:00 snapshot, fit on train only) into the formation-detector.json catalog the live formation alert scores with, after checking it reproduces the validation AUC. Writes a file; places no orders.",
+      "description": "Research rows only, on the research database (the connection string must name a database containing \u0027_Research_\u0027); read-only market data; no orders. The holdout is never read; the validation AUC is recomputed with the frozen model as a reproduction check, not a new test.",
+      "risk": "write",
+      "usage": "idiotproof research gappers detector-export [--out \u003Cstring\u003E]",
+      "parameters": [
+        {
+          "name": "out",
+          "json_name": "out",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "required": false,
+          "description": "Where to write formation-detector.json (default: IdiotProof.Core\\Catalogs in the repo that holds the study folder).",
+          "default": null,
+          "enum_values": null
+        }
+      ],
+      "examples": [
+        {
+          "command_line": "idiotproof research gappers detector-export",
+          "description": null
+        }
+      ],
+      "input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "description": "Freeze the gapper study\u0027s validated H11p detector (logistic on the 08:00 snapshot, fit on train only) into the formation-detector.json catalog the live formation alert scores with, after checking it reproduces the validation AUC. Writes a file; places no orders.",
+        "properties": {
+          "out": {
+            "type": "string",
+            "description": "Where to write formation-detector.json (default: IdiotProof.Core\\Catalogs in the repo that holds the study folder)."
           }
         },
         "additionalProperties": false

@@ -465,6 +465,20 @@ panel still sees only candles. Not built: the live `GapperFormationWorker` (04:0
 snapshot recorder), the `formation-trigger.json` arming rule, and the CATALYST/MOMENTUM facts in
 `LlmVotingService.BuildSignalContext`.
 
+**Formation alert (IP-T447): the study's detector, watch-only.** No trading rule on formation
+snapshots survived validation (H12 -3.45%/trade, H12p -3.93%, H18 -2.36%), so `formation-trigger.json`
+stays all-null and nothing arms. The detector that did survive (H11p: weighted AUC 0.912 vs the
+catalyst-latency benchmark's 0.558 on validation) is frozen by `research gappers detector-export` into
+`formation-detector.json` (reproduces 0.912 on export; train rows only, holdout never read). At 08:00 ET
+the recorder scores its universe with it (`FormationDetectorScorer`; the study's own
+`FormationDetector.Row`, shared with the H11/H11p test code), stores `detectorScore` on each row, and
+writes one `formation-alert` audit row with the top 10, never an order. Its snapshots now also carry
+the reverse-split and 424B/S-1 ages the study's did, read from the permanent history
+(`FormationReferenceSource`). `gapper formation shadow` is the pre-registered 20-session paper shadow
+(gapper study amendment 06): detector AUC minus benchmark AUC, day-clustered 95% lower bound > 0, and
+no input missing live 20 points more often than in training. `VolRatioTod` needs
+`formation.todProfilePath` and decile edges set, or the drift check fails on it.
+
 **Gapper study (IP-T442, in progress).** Pre-registered 2026-11-06, before any bar, article or
 filing was pulled: `docs/research/gapper-study-2026-11/protocol.md` (frozen), `hypotheses.json`
 (H1–H17, 12 primary, `frozenUtc` set), `params.json` (every frozen number) and `literature.md`

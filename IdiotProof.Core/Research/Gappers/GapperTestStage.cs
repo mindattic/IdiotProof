@@ -616,28 +616,13 @@ public sealed partial class GapperTestStage(GapperStudyServices s, GapperStudyPa
 
     // ── F1: auc-delong (H11) ─────────────────────────────────────────────
 
-    private static readonly string[] DetectorFeatures =
-    [
-        "GapPct", "LogPmCumVol", "VolRatioTod", "OwnProfileRatio", "Velocity1m", "Velocity3m", "Velocity5m", "Velocity15m", "Acceleration", "VolumeRoc",
-        "TradesProxy", "TradesRoc", "SpreadProxy", "DistToPmHighPct", "MinsSinceFirstAbnormal",
-        "AbnormalReturnD1", "AbnormalReturnD2", "AbnormalReturnD3", "AbnormalReturnD4", "AbnormalReturnD5",
-        "VolumeRatioD1", "VolumeRatioD2", "VolumeRatioD3", "VolumeRatioD4", "VolumeRatioD5",
-        "DaysSinceReverseSplit", "DaysSince424B", "DaysSinceS1",
-    ];
+    private static readonly IReadOnlyList<string> DetectorFeatures = FormationDetector.Features;
 
-    private static double[] DetectorRow(PanelRow r)
-    {
-        var x = r.Snapshot;
-        static double N(double? v) => v ?? double.NaN;
-        return
-        [
-            N(x.GapPct), Math.Log(1 + Math.Max(0, x.PmCumVol)), N(x.VolRatioTod), N(x.OwnProfileRatio), N(x.Velocity1m), N(x.Velocity3m), N(x.Velocity5m), N(x.Velocity15m), N(x.Acceleration), N(x.VolumeRoc),
-            x.TradesProxy, N(r.Extras.Number(GapperSnapshotExtras.TradesRoc)), N(x.SpreadProxy), N(x.DistToPmHighPct), N(x.MinsSinceFirstAbnormal),
-            N(x.AbnormalReturnD1), N(x.AbnormalReturnD2), N(x.AbnormalReturnD3), N(x.AbnormalReturnD4), N(x.AbnormalReturnD5),
-            N(x.VolumeRatioD1), N(x.VolumeRatioD2), N(x.VolumeRatioD3), N(x.VolumeRatioD4), N(x.VolumeRatioD5),
-            N(x.DaysSinceReverseSplit), N(x.DaysSince424B), N(x.DaysSinceS1),
-        ];
-    }
+    /// <summary>The detector's input for a study row, through the same transform the live recorder scores with (IP-T447).</summary>
+    internal static double[] DetectorRow(PanelRow r) => FormationDetector.Row(DetectorValues(r));
+
+    internal static FormationDetectorValues DetectorValues(PanelRow r) =>
+        IdiotProof.Core.Monitoring.Formation.FormationDetectorScorer.ValuesOf(r.Snapshot, r.Extras.Number(GapperSnapshotExtras.TradesRoc));
 
     private async Task AucAsync(GapperHypothesis h, HypothesisRun run, string split, CancellationToken ct)
     {

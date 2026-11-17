@@ -17,6 +17,10 @@ public sealed class LogisticModel
         FinalLoss = finalLoss;
     }
 
+    /// <summary>A model rebuilt from saved parts (a frozen catalog file); scores exactly as the fitted one did.</summary>
+    public static LogisticModel Create(IReadOnlyList<string> features, IReadOnlyList<double> means, IReadOnlyList<double> stds, IReadOnlyList<double> weights, double bias) =>
+        new(features.ToList(), means.ToArray(), stds.ToArray(), weights.ToArray(), bias, 0, double.NaN);
+
     public IReadOnlyList<string> Features { get; }
     public IReadOnlyList<double> Means { get; }
     public IReadOnlyList<double> Stds { get; }

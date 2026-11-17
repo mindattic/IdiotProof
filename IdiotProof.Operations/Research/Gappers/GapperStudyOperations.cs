@@ -1,3 +1,4 @@
+using IdiotProof.Evidence.Gappers;
 using IdiotProof.Core.Research.Gappers;
 using IdiotProof.Operations.Rendering;
 
@@ -435,5 +436,60 @@ public sealed class GapperExploreOperation : IOperation<GapperExploreArgs>
         }
         catch (ArgumentException ex) { return OperationResult.Usage(ex.Message); }
         catch (InvalidOperationException ex) { return OperationResult.Blocked(ex.Message); }
+    }
+}
+
+public sealed record GapperDetectorExportArgs
+{
+    [Option("out", Description = @"Where to write formation-detector.json (default: IdiotProof.Core\Catalogs in the repo that holds the study folder).")]
+    public string? Out { get; init; }
+}
+
+/// <summary>
+/// Freezes the study's validated detector (H11p) for the live formation alert (IP-T447): refits it exactly as the
+/// H11p validation run did (weighted, train split only, 08:00 snapshot, reach +20% by 09:45), checks the frozen model
+/// reproduces the reported validation AUC, and writes the catalog the recorder scores with. Never reads the holdout.
+/// </summary>
+[Operation("research gappers detector-export", Summary = "Freeze the gapper study's validated H11p detector (logistic on the 08:00 snapshot, fit on train only) into the formation-detector.json catalog the live formation alert scores with, after checking it reproduces the validation AUC. Writes a file; places no orders.", Risk = OperationRisk.Write,
+    Description = GapperStudyOps.ResearchOnly + " The holdout is never read; the validation AUC is recomputed with the frozen model as a reproduction check, not a new test.")]
+[Example("idiotproof research gappers detector-export")]
+public sealed class GapperDetectorExportOperation : IOperation<GapperDetectorExportArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(GapperDetectorExportArgs args, OperationContext ctx)
+    {
+        var s = ctx.Get<GapperStudyServices>();
+        if (GapperStudyOps.Guard(s) is { } blocked) return blocked;
+        var fit = await ctx.Get<GapperTestStage>().FitDetectorAsync(ctx.CancellationToken);
+        var model = FormationDetectorModel.From(fit.Model) with
+        {
+            Comment = "The gapper study's validated detector (H11p, IP-T442 amendment 01), frozen by `research gappers detector-export` (IP-T447). " +
+                      "Scores the 08:00 ET formation snapshot for 'reaches +20% over the prior close by 09:45'. It ranks names; it is not a trade: " +
+                      "every trading rule on these snapshots lost money on validation (H12, H12p, H18). The live recorder uses it for a watch-only alert. Regenerate, never hand-edit.",
+            TrainRows = fit.TrainRows,
+            TrainPositiveRate = Math.Round(fit.TrainPositiveWeightedRate, 6),
+            ValidationAuc = fit.ValidationAuc is { } a ? Math.Round(a, 4) : null,
+            ValidationBenchmarkAuc = fit.ValidationBenchmarkAuc is { } b ? Math.Round(b, 4) : null,
+            FittedUtc = DateTime.UtcNow,
+            TrainMissingShare = fit.TrainMissingShare,
+        };
+        var outPath = args.Out ?? DefaultPath(s.Paths.StudyDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
+        await File.WriteAllTextAsync(outPath, model.ToJson(), ctx.CancellationToken);
+        var kv = new KeyValueBlock()
+            .Add("file", outPath)
+            .Add("train rows", fit.TrainRows.ToString())
+            .Add("train positive rate (weighted)", fit.TrainPositiveWeightedRate.ToString("0.0000"))
+            .Add("validation rows", fit.ValidationRows.ToString())
+            .Add("validation AUC (frozen model)", fit.ValidationAuc?.ToString("0.000") ?? "-")
+            .Add("benchmark AUC", fit.ValidationBenchmarkAuc?.ToString("0.000") ?? "-")
+            .Add("reported H11p", "0.912 vs 0.558 (gapper-study-2026-11.md)");
+        return OperationResult.Ok(new { path = outPath, fit.TrainRows, fit.ValidationRows, fit.ValidationAuc, fit.ValidationBenchmarkAuc }, kv.Render());
+    }
+
+    private static string DefaultPath(string studyDir)
+    {
+        var repo = Path.GetFullPath(Path.Combine(studyDir, "..", "..", ".."));
+        var catalogs = Path.Combine(repo, "IdiotProof.Core", "Catalogs");
+        return Path.Combine(Directory.Exists(catalogs) ? catalogs : studyDir, FormationDetectorModel.FileName);
     }
 }

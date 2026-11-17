@@ -107,6 +107,7 @@ public sealed class GapperFormationStatusOperation : IOperation<NoArgs>
             .Add("Stream", state?.Stream ?? "—")
             .Add("Halted now", state is null ? null : state.HaltedSymbols.Count == 0 ? "none" : string.Join(", ", state.HaltedSymbols))
             .Add("TOD profile", config.TodProfilePath is null ? $"none ({FormationSettings.TodProfilePathKey}); VolRatioTod stays null" : $"{config.TodProfilePath} ({(state?.ProfileLoaded == true ? "loaded" : "not loaded")}){(config.TodDecileEdges.Count == 0 ? $"; no decile edges ({FormationSettings.TodDecileEdgesKey})" : $"; {config.TodDecileEdges.Count} decile edge(s)")}")
+            .Add("Detector", ctx.Services.GetService<FormationDetectorScorer>()?.Describe() ?? "not registered")
             .Add("Trigger", $"{rule.Describe()}; arming {(config.ArmingEnabled ? "enabled but not wired in this build" : $"disabled ({FormationSettings.ArmingEnabledKey})")}")
             .Add("Rows", state is null ? null : $"{state.RowsToday} today, {state.RowsTotal} since start, {state.TriggeredToday} trigger pass(es) today; last tick {Fmt.Et(state.LastTickUtc, "never")}")
             .Add("Sink", sink is null ? "none" : sink is InMemoryGapperSnapshotSink mem ? $"in-memory ring ({mem.Count} row(s) held, {mem.TotalWritten} written); SQL sink pending" : sink.GetType().Name)
@@ -188,5 +189,40 @@ public sealed class GapperFormationUniverseOperation : IOperation<NoArgs>
             table.Row((++rank).ToString(CultureInfo.InvariantCulture), m.Symbol, m.Why, FormationViews.Num(m.CatalystScore, 0), FormationViews.Signed(m.GapPct, 1),
                 m.Price is { } p ? Fmt.Money(p) : "—", m.MarketCap is { } c ? Fmt.Money(c / 1_000_000, 0) + "M" : "—");
         return Task.FromResult(OperationResult.Ok(data, $"Formation universe, {members.Count} symbol(s), built {Fmt.Et(state!.UniverseBuiltUtc)} ({state.UniverseNote}):\n" + table.Render()));
+    }
+}
+
+public sealed record GapperFormationShadowArgs
+{
+    [Option("from", Description = "First session, yyyy-MM-dd (default: the first live 08:00 row).")]
+    public DateOnly? From { get; init; }
+
+    [Option("to", Description = "Last session, yyyy-MM-dd (default: the latest).")]
+    public DateOnly? To { get; init; }
+}
+
+[Operation("gapper formation shadow", Summary = "The formation alert's 20-session paper shadow (IP-T447, gapper study amendment 06): live 08:00 rows scored by the study's H11p detector, labeled with the study's reach label (+20% over the prior close by 09:45), the detector's AUC against the catalyst-latency benchmark with a day-clustered 95% interval, top-10 hit rate against the base rate, and inputs missing live far more often than in training. Read-only.", Risk = OperationRisk.Read)]
+[Example("idiotproof gapper formation shadow")]
+[Example("idiotproof gapper formation shadow --from 2026-11-18")]
+public sealed class GapperFormationShadowOperation : IOperation<GapperFormationShadowArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(GapperFormationShadowArgs args, OperationContext ctx)
+    {
+        var r = await ctx.Get<FormationShadowReport>().RunAsync(args.From, args.To, ctx.CancellationToken);
+        static string P(double? v) => v is { } x ? x.ToString("0.0%", CultureInfo.InvariantCulture) : "-";
+        static string N(double? v) => v is { } x ? x.ToString("0.000", CultureInfo.InvariantCulture) : "-";
+        var kv = new KeyValueBlock()
+            .Add("Sessions", r.Days == 0 ? "none labeled yet" : $"{r.Days} labeled ({r.From:yyyy-MM-dd} .. {r.To:yyyy-MM-dd}) of {FormationShadowReport.RequiredDays} required")
+            .Add("Rows", $"{r.Rows:N0} scored, {r.Labeled:N0} labeled, {r.Positives:N0} reached +20% by 09:45 (base rate {P(r.BaseRate)})")
+            .Add("AUC", $"detector {N(r.DetectorAuc)} vs benchmark {N(r.BenchmarkAuc)}; difference {N(r.Difference)} [95%: {N(r.Low)}, {N(r.High)}] (validation: 0.912 vs 0.558)")
+            .Add("Top 10 hit rate", $"{P(r.TopPrecision)} of each day's alert list reached +20%")
+            .Add("Input drift", r.Drift.Count == 0 ? "none over the limit" : string.Join("; ", r.Drift.Select(d => $"{d.Feature} missing {d.LiveMissing:P0} live vs {d.TrainMissing:P0} in train")))
+            .Add("Verdict", r.Verdict);
+        var text = new System.Text.StringBuilder(kv.Render());
+        foreach (var d in r.PerDay.TakeLast(10))
+            text.AppendLine().Append($"  {d.DateEt:yyyy-MM-dd}  {d.Labeled,4} labeled, {d.Positives,2} ran; top 10 hits {d.TopHits}: {string.Join(" ", d.Top)}");
+        foreach (var n in r.Notes) text.AppendLine().Append("Note: " + n);
+        text.AppendLine().Append("A hit is marked *. The alert is watch-only: no trading rule on these names survived validation (H12, H12p, H18).");
+        return OperationResult.Ok(r, text.ToString());
     }
 }

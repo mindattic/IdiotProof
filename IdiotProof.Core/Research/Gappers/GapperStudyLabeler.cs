@@ -31,6 +31,16 @@ public sealed record GapperForwardLabels(decimal? EntryRef, DateTime? EntryUtc, 
 /// </summary>
 public static class GapperStudyLabeler
 {
+    /// <summary>
+    /// The study's reach label: the highest high of the bars ending by <paramref name="byUtc"/> at least
+    /// <paramref name="threshold"/> over the prior close; null with no prior close or no bar by then. Shared with the
+    /// live formation shadow (IP-T447) so live outcomes are labeled exactly as the study's were.
+    /// </summary>
+    public static bool? Reach(IReadOnlyList<Candle> bars, decimal prevClose, DateTime byUtc, double threshold) =>
+        prevClose > 0 && bars.Any(b => b.EndUtc <= byUtc)
+            ? (double)(bars.Where(b => b.EndUtc <= byUtc).Max(b => b.High) / prevClose - 1m) >= threshold
+            : null;
+
     public static GapperDayLabels ComputeDay(GapperStudyParams p, IReadOnlyList<Candle> dayBars, decimal prevClose, DateOnly dateEt,
         TimeOfDayProfile? profile = null, int? advDecile = null, double? adv20Shares = null)
     {
@@ -52,9 +62,7 @@ public static class GapperStudyLabeler
         var rthHighBar = rth.Count > 0 ? rth.MaxBy(b => b.High) : null;
         var hodBar = session.Count > 0 ? session.MaxBy(b => b.High) : null;
 
-        bool? reach20 = prevClose > 0 && bars.Any(b => b.EndUtc <= reachBy)
-            ? (double)(bars.Where(b => b.EndUtc <= reachBy).Max(b => b.High) / prevClose - 1m) >= l.Reach20.Threshold
-            : null;
+        bool? reach20 = Reach(bars, prevClose, reachBy, l.Reach20.Threshold);
 
         var lastClose = session.Count > 0 ? session[^1].Close : (decimal?)null;
         var rthOpenBar = rth.Count > 0 ? rth[0] : null;

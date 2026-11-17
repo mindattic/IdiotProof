@@ -92,6 +92,41 @@ public sealed partial class GapperTestStage
         run.Parts.Add(part);
     }
 
+    // ── H11p frozen for live use (IP-T447) ───────────────────────────────
+
+    public sealed record DetectorFit(LogisticModel Model, int TrainRows, double TrainPositiveWeightedRate, int ValidationRows, double? ValidationAuc, double? ValidationBenchmarkAuc, IReadOnlyList<double> TrainMissingShare);
+
+    /// <summary>
+    /// The H11p detector exactly as its validation run fit it: weighted logistic regression on the train split's
+    /// population rows at 08:00 with a reach-20 label. The validation AUC is recomputed with the frozen model (a check
+    /// that the export reproduces the reported 0.912, not a new test); the holdout is never read.
+    /// </summary>
+    public async Task<DetectorFit> FitDetectorAsync(CancellationToken ct)
+    {
+        var decision = IdiotProof.Core.Monitoring.Formation.FormationSchedule.Label(FormationDetector.DecisionTimeEt);
+        static bool Keep(PanelRow r) => r.InPopulation && r.Label.Reach20By0945 is not null;
+        var train = (await panel.LoadAsync("train", decision, ct)).Where(Keep).ToList();
+        if (train.Count < P.Statistics.MinBucketN) throw new InvalidOperationException($"Only {train.Count} train population rows at {decision}: run the study's snapshot and label stages first.");
+        var model = LogisticRegression.FitWeighted(DetectorFeatures, train.Select(DetectorRow).ToList(), train.Select(r => r.Label.Reach20By0945!.Value).ToList(), train.Select(r => r.Weight).ToList());
+        var totalWeight = train.Sum(r => r.Weight);
+        var positive = train.Where(r => r.Label.Reach20By0945 == true).Sum(r => r.Weight) / totalWeight;
+        var trainX = train.Select(r => (Row: DetectorRow(r), r.Weight)).ToList();
+        var missing = Enumerable.Range(0, DetectorFeatures.Count)
+            .Select(j => Math.Round(trainX.Where(x => double.IsNaN(x.Row[j]) || double.IsInfinity(x.Row[j])).Sum(x => x.Weight) / totalWeight, 4)).ToList();
+
+        var validation = (await panel.LoadAsync("validation", decision, ct)).Where(Keep).ToList();
+        double? auc = null, bench = null;
+        if (validation.Count > 0)
+        {
+            var benchmark = FeatureCondition.Require(GapperHypothesisSet.Load(s.Paths).Find("H11").Feature, "pubToTMinutes");
+            var labels = validation.Select(r => r.Label.Reach20By0945!.Value).ToList();
+            var weights = validation.Select(r => r.Weight).ToList();
+            auc = WeightedAuc.Compute(validation.Select(r => model.Predict(DetectorRow(r))).ToList(), labels, weights);
+            bench = WeightedAuc.Compute(validation.Select(r => benchmark.Holds(r.Snapshot.CatalystAgeMinutes) ? 1.0 : 0.0).ToList(), labels, weights);
+        }
+        return new(model, train.Count, positive, validation.Count, auc, bench, missing);
+    }
+
     // ── H11p: weighted detector against the catalyst-latency benchmark ────
 
     private async Task PopulationAucAsync(GapperHypothesis h, HypothesisRun run, string split, CancellationToken ct)
