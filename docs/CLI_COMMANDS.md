@@ -273,7 +273,7 @@
 | [`strategy list`](#strategy-list) | Read | List your strategies with mode, position and live condition progress. |
 | [`strategy mode`](#strategy-mode) | Money | Route a strategy to sandbox, paper or live. Switching to live needs a confirmation code. |
 | [`strategy progress`](#strategy-progress) | Read | How close a strategy is to firing: conditions passing N/M, the first failing verb and the last price, optionally watched. |
-| [`strategy quarantine`](#strategy-quarantine) | Read | List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn't parse), with the reason. |
+| [`strategy quarantine`](#strategy-quarantine) | Read | List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn't parse), with the reason, why each was not repaired automatically, and the proposed repair. |
 | [`strategy rename`](#strategy-rename) | Write | Give a strategy a new title. Its canon, stamp id and state are untouched. |
 | [`strategy resync-canon`](#strategy-resync-canon) | Write | Re-derive your strategies' canons from their scripts where the script now yields a richer canon; dry run unless --apply. |
 | [`strategy samples`](#strategy-samples) | Read | List the built-in sample strategies, or show one as IdiotScript, a stamp or canonical JSON. |
@@ -5323,11 +5323,11 @@ Examples:
 ### strategy quarantine
 
 ```text
-List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn't parse), with the reason.
+List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn't parse), with the reason, why each was not repaired automatically, and the proposed repair.
 
-A quarantined strategy never fires; one that is quarantined while holding a position has NO managed exit and is listed first.
+A quarantined strategy never fires; one that is quarantined while holding a position has NO managed exit and is listed first. The Monitor repairs a quarantined strategy by itself only when it is active, flat, at step 1 of its sequence, Paper or Sandbox (Live needs quarantine.autorepair.live), its script has no errors, and the canon re-derived from the script loses nothing the stored canon expressed. Everything else is listed here with what blocks it. This command changes nothing; --diff shows the canon a repair would write.
 
-Usage: idiotproof strategy quarantine [--symbol <string>]
+Usage: idiotproof strategy quarantine [--symbol <string>] [--diff]
 Risk: read
 
 Parameters:
@@ -5357,9 +5357,11 @@ Examples:
 
 ### strategy resync-canon
 
+      --diff             Also print each proposed repair as a line diff of the stored canon against the canon re-derived from the script. (default: false)
 ```text
 Re-derive your strategies' canons from their scripts where the script now yields a richer canon; dry run unless --apply.
 
+  idiotproof strategy quarantine --symbol NVDA --diff
 The repair for verbs an older parser dropped silently. A row is rewritten only when the re-derived canon has at least as many entry conditions and branches as the stored one; anything that would lose a condition is skipped and reported. Only the canon (ScriptJson) changes — position bookkeeping is untouched.
 
 Usage: idiotproof strategy resync-canon [--apply]

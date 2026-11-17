@@ -1,6 +1,6 @@
 ﻿AUTHORITATIVE — full detail in docs/BIBLE.md
 
-<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-11-10 by tools/codex.ps1. Do not hand-edit. -->
+<!-- generatedFrom: IP-§1,IP-§3,IP-§5,IP-§9 + USER_STORIES status index. Generated 2026-11-17 by tools/codex.ps1. Do not hand-edit. -->
 
 # IdiotProof — Bible Digest (generated)
 
@@ -114,6 +114,18 @@ InvariantCulture), and parsed (tolerantly, for now) only for hand-typed input an
 with no canon. LLM boundaries emit structured JSON against a schema, never DSL text.
 Attribution metadata (`Author`, `OriginTranscript`) is not part of the canon. ("Parse, don't
 validate"; no shotgun parsing on the money path. Verified by `StrategyJsonTests`.)
+The one automatic way out of quarantine is a repair the Monitor makes itself, and only when nothing
+can be lost: the strategy is flat (no position, no working order of its own, at step 1 of its
+sequence), its stored script has no error diagnostics, and the canon re-derived from that script
+passes the strict reader, is for the same symbol, session, direction and size, and has every exit
+rule and no fewer conditions, branches, targets or steps than the stored canon (which must be a
+schema-1 JSON object, so it can be counted); the repository makes the write
+([IP-LAW-11](#IP-LAW-11)) with a `strategy-repaired` audit row holding the quarantine reason and
+the canon before and after, one attempt per quarantine reason, Paper and Sandbox strategies only
+unless `quarantine.autorepair.live` is true, and not at all when `quarantine.autorepair.enabled`
+is false — in every other case the strategy stays quarantined and `strategy quarantine` says what
+blocks it and shows the proposed repair. (`IdiotProof.Core/Services/CanonRepair.cs`;
+`CanonRepairTests`.)
 
 ### {#IP-LAW-9} Synthetic data never drives a real order
 When the market-data feed is Mock, every non-Sandbox entry is refused — Monitor fires, manual
@@ -139,7 +151,10 @@ update (never the Monitor's position bookkeeping), enforces one active gapper pe
 recheck (`SymbolAlreadyActive` / `GapperCapReached`; auto-armed gappers obey their own per-run
 limit instead of the cap), refuses a Live activation the caller has not confirmed
 (`LiveNotConfirmed`: the web asks for the password per activation, as the CLI asks for a code),
-and deletes a strategy's `ConditionProgress` with it. No page writes strategy rows around it.
+deletes a strategy's `ConditionProgress` with it, and is the only writer of an automatic canon
+repair (`RepairQuarantinedCanonAsync`: the fresh row must pass [IP-LAW-8](#IP-LAW-8)'s repair
+rule; canon and `UpdatedUtc` only, saved together with its audit row). No page writes strategy
+rows around it.
 (`StrategyRepositoryGuardTests`.)
 
 ### {#IP-LAW-12} Every order goes through the TransactionGateway
@@ -194,6 +209,8 @@ strategy. (`IdiotProof.Scripting/StrategyJson.cs` — `nextSteps` allowed on the
 - **ConditionProgress** — the SQL row (`N/M`, first failing verb) the Monitor upserts per tick
   and `strategy progress` reads.
 - **Quarantine** — a strategy whose canon cannot be fully understood; never evaluated, reason shown.
+  The Monitor lifts it by itself only through a lossless, audited canon repair of a flat strategy
+  ([IP-LAW-8](#IP-LAW-8)); `strategy quarantine` lists the rest with what blocks each one.
 - **Sandbox broker** — the always-registered simulated broker (instant fills into an in-memory
   position book) that is the safe default in `BrokerRouter`.
 - **BrokerMode** — a strategy's own routing choice: Paper, Live or Sandbox.

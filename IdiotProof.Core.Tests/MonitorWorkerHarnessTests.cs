@@ -284,6 +284,83 @@ public sealed class MonitorWorkerHarnessTests
         });
     }
 
+    // ── Quarantine auto-repair (IP-T525) ─────────────────────────────────
+
+    /// <summary>Makes the armed row's canon unreadable (an unknown root property) without changing what it says.</summary>
+    private static async Task<string> BreakCanonAsync(IServiceProvider sp, Guid id, string? mode = null)
+    {
+        await using var db = await sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
+        var row = await db.Strategies.SingleAsync(s => s.Id == id);
+        row.ScriptJson = row.ScriptJson!.Replace("\"schemaVersion\": 1,", "\"schemaVersion\": 1,\n  \"legacyNote\": \"x\",");
+        if (mode is not null) row.BrokerMode = mode;
+        await db.SaveChangesAsync();
+        return row.ScriptJson;
+    }
+
+    [Test]
+    public async Task QuarantinedFlatStrategy_IsRepairedFromItsScript_Audited_ThenEvaluatedOnALaterTick()
+    {
+        await using var sp = Build(RthInstant);
+        var armed = await ArmAsync(sp, "HRNQ", TradingSession.RTH);
+        var readable = armed.ScriptJson;
+        var broken = await BreakCanonAsync(sp, armed.Id);
+        Assert.That(StrategyLoader.Load(broken, armed.ScriptText).CanonicalError, Is.Not.Null, "the row starts quarantined");
+
+        await RunWorkerUntilAsync(sp, async () => (await ReadAsync(sp, armed.Id)).Row.PositionQty > 0, TimeSpan.FromSeconds(45));
+
+        var (row, progress) = await ReadAsync(sp, armed.Id);
+        await using var db = await sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
+        var repairs = await db.AuditLogs.AsNoTracking().Where(a => a.Category == IdiotProof.Core.Services.CanonRepair.AuditCategory).ToListAsync();
+        var trail = await AuditTrailAsync(sp);
+        Assert.Multiple(() =>
+        {
+            Assert.That(row.ScriptJson, Is.EqualTo(readable), $"the canon is the one its script yields. Progress: {progress?.FirstFailingVerb}. Audit:\n{trail}");
+            Assert.That(repairs, Has.Count.EqualTo(1), "one repair, one audit row: not one per tick");
+            Assert.That(repairs.FirstOrDefault()?.UserId, Is.EqualTo(armed.OwnerUserId));
+            Assert.That(repairs.FirstOrDefault()?.DataJson, Does.Contain("legacyNote").And.Contain("canonBefore").And.Contain("canonAfter").And.Contain("quarantineReason"));
+            Assert.That(row.PositionQty, Is.EqualTo(1), $"once repaired it is evaluated like any other strategy. Audit:\n{trail}");
+        });
+    }
+
+    [Test]
+    public async Task QuarantinedLiveStrategy_IsNotRepaired_UnlessTheLiveSwitchIsOn()
+    {
+        await using var sp = Build(RthInstant);
+        var armed = await ArmAsync(sp, "HRNR", TradingSession.RTH);
+        var broken = await BreakCanonAsync(sp, armed.Id, mode: "Live");
+
+        await RunWorkerUntilAsync(sp, async () => (await ReadAsync(sp, armed.Id)).Progress is not null, TimeSpan.FromSeconds(45));
+
+        var (row, progress) = await ReadAsync(sp, armed.Id);
+        var trail = await AuditTrailAsync(sp);
+        Assert.Multiple(() =>
+        {
+            Assert.That(row.ScriptJson, Is.EqualTo(broken), "a Live strategy's canon is not rewritten behind the owner's back");
+            Assert.That(progress?.FirstFailingVerb, Does.Contain("invalid strategy").And.Contain("not auto-repaired").And.Contain("Live"));
+            Assert.That(trail, Does.Not.Contain(IdiotProof.Core.Services.CanonRepair.AuditCategory));
+            Assert.That(row.PositionQty, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    public async Task QuarantinedStrategy_IsNotRepaired_WhenAutoRepairIsSwitchedOff()
+    {
+        await using var sp = Build(RthInstant);
+        await sp.GetRequiredService<IdiotProof.Core.Services.SettingsRepository>().SetAsync(IdiotProof.Core.Services.CanonRepairPolicy.EnabledKey, "false");
+        var armed = await ArmAsync(sp, "HRNS", TradingSession.RTH);
+        var broken = await BreakCanonAsync(sp, armed.Id);
+
+        await RunWorkerUntilAsync(sp, async () => (await ReadAsync(sp, armed.Id)).Progress is not null, TimeSpan.FromSeconds(45));
+
+        var (row, progress) = await ReadAsync(sp, armed.Id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(row.ScriptJson, Is.EqualTo(broken));
+            Assert.That(progress?.FirstFailingVerb, Does.Contain("switched off"));
+            Assert.That(row.PositionQty, Is.EqualTo(0));
+        });
+    }
+
     // ── Sequenced strategies (IP-T445) ───────────────────────────────────
 
     /// <summary>

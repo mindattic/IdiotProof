@@ -11742,11 +11742,11 @@ Read-only. Times are US Eastern.
 
 ## `strategy_quarantine`
 
-List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn't parse), with the reason.
+List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn't parse), with the reason, why each was not repaired automatically, and the proposed repair.
 
-A quarantined strategy never fires; one that is quarantined while holding a position has NO managed exit and is listed first.
+A quarantined strategy never fires; one that is quarantined while holding a position has NO managed exit and is listed first. The Monitor repairs a quarantined strategy by itself only when it is active, flat, at step 1 of its sequence, Paper or Sandbox (Live needs quarantine.autorepair.live), its script has no errors, and the canon re-derived from the script loses nothing the stored canon expressed. Everything else is listed here with what blocks it. This command changes nothing; --diff shows the canon a repair would write.
 
-CLI equivalent: idiotproof strategy quarantine [--symbol <string>]
+CLI equivalent: idiotproof strategy quarantine [--symbol <string>] [--diff]
 Examples:
   idiotproof strategy quarantine
 
@@ -11756,7 +11756,7 @@ Read-only. Times are US Eastern.
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "description": "List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn\u0027t parse), with the reason.",
+  "description": "List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn\u0027t parse), with the reason, why each was not repaired automatically, and the proposed repair.",
   "properties": {
     "symbol": {
       "type": "string",
@@ -11791,6 +11791,7 @@ Changes saved state. Times are US Eastern.
       "default": ""
     },
     "title": {
+  idiotproof strategy quarantine --symbol NVDA --diff
       "type": "string",
       "description": "The new title (1-200 characters).",
       "default": ""
@@ -11803,6 +11804,11 @@ Changes saved state. Times are US Eastern.
   ]
 }
 ```
+    },
+    "diff": {
+      "type": "boolean",
+      "description": "Also print each proposed repair as a line diff of the stored canon against the canon re-derived from the script.",
+      "default": false
 
 ## `strategy_resync_canon`
 

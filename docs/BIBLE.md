@@ -171,6 +171,9 @@ Test projects: `IdiotProof.Engine.Tests`, `IdiotProof.Indicators.Tests`, `IdiotP
 - `Stock.Ticker(symbol)` → `StrategyBuilder` (`IdiotProof.Scripting`) — entry point to author IdiotScript.
 - `StrategyLoader.Load(scriptJson, scriptText)` — the one materialization path: canon first;
   present-but-rejected canon quarantines; only canon-less legacy rows touch `ScriptParser`.
+- `CanonRepair.Plan(strategy)` — the "safe to repair" rule for a quarantined strategy
+  ([IP-LAW-8](#IP-LAW-8)); `StrategyRepository.RepairQuarantinedCanonAsync` is the only writer, the
+  Monitor its only automatic caller (flat quarantined strategies, once per quarantine reason).
 - `IStrategy.Evaluate(symbol, candles, context)` → `IReadOnlyList<TradeSignal>` (`IdiotProof.Strategies`).
 - `DslStrategy` — adapts a parsed `StrategyDefinition` into an `IStrategy`.
 - `IndicatorSnapshotBuilder.Build(...)` → `IndicatorSnapshot` (indicators, previous close/gap,
@@ -671,7 +674,10 @@ update (never the Monitor's position bookkeeping), enforces one active gapper pe
 recheck (`SymbolAlreadyActive` / `GapperCapReached`; auto-armed gappers obey their own per-run
 limit instead of the cap), refuses a Live activation the caller has not confirmed
 (`LiveNotConfirmed`: the web asks for the password per activation, as the CLI asks for a code),
-and deletes a strategy's `ConditionProgress` with it. No page writes strategy rows around it.
+deletes a strategy's `ConditionProgress` with it, and is the only writer of an automatic canon
+repair (`RepairQuarantinedCanonAsync`: the fresh row must pass [IP-LAW-8](#IP-LAW-8)'s repair
+rule; canon and `UpdatedUtc` only, saved together with its audit row). No page writes strategy
+rows around it.
 (`StrategyRepositoryGuardTests`.)
 
 ### {#IP-LAW-12} Every order goes through the TransactionGateway
@@ -695,6 +701,18 @@ and replays exactly what was previewed — an edited, swapped, expired or reused
 nothing. Several Live actions (close-all) share one code bound to exactly that set. The web
 confirms Live with the owner's password elevation (re-checked on the server) instead of a code;
 the Monitor needs none, because activating a strategy in Live was the confirmed act. Non-order
+The one automatic way out of quarantine is a repair the Monitor makes itself, and only when nothing
+can be lost: the strategy is flat (no position, no working order of its own, at step 1 of its
+sequence), its stored script has no error diagnostics, and the canon re-derived from that script
+passes the strict reader, is for the same symbol, session, direction and size, and has every exit
+rule and no fewer conditions, branches, targets or steps than the stored canon (which must be a
+schema-1 JSON object, so it can be counted); the repository makes the write
+([IP-LAW-11](#IP-LAW-11)) with a `strategy-repaired` audit row holding the quarantine reason and
+the canon before and after, one attempt per quarantine reason, Paper and Sandbox strategies only
+unless `quarantine.autorepair.live` is true, and not at all when `quarantine.autorepair.enabled`
+is false — in every other case the strategy stays quarantined and `strategy quarantine` says what
+blocks it and shows the proposed repair. (`IdiotProof.Core/Services/CanonRepair.cs`;
+`CanonRepairTests`.)
 Live mutations that move money (funding, transfers) use the same `ConfirmationStore` codes.
 (`IdiotProof.Core/Trading/ConfirmationStore.cs`; `MoneyPathLawTests`,
 `TransactionGatewayTests`.)
@@ -891,6 +909,8 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
   *possibility* of a move. Inflates when the stock runs, decays to zero by expiration. Selling the
   contract while it is high is the trade; it is what evaporates if you wait for reality.
 - **Breakeven** — the underlying price at expiration where the trade nets zero (`K + premium` for
+  The Monitor lifts it by itself only through a lossless, audited canon repair of a flat strategy
+  ([IP-LAW-8](#IP-LAW-8)); `strategy quarantine` lists the rest with what blocks each one.
   a call, `K − premium` for a put). Only matters if you hold to expiration.
 - **DTE** — calendar days to expiration.
 - **IV (implied volatility)** — the volatility that makes the Black-Scholes price equal the live

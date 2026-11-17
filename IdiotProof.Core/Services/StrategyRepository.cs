@@ -341,6 +341,53 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     }
 
     /// <summary>
+    /// Outcome of <see cref="RepairQuarantinedCanonAsync"/>. <c>Retryable</c>: the refusal comes from
+    /// the row's state or the policy (holding, mid-sequence, switched off), not from its script, so
+    /// asking again later can give a different answer.
+    /// </summary>
+    public sealed record CanonRepairResult(bool Repaired, string? Blocker, bool Retryable, CanonRepairPlan? Plan);
+
+    /// <summary>
+    /// Repairs ONE quarantined strategy's canon from its own stored script (IP-LAW-8, IP-T525) —
+    /// the automatic counterpart of <see cref="ResyncCanonFromTextAsync"/>, with a stricter rule
+    /// (<see cref="CanonRepair"/>): nothing the stored canon expressed may be lost or changed, the
+    /// script must be free of error diagnostics, and the re-derived canon must pass the strict reader.
+    /// Checked against the FRESH row: it must be quarantined, flat, at step 1 of its sequence, and
+    /// allowed by <paramref name="policy"/> (a Live row only when the policy says so). Writes
+    /// ScriptJson + UpdatedUtc only, and the audit row (<see cref="CanonRepair.AuditCategory"/>:
+    /// the quarantine reason and the canon before and after) in the same save, so there is no
+    /// repair without its audit row. Anything else leaves the row untouched and says why.
+    /// </summary>
+    public async Task<CanonRepairResult> RepairQuarantinedCanonAsync(Guid id, CanonRepairPolicy policy, string repairedBy,
+        CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var row = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id, ct);
+        if (row is null) return new CanonRepairResult(false, "the strategy no longer exists", false, null);
+
+        var plan = CanonRepair.Plan(row);
+        if (plan is null) return new CanonRepairResult(false, "the strategy is not quarantined", false, null);
+        if (policy.Blocker(row) is { } refused) return new CanonRepairResult(false, refused, true, plan);
+        if (plan.StateBlocker is { } state) return new CanonRepairResult(false, state, true, plan);
+        if (!plan.Safe) return new CanonRepairResult(false, plan.ContentBlocker ?? "no canon could be derived from the script", false, plan);
+
+        var message = $"[{row.Title}] {row.Symbol} canon repaired from its script by {repairedBy}; quarantine lifted. Was: {plan.Reason.TrimEnd('.')}. " +
+                      string.Join("; ", plan.Changes);
+        db.AuditLogs.Add(new AuditLog
+        {
+            TimestampUtc = DateTime.UtcNow,
+            UserId = row.OwnerUserId,
+            Category = CanonRepair.AuditCategory,
+            Message = message.Length > 500 ? message[..499] + "…" : message,
+            DataJson = CanonRepair.AuditData(row, plan, repairedBy), // reads the canon BEFORE it is replaced below
+        });
+        row.ScriptJson = plan.ProposedCanon;
+        row.UpdatedUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return new CanonRepairResult(true, null, false, plan);
+    }
+
+    /// <summary>
     /// Toggles IsActive with the two guards every mutating caller must obey:
     /// ownership (the row must belong to <paramref name="ownerUserId"/> — no
     /// caller may flip another user's strategy) and open-position safety

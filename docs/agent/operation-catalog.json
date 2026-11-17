@@ -25037,10 +25037,10 @@
       "noun": "strategy",
       "verb": "quarantine",
       "tool_name": "strategy_quarantine",
-      "summary": "List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn\u0027t parse), with the reason.",
-      "description": "A quarantined strategy never fires; one that is quarantined while holding a position has NO managed exit and is listed first.",
+      "summary": "List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn\u0027t parse), with the reason, why each was not repaired automatically, and the proposed repair.",
+      "description": "A quarantined strategy never fires; one that is quarantined while holding a position has NO managed exit and is listed first. The Monitor repairs a quarantined strategy by itself only when it is active, flat, at step 1 of its sequence, Paper or Sandbox (Live needs quarantine.autorepair.live), its script has no errors, and the canon re-derived from the script loses nothing the stored canon expressed. Everything else is listed here with what blocks it. This command changes nothing; --diff shows the canon a repair would write.",
       "risk": "read",
-      "usage": "idiotproof strategy quarantine [--symbol \u003Cstring\u003E]",
+      "usage": "idiotproof strategy quarantine [--symbol \u003Cstring\u003E] [--diff]",
       "parameters": [
         {
           "name": "symbol",
@@ -25064,7 +25064,7 @@
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "description": "List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn\u0027t parse), with the reason.",
+        "description": "List strategies the Monitor refuses to evaluate (canon unreadable, or no canon and a script that doesn\u0027t parse), with the reason, why each was not repaired automatically, and the proposed repair.",
         "properties": {
           "symbol": {
             "type": "string",
@@ -25142,12 +25142,28 @@
       "name": "strategy resync-canon",
       "noun": "strategy",
       "verb": "resync-canon",
+        },
+        {
+          "name": "diff",
+          "json_name": "diff",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Also print each proposed repair as a line diff of the stored canon against the canon re-derived from the script.",
+          "default": false,
+          "enum_values": null
       "tool_name": "strategy_resync_canon",
       "summary": "Re-derive your strategies\u0027 canons from their scripts where the script now yields a richer canon; dry run unless --apply.",
       "description": "The repair for verbs an older parser dropped silently. A row is rewritten only when the re-derived canon has at least as many entry conditions and branches as the stored one; anything that would lose a condition is skipped and reported. Only the canon (ScriptJson) changes \u2014 position bookkeeping is untouched.",
       "risk": "write",
       "usage": "idiotproof strategy resync-canon [--apply]",
       "parameters": [
+        },
+        {
+          "command_line": "idiotproof strategy quarantine --symbol NVDA --diff",
+          "description": null
         {
           "name": "apply",
           "json_name": "apply",
@@ -25158,6 +25174,11 @@
           "required": false,
           "description": "Write the repaired canons (default is a dry run that changes nothing).",
           "default": false,
+          },
+          "diff": {
+            "type": "boolean",
+            "description": "Also print each proposed repair as a line diff of the stored canon against the canon re-derived from the script.",
+            "default": false
           "enum_values": null
         }
       ],

@@ -27,6 +27,15 @@ internal sealed class StrategyKit
 
     public StrategyRepository Repo => services.GetRequiredService<StrategyRepository>();
 
+    public SettingsRepository Settings => services.GetRequiredService<SettingsRepository>();
+
+    /// <summary>
+    /// A canon the strict reader rejects (an unknown root property) that still says everything the
+    /// script says: the quarantine an automatic repair may lift.
+    /// </summary>
+    public static string UnreadableCanon(string script) =>
+        StrategyJson.Serialize(ScriptParser.ParseScript(script)!).Replace("\"schemaVersion\": 1,", "\"schemaVersion\": 1,\n  \"legacyNote\": \"x\",");
+
     /// <summary>How many times the fake LLM was called.</summary>
     public int LlmCalls => llm.Calls;
 
@@ -40,6 +49,7 @@ internal sealed class StrategyKit
             .AddDbContextFactory<AppDbContext>(o => o.UseInMemoryDatabase($"strategies-{Guid.NewGuid():N}"));
         sc.AddSingleton(TimeProvider.System);
         sc.AddSingleton<StrategyRepository>();
+        sc.AddSingleton<SettingsRepository>();
         sc.AddSingleton<ConditionProgressRepository>();
         sc.AddSingleton<ConfirmationStore>();
         sc.AddSingleton<AuditLogRepository>();

@@ -810,9 +810,18 @@ public sealed class MonitorWorker(
             }
             logger.LogWarning("Strategy {Title} ({Id}) quarantined — canonical JSON rejected: {Error}",
                 stored.Title, stored.Id, canonError);
-            await progressRepo.UpsertAsync(stored.Id, 0, 1, $"(invalid strategy: {Truncate(canonError)})", ct);
+            // Flat and quarantined: the one case the Monitor may repair by itself (IP-T525). It
+            // never evaluates the strategy this tick either way; a repaired row is re-read from SQL
+            // and must pass the strict reader on the next tick like any other.
+            var repair = await TryRepairQuarantinedAsync(stored, canonError, ct);
+            await progressRepo.UpsertAsync(stored.Id, 0, 1,
+                repair.Repaired
+                    ? "(canon repaired from its script — evaluating from the next tick)"
+                    // ConditionProgress.FirstFailingVerb holds 280 characters.
+                    : $"(invalid strategy: {Clip(canonError, 100)}; not auto-repaired: {Clip(repair.Note, 120)})", ct);
             return;
         }
+        if (canonRepairAttempts.Count > 0) canonRepairAttempts.Remove(stored.Id);
         var def = loaded.Definition;
         if (def is null)
         {
@@ -2267,6 +2276,110 @@ public sealed class MonitorWorker(
     }
 
     private static string Truncate(string s) => s.Length <= 200 ? s : s[..200] + "…";
+
+    private static string Clip(string s, int max) => s.Length <= max ? s : s[..max] + "…";
+
+    // ── Quarantine auto-repair (IP-T525) ─────────────────────────────────
+
+    /// <summary>
+    /// The last repair attempt per quarantined strategy: what it was made against (quarantine reason,
+    /// canon and script), how it ended, and when a refusal that depends on state may be re-checked
+    /// (null = never, until the reason, canon or script changes).
+    /// </summary>
+    private readonly Dictionary<Guid, (string Fingerprint, string Note, DateTime? RecheckUtc)> canonRepairAttempts = new();
+
+    /// <summary>How often a refusal that depends on state (switch off, Live, mid-sequence, working order, an error) is looked at again.</summary>
+    private static readonly TimeSpan CanonRepairRecheck = TimeSpan.FromMinutes(5);
+
+    private SettingsRepository? canonRepairSettings;
+
+    /// <summary>
+    /// Repairs a flat, quarantined strategy's canon from its own script when that loses nothing
+    /// (<see cref="CanonRepair"/>; the write and its audit row are the repository's,
+    /// <see cref="StrategyRepository.RepairQuarantinedCanonAsync"/>). One attempt per quarantine
+    /// reason: the result is remembered against the reason, canon and script, so a strategy that
+    /// cannot be repaired is not re-derived every tick. Only the switches, the route and a working
+    /// order are looked at again, every <see cref="CanonRepairRecheck"/>. After a write the row is
+    /// re-read and must pass the strict reader; the caller never evaluates it in this tick.
+    /// Anything unexpected leaves the strategy quarantined.
+    /// </summary>
+    private async Task<(bool Repaired, string Note)> TryRepairQuarantinedAsync(
+        IdiotProof.Core.Data.Strategy stored, string canonError, CancellationToken ct)
+    {
+        var fingerprint = $"{canonError}\n{stored.ScriptJson}\n{stored.ScriptText}";
+        if (canonRepairAttempts.TryGetValue(stored.Id, out var last) && last.Fingerprint == fingerprint
+            && (last.RecheckUtc is not { } recheck || UtcNow < recheck))
+            return (false, last.Note);
+
+        string note;
+        DateTime? recheckUtc = null;
+        try
+        {
+            var policy = await CanonRepairPolicy.ReadAsync(canonRepairSettings ??= new SettingsRepository(dbFactory), ct);
+            if ((policy.Blocker(stored) ?? await WorkingOrderBlockerAsync(stored, ct)) is { } gate)
+            {
+                note = gate;
+                recheckUtc = UtcNow + CanonRepairRecheck;
+            }
+            else
+            {
+                var result = await strategyRepo.RepairQuarantinedCanonAsync(stored.Id, policy, "the Monitor", ct);
+                if (result.Repaired)
+                {
+                    // Re-read what SQL now holds: the quarantine lifts only if the strict reader takes it.
+                    var fresh = await strategyRepo.GetByIdAsync(stored.Id, ct);
+                    var reread = fresh is null ? null : StrategyLoader.Load(fresh.ScriptJson, fresh.ScriptText);
+                    if (reread is { CanonicalError: null, Definition: not null })
+                    {
+                        canonRepairAttempts.Remove(stored.Id);
+                        logger.LogWarning("Strategy {Title} ({Id}) canon repaired from its script; quarantine lifted. Was: {Error}. {Changes}",
+                            stored.Title, stored.Id, canonError, string.Join("; ", result.Plan?.Changes ?? []));
+                        Console.WriteLine($"  [REPAIRED] {stored.Symbol} \"{stored.Title}\" — canon re-derived from its script, quarantine lifted (audit: {CanonRepair.AuditCategory}).");
+                        return (true, "");
+                    }
+                    note = "the repaired canon did not pass the strict reader when re-read";
+                    logger.LogError("Strategy {Title} ({Id}) was repaired but its canon still fails the strict reader ({Error}); it stays quarantined.",
+                        stored.Title, stored.Id, reread?.CanonicalError ?? "row missing or unparseable");
+                    await LogAuditAsync("strategy-error",
+                        $"[{stored.Title}] {stored.Symbol} canon repair was written but the re-read canon still fails the strict reader — still quarantined: {Truncate(reread?.CanonicalError ?? "row missing or unparseable")}",
+                        userId: stored.OwnerUserId, ct: ct);
+                }
+                else
+                {
+                    note = result.Blocker ?? "not repairable";
+                    if (result.Retryable) recheckUtc = UtcNow + CanonRepairRecheck;
+                    logger.LogWarning("Strategy {Title} ({Id}) stays quarantined; not repaired automatically: {Why}", stored.Title, stored.Id, note);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            note = "the repair check failed; trying again in a few minutes";
+            recheckUtc = UtcNow + CanonRepairRecheck;
+            logger.LogWarning(ex, "Strategy {Title} ({Id}) quarantine repair check failed; it stays quarantined.", stored.Title, stored.Id);
+        }
+
+        canonRepairAttempts[stored.Id] = (fingerprint, note, recheckUtc);
+        return (false, note);
+    }
+
+    /// <summary>
+    /// Flat on the row is not enough: a strategy with one of its own orders still working at the
+    /// broker (entry, exit or protective stop, all tagged with its id) is not touched. Asks the
+    /// broker the strategy routes to; a broker that cannot be asked throws, and the caller treats
+    /// that as "not now".
+    /// </summary>
+    private async Task<string?> WorkingOrderBlockerAsync(IdiotProof.Core.Data.Strategy stored, CancellationToken ct)
+    {
+        var broker = await orderRouting.ResolveAsync(stored.OwnerUserId, IdiotProof.Core.Trading.OrderIntent.ParseMode(stored.BrokerMode), ct);
+        if (!broker.SupportsOrderQueries) return null;
+        var tag = stored.Id.ToString("N");
+        var open = await broker.GetOrdersAsync(stored.Symbol, openOnly: true, ct: ct);
+        return open.Any(o => o.ClientOrderId?.Contains(tag, StringComparison.OrdinalIgnoreCase) == true)
+            ? "one of its orders is still working at the broker"
+            : null;
+    }
 
     /// <summary>
     /// True when <paramref name="etNow"/> falls on an eligible day (weekdays
