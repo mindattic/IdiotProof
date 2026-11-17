@@ -5,7 +5,7 @@
 renumbered its text to `amendment-08.md` without changing a word of it, so 07 is this amendment and 08 is the catalyst
 taxonomy. Nothing of this amendment had been computed when that happened.
 
-Registered 2026-11-17 19:37 ET (IP-T527), before any template was replayed on any study day. The code that
+Registered 2026-11-17 14:37 ET (IP-T527), before any template was replayed on any study day. The code that
 runs it (`research gappers explore --command gapper-sequences`) was written and compiled before this file was
 committed, and it was not run. No earlier file is edited, no frozen verdict changes, and the holdout
 (2025-11-03..2026-09-09 after amendment 05) stays locked: this amendment never reads it or validation. Like
