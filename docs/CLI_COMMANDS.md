@@ -1402,16 +1402,19 @@ Examples:
 ```text
 Parse IdiotScript (or JSON or a stamp) into the canonical strategy JSON the Monitor evaluates; nothing is saved.
 
-Usage: idiotproof dsl parse <text>
+Usage: idiotproof dsl parse <text> [--fix]
 Risk: read
 
 Parameters:
-  <text>  IdiotScript, canonical JSON or a stamp; `-` reads it from stdin. (required)
+  <text>     IdiotScript, canonical JSON or a stamp; `-` reads it from stdin. (required)
+      --fix  Apply every determinable fix to the IdiotScript and return the corrected script as the result (nothing is saved). Without it the fixes and the corrected script are only reported. (default: false)
 
 Examples:
   idiotproof dsl parse "Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(2).TakeProfit(5)"
   idiotproof dsl parse -
       Reads the script from stdin, e.g. `type nvda.idiot | idiotproof dsl parse -`.
+  idiotproof dsl parse "Ticker(\"NVDA\").IsAbveVwap().Long().StopLoss(2)" --fix
+      Parses the corrected script (IsAboveVwap) and returns it with the fixes that were applied.
 ```
 
 ### dsl validate
@@ -1419,16 +1422,19 @@ Examples:
 ```text
 Validate IdiotScript/JSON against the phase rules and the gates, failing closed with every reason (nothing is saved).
 
-Usage: idiotproof dsl validate <text>
+Usage: idiotproof dsl validate <text> [--fix]
 Risk: read
 
 Parameters:
-  <text>  IdiotScript, canonical JSON or a stamp; `-` reads it from stdin. (required)
+  <text>     IdiotScript, canonical JSON or a stamp; `-` reads it from stdin. (required)
+      --fix  Apply every determinable fix to the IdiotScript and return the corrected script as the result (nothing is saved). Without it the fixes and the corrected script are only reported. (default: false)
 
 Examples:
   idiotproof dsl validate "Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(2).TakeProfit(5)"
   idiotproof dsl validate -
       Reads the script or JSON from stdin.
+  idiotproof dsl validate "Ticker(\"NVDA\").IsAbveVwap().Long().StopLoss(2)" --fix
+      Validates the corrected script (IsAboveVwap) and returns it; without --fix the fix is only reported.
 ```
 
 ### dsl verbs

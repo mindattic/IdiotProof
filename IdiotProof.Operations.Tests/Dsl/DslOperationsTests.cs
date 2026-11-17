@@ -56,7 +56,7 @@ public class DslOperationsTests
     [Test]
     public async Task Parse_GivesTheCanon_AndFormat_GivesTheScriptBack()
     {
-        var parsed = await new DslParseOperation().ExecuteAsync(new DslTextArgs { Text = Script }, Context());
+        var parsed = await new DslParseOperation().ExecuteAsync(new DslCheckArgs { Text = Script }, Context());
         Assert.That(parsed.IsOk, Is.True, parsed.Message);
         var canon = Data(parsed).GetProperty("canon").GetRawText();
         var def = StrategyJson.Deserialize(canon);
@@ -73,14 +73,14 @@ public class DslOperationsTests
     [Test]
     public void Parse_Garbage_IsAUsageError()
     {
-        var ex = Assert.ThrowsAsync<OperationException>(() => new DslParseOperation().ExecuteAsync(new DslTextArgs { Text = "{ not json" }, Context()));
+        var ex = Assert.ThrowsAsync<OperationException>(() => new DslParseOperation().ExecuteAsync(new DslCheckArgs { Text = "{ not json" }, Context()));
         Assert.That(ex!.Status, Is.EqualTo(OperationStatus.UsageError));
     }
 
     [Test]
     public async Task Validate_AGoodStrategy_IsValid()
     {
-        var result = await new DslValidateOperation().ExecuteAsync(new DslTextArgs { Text = Script }, Context());
+        var result = await new DslValidateOperation().ExecuteAsync(new DslCheckArgs { Text = Script }, Context());
 
         Assert.That(result.IsOk, Is.True, result.Human);
         Assert.That(Data(result).GetProperty("valid").GetBoolean(), Is.True);
@@ -91,9 +91,9 @@ public class DslOperationsTests
     public async Task Validate_FailsClosed_WithEveryReason()
     {
         // No stop, and the target sits on the wrong side for a short is not even checkable: no stop at all.
-        var noStop = await new DslValidateOperation().ExecuteAsync(new DslTextArgs { Text = "Ticker(\"NVDA\").IsAboveVwap().Long().TakeProfit(110)" }, Context());
-        var wrongSide = await new DslValidateOperation().ExecuteAsync(new DslTextArgs { Text = "Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(120).TakeProfit(110)" }, Context());
-        var garbage = await new DslValidateOperation().ExecuteAsync(new DslTextArgs { Text = "{ \"schemaVersion\": 99 }" }, Context());
+        var noStop = await new DslValidateOperation().ExecuteAsync(new DslCheckArgs { Text = "Ticker(\"NVDA\").IsAboveVwap().Long().TakeProfit(110)" }, Context());
+        var wrongSide = await new DslValidateOperation().ExecuteAsync(new DslCheckArgs { Text = "Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(120).TakeProfit(110)" }, Context());
+        var garbage = await new DslValidateOperation().ExecuteAsync(new DslCheckArgs { Text = "{ \"schemaVersion\": 99 }" }, Context());
 
         Assert.Multiple(() =>
         {

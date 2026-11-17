@@ -15,7 +15,7 @@ public class DslDiagnosticsOperationTests
     public async Task Validate_FailsClosed_OnAnUnknownVerb_WithItsLineColumnAndSuggestion()
     {
         var text = "Ticker(\"NVDA\")\n.IsAbveVwap()\n.Long().StopLoss(95).TakeProfit(110)";
-        var r = await new DslValidateOperation().ExecuteAsync(new DslTextArgs { Text = text }, Context());
+        var r = await new DslValidateOperation().ExecuteAsync(new DslCheckArgs { Text = text }, Context());
 
         Assert.That(r.Status, Is.EqualTo(OperationStatus.Failed));
         var syntax = Data(r).GetProperty("findings").EnumerateArray()
@@ -27,7 +27,7 @@ public class DslDiagnosticsOperationTests
     public async Task Validate_AWellFormedScript_HasNoSyntaxFindings()
     {
         var r = await new DslValidateOperation().ExecuteAsync(
-            new DslTextArgs { Text = "Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(95).TakeProfit(110)" }, Context());
+            new DslCheckArgs { Text = "Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(95).TakeProfit(110)" }, Context());
         Assert.That(r.IsOk, Is.True, r.Human);
         Assert.That(Data(r).GetProperty("findings").EnumerateArray()
             .Any(f => f.GetProperty("rule").GetString()!.StartsWith("syntax")), Is.False);
@@ -37,7 +37,7 @@ public class DslDiagnosticsOperationTests
     public async Task Parse_StillParsesWhatItCan_ButSaysWhatItSkipped()
     {
         var r = await new DslParseOperation().ExecuteAsync(
-            new DslTextArgs { Text = "Ticker(\"NVDA\").IsAboveEma(nine).Long().StopLoss(95)" }, Context());
+            new DslCheckArgs { Text = "Ticker(\"NVDA\").IsAboveEma(nine).Long().StopLoss(95)" }, Context());
 
         Assert.That(r.IsOk, Is.True, r.Message);
         var d = Data(r).GetProperty("diagnostics").EnumerateArray().Single();
@@ -50,9 +50,9 @@ public class DslDiagnosticsOperationTests
     public async Task Parse_OfJson_CarriesNoScriptDiagnostics()
     {
         var script = await new DslParseOperation().ExecuteAsync(
-            new DslTextArgs { Text = "Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(95)" }, Context());
+            new DslCheckArgs { Text = "Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(95)" }, Context());
         var canon = Data(script).GetProperty("canon").GetRawText();
-        var r = await new DslParseOperation().ExecuteAsync(new DslTextArgs { Text = canon }, Context());
+        var r = await new DslParseOperation().ExecuteAsync(new DslCheckArgs { Text = canon }, Context());
         Assert.That(Data(r).GetProperty("diagnostics").GetArrayLength(), Is.EqualTo(0));
     }
 

@@ -29,7 +29,7 @@ public class DslBranchOperationTests
     [Test]
     public async Task Validate_OfABranchedScript_HasNoSyntaxFindings()
     {
-        var r = await new DslValidateOperation().ExecuteAsync(new DslTextArgs { Text = Branched }, Context());
+        var r = await new DslValidateOperation().ExecuteAsync(new DslCheckArgs { Text = Branched }, Context());
         Assert.That(Data(r).GetProperty("findings").EnumerateArray()
             .Any(f => f.GetProperty("rule").GetString()!.StartsWith("syntax")), Is.False, r.Human);
     }
@@ -38,7 +38,7 @@ public class DslBranchOperationTests
     public async Task Validate_FailsOnAMissingEndIf()
     {
         var text = Branched.Replace("\n    .EndIf()", "");
-        var r = await new DslValidateOperation().ExecuteAsync(new DslTextArgs { Text = text }, Context());
+        var r = await new DslValidateOperation().ExecuteAsync(new DslCheckArgs { Text = text }, Context());
         Assert.That(r.Status, Is.EqualTo(OperationStatus.Failed));
         Assert.That(Data(r).GetProperty("findings").EnumerateArray()
             .Any(f => f.GetProperty("rule").GetString() == "syntax IPS013"), Is.True, r.Human);

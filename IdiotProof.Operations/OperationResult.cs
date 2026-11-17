@@ -56,8 +56,8 @@ public sealed record OperationResult
     public static OperationResult Fail(string message, object? data = null) =>
         new() { Status = OperationStatus.Failed, Message = message, Data = data };
 
-    public static OperationResult Usage(string message) =>
-        new() { Status = OperationStatus.UsageError, Message = message };
+    public static OperationResult Usage(string message, object? data = null) =>
+        new() { Status = OperationStatus.UsageError, Message = message, Data = data };
 
     public static OperationResult Blocked(string reason, object? data = null) =>
         new() { Status = OperationStatus.Blocked, Message = reason, Data = data };
@@ -125,7 +125,7 @@ public sealed class OperationException(OperationStatus status, string message, o
     /// <summary>Optional structured payload carried into <see cref="OperationResult.Data"/>.</summary>
     public object? Payload { get; } = data;
 
-    public static OperationException Usage(string message) => new(OperationStatus.UsageError, message);
+    public static OperationException Usage(string message, object? data = null) => new(OperationStatus.UsageError, message, data);
 
     public static OperationException Failed(string message, object? data = null) => new(OperationStatus.Failed, message, data);
 

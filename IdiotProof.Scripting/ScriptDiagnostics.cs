@@ -13,9 +13,13 @@ public sealed record ScriptDiagnostic(DiagnosticSeverity Severity, string Code, 
 {
     public bool IsError => Severity == DiagnosticSeverity.Error;
 
+    /// <summary>The edit that corrects this problem, when exactly one correct edit exists (IP-T523); otherwise null.</summary>
+    public ScriptFix? Fix { get; init; }
+
     public override string ToString() =>
         $"{Line}:{Column} {(IsError ? "error" : "warning")} {Code}: {Message}" +
-        (Suggestion is null ? "" : $" Did you mean '{Suggestion}'?") + "\n" + Excerpt;
+        (Suggestion is null ? "" : $" Did you mean '{Suggestion}'?") + "\n" + Excerpt +
+        (Fix is null ? "" : "\n  fix: " + Fix.Description);
 }
 
 /// <summary>
@@ -24,6 +28,18 @@ public sealed record ScriptDiagnostic(DiagnosticSeverity Severity, string Code, 
 /// unterminated strings, a missing Ticker, and arguments of the wrong type or count. It reads the
 /// same text the parser reads and never changes what the parser builds; a script with no errors
 /// here parses to exactly what it says.
+/// <para>
+/// Each diagnostic with one determinable correction carries it as a <see cref="ScriptFix"/> (IP-T523):
+/// IPS001 a misspelled verb with a single closest match; IPS002 an unclosed '(' whose arguments are
+/// plain numbers/strings up to the next <c>.Verb</c> or the end; IPS003 an extra ')' right after
+/// another ')'; IPS004 an unterminated plain string argument; IPS006 a number written in quotes or
+/// with a '$'; IPS008/IPS010 arguments the parser ignores; IPS013 an If block missing its EndIf().
+/// The rest carry none, because the edit would be a guess: IPS005 (which symbol), IPS007 (which
+/// value; every verb with a default already takes it as optional), IPS009 (round which way),
+/// IPS011/012/014/015/016 (how the block was meant to be built) and IPS020-025 (step structure).
+/// <see cref="Repair"/> applies the fixes and offers the whole corrected script only after
+/// re-analyzing it clean.
+/// </para>
 /// </summary>
 public static class ScriptDiagnostics
 {
@@ -104,7 +120,13 @@ public static class ScriptDiagnostics
             if (t.Kind == TokenKind.RParen)
             {
                 if (open.Count == 0)
-                    diags.Add(Make(DiagnosticSeverity.Error, "IPS003", "Unexpected ')' with no matching '('.", t.Start, 1, null, src, lineStarts));
+                {
+                    // Right after another ')' it can only be one closer too many; anywhere else a '(' may be what is missing.
+                    var extra = i > 0 && tokens[i - 1].Kind == TokenKind.RParen
+                        ? MakeFix("IPS003", t.Start, 1, "", "Remove the extra ')'.", lineStarts)
+                        : null;
+                    diags.Add(Make(DiagnosticSeverity.Error, "IPS003", "Unexpected ')' with no matching '('.", t.Start, 1, null, src, lineStarts, extra));
+                }
                 else open.Pop();
                 continue;
             }
@@ -122,9 +144,13 @@ public static class ScriptDiagnostics
 
             if (!IsKnownVerb(name))
             {
+                var (suggestion, unique) = Suggest(name);
                 diags.Add(Make(DiagnosticSeverity.Error, "IPS001",
                     $"Unknown verb '{name}': the parser skips it, so this part of the strategy would silently vanish.",
-                    t.Start, name.Length, Suggest(name), src, lineStarts));
+                    t.Start, name.Length, suggestion, src, lineStarts,
+                    suggestion is not null && unique
+                        ? MakeFix("IPS001", t.Start, name.Length, suggestion, $"Replace '{name}' with '{suggestion}'.", lineStarts)
+                        : null));
                 continue;
             }
             if (call) CheckArguments(name, tokens, i + 1, diags, src, lineStarts);
@@ -132,8 +158,10 @@ public static class ScriptDiagnostics
 
         while (open.Count > 0)
         {
-            var t = tokens[open.Pop()];
-            diags.Add(Make(DiagnosticSeverity.Error, "IPS002", "This '(' is never closed.", t.Start, 1, null, src, lineStarts));
+            int at = open.Pop();
+            var t = tokens[at];
+            diags.Add(Make(DiagnosticSeverity.Error, "IPS002", "This '(' is never closed.", t.Start, 1, null, src, lineStarts,
+                CloseParenFix(tokens, at, lineStarts)));
         }
         CheckBlocks(src, diags, lineStarts);
         CheckSteps(src, diags, lineStarts);
@@ -146,6 +174,96 @@ public static class ScriptDiagnostics
 
     public static bool HasErrors(IEnumerable<ScriptDiagnostic> diagnostics) => diagnostics.Any(d => d.IsError);
 
+    private const int MaxRepairPasses = 4;
+
+    /// <summary>
+    /// The diagnostics of a script, the fixes they carry, and the whole corrected script when there is
+    /// one (IP-T523). The fixes are applied together and the result analyzed again, a few passes at
+    /// most, because one fix can expose the next problem (a corrected verb name is then checked for
+    /// its arguments). The corrected script is returned only when that final analysis has no error
+    /// left and the text parses; two fixes that touch the same characters, or a pass that changes
+    /// nothing, end it with none. This only reads: nothing is saved, parsed for the Monitor or applied.
+    /// </summary>
+    public static ScriptRepair Repair(string? text)
+    {
+        var src = text ?? "";
+        var diagnostics = Analyze(src);
+        var fixes = diagnostics.Where(d => d.Fix is not null).Select(d => d.Fix!).ToList();
+        if (fixes.Count == 0) return new ScriptRepair(diagnostics, fixes, null);
+
+        string current = src;
+        IReadOnlyList<ScriptDiagnostic> round = diagnostics;
+        string? corrected = null;
+        for (int pass = 0; pass < MaxRepairPasses; pass++)
+        {
+            var next = ApplyFixes(current, round.Where(d => d.Fix is not null).Select(d => d.Fix!).ToList());
+            if (next is null || next == current) break;
+            current = next;
+            round = Analyze(current);
+            if (round.Any(d => d.Fix is not null)) continue;
+            if (!HasErrors(round)) corrected = current;
+            break;
+        }
+        if (corrected is not null && !Parses(corrected)) corrected = null;
+        return new ScriptRepair(diagnostics, fixes, corrected);
+    }
+
+    /// <summary>
+    /// All the edits made at once (their offsets are those of <paramref name="text"/>), or null when
+    /// there are none or two of them overlap or compete for one position. The result is not checked:
+    /// analyze it again before trusting it, as <see cref="Repair"/> does.
+    /// </summary>
+    public static string? ApplyFixes(string text, IReadOnlyList<ScriptFix> fixes)
+    {
+        if (fixes.Count == 0) return null;
+        var ordered = fixes.OrderBy(f => f.Offset).ThenBy(f => f.Length).ToList();
+        for (int i = 1; i < ordered.Count; i++)
+        {
+            var a = ordered[i - 1];
+            var b = ordered[i];
+            if (a.Offset + a.Length > b.Offset) return null;
+            // Two insertions at one spot only when they are the same text (two ')' for two open calls).
+            if (a.Offset == b.Offset && (a.Length != 0 || b.Length != 0 || a.Replacement != b.Replacement)) return null;
+        }
+        var sb = new StringBuilder(text);
+        for (int i = ordered.Count - 1; i >= 0; i--)
+        {
+            var f = ordered[i];
+            if (f.Offset < 0 || f.Offset + f.Length > text.Length) return null;
+            sb.Remove(f.Offset, f.Length).Insert(f.Offset, f.Replacement);
+        }
+        return sb.ToString();
+    }
+
+    private static bool Parses(string text)
+    {
+        try { return ScriptParser.ParseScript(text) is not null; }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
+    /// Where the ')' of an unclosed '(' belongs, when that is certain: its arguments are only numbers,
+    /// closed strings and commas, and what follows is the next <c>.Verb</c> or the end of the script.
+    /// A name or a nested call among the arguments leaves more than one place it could go.
+    /// </summary>
+    private static ScriptFix? CloseParenFix(List<Token> tokens, int open, int[] lineStarts)
+    {
+        int j = open + 1;
+        while (j < tokens.Count)
+        {
+            var k = tokens[j];
+            bool plain = k.Kind is TokenKind.Number or TokenKind.Comma
+                         || (k.Kind == TokenKind.String && k.Text.Length >= 2 && k.Text.EndsWith('"'));
+            if (!plain) break;
+            j++;
+        }
+        bool atEnd = j >= tokens.Count;
+        bool nextVerb = !atEnd && tokens[j].Kind == TokenKind.Dot && j + 1 < tokens.Count && tokens[j + 1].Kind == TokenKind.Identifier;
+        if (!atEnd && !nextVerb) return null;
+        var last = tokens[j - 1];
+        return MakeFix("IPS002", last.Start + last.Text.Length, 0, ")", "Insert the missing ')'.", lineStarts);
+    }
+
     /// <summary>
     /// If/Then/ElseIf/Else/EndIf structure, read the same way <see cref="ScriptParser"/> reads it: an explicit
     /// <c>If(cond)</c> block needs <c>.Then(...)</c> and must close with <c>.EndIf()</c>; the builder form
@@ -157,8 +275,11 @@ public static class ScriptDiagnostics
         bool open = false, isExplicit = false, awaitingThen = false, sawElse = false, emptyIf = false;
         Token ifToken = default;
 
-        void Report(string code, string message, Token at) =>
-            diags.Add(Make(DiagnosticSeverity.Error, code, message, at.Start, at.Text.Length, null, src, lineStarts));
+        void Report(string code, string message, Token at, ScriptFix? fix = null) =>
+            diags.Add(Make(DiagnosticSeverity.Error, code, message, at.Start, at.Text.Length, null, src, lineStarts, fix));
+
+        // The parser reads a block the same whether its EndIf() sits right here or was left out, so adding it is exact.
+        ScriptFix EndIfAt(int offset) => MakeFix("IPS013", offset, 0, ".EndIf()", "Insert the missing .EndIf().", lineStarts);
 
         void Close() { open = false; isExplicit = false; awaitingThen = false; sawElse = false; emptyIf = false; }
 
@@ -169,7 +290,10 @@ public static class ScriptDiagnostics
             {
                 case "if":
                     if (open && isExplicit)
-                        Report("IPS013", "This If(...) is never closed with .EndIf(), so the next If(...) starts while it is still open.", ifToken);
+                        Report("IPS013", "This If(...) is never closed with .EndIf(), so the next If(...) starts while it is still open.", ifToken,
+                            call.NameToken > 0 && chain.Tokens[call.NameToken - 1].Kind == TokenKind.Dot
+                                ? EndIfAt(chain.Tokens[call.NameToken - 1].Start)
+                                : null);
                     Close();
                     open = isExplicit = true;
                     ifToken = at;
@@ -231,7 +355,20 @@ public static class ScriptDiagnostics
             }
         }
         if (open && isExplicit)
-            Report("IPS013", "This If(...) is never closed with .EndIf().", ifToken);
+            Report("IPS013", "This If(...) is never closed with .EndIf().", ifToken,
+                ChainEnd(chain.Tokens) is { } end ? EndIfAt(end) : null);
+    }
+
+    /// <summary>The offset just after the last verb of the chain: before a trailing <c>.Build()</c> and any ';'.</summary>
+    private static int? ChainEnd(List<Token> tokens)
+    {
+        int end = tokens.Count;
+        while (end > 0 && tokens[end - 1] is { Kind: TokenKind.Other, Text: ";" }) end--;
+        if (end >= 4 && tokens[end - 1].Kind == TokenKind.RParen && tokens[end - 2].Kind == TokenKind.LParen
+            && tokens[end - 3].Kind == TokenKind.Identifier && tokens[end - 3].Text.Equals("Build", StringComparison.OrdinalIgnoreCase)
+            && tokens[end - 4].Kind == TokenKind.Dot)
+            end -= 4;
+        return end > 0 ? tokens[end - 1].Start + tokens[end - 1].Text.Length : null;
     }
 
     /// <summary>
@@ -341,8 +478,14 @@ public static class ScriptDiagnostics
         if (kinds.Length == 0 && !repeat)
         {
             if (args.Count > 0)
+            {
+                // Plain values the parser drops can go; a nested call (While(IsAboveVwap())) was meant as something else.
+                int from = args[0].Start, span = Math.Max(1, args[^1].End - args[0].Start);
+                bool plain = args[^1].End > from && !src.AsSpan(from, args[^1].End - from).ContainsAny('(', ')');
                 diags.Add(Make(DiagnosticSeverity.Warning, "IPS010", $"{verb}() takes no arguments; these are ignored.",
-                    args[0].Start, Math.Max(1, args[^1].End - args[0].Start), null, src, lineStarts));
+                    from, span, null, src, lineStarts,
+                    plain ? MakeFix("IPS010", from, args[^1].End - from, "", $"Remove the argument(s) {verb}() ignores.", lineStarts) : null));
+            }
             return;
         }
 
@@ -353,8 +496,13 @@ public static class ScriptDiagnostics
             else if (repeat) kind = char.ToLowerInvariant(kinds[^1]);
             else
             {
+                // From the end of the last argument the verb reads, so the comma goes with them.
+                int cut = args[a - 1].End;
                 diags.Add(Make(DiagnosticSeverity.Warning, "IPS008", $"{verb} reads at most {kinds.Length} argument(s); the rest are ignored.",
-                    args[a].Start, Math.Max(1, args[^1].End - args[a].Start), null, src, lineStarts));
+                    args[a].Start, Math.Max(1, args[^1].End - args[a].Start), null, src, lineStarts,
+                    args[^1].End > cut
+                        ? MakeFix("IPS008", cut, args[^1].End - cut, "", $"Remove the argument(s) {verb} ignores.", lineStarts)
+                        : null));
                 break;
             }
             var arg = args[a];
@@ -362,9 +510,18 @@ public static class ScriptDiagnostics
             if (lower == 's') continue;
             if (!TryNumber(arg.Text, out var value))
             {
+                // A number in quotes or with a '$' has one reading; a word ('nine') does not.
+                var bare = arg.Text.Trim();
+                if (bare.Length >= 2 && bare[0] == '"' && bare[^1] == '"') bare = bare[1..^1].Trim();
+                bare = bare.TrimStart('$').Trim();
+                bool readable = bare != arg.Text && bare.Length > 0 && (char.IsDigit(bare[0]) || bare[0] is '-' or '+' or '.')
+                                && TryNumber(bare, out var meant) && (lower != 'i' || meant == decimal.Truncate(meant));
                 diags.Add(Make(DiagnosticSeverity.Error, "IPS006",
                     $"{verb} argument {a + 1} must be a number, not '{arg.Text}'; the parser ignores it and the verb misreads its arguments.",
-                    arg.Start, Math.Max(1, arg.End - arg.Start), null, src, lineStarts));
+                    arg.Start, Math.Max(1, arg.End - arg.Start), null, src, lineStarts,
+                    readable && arg.End > arg.Start
+                        ? MakeFix("IPS006", arg.Start, arg.End - arg.Start, bare, $"Write the number bare: {bare}.", lineStarts)
+                        : null));
             }
             else if (lower == 'i' && value != decimal.Truncate(value))
             {
@@ -432,18 +589,21 @@ public static class ScriptDiagnostics
         return decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out value);
     }
 
-    private static string? Suggest(string name)
+    /// <summary>The closest known verb within the edit limit, and whether no other verb is equally close.</summary>
+    private static (string? Verb, bool Unique) Suggest(string name)
     {
         var lower = name.ToLowerInvariant();
         int limit = lower.Length <= 6 ? 1 : lower.Length <= 12 ? 2 : 3;
         string? best = null;
         int bestDist = int.MaxValue;
-        foreach (var candidate in KnownVerbs.Concat(BlockVerbs))
+        bool unique = true;
+        foreach (var candidate in KnownVerbs.Concat(BlockVerbs).Append("Ticker"))
         {
             int d = Distance(lower, candidate.ToLowerInvariant());
-            if (d < bestDist) { bestDist = d; best = candidate; }
+            if (d < bestDist) { bestDist = d; best = candidate; unique = true; }
+            else if (d == bestDist && !candidate.Equals(best, StringComparison.OrdinalIgnoreCase)) unique = false;
         }
-        return bestDist <= limit ? best : null;
+        return bestDist <= limit ? (best, unique) : (null, false);
     }
 
     /// <summary>Optimal-string-alignment (Damerau-Levenshtein) distance: swaps of neighbors count as one edit.</summary>
@@ -493,7 +653,8 @@ public static class ScriptDiagnostics
                     i += src[i] == '\\' && i + 1 < src.Length ? 2 : 1;
                 if (i >= src.Length || src[i] != '"')
                 {
-                    diags.Add(Make(DiagnosticSeverity.Error, "IPS004", "This string is never closed with '\"'.", start, 1, null, src, lineStarts));
+                    diags.Add(Make(DiagnosticSeverity.Error, "IPS004", "This string is never closed with '\"'.", start, 1, null, src, lineStarts,
+                        CloseStringFix(src, start, i, tokens, lineStarts)));
                     tokens.Add(new Token(TokenKind.String, src[start..i], start));
                     continue;
                 }
@@ -533,8 +694,33 @@ public static class ScriptDiagnostics
     private static bool PrecededByIdentifierOrParen(List<Token> tokens) =>
         tokens.Count > 0 && tokens[^1].Kind is TokenKind.Identifier or TokenKind.RParen;
 
+    /// <summary>
+    /// Where the closing quote of an unterminated string belongs, when that is certain: the string is
+    /// an argument (it follows '(' or ','), and what it swallowed is a plain value (letters, digits,
+    /// space and <c>_ : . / -</c>) that ends at the first ')' followed by the next <c>.Verb</c> or
+    /// nothing, or at the end of the line. A value with other punctuation could end in several places.
+    /// </summary>
+    private static ScriptFix? CloseStringFix(string src, int start, int end, List<Token> before, int[] lineStarts)
+    {
+        if (before.Count == 0 || before[^1].Kind is not (TokenKind.LParen or TokenKind.Comma)) return null;
+        var content = src[(start + 1)..end];
+        int close = content.IndexOf(')');
+        var value = (close < 0 ? content : content[..close]).TrimEnd();
+        var rest = close < 0 ? "" : content[(close + 1)..].Trim();
+        if (value.Trim().Length == 0 || !value.All(c => char.IsLetterOrDigit(c) || c is ' ' or '_' or ':' or '.' or '/' or '-')) return null;
+        if (rest.Length > 0 && rest[0] != '.') return null;
+        return MakeFix("IPS004", start + 1 + value.Length, 0, "\"", $"Close the string after \"{value}\".", lineStarts);
+    }
+
+    private static ScriptFix MakeFix(string code, int offset, int length, string replacement, string description, int[] lineStarts)
+    {
+        int line = Array.BinarySearch(lineStarts, offset);
+        if (line < 0) line = ~line - 1;
+        return new ScriptFix(code, offset, length, line + 1, offset - lineStarts[line] + 1, replacement, description);
+    }
+
     private static ScriptDiagnostic Make(DiagnosticSeverity severity, string code, string message, int offset, int length,
-        string? suggestion, string src, int[] lineStarts)
+        string? suggestion, string src, int[] lineStarts, ScriptFix? fix = null)
     {
         int line = Array.BinarySearch(lineStarts, offset);
         if (line < 0) line = ~line - 1;
@@ -545,7 +731,7 @@ public static class ScriptDiagnostics
         int column = offset - lineStart;
         int caretLength = Math.Max(1, Math.Min(length, Math.Max(1, lineText.Length - column)));
         var excerpt = "  " + lineText + "\n  " + new string(' ', column) + new string('^', caretLength);
-        return new ScriptDiagnostic(severity, code, message, line + 1, column + 1, length, suggestion, excerpt);
+        return new ScriptDiagnostic(severity, code, message, line + 1, column + 1, length, suggestion, excerpt) { Fix = fix };
     }
 
     internal static int[] LineStarts(string src)

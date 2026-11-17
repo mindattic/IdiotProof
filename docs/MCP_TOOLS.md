@@ -2777,10 +2777,11 @@ Read-only. Times are US Eastern.
 
 Parse IdiotScript (or JSON or a stamp) into the canonical strategy JSON the Monitor evaluates; nothing is saved.
 
-CLI equivalent: idiotproof dsl parse <text>
+CLI equivalent: idiotproof dsl parse <text> [--fix]
 Examples:
   idiotproof dsl parse "Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(2).TakeProfit(5)"
   idiotproof dsl parse -
+  idiotproof dsl parse "Ticker(\"NVDA\").IsAbveVwap().Long().StopLoss(2)" --fix
 
 Read-only. Times are US Eastern.
 
@@ -2794,6 +2795,11 @@ Read-only. Times are US Eastern.
       "type": "string",
       "description": "IdiotScript, canonical JSON or a stamp; \u0060-\u0060 reads it from stdin.",
       "default": ""
+    },
+    "fix": {
+      "type": "boolean",
+      "description": "Apply every determinable fix to the IdiotScript and return the corrected script as the result (nothing is saved). Without it the fixes and the corrected script are only reported.",
+      "default": false
     }
   },
   "additionalProperties": false,
@@ -2807,10 +2813,11 @@ Read-only. Times are US Eastern.
 
 Validate IdiotScript/JSON against the phase rules and the gates, failing closed with every reason (nothing is saved).
 
-CLI equivalent: idiotproof dsl validate <text>
+CLI equivalent: idiotproof dsl validate <text> [--fix]
 Examples:
   idiotproof dsl validate "Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(2).TakeProfit(5)"
   idiotproof dsl validate -
+  idiotproof dsl validate "Ticker(\"NVDA\").IsAbveVwap().Long().StopLoss(2)" --fix
 
 Read-only. Times are US Eastern.
 
@@ -2824,6 +2831,11 @@ Read-only. Times are US Eastern.
       "type": "string",
       "description": "IdiotScript, canonical JSON or a stamp; \u0060-\u0060 reads it from stdin.",
       "default": ""
+    },
+    "fix": {
+      "type": "boolean",
+      "description": "Apply every determinable fix to the IdiotScript and return the corrected script as the result (nothing is saved). Without it the fixes and the corrected script are only reported.",
+      "default": false
     }
   },
   "additionalProperties": false,

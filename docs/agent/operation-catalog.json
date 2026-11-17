@@ -5370,7 +5370,7 @@
       "summary": "Parse IdiotScript (or JSON or a stamp) into the canonical strategy JSON the Monitor evaluates; nothing is saved.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof dsl parse \u003Ctext\u003E",
+      "usage": "idiotproof dsl parse \u003Ctext\u003E [--fix]",
       "parameters": [
         {
           "name": "text",
@@ -5383,6 +5383,18 @@
           "description": "IdiotScript, canonical JSON or a stamp; \u0060-\u0060 reads it from stdin.",
           "default": "",
           "enum_values": null
+        },
+        {
+          "name": "fix",
+          "json_name": "fix",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Apply every determinable fix to the IdiotScript and return the corrected script as the result (nothing is saved). Without it the fixes and the corrected script are only reported.",
+          "default": false,
+          "enum_values": null
         }
       ],
       "examples": [
@@ -5393,6 +5405,10 @@
         {
           "command_line": "idiotproof dsl parse -",
           "description": "Reads the script from stdin, e.g. \u0060type nvda.idiot | idiotproof dsl parse -\u0060."
+        },
+        {
+          "command_line": "idiotproof dsl parse \u0022Ticker(\\\u0022NVDA\\\u0022).IsAbveVwap().Long().StopLoss(2)\u0022 --fix",
+          "description": "Parses the corrected script (IsAboveVwap) and returns it with the fixes that were applied."
         }
       ],
       "input_schema": {
@@ -5404,6 +5420,11 @@
             "type": "string",
             "description": "IdiotScript, canonical JSON or a stamp; \u0060-\u0060 reads it from stdin.",
             "default": ""
+          },
+          "fix": {
+            "type": "boolean",
+            "description": "Apply every determinable fix to the IdiotScript and return the corrected script as the result (nothing is saved). Without it the fixes and the corrected script are only reported.",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -5420,7 +5441,7 @@
       "summary": "Validate IdiotScript/JSON against the phase rules and the gates, failing closed with every reason (nothing is saved).",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof dsl validate \u003Ctext\u003E",
+      "usage": "idiotproof dsl validate \u003Ctext\u003E [--fix]",
       "parameters": [
         {
           "name": "text",
@@ -5433,6 +5454,18 @@
           "description": "IdiotScript, canonical JSON or a stamp; \u0060-\u0060 reads it from stdin.",
           "default": "",
           "enum_values": null
+        },
+        {
+          "name": "fix",
+          "json_name": "fix",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "bool",
+          "required": false,
+          "description": "Apply every determinable fix to the IdiotScript and return the corrected script as the result (nothing is saved). Without it the fixes and the corrected script are only reported.",
+          "default": false,
+          "enum_values": null
         }
       ],
       "examples": [
@@ -5443,6 +5476,10 @@
         {
           "command_line": "idiotproof dsl validate -",
           "description": "Reads the script or JSON from stdin."
+        },
+        {
+          "command_line": "idiotproof dsl validate \u0022Ticker(\\\u0022NVDA\\\u0022).IsAbveVwap().Long().StopLoss(2)\u0022 --fix",
+          "description": "Validates the corrected script (IsAboveVwap) and returns it; without --fix the fix is only reported."
         }
       ],
       "input_schema": {
@@ -5454,6 +5491,11 @@
             "type": "string",
             "description": "IdiotScript, canonical JSON or a stamp; \u0060-\u0060 reads it from stdin.",
             "default": ""
+          },
+          "fix": {
+            "type": "boolean",
+            "description": "Apply every determinable fix to the IdiotScript and return the corrected script as the result (nothing is saved). Without it the fixes and the corrected script are only reported.",
+            "default": false
           }
         },
         "additionalProperties": false,

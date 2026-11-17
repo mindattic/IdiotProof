@@ -285,12 +285,11 @@ public sealed class StrategyImportOperation : IOperation<StrategyImportArgs>
                && !t.Contains("BEGIN IDIOTPROOF STRATEGY", StringComparison.Ordinal);
     }
 
-    /// <summary>Every line/column diagnostic for an IdiotScript, one block per finding (empty when clean).</summary>
-    internal static string RenderDiagnostics(string script)
-    {
-        var diags = ScriptDiagnostics.Analyze(script);
-        return diags.Count == 0 ? "" : "\n" + string.Join("\n", diags.Select(d => d.ToString()));
-    }
+    /// <summary>
+    /// Every line/column diagnostic for an IdiotScript, one block per finding with its fix, then the
+    /// corrected script when there is one (empty when clean). The correction is only shown (IP-T523).
+    /// </summary>
+    internal static string RenderDiagnostics(string script) => Dsl.DslRepair.Render(ScriptDiagnostics.Repair(script));
 
     internal static (StrategyDefinition Definition, string Source) Parse(string text)
     {
@@ -302,7 +301,10 @@ public sealed class StrategyImportOperation : IOperation<StrategyImportArgs>
                 return (StrategyStamp.Decode(t), "stamp");
             if (t.StartsWith('{'))
                 return (StrategyJson.Deserialize(t), "canonical JSON");
-            return (ScriptParser.ParseScript(t) ?? throw OperationException.Usage("That IdiotScript didn't parse." + RenderDiagnostics(t)), "IdiotScript");
+            if (ScriptParser.ParseScript(t) is { } parsed) return (parsed, "IdiotScript");
+            // The error carries the fixes and the corrected script as data; the caller resends it, nothing is applied here.
+            var repair = ScriptDiagnostics.Repair(t);
+            throw OperationException.Usage("That IdiotScript didn't parse." + Dsl.DslRepair.Render(repair), Dsl.DslRepair.Data(repair));
         }
         catch (OperationException) { throw; }
         catch (Exception ex)

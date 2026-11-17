@@ -117,6 +117,16 @@ one (for example "skip the stop loss" breaks IP-LAW-2), say so instead of lookin
 ## 6. When something fails
 
 - `Hub not running` → `idiotproof hub start`, then retry once.
-- `Usage error` → read `idiotproof <noun> <verb> --help`; fix the arguments.
+- `Usage error` → if the result shows a `Corrected call` (in `--json` and MCP: `data.fix` with
+  `command_line`, `argv`, `args` and the `changes` made), check it is what you meant and resend
+  it: it was not run, and it exists only when every problem had one certain correction.
+  Otherwise each entry in `data.errors` names the parameter; read
+  `idiotproof <noun> <verb> --help` and fix the arguments. A corrected call is an ordinary call:
+  exit 3 and exit 4 apply to it as to any other.
+- A script that fails `dsl validate` → each syntax finding carries its `fix` (offset, length,
+  replacement) and `corrected_script` is the whole script with the fixes applied, when that
+  re-checks clean. `dsl validate --fix` (or `dsl parse --fix`) returns the corrected script as
+  the result. Commands that save or activate a strategy never apply a fix: send the corrected
+  script yourself, after checking it says what was meant.
 - `Blocked` → report it (rule 3).
 - Anything else → show the message; `idiotproof hub logs` has the Hub side.

@@ -78,6 +78,26 @@ public static partial class OperationNames
         return best.Name is not null && best.Score <= Math.Max(2, input.Length / 3) ? best.Name : null;
     }
 
+    /// <summary>
+    /// The closest candidate within <paramref name="maxDistance"/> edits (default: the limit
+    /// <see cref="Suggest"/> uses), its distance, and whether no other candidate is equally close.
+    /// A correction is only offered as data when the match is unique (IP-T523); a tie is a guess.
+    /// </summary>
+    public static (string? Name, int Distance, bool Unique) Closest(string input, IEnumerable<string> candidates, int? maxDistance = null)
+    {
+        var typed = input.ToLowerInvariant();
+        string? best = null;
+        var bestScore = int.MaxValue;
+        var unique = true;
+        foreach (var candidate in candidates)
+        {
+            var score = Distance(typed, candidate.ToLowerInvariant());
+            if (score < bestScore) { bestScore = score; best = candidate; unique = true; }
+            else if (score == bestScore && !string.Equals(candidate, best, StringComparison.OrdinalIgnoreCase)) unique = false;
+        }
+        return best is not null && bestScore <= (maxDistance ?? Math.Max(2, input.Length / 3)) ? (best, bestScore, unique) : (null, bestScore, false);
+    }
+
     [GeneratedRegex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")]
     private static partial Regex KebabRegex();
 }

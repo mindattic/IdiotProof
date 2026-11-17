@@ -110,8 +110,20 @@ public sealed class OperationDispatcher(
     {
         if (!catalog.TryResolve(argv, out var descriptor, out var rest))
         {
-            var typed = string.Join(' ', argv.TakeWhile(t => !t.StartsWith('-')).Take(2));
-            return Task.FromResult(UnknownOperation(typed));
+            // The name is some leading run of words; the run closest to one operation says where its arguments start.
+            var lead = argv.TakeWhile(t => !t.StartsWith('-')).Take(4).ToList();
+            var names = catalog.Operations.Select(o => o.Name).ToList();
+            var runs = Enumerable.Range(1, lead.Count)
+                .Select(take => (Take: take, Match: OperationNames.Closest(string.Join(' ', lead.Take(take)), names)))
+                .Where(r => r.Match.Name is not null)
+                .OrderBy(r => r.Match.Distance)
+                .ToList();
+            if (runs.Count > 0 && runs[0].Match.Unique && (runs.Count == 1 || runs[1].Match.Distance > runs[0].Match.Distance))
+            {
+                var words = runs[0].Take;
+                return Task.FromResult(UnknownOperation(string.Join(' ', lead.Take(words)), d => ArgsBinder.Bind(d, [.. argv.Skip(words)])));
+            }
+            return Task.FromResult(UnknownOperation(string.Join(' ', lead.Take(2)), null));
         }
         BeginCommand(descriptor!.Name, info);
         return RunAsync(descriptor.Name, d => ArgsBinder.Bind(d, rest), info, ct);
@@ -121,7 +133,7 @@ public sealed class OperationDispatcher(
         string name, Func<OperationDescriptor, BindResult> bind, OperationInvocation info, CancellationToken ct)
     {
         var descriptor = catalog.Find(name);
-        if (descriptor is null) return UnknownOperation(name);
+        if (descriptor is null) return UnknownOperation(name, bind);
 
         var bound = bind(descriptor);
         if (!bound.Success) return bound.ToUsageResult(descriptor);
@@ -193,12 +205,33 @@ public sealed class OperationDispatcher(
         return (await owner.GetOwnerIdAsync(ct), info.OwnerError);
     }
 
-    private OperationResult UnknownOperation(string name)
+    /// <summary>
+    /// The usage error for a name no operation has. When exactly one operation is closest to what was
+    /// typed, the caller's own arguments are bound to it and the corrected call rides along as data
+    /// (IP-T523); it is never run here, and with two equally close names there is none.
+    /// </summary>
+    private OperationResult UnknownOperation(string name, Func<OperationDescriptor, BindResult>? bind)
     {
         var suggestion = catalog.Suggest(name);
-        return OperationResult.Usage(suggestion is not null
+        var message = suggestion is not null
             ? $"Unknown operation '{name}'. Did you mean '{suggestion}'?"
-            : $"Unknown operation '{name}'. Run '{OperationDescriptor.ProgramName} agent catalog' to list operations.");
+            : $"Unknown operation '{name}'. Run '{OperationDescriptor.ProgramName} agent catalog' to list operations.";
+
+        CallChange? rename = null;
+        CallFix? fix = null;
+        OperationDescriptor? meant = null;
+        var (closest, _, unique) = OperationNames.Closest(name, catalog.Operations.Select(o => o.Name));
+        if (bind is not null && closest is not null && unique && (meant = catalog.Find(closest)) is not null)
+        {
+            try { fix = ArgsBinder.CorrectedCall(meant, bind(meant), new CallChange("operation", null, name, meant.Name)); }
+            catch (Exception ex) { logger?.LogDebug(ex, "No corrected call for {Typed}", name); }
+            if (fix is not null) rename = fix.Changes[0];
+        }
+
+        // The corrected call goes in Human, not the message: it repeats the argument values, and the message is ledgered.
+        return OperationResult.Usage(message,
+                new UsageErrorData(null, [new BindError(message, null, rename)], fix, fix is null ? null : meant!.Usage))
+            with { Human = fix is null ? null : ArgsBinder.FixLines(fix) };
     }
 
     private static string FirstLine(string message)

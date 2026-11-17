@@ -196,6 +196,32 @@ Test projects: `IdiotProof.Engine.Tests`, `IdiotProof.Indicators.Tests`, `IdiotP
   `TradingServiceRegistration`).
 - `OperationDispatcher.DispatchAsync(...)` (`IdiotProof.Operations`) — binds a call to its
   `[Operation]`, resolves the owner, runs it, ledgers it, maps the result to an exit code.
+  A usage error raised before the operation runs (exit 2) carries its correction as data
+  (IP-T523): `UsageErrorData` in the result's `data`, with every problem as a `BindError`
+  (message, parameter, and a `CallChange` when it has one determinable correction) and, when
+  every problem has one and the corrected call binds cleanly, a `CallFix` (`operation`,
+  `command_line`, `argv`, `args`, `changes`; `CallFix.cs`). Corrected: an operation, option or
+  JSON key name with a single closest match, a positional argument passed as `--name`, an enum
+  value one typo from one accepted value, a whole number written `5.0` or `1_000`, a date in
+  another unambiguous form (`2026/10/30`, `Oct 30 2026`, `30/10/2026`), a time as `0930` or
+  `9am`, `y`/`n` for a flag. Never corrected: a missing required value, a word where a number
+  belongs, a date such as `03/04/2026`, any number with a comma (`1,005` stays refused), two
+  equally close names. The dispatcher never runs the corrected call; the caller resends it. It
+  is printed from the result's text, not its message, because the message is what the command
+  ledger keeps and the corrected call repeats every argument value.
+- `ScriptDiagnostics.Analyze(text)` / `.Repair(text)` (`IdiotProof.Scripting`) — line/column
+  diagnostics (IPSxxx) for IdiotScript, each with a `ScriptFix` (code, offset, length, line,
+  column, replacement, description; `ScriptFix.cs`) when exactly one correct edit exists
+  (IP-T523): IPS001 a misspelled verb with one closest match, IPS002 an unclosed `(` around
+  plain values, IPS003 an extra `)` after a `)`, IPS004 an unterminated plain string argument,
+  IPS006 a number in quotes or with `$`, IPS008/IPS010 arguments the parser ignores, IPS013 a
+  missing `EndIf()`. No fix where the edit would be a guess: IPS005, IPS007, IPS009,
+  IPS011/012/014/015/016, IPS020-025. `Repair` returns a `ScriptRepair` (diagnostics, fixes,
+  corrected script): the corrected script is offered only after it is analyzed again with no
+  error left and parses. `dsl validate` and `dsl parse` return `fixes` and `corrected_script`
+  and judge the text as written; `--fix` is the opt-in that makes the corrected script the
+  result (`fixed`, `script`). An import error carries the same payload (`DslRepairData`).
+  Nothing that saves or activates a strategy applies a fix ([IP-LAW-8](#IP-LAW-8)).
 - `AlpacaApiFactory.ForOwnerAsync(owner, mode)` / `ForDataAsync(owner)` — raw Alpaca REST with the
   owner's own keys, for read operations and the gateway's broker calls.
 - `StrategyStamp.ToStamp(definition)` / `.Decode(text)` — the ASCII stamp and its fail-closed paste-back.

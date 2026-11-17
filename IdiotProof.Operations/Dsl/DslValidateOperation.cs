@@ -7,7 +7,11 @@ using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Dsl;
 
 /// <summary>One finding from <c>dsl validate</c>: an error blocks (fail closed), a warning informs.</summary>
-public sealed record DslFinding(string Severity, string Phase, string Rule, string Message);
+public sealed record DslFinding(string Severity, string Phase, string Rule, string Message)
+{
+    /// <summary>For a syntax finding: the edit that corrects it, when one is determinable (IP-T523).</summary>
+    public ScriptFix? Fix { get; init; }
+}
 
 /// <summary>
 /// Checks a strategy the way the Monitor and the gates will treat it, without saving or running
@@ -18,29 +22,45 @@ public sealed record DslFinding(string Severity, string Phase, string Rule, stri
 /// right side of its target (the Risk Guardian refuses entries without one, IP-LAW-2); sizes,
 /// percents and scale-out shares are in range. Warnings: a verb with no glossary entry, a script
 /// view that doesn't parse back exactly, a share count of 0 (sized by the workspace default).
+/// <para>
+/// Self-repair (IP-T523): each syntax finding carries its fix (span plus replacement) when one is
+/// determinable, and <c>corrected_script</c> is the whole script with the fixes applied when that
+/// re-analyzes clean. By default the verdict is for the text as written, so a broken script still
+/// fails. <c>--fix</c> is the opt-in: the verdict, findings and <c>script</c> are then those of the
+/// corrected script. Either way nothing is saved, and no operation that saves or activates a
+/// strategy applies a fix (IP-LAW-8).
+/// </para>
 /// </summary>
 [Operation("dsl validate", Summary = "Validate IdiotScript/JSON against the phase rules and the gates, failing closed with every reason (nothing is saved).", Risk = OperationRisk.Read)]
 [Example("idiotproof dsl validate \"Ticker(\\\"NVDA\\\").IsAboveVwap().Long().StopLoss(2).TakeProfit(5)\"")]
 [Example("idiotproof dsl validate -", Description = "Reads the script or JSON from stdin.")]
-public sealed class DslValidateOperation : IOperation<DslTextArgs>
+[Example("idiotproof dsl validate \"Ticker(\\\"NVDA\\\").IsAbveVwap().Long().StopLoss(2)\" --fix", Description = "Validates the corrected script (IsAboveVwap) and returns it; without --fix the fix is only reported.")]
+public sealed class DslValidateOperation : IOperation<DslCheckArgs>
 {
     private static readonly HashSet<StrategyPhase> PreFirePhases = [StrategyPhase.Filters, StrategyPhase.Entry];
 
-    public Task<OperationResult> ExecuteAsync(DslTextArgs args, OperationContext ctx)
+    public Task<OperationResult> ExecuteAsync(DslCheckArgs args, OperationContext ctx)
     {
         if (string.IsNullOrWhiteSpace(args.Text))
             return Task.FromResult(OperationResult.Usage("Pass the IdiotScript or JSON to validate (or `-` to pipe it in)."));
 
+        // What the text as written gets wrong, with the fixes; --fix swaps in the corrected script (when there is one).
+        var isScript = StrategyImportOperation.IsScriptText(args.Text);
+        var repair = isScript ? ScriptDiagnostics.Repair(args.Text) : null;
+        var isFixed = args.Fix && repair?.CorrectedScript is not null;
+        var text = isFixed ? repair!.CorrectedScript! : args.Text;
+
         StrategyDefinition? def = null;
         string source = "?";
         var findings = new List<DslFinding>();
-        if (StrategyImportOperation.IsScriptText(args.Text))
-            foreach (var d in ScriptDiagnostics.Analyze(args.Text))
-                findings.Add(new(d.IsError ? "error" : "warn", "Setup", "syntax " + d.Code,
-                    $"line {d.Line}, col {d.Column}: {d.Message}" + (d.Suggestion is null ? "" : $" Did you mean '{d.Suggestion}'?")));
+        if (isScript)
+            foreach (var d in isFixed ? ScriptDiagnostics.Analyze(text) : repair!.Diagnostics)
+                findings.Add(new DslFinding(d.IsError ? "error" : "warn", "Setup", "syntax " + d.Code,
+                    $"line {d.Line}, col {d.Column}: {d.Message}" + (d.Suggestion is null ? "" : $" Did you mean '{d.Suggestion}'?")
+                    + (d.Fix is null ? "" : $" Fix: {d.Fix.Description}")) { Fix = d.Fix });
         try
         {
-            (def, source) = StrategyImportOperation.Parse(args.Text);
+            (def, source) = StrategyImportOperation.Parse(text);
         }
         catch (OperationException ex)
         {
@@ -59,8 +79,21 @@ public sealed class DslValidateOperation : IOperation<DslTextArgs>
             : valid
                 ? $"VALID: {def.Symbol} {def.Direction} {def.ShortId()} (from {source}), {def.EntryConditions.Count} condition(s)."
                 : $"INVALID: {def.Symbol} {def.ShortId()} has {errors} error(s); the Monitor would refuse or quarantine it.";
-        var human = head + (findings.Count == 0 ? "" : "\n\n" + table.Render());
-        var data = new { valid, source, symbol = def?.Symbol, stamp = def?.ShortId(), errors, warnings = findings.Count - errors, findings };
+        var repairNote = repair is null || repair.Diagnostics.Count == 0 ? ""
+            : isFixed
+                ? $"\n\nFixed: {repair.Fixes.Count} fix(es) applied; the verdict above is for this corrected script (nothing was saved):\n{text}"
+                : DslRepair.Corrected(repair)
+                  + (repair.CorrectedScript is not null ? "\n\nRe-run with --fix to validate the corrected script instead."
+                      : args.Fix ? "\n\n--fix changed nothing: there is no corrected script to validate." : "");
+        var human = head + (findings.Count == 0 ? "" : "\n\n" + table.Render()) + repairNote;
+        var data = new
+        {
+            valid, source, symbol = def?.Symbol, stamp = def?.ShortId(), errors, warnings = findings.Count - errors, findings,
+            fixes = repair?.Fixes ?? [],
+            correctedScript = repair?.CorrectedScript,
+            @fixed = isFixed,
+            script = isFixed ? text : null,
+        };
 
         return Task.FromResult(valid
             ? OperationResult.Ok(data, human)
