@@ -39,6 +39,8 @@ public static class StrategySamples
             () => WithOneShare(Pre20260217.ERNA())),
         new("sune-wedge", "Wedge breakout, three targets (2026-02-17 watchlist)", "A three-rung take-profit ladder",
             () => WithOneShare(Pre20260217.SUNE())),
+        // Long-only multi-step gapper templates (IP-T527, gapper study amendment 07). Samples only: no gapper profile, nothing arms them.
+        .. GapperSequenceTemplates.All.Select(t => new StrategySample(t.Id, t.Pattern, t.Teaches, () => t.Compose("GAPT").Build())),
     ];
 
     public static StrategySample? Find(string name) =>
