@@ -65,6 +65,12 @@ items are coverage are "coverage only"; days with no stored item in that window 
 - **fade** = the day's daily-bar close over the day's high (prior close x (1 + GapMax)), minus 1. Median.
 - **kept** = the daily-bar close over the prior close, minus 1. Median.
 
+**Correction to Table B, 2026-11-17, before any number was computed.** While writing the report code it turned out
+that `GapMax` is the high inside the frozen gapper window only, not the day's high. Table B therefore uses the
+session high (the larger of the stored premarket high and regular-hours high, 04:00-16:00) wherever the text above
+says `GapMax`: run size = session high over the split-adjusted prior close, minus 1; fade = the daily-bar close
+over the session high, minus 1. `GapMax` is not used. Nothing else changes.
+
 **Reading rules, stated before the numbers.**
 
 1. Descriptive only. Nothing here is "significant", and no type is promoted to a trade by this report. A type
