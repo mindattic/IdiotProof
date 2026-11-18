@@ -72,20 +72,42 @@ public sealed class TradeDiaryRepository(IDbContextFactory<AppDbContext> dbFacto
             .FirstOrDefaultAsync(ct);
         if (row is null) return;
 
+        // An open row carries P&L only from scale-out rungs already sold (RecordPartialExitAsync):
+        // the trade's total is those plus this exit, on the whole entry quantity (IP-T573).
+        var rungs = row.RealizedPnL;
+
         // Record the quantity ACTUALLY traded (reconciliation may have found a
         // partial fill: soldQty < the optimistically-recorded entry quantity).
         // Return % must be on that same quantity as the realized P&L, or the two
-        // disagree.
-        if (soldQty > 0 && soldQty != row.Quantity) row.Quantity = soldQty;
+        // disagree. After rungs, soldQty is only the remainder, so the entry quantity stays.
+        if (rungs is null && soldQty > 0 && soldQty != row.Quantity) row.Quantity = soldQty;
 
         row.ExitUtc     = exitUtc;
         row.ExitPrice   = exitPrice;
         row.ExitReason  = exitReason;
         row.ExitOrderId = exitOrderId;
-        row.RealizedPnL = realizedPnL;
+        row.RealizedPnL = realizedPnL + (rungs ?? 0m);
+        realizedPnL     = row.RealizedPnL.Value;
         var cost = row.EntryPrice * row.Quantity;
         row.ReturnPercent = cost > 0m ? Math.Round(realizedPnL / cost * 100m, 4) : 0m;
         row.Status      = TradeDiaryStatus.Closed;
+        row.UpdatedUtc  = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Adds one scale-out rung's realized P&amp;L to the strategy's open row, which stays open for
+    /// the remaining shares; <see cref="CloseAsync"/> adds the final exit to it (IP-T573).
+    /// </summary>
+    public async Task RecordPartialExitAsync(Guid strategyId, decimal realizedPnL, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var row = await db.TradeDiary
+            .Where(t => t.StrategyId == strategyId && t.Status == TradeDiaryStatus.Open)
+            .OrderByDescending(t => t.EntryUtc)
+            .FirstOrDefaultAsync(ct);
+        if (row is null) return;
+        row.RealizedPnL = (row.RealizedPnL ?? 0m) + realizedPnL;
         row.UpdatedUtc  = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
     }

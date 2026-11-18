@@ -1808,6 +1808,9 @@ public sealed class MonitorWorker(
             // Partial scale-out: reduce PositionQty without closing the position.
             // EntryFilledUtc is preserved so subsequent ticks continue exit management.
             await strategyRepo.RecordPartialExitAsync(stored.Id, sellQty, ct);
+            // The diary row stays open; the rung's P&L joins the trade's total at the close (IP-T573).
+            try { await tradeDiary.RecordPartialExitAsync(stored.Id, realized, ct); }
+            catch (Exception ex) { logger.LogError(ex, "[{Title}] trade-diary partial exit failed (trade unaffected).", stored.Title); }
             await LogAuditAsync("exit-partial",
                 $"[{stored.Title}] {exitSide} {sellQty} {stored.Symbol} @ {exitPrice:F2} — {decision.Reason} (partial, {remainingQty} shares remain): {decision.Detail} " +
                 $"(P&L {realized:+0.00;-0.00}, {broker.BrokerType}, order {exitOrderId})",

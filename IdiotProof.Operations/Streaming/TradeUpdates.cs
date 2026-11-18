@@ -147,7 +147,9 @@ public sealed class FillRecorder(
         else
         {
             if (avg is > 0) row.ExitPrice = avg.Value;
-            if (row.Status == TradeDiaryStatus.Closed && row.ExitPrice is { } exit && row.EntryPrice > 0m)
+            // Only a manual row's P&L is this recorder's to compute: a strategy's close already holds the
+            // Monitor's total, ladder rungs included, which last price x whole quantity would overwrite (IP-T573).
+            if (row.StrategyId == Guid.Empty && row.Status == TradeDiaryStatus.Closed && row.ExitPrice is { } exit && row.EntryPrice > 0m)
             {
                 var perShare = row.Direction == nameof(IdiotProof.Models.TradeDirection.Short) ? row.EntryPrice - exit : exit - row.EntryPrice;
                 row.RealizedPnL = Math.Round(perShare * row.Quantity, 2);
