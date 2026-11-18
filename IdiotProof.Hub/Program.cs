@@ -32,6 +32,8 @@ using Microsoft.EntityFrameworkCore;
 //   IDIOTPROOF_HUB_PORT     loopback port (default 5910)
 //   IDIOTPROOF_HUB_MONITOR  0 = serve operations without running the trading loop
 //   IDIOTPROOF_OWNER        default owner GUID when a call names none
+//   IDIOTPROOF_HUB_TRAY     0 = no tray icon, the window stays as it is; shown = tray icon, window starts visible
+//                           (default: tray icon, window hidden until asked for, IP-T574)
 //   IDIOTPROOF_HUB_KEY      shared key override (default: Vault Tokens bucket "idiotproof-hub")
 //   plus the Monitor's IDIOTPROOF_FEED / _BROKER / _ALPACA_FEED / _MONITOR_INTERVAL / _STREAMING
 //
@@ -64,6 +66,10 @@ if (args.Contains(MindAttic.Vault.Settings.Manifest.SettingsManifestCommand.Swit
 }
 
 var isService = WindowsServiceHelpers.IsWindowsService();
+
+// The tray icon (IP-T574) needs a console window it can hide; Windows Terminal's can't be, so there the Hub
+// starts itself again in a classic one and this copy ends.
+if (!isService && HubTray.RelaunchedInOwnWindow(HubConsole.TrayEnvVar, args)) return 0;
 if (HubHosting.WindowLogPath(isService, Environment.GetEnvironmentVariable(HubConsole.LogEnvVar),
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)) is { } windowLog)
     Environment.SetEnvironmentVariable(HubConsole.LogEnvVar, windowLog);
@@ -71,6 +77,8 @@ if (HubHosting.WindowLogPath(isService, Environment.GetEnvironmentVariable(HubCo
 // The visible, money-green window (IP-T331): paint, title and log tee before anything prints,
 // including the port-taken message below, which `idiotproof hub start` reads from the log.
 HubConsole.Start();
+// Off the taskbar from here on: the tray icon brings the window back on a click (IP-T574).
+using var tray = isService ? null : HubTray.Start("IdiotProof Hub", HubConsole.TrayEnvVar);
 
 // One Hub per port (IP-T77): say who already has it and exit before touching the database.
 var port = HubWire.ResolvePort();
@@ -147,6 +155,23 @@ using (var scope = app.Services.CreateScope())
 app.MapHubEndpoints();
 
 HubConsole.Banner(port, app.Services.GetRequiredService<OperationCatalog>().Operations.Count, settings.MonitorHosted);
+
+if (tray is not null)
+{
+    var started = DateTime.UtcNow;
+    tray.Info = () =>
+    [
+        $"http://127.0.0.1:{port}  -  PID {Environment.ProcessId}",
+        settings.MonitorHosted ? "Monitor hosted: the trading loop is live" : "Monitor not hosted",
+        $"Up {HubConsole.Span(DateTime.UtcNow - started)}  -  {HubConsole.CommandCount} commands",
+        HubConsole.LastCommand is { } last ? $"Last: {last}" : "No command yet",
+    ];
+    tray.Actions =
+    [
+        new HubTrayAction("Stop the Hub", app.Lifetime.StopApplication,
+            settings.MonitorHosted ? "Stop the IdiotProof Hub? The trading loop stops with it." : "Stop the IdiotProof Hub?"),
+    ];
+}
 
 try
 {

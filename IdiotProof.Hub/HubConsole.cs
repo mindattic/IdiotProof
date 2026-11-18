@@ -15,6 +15,22 @@ public static class HubConsole
     /// <summary>File the window's output is mirrored to (set by <c>idiotproof hub start</c>).</summary>
     public const string LogEnvVar = "IDIOTPROOF_HUB_LOG";
 
+    /// <summary>The tray icon's knob (IP-T574): <c>0</c> = no icon, <c>shown</c> = icon with the window visible at start.</summary>
+    public const string TrayEnvVar = "IDIOTPROOF_HUB_TRAY";
+
+    private static long commandCount;
+    private static volatile string? lastCommand;
+
+    /// <summary>How many commands have come in since the Hub started (the tray icon shows it).</summary>
+    public static long CommandCount => Interlocked.Read(ref commandCount);
+
+    /// <summary>The latest command and when it came in, e.g. <c>account summary (9:41:07 PM)</c>; null before the first.</summary>
+    public static string? LastCommand => lastCommand;
+
+    /// <summary><c>3d 4h</c>, <c>2h 15m</c> or <c>7m</c>.</summary>
+    public static string Span(TimeSpan span) =>
+        span.TotalDays >= 1 ? $"{(int)span.TotalDays}d {span.Hours}h" : span.TotalHours >= 1 ? $"{(int)span.TotalHours}h {span.Minutes}m" : $"{(int)span.TotalMinutes}m";
+
     private static TextWriter output = Console.Out;
     private static readonly Lock gate = new();
 
@@ -77,8 +93,12 @@ public static class HubConsole
     }
 
     /// <summary><c>[9:41:07 PM] &gt;&gt;&gt; cli  account summary  --mode live</c></summary>
-    public static void CommandIn(string caller, string operation, string detail) =>
+    public static void CommandIn(string caller, string operation, string detail)
+    {
+        Interlocked.Increment(ref commandCount);
+        lastCommand = $"{Clip(operation, 60)} ({Now()})";
         Line($"[{Now()}] >>> {caller,-4} {operation}{(detail.Length > 0 ? "  " + Clip(detail, 160) : "")}");
+    }
 
     /// <summary><c>[9:41:08 PM] &lt;&lt;&lt; cli  account summary  ok  412ms</c></summary>
     public static void CommandOut(string caller, string operation, string status, int exitCode, long elapsedMs, string? message) =>

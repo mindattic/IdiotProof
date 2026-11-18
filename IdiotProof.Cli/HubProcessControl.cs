@@ -69,10 +69,11 @@ public sealed class HubProcessControl : IHubProcessControl
         // mirrors that window to logFile itself (IDIOTPROOF_HUB_LOG). A hidden cmd.exe sets the
         // environment and `start`s it, then exits: ShellExecute, not CreateProcess with inherited
         // handles, so a piped caller (`idiotproof hub start | tail`, an agent's shell) still sees
-        // end-of-output at once (IP-T296), and Ctrl+C here never reaches the Hub.
+        // end-of-output at once (IP-T296), and Ctrl+C here never reaches the Hub. Minimized (IP-T574): the Hub
+        // takes its window off the taskbar as soon as its tray icon is up, so it never needs to open in front.
         var environment = new Dictionary<string, string>(launch.Environment) { ["IDIOTPROOF_HUB_LOG"] = logFile };
         var sets = string.Concat(environment.Select(kv => $"set \"{kv.Key}={kv.Value}\"&& "));
-        var command = $"\"{sets}start \"IdiotProof Hub\" /D \"{launch.WorkingDirectory}\" \"{launch.FileName}\" {launch.Arguments}\"";
+        var command = $"\"{sets}start \"IdiotProof Hub\" /MIN /D \"{launch.WorkingDirectory}\" \"{launch.FileName}\" {launch.Arguments}\"";
         var psi = new ProcessStartInfo("cmd.exe", $"/d /s /c {command}")
         {
             UseShellExecute = true,
