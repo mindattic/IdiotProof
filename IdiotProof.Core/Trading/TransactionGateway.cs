@@ -445,7 +445,9 @@ public sealed partial class TransactionGateway(
             return null;
 
         var intent = OrderIntent.FromJson(redemption.Confirmation.PayloadJson);
-        return await SubmitAsync(intent, new GatewayOptions { Caller = caller, LiveConfirmed = true, ConfirmedBy = "code" }, ct);
+        // The code is already spent: submitting must run to completion, so it is not
+        // abortable by the caller's token (IP-T549).
+        return await SubmitAsync(intent, new GatewayOptions { Caller = caller, LiveConfirmed = true, ConfirmedBy = "code" }, CancellationToken.None);
     }
 
     /// <summary>
@@ -494,8 +496,10 @@ public sealed partial class TransactionGateway(
             throw new ConfirmationRefusedException(redemption.Message, redemption.Failure!.Value);
 
         var placed = new List<GatewayOutcome>();
+        // The code is already spent: every submission in the batch must run to completion,
+        // so none of them is abortable by the caller's token (IP-T549).
         foreach (var i in intents)
-            placed.Add(await SubmitAsync(i, new GatewayOptions { Caller = caller, LiveConfirmed = true, ConfirmedBy = "batch code" }, ct));
+            placed.Add(await SubmitAsync(i, new GatewayOptions { Caller = caller, LiveConfirmed = true, ConfirmedBy = "batch code" }, CancellationToken.None));
         return placed;
     }
 
