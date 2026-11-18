@@ -60,14 +60,14 @@ public static class MonitorOrders
 
     /// <summary>An exit: <see cref="DirectionalOrders.Exit"/> — always a <c>*_to_close</c>, so it can only reduce.</summary>
     public static OrderIntent Exit(Guid owner, Guid strategyId, string? brokerMode, string symbol, TradeDirection direction,
-        int quantity, decimal price, bool extendedHours, string? note, string? clientOrderId = null) => new()
+        int quantity, decimal price, bool extendedHours, string? note, string? clientOrderId = null, decimal? exitBuffer = null) => new()
     {
         OwnerUserId = owner,
         Mode = OrderIntent.ParseMode(brokerMode),
         Purpose = OrderPurpose.Exit,
         Origin = OrderOrigin.Monitor,
         StrategyId = strategyId,
-        Order = DirectionalOrders.Exit(symbol, direction, quantity, price, extendedHours, clientOrderId),
+        Order = DirectionalOrders.Exit(symbol, direction, quantity, price, extendedHours, clientOrderId, exitBuffer),
         ReferencePrice = price,
         Note = note,
     };

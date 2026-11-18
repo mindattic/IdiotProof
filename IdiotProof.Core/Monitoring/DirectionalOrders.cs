@@ -19,6 +19,22 @@ public static class DirectionalOrders
     /// <summary>Exit limit buffer: -0.5% to sell out of a long, +0.5% to buy back a short.</summary>
     public const decimal ExitBuffer = 0.005m;
 
+    /// <summary>Exit buffer outside the regular session, where the spread is routinely wider than 0.5%.</summary>
+    public const decimal ExtendedHoursExitBuffer = 0.02m;
+
+    /// <summary>Ceiling on the escalating exit buffer.</summary>
+    public const decimal MaxExitBuffer = 0.10m;
+
+    /// <summary>
+    /// The buffer for an exit after <paramref name="unfilledAttempts"/> earlier exit limits for the same
+    /// holding rested unfilled: the session's base buffer, widened by one base step per miss and capped.
+    /// The limit is priced off the last trade, which in a thin book can sit above the bid; a fixed buffer
+    /// then re-sends the same unfillable limit every tick (IP-T553). Escalating guarantees the exit
+    /// eventually crosses the spread.
+    /// </summary>
+    public static decimal ExitBufferFor(bool extendedHours, int unfilledAttempts) =>
+        Math.Min(MaxExitBuffer, (extendedHours ? ExtendedHoursExitBuffer : ExitBuffer) * (1 + Math.Max(0, unfilledAttempts)));
+
     public static bool IsShort(TradeDirection direction) => direction == TradeDirection.Short;
 
     public static OrderSide EntrySide(TradeDirection direction) => IsShort(direction) ? OrderSide.Sell : OrderSide.Buy;
@@ -33,8 +49,11 @@ public static class DirectionalOrders
         Tick(price * (IsShort(direction) ? 1m - EntryBuffer : 1m + EntryBuffer));
 
     /// <summary>Marketable exit limit, rounded to Alpaca's tick (cents at $1 and above, 4 decimals below).</summary>
-    public static decimal ExitLimit(TradeDirection direction, decimal price) =>
-        Tick(price * (IsShort(direction) ? 1m + ExitBuffer : 1m - ExitBuffer));
+    public static decimal ExitLimit(TradeDirection direction, decimal price) => ExitLimit(direction, price, ExitBuffer);
+
+    /// <summary>Marketable exit limit at an explicit <paramref name="buffer"/> (see <see cref="ExitBufferFor"/>).</summary>
+    public static decimal ExitLimit(TradeDirection direction, decimal price, decimal buffer) =>
+        Tick(price * (IsShort(direction) ? 1m + buffer : 1m - buffer));
 
     // Cent rounding under $1 erased the buffer (0.30 * 1.002 = 0.3006 -> 0.30, the last price), so a
     // "marketable" limit sat at the market and could rest unfilled.
@@ -61,13 +80,14 @@ public static class DirectionalOrders
     /// Exit order. The intent is always a <c>_to_close</c> value so a stale quantity can only
     /// close, never flip the account into the opposite position.
     /// </summary>
-    public static OrderRequest Exit(string symbol, TradeDirection direction, int quantity, decimal price, bool extendedHours, string? clientOrderId = null) => new()
+    public static OrderRequest Exit(string symbol, TradeDirection direction, int quantity, decimal price, bool extendedHours,
+        string? clientOrderId = null, decimal? buffer = null) => new()
     {
         Symbol         = symbol,
         Quantity       = quantity,
         Side           = ExitSide(direction),
         Type           = OrderType.Limit,
-        LimitPrice     = ExitLimit(direction, price),
+        LimitPrice     = ExitLimit(direction, price, buffer ?? ExitBuffer),
         TimeInForce    = "DAY",
         ExtendedHours  = extendedHours,
         PositionIntent = IsShort(direction) ? "buy_to_close" : "sell_to_close",

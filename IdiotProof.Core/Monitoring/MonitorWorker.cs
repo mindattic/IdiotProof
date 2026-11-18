@@ -105,6 +105,8 @@ public sealed class MonitorWorker(
 
     // Throttle audit-log writes for events that would otherwise fire every tick.
     private readonly Dictionary<Guid, DateTime> lastHoldingLogUtc = new();
+    // Consecutive exit limits that rested unfilled per strategy; widens the next exit's buffer (IP-T553).
+    private readonly Dictionary<Guid, int> exitUnfilled = new();
     private readonly Dictionary<Guid, DateTime> lastQuarantineLogUtc = new();
     private static readonly TimeSpan HoldingLogInterval    = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan QuarantineLogInterval = TimeSpan.FromMinutes(5);
@@ -1598,10 +1600,11 @@ public sealed class MonitorWorker(
         }
 
         var extendedHours = IsExtendedHours(UtcNow);
-        // Marketable exit limit so the flatten fills through a thin book: sell a
-        // long at -0.5%, buy back a short at +0.5% (DirectionalOrders).
+        // Marketable exit limit so the flatten fills through a thin book: 0.5% in the regular
+        // session, 2% outside it, widened per earlier unfilled attempt (DirectionalOrders.ExitBufferFor).
         var direction = def.Direction;
-        var limitPrice = DirectionalOrders.ExitLimit(direction, (decimal)decision.CurrentPrice);
+        var exitBuffer = DirectionalOrders.ExitBufferFor(extendedHours, exitUnfilled.GetValueOrDefault(stored.Id));
+        var limitPrice = DirectionalOrders.ExitLimit(direction, (decimal)decision.CurrentPrice, exitBuffer);
         var exitSide = DirectionalOrders.SideLabel(DirectionalOrders.ExitSide(direction));
 
         // Exit through the same per-user, per-strategy broker that holds the position — the
@@ -1725,7 +1728,7 @@ public sealed class MonitorWorker(
         var exitSentUtc = UtcNow;
         var exitOutcome = await gateway.SubmitAsync(
             MonitorOrders.Exit(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, direction, sellQty,
-                (decimal)decision.CurrentPrice, extendedHours, $"[{stored.Title}] exit {decision.Reason}", exitClientId),
+                (decimal)decision.CurrentPrice, extendedHours, $"[{stored.Title}] exit {decision.Reason}", exitClientId, exitBuffer),
             new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LeaderCheck = LeaseHeldAsync }, ct);
 
         string exitOrderId;
@@ -1767,6 +1770,7 @@ public sealed class MonitorWorker(
         }
         if (settled is { Quantity: <= 0m })
         {
+            exitUnfilled[stored.Id] = exitUnfilled.GetValueOrDefault(stored.Id) + 1;
             logger.LogWarning("[{Title}] {Symbol} exit limit {Limit:F2} did not fill; cancelled, nothing booked, retrying next tick.",
                 stored.Title, stored.Symbol, limitPrice);
             await LogAuditAsync("exit-unfilled",
@@ -1775,6 +1779,7 @@ public sealed class MonitorWorker(
                 userId: stored.OwnerUserId, ct: ct);
             return;
         }
+        exitUnfilled.Remove(stored.Id);
         var requestedQty = sellQty;
         if (settled is { } fill) sellQty = (int)Math.Min(sellQty, Math.Floor(fill.Quantity));
         if (sellQty < requestedQty) sellsEverything = false; // part-filled: shares remain

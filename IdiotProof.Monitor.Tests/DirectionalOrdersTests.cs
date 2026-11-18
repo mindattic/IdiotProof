@@ -12,6 +12,37 @@ namespace IdiotProof.Monitor.Tests;
 [TestFixture]
 public sealed class DirectionalOrdersTests
 {
+    [TestCase(false, 0, 0.005)]
+    [TestCase(true, 0, 0.02)]
+    [TestCase(false, 2, 0.015)]
+    [TestCase(true, 3, 0.08)]
+    [TestCase(true, 50, 0.10)]
+    [TestCase(false, -1, 0.005)]
+    public void ExitBufferFor_WidensPerUnfilledAttempt_AndCaps(bool extendedHours, int unfilled, double expected)
+    {
+        Assert.That(DirectionalOrders.ExitBufferFor(extendedHours, unfilled), Is.EqualTo((decimal)expected));
+    }
+
+    [Test]
+    public void LongExit_AtEscalatedBuffer_SellsFurtherBelowThePrice()
+    {
+        var order = DirectionalOrders.Exit("AVL", TradeDirection.Long, 1, 34.00m, extendedHours: false,
+            buffer: DirectionalOrders.ExitBufferFor(false, 2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(order.LimitPrice, Is.EqualTo(33.49m));
+            Assert.That(order.PositionIntent, Is.EqualTo("sell_to_close"));
+        });
+    }
+
+    [Test]
+    public void LongExit_WithNoBuffer_KeepsTheRegularHalfPercent()
+    {
+        var order = DirectionalOrders.Exit("AVL", TradeDirection.Long, 1, 34.00m, extendedHours: true);
+        Assert.That(order.LimitPrice, Is.EqualTo(33.83m));
+    }
+
     [Test]
     public void ShortEntry_IsASellToOpen_BelowThePrice()
     {
