@@ -94,7 +94,8 @@ public static class ProtectiveStops
         TargetOrderId = orderId,
         ReplacedQuantity = previousQuantity,
         StrategyId = strategyId,
-        Order = new OrderRequest { Symbol = symbol.Trim().ToUpperInvariant(), Quantity = quantity, StopPrice = stopPrice, TimeInForce = "GTC" },
+        // The replacement is a new order at the broker: tag it too, so Belongs still finds it.
+        Order = new OrderRequest { Symbol = symbol.Trim().ToUpperInvariant(), Quantity = quantity, StopPrice = stopPrice, TimeInForce = "GTC", ClientOrderId = NewClientId(strategyId, DateTime.UtcNow) },
         Note = note,
     };
 
@@ -258,7 +259,9 @@ public sealed class ProtectiveStopKeeper(TransactionGateway gateway, IOrderRouti
         foreach (var partial in since.Where(o => !o.IsFilled && !o.IsOpen && o.FilledQuantity > 0m))
             logger.LogWarning("[{Title}] protective stop {Id} for {Symbol} part-filled {Qty} before it ended ({Status}); check the position.",
                 h.Title, partial.Id, h.Symbol, partial.FilledQuantity, partial.Status);
-        return since.Where(o => o.IsFilled && o.FilledQuantity > 0m).OrderByDescending(o => o.FilledUtc).FirstOrDefault();
+        // Only a stop that filled after this holding's entry: the query also returns a previous round trip's stop.
+        return since.Where(o => o.IsFilled && o.FilledQuantity > 0m && o.FilledUtc is { } f && f >= h.EntryFilledUtc)
+            .OrderByDescending(o => o.FilledUtc).FirstOrDefault();
     }
 
     private async Task CancelAsync(ProtectedHolding h, BrokerOrder order, string why, CancellationToken ct)
