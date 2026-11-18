@@ -135,7 +135,11 @@ public sealed class OrdersPlaceOperation : IOperation<OrdersPlaceArgs>
         if (args.Quantity is not null && args.Notional is not null) throw OperationException.Usage("Give a quantity or --notional, not both.");
         if (args.Notional is <= 0) throw OperationException.Usage("--notional must be positive.");
         var (whole, fractional) = OrderFlow.Size(args.Quantity);
-        var intent = OrderFlow.PositionIntent(args.Intent);
+        // A sell with no --intent still classifies as an Exit (OrderFlow.Purpose), but with no wire
+        // position_intent Alpaca sees only a bare "side: sell" -- on an account that can short, that
+        // opens a short with no position to exit. Default it to sell_to_close so Alpaca itself
+        // refuses when nothing is held (IP-T552).
+        var intent = OrderFlow.PositionIntent(args.Intent) ?? (args.Side == OrderSide.Sell ? "sell_to_close" : null);
 
         var type = args.Type ?? (args.TrailPercent is not null || args.TrailPrice is not null ? OrderType.TrailingStop
             : args.StopPrice is not null && args.Limit is not null ? OrderType.StopLimit
