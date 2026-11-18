@@ -221,8 +221,11 @@ public sealed class FileBackedBarStore : IHistoricalBarStore
 
     private readonly record struct DayEntry(long Offset, int Count, byte Feed);
 
+    // A reader shares ReadWrite so it can open while another store instance appends the same file
+    // (the per-path semaphore is per instance); ReadIndex already ignores a torn trailing block (IP-T556).
     private static FileStream Open(string path, FileAccess access) =>
-        new(path, access == FileAccess.Read ? FileMode.Open : FileMode.OpenOrCreate, access, FileShare.Read, 1 << 16);
+        new(path, access == FileAccess.Read ? FileMode.Open : FileMode.OpenOrCreate, access,
+            access == FileAccess.Read ? FileShare.ReadWrite : FileShare.Read, 1 << 16);
 
     /// <summary>Scans the day blocks; a truncated trailing block is ignored, and cut off when <paramref name="repair"/> is set.</summary>
     private static Dictionary<int, DayEntry> ReadIndex(FileStream stream, bool repair = false)
