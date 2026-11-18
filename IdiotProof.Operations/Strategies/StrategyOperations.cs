@@ -251,6 +251,12 @@ public sealed class StrategyImportOperation : IOperation<StrategyImportArgs>
             throw OperationException.Usage("Imports start in sandbox or paper. Go live with `idiotproof strategy mode <id> live` (it asks for confirmation).");
 
         var (def, source) = Parse(args.Source);
+        // Same save-time guards as create, clone and from-watchlist (IP-T560). ApplyDefaults is not
+        // run: an imported canon is saved as given, so its stamp round-trips.
+        var validation = StrategyDrafts.Validate(def);
+        if (validation.HasErrors)
+            return OperationResult.Fail("That strategy doesn't validate; nothing imported:\n" + validation.Render(ctx.Width),
+                new { Saved = false, validation.Findings });
         var canon = StrategyJson.Serialize(def);
         var script = def.ToScript();
 
@@ -266,7 +272,7 @@ public sealed class StrategyImportOperation : IOperation<StrategyImportArgs>
         catch (Exception ex) { warning = "The IdiotScript view doesn't parse back (" + ex.Message + "); edit through the CLI."; }
 
         var repo = ctx.Get<StrategyRepository>();
-        var title = args.Title ?? def.Name ?? $"{def.Symbol} (imported {def.ShortId()})";
+        var title = StrategyDrafts.TitleFor(def, args.Title ?? def.Name ?? $"{def.Symbol} (imported {def.ShortId()})");
         var created = await repo.CreateAsync(owner, title, def.Symbol, script, scriptJson: canon,
             author: $"{ctx.Caller.ToString().ToLowerInvariant()}-import", ct: ctx.CancellationToken);
         await repo.SetBrokerModeAsync([created.Id], args.Mode.ToString(), owner, ctx.CancellationToken);
