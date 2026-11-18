@@ -29,6 +29,7 @@ internal sealed class KeysTestKit : IDisposable
         Vault = new AccountSecretVault(Brokers, Tokens, configuration: null, () => owner);
         Services.AddDbContextFactory<AppDbContext>(o => o.UseInMemoryDatabase($"keys-ops-{Guid.NewGuid():N}"));
         Services.AddSingleton(Vault);
+        Services.AddSingleton(sp => new StrategyRepository(sp.GetRequiredService<IDbContextFactory<AppDbContext>>()));
         Services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
         Services.AddSingleton(sp => new UserKeyService(
             sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), sp.GetRequiredService<IDataProtectionProvider>(),
