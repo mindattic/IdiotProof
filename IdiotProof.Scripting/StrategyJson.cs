@@ -469,6 +469,11 @@ public static partial class StrategyJson
     /// <summary>Every property must be on the allow-list — must-understand, not must-ignore.</summary>
     private static void RequireOnly(JsonElement el, string context, params string[] allowed)
     {
+        // el.EnumerateObject() throws a raw InvalidOperationException on anything but an
+        // object (e.g. a canon field written as an array by mistake), which escapes as an
+        // unhandled exception instead of quarantining the one bad strategy (IP-T550).
+        if (el.ValueKind != JsonValueKind.Object)
+            throw new StrategyJsonException($"{context} must be a JSON object, not {el.ValueKind}.");
         foreach (var prop in el.EnumerateObject())
         {
             if (!allowed.Contains(prop.Name, StringComparer.Ordinal))
