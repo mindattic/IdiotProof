@@ -62,7 +62,8 @@ public sealed class MonitorWorker(
     TimeProvider? clock = null,
     IdiotProof.Core.Evidence.IHistoricalBarStore? barStore = null,
     IdiotProof.Core.Monitoring.Formation.IGapperSnapshotSink? snapshotSink = null,
-    IdiotProof.Core.History.HistoryWakeKeeper? historyWake = null) : BackgroundService
+    IdiotProof.Core.History.HistoryWakeKeeper? historyWake = null,
+    EmailSmsAlertSender? alerts = null) : BackgroundService
 {
     /// <summary>Streamed bars waiting for a tick; the formation recorder subscribes symbols no strategy holds, so the queue is capped.</summary>
     private const int MaxQueuedBars = 20_000;
@@ -1683,6 +1684,12 @@ public sealed class MonitorWorker(
                 // resting, and re-arming next to it could fill into an untracked position with no stop,
                 // or stack a second entry on top of it. Only the order tagged for this strategy is
                 // touched, never anything else on the account.
+                // Flat because a person sold it, not because the entry never filled (IP-T554).
+                if (await FindManualSaleAsync(broker, stored, direction, filledUtc, ct) is { } sale)
+                {
+                    await RecordManualSaleAsync(stored, direction, (decimal)entry, sale, ct);
+                    return;
+                }
                 if (!await CancelOwnEntryAsync(broker, stored, filledUtc, ct))
                 {
                     await UpsertProgressAsync(stored, root, 1, 1,
@@ -2336,6 +2343,65 @@ public sealed class MonitorWorker(
             logger.LogWarning(ex, "[{Title}] could not confirm the exit fill for {Symbol}; booking it as placed.", stored.Title, stored.Symbol);
             return null;
         }
+    }
+
+    /// <summary>
+    /// A sale a person made outside the Monitor (positions close, trade flatten, the broker's own
+    /// site): a filled order on the strategy's symbol, closing its side, at or after the entry
+    /// filled, that carries none of the Monitor's own client ids (entry, exit, protective stop).
+    /// Null when there is none or the broker could not be asked (IP-T554).
+    /// </summary>
+    private async Task<BrokerOrder?> FindManualSaleAsync(IdiotProof.Brokers.IBrokerClient broker, IdiotProof.Core.Data.Strategy stored,
+        TradeDirection direction, DateTime entryUtc, CancellationToken ct)
+    {
+        if (!broker.SupportsOrderQueries) return null;
+        try
+        {
+            var closingSide = direction == TradeDirection.Short ? OrderSide.Buy : OrderSide.Sell;
+            var orders = await broker.GetOrdersAsync(stored.Symbol, openOnly: false, afterUtc: entryUtc.AddMinutes(-5), ct: ct);
+            return orders
+                .Where(o => o.IsFilled && o.Side == closingSide && o.FilledQuantity > 0m && o.FilledAvgPrice is > 0m
+                    && (o.FilledUtc ?? o.SubmittedUtc ?? DateTime.MinValue) >= entryUtc
+                    && !IsMonitorOrder(o.ClientOrderId))
+                .OrderByDescending(o => o.FilledUtc ?? o.SubmittedUtc)
+                .FirstOrDefault();
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[{Title}] could not list {Symbol} orders to look for a manual sale.", stored.Title, stored.Symbol);
+            return null;
+        }
+    }
+
+    private static bool IsMonitorOrder(string? clientOrderId) =>
+        clientOrderId is { } id && (id.StartsWith("ipe-", StringComparison.Ordinal) || id.StartsWith("ipx-", StringComparison.Ordinal)
+            || id.StartsWith("ips-", StringComparison.Ordinal));
+
+    /// <summary>
+    /// A person sold the position outside the strategy: they chose the course of action, so the
+    /// exit is booked at their sale's price, the strategy is switched off (no re-buy behind their
+    /// back) and they get a Psst (IP-T554).
+    /// </summary>
+    private async Task RecordManualSaleAsync(IdiotProof.Core.Data.Strategy stored, TradeDirection direction, decimal entry,
+        BrokerOrder sale, CancellationToken ct)
+    {
+        var price = sale.FilledAvgPrice!.Value;
+        var qty = stored.PositionQty;
+        var exitUtc = sale.FilledUtc ?? UtcNow;
+        var realized = Math.Round((direction == TradeDirection.Short ? entry - price : price - entry) * qty, 2);
+        await strategyRepo.RecordExitFillAsync(stored.Id, price, "ManualSale", exitUtc, ct);
+        try { await tradeDiary.CloseAsync(stored.Id, price, "ManualSale", sale.Id, realized, qty, exitUtc, ct); }
+        catch (Exception dex) { logger.LogError(dex, "[{Title}] trade-diary ManualSale close failed.", stored.Title); }
+        var off = await strategyRepo.SetActiveAsync(stored.Id, false, stored.OwnerUserId, ct);
+        var et = TimeZoneInfo.ConvertTimeFromUtc(exitUtc, MarketTime.Eastern);
+        var text = $"IdiotProof: {stored.Symbol} '{stored.Title}' ({stored.BrokerMode}) was sold outside the strategy " +
+                   $"({qty} @ {price:0.00##} at {et:h:mm tt} ET, P&L {realized:+0.00;-0.00}). " +
+                   (off == StrategyMutation.Ok ? "Strategy switched off; reactivate it to let it trade again." : $"Could not switch it off ({off}).");
+        logger.LogWarning("[{Title}] {Symbol} sold outside the strategy (order {Order}) — booked, strategy off ({Result}).",
+            stored.Title, stored.Symbol, sale.Id, off);
+        await LogAuditAsync("position-reconciled", $"[{stored.Title}] {text}", userId: stored.OwnerUserId, ct: ct);
+        if (alerts is not null) await alerts.TrySendAsync(text, ct);
     }
 
     /// <summary>
