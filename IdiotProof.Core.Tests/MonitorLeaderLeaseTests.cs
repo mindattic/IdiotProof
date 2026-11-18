@@ -6,20 +6,22 @@ namespace IdiotProof.Core.Tests;
 
 /// <summary>
 /// IP-US-K9: two Monitor instances contend for the one SQL leader lease. The second stands by
-/// while the first leads and takes over only once the first lets go. Runs on a throwaway LocalDB
+/// while the first leads and takes over only once the first lets go. Runs on a throwaway SQL Server
 /// database (applocks are per database), never the real IdiotProof one.
 /// </summary>
 [TestFixture]
+[Category(global::IdiotProof.Core.Tests.TestSqlServer.Category)]
 public sealed class MonitorLeaderLeaseTests
 {
-    private static readonly string DbName = $"IdiotProof_Lease_{Guid.NewGuid():N}";
-    private static readonly string Master = @"Server=(localdb)\MSSQLLocalDB;Database=master;Trusted_Connection=True;TrustServerCertificate=True;";
-    private static readonly string ConnStr = $@"Server=(localdb)\MSSQLLocalDB;Database={DbName};Trusted_Connection=True;TrustServerCertificate=True;";
+    private static readonly string DbName = global::IdiotProof.Core.Tests.TestSqlServer.NewDatabaseName("IdiotProof_Lease");
+    private static string Master => global::IdiotProof.Core.Tests.TestSqlServer.Master;
+    private static string ConnStr => global::IdiotProof.Core.Tests.TestSqlServer.ConnectionStringFor(DbName);
     private static readonly TimeSpan Retry = TimeSpan.FromMilliseconds(100);
 
     [OneTimeSetUp]
     public async Task CreateDatabase()
     {
+        global::IdiotProof.Core.Tests.TestSqlServer.Require();
         await using var conn = new SqlConnection(Master);
         await conn.OpenAsync();
         await using var cmd = new SqlCommand($"CREATE DATABASE [{DbName}]", conn);
@@ -29,6 +31,7 @@ public sealed class MonitorLeaderLeaseTests
     [OneTimeTearDown]
     public async Task DropDatabase()
     {
+        if (!global::IdiotProof.Core.Tests.TestSqlServer.IsConfigured) return;
         SqlConnection.ClearAllPools();
         await using var conn = new SqlConnection(Master);
         await conn.OpenAsync();

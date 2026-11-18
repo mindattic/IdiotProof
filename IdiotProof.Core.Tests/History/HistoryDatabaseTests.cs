@@ -7,12 +7,13 @@ using Microsoft.Data.SqlClient;
 namespace IdiotProof.Core.Tests.History;
 
 /// <summary>
-/// IP-T454 against the local SQL Server (skipped when none answers): the schema applies once and
+/// IP-T454 against a real SQL Server (opt-in through TestSqlServer, skipped when it is not set): the schema applies once and
 /// again as a no-op, minute and daily days round-trip through the columnstore and the range
 /// coverage, a covered day is never written twice, and the file-store import is idempotent.
 /// Each test uses a throwaway database dropped afterwards.
 /// </summary>
 [TestFixture]
+[Category(TestSqlServer.Category)]
 [NonParallelizable]
 public class HistoryDatabaseTests
 {
@@ -22,23 +23,17 @@ public class HistoryDatabaseTests
     [SetUp]
     public async Task SetUp()
     {
-        name = $"IdiotProof_History_Test_{Guid.NewGuid():N}";
-        db = new HistoryDatabase($"Server=localhost;Database={name};Integrated Security=True;TrustServerCertificate=True;Connect Timeout=3;");
-        try { await db.EnsureSchemaAsync(CancellationToken.None); }
-        catch (SqlException ex) { Assert.Ignore($"No local SQL Server: {ex.Message}"); }
+        TestSqlServer.Require();
+        name = TestSqlServer.NewDatabaseName("IdiotProof_History_Test");
+        db = new HistoryDatabase(TestSqlServer.ConnectionStringFor(name, connectTimeoutSeconds: 3));
+        await db.EnsureSchemaAsync(CancellationToken.None);
     }
 
     [TearDown]
     public async Task TearDown()
     {
-        SqlConnection.ClearAllPools();
-        try
-        {
-            await using var c = new SqlConnection("Server=localhost;Database=master;Integrated Security=True;TrustServerCertificate=True;Connect Timeout=3;");
-            await c.OpenAsync();
-            await using var q = new SqlCommand($"IF DB_ID('{name}') IS NOT NULL BEGIN ALTER DATABASE [{name}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{name}]; END", c);
-            await q.ExecuteNonQueryAsync();
-        }
+        if (!TestSqlServer.IsConfigured || name.Length == 0) return;
+        try { await TestSqlServer.DropDatabaseAsync(name); }
         catch (SqlException) { }
     }
 

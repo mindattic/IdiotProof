@@ -6,14 +6,14 @@ namespace IdiotProof.Blazor.Tests;
 
 /// <summary>
 /// Repeat(n) counts entries per ET day on the Strategy row (IP-T370). Integration tests against
-/// SQL Server LocalDB, same harness as StrategyRepositoryGuardTests.
+/// a real SQL Server (opt-in, see TestSqlServer), same harness as StrategyRepositoryGuardTests.
 /// </summary>
 [TestFixture]
+[Category(global::IdiotProof.Core.Tests.TestSqlServer.Category)]
 public sealed class StrategyRepositoryCycleTests
 {
-    private static readonly string DbName = $"IdiotProof_Test_{Guid.NewGuid():N}";
-    private static readonly string ConnStr =
-        $@"Server=(localdb)\MSSQLLocalDB;Database={DbName};Trusted_Connection=True;TrustServerCertificate=True;";
+    private static readonly string DbName = global::IdiotProof.Core.Tests.TestSqlServer.NewDatabaseName("IdiotProof_Test");
+    private static string ConnStr => global::IdiotProof.Core.Tests.TestSqlServer.ConnectionStringFor(DbName);
 
     private IDbContextFactory<AppDbContext> factory = null!;
     private StrategyRepository repo = null!;
@@ -27,6 +27,7 @@ public sealed class StrategyRepositoryCycleTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
+        global::IdiotProof.Core.Tests.TestSqlServer.Require();
         factory = new SqlServerDbContextFactory(ConnStr);
         using var db = factory.CreateDbContext();
         db.Database.EnsureCreated();
@@ -37,6 +38,7 @@ public sealed class StrategyRepositoryCycleTests
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
+        if (!global::IdiotProof.Core.Tests.TestSqlServer.IsConfigured) return;
         using var db = factory.CreateDbContext();
         db.Database.EnsureDeleted();
     }

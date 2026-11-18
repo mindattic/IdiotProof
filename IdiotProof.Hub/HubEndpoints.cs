@@ -271,7 +271,7 @@ public static class HubEndpoints
 
     private static readonly JsonElement EmptyObject = JsonDocument.Parse("{}").RootElement.Clone();
 
-    /// <summary>"(localdb)\MSSQLLocalDB / IdiotProof" — server and database, never credentials.</summary>
+    /// <summary>"sql-mindattic-f65744.database.windows.net / IdiotProof" — server and database, never credentials.</summary>
     internal static string DescribeDatabase(string connectionString)
     {
         try

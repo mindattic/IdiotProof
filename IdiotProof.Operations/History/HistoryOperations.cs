@@ -7,7 +7,7 @@ namespace IdiotProof.Operations.History;
 public sealed record HistoryStatusArgs;
 
 [Operation("history status", Summary = "The permanent market history database (IP-T454): its server and size, rows per table (minute bars, daily bars, splits, news, filings), symbols covered per kind, the newest coverage, and the backfill queue.", Risk = OperationRisk.Read,
-    Description = "Reads the history database on the local SQL Server (ConnectionStrings__IdiotProofHistory, default localhost/IdiotProof_History). Creates the schema if it is missing; never fetches data.")]
+    Description = "Reads the history database (ConnectionStrings__IdiotProofHistory, default IdiotProof_History on the Azure SQL server, signed in as you). Creates the schema if it is missing; never fetches data.")]
 [Example("idiotproof history status")]
 public sealed class HistoryStatusOperation : IOperation<HistoryStatusArgs>
 {
@@ -43,7 +43,7 @@ public sealed record HistoryImportArgs
     [Option("research", Description = "Import the gapper study's research database (daily bars, splits, news, filings, coverage ranges).")]
     public bool Research { get; init; }
 
-    [Option("research-db", Description = "Research database name on LocalDB (default IdiotProof_Research_GAP).")]
+    [Option("research-db", Description = "Research database name on the research server (ConnectionStrings__IdiotProofResearch, default the Azure SQL server; default name IdiotProof_Research_GAP).")]
     public string ResearchDb { get; init; } = "IdiotProof_Research_GAP";
 
     [Option("app-cache", Description = "Import the app database's own bar cache (HistoricalBars) from the app's connection string.")]
@@ -76,7 +76,7 @@ public sealed class HistoryImportOperation : IOperation<HistoryImportArgs>
         var results = new List<HistoryImportResult>();
         if (args.Research)
         {
-            // Server and credentials from ConnectionStrings__IdiotProofResearch / ConnectionStrings:IdiotProofResearch, LocalDB when unset (IP-T542).
+            // Server and credentials from ConnectionStrings__IdiotProofResearch / ConnectionStrings:IdiotProofResearch, the Azure SQL server when unset (IP-T542, IP-T545).
             var research = IdiotProof.Core.Hosting.ResearchDatabase.ConnectionStringFor(args.ResearchDb,
                 (Microsoft.Extensions.Configuration.IConfiguration?)ctx.Services.GetService(typeof(Microsoft.Extensions.Configuration.IConfiguration)));
             results.AddRange(await importer.ImportResearchAsync(research, ctx.CancellationToken));

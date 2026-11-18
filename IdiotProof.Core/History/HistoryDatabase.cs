@@ -3,22 +3,22 @@ using Microsoft.Data.SqlClient;
 namespace IdiotProof.Core.History;
 
 /// <summary>
-/// The permanent market history (IP-T454): a database of its own on the local SQL Server Developer
-/// instance, not LocalDB, because five years of 1-minute bars per ticker grows far past LocalDB's
-/// 10 GB cap. Minute bars live in an ordered clustered columnstore (compressed about tenfold); daily
+/// The permanent market history (IP-T454): a database of its own (<c>IdiotProof_History</c> on Azure
+/// SQL, serverless), because five years of 1-minute bars per ticker is far larger than the trading
+/// database should carry. Minute bars live in an ordered clustered columnstore (compressed about tenfold); daily
 /// bars, splits, news and filings in rowstore tables; <c>Coverage</c> records every (symbol, kind,
 /// day) already fetched so nothing is ever requested twice. The schema is versioned SQL applied in
 /// order, because a columnstore table without a key is outside what EF migrations create.
 /// <para>
 /// The connection string is env <c>ConnectionStrings__IdiotProofHistory</c>, then configuration
-/// <c>ConnectionStrings:IdiotProofHistory</c>, then the local default. On Azure SQL Database (IP-T542) the database
+/// <c>ConnectionStrings:IdiotProofHistory</c>, then <see cref="IdiotProof.Core.Hosting.CloudDatabases.History"/> (IP-T545; never a local instance). On Azure SQL Database (IP-T542) the database
 /// must already exist: it is never created from here, and a paused serverless database is waited for on open.
 /// </para>
 /// </summary>
 public sealed class HistoryDatabase(string connectionString)
 {
     public const string EnvVar = "ConnectionStrings__IdiotProofHistory";
-    public const string DefaultConnectionString = "Server=localhost;Database=IdiotProof_History;Integrated Security=True;TrustServerCertificate=True;Command Timeout=600;";
+    public const string DefaultConnectionString = IdiotProof.Core.Hosting.CloudDatabases.History;
 
     public string ConnectionString => connectionString;
 

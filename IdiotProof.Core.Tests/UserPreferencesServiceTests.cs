@@ -9,21 +9,22 @@ namespace IdiotProof.Blazor.Tests;
 /// <see cref="UserPreferencesService.SetRiskConfigAsync"/>, which promises the
 /// basic sanity invariants (daily ≥ per-trade, max stop ≥ min stop,
 /// non-negative amounts) so RiskGuardian config loads never see nonsense.
-/// Integration tests against SQL Server LocalDB, same harness as
+/// Integration tests against a real SQL Server (opt-in, see TestSqlServer), same harness as
 /// StrategyRepositoryGuardTests.
 /// </summary>
 [TestFixture]
+[Category(global::IdiotProof.Core.Tests.TestSqlServer.Category)]
 public sealed class UserPreferencesServiceTests
 {
-    private static readonly string DbName = $"IdiotProof_Test_{Guid.NewGuid():N}";
-    private static readonly string ConnStr =
-        $@"Server=(localdb)\MSSQLLocalDB;Database={DbName};Trusted_Connection=True;TrustServerCertificate=True;";
+    private static readonly string DbName = global::IdiotProof.Core.Tests.TestSqlServer.NewDatabaseName("IdiotProof_Test");
+    private static string ConnStr => global::IdiotProof.Core.Tests.TestSqlServer.ConnectionStringFor(DbName);
 
     private IDbContextFactory<AppDbContext> factory = null!;
 
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
+        global::IdiotProof.Core.Tests.TestSqlServer.Require();
         factory = new SqlServerDbContextFactory(ConnStr);
         using var db = factory.CreateDbContext();
         db.Database.EnsureCreated();
@@ -35,6 +36,7 @@ public sealed class UserPreferencesServiceTests
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
+        if (!global::IdiotProof.Core.Tests.TestSqlServer.IsConfigured) return;
         using var db = factory.CreateDbContext();
         db.Database.EnsureDeleted();
     }

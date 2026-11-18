@@ -23,15 +23,16 @@ namespace IdiotProof.Core.Tests;
 /// pipeline: it takes the SQL leader lease, re-reads the active strategy from SQL, gates on the
 /// session by the wall clock, evaluates against the feed, fires through the gateway and records
 /// the Sandbox fill on the Strategy row. The clock is pinned to a chosen ET instant; the database
-/// is a throwaway LocalDB one; only the Sandbox broker exists.
+/// is a throwaway SQL Server one; only the Sandbox broker exists.
 /// </summary>
 [TestFixture]
+[Category(global::IdiotProof.Core.Tests.TestSqlServer.Category)]
 [NonParallelizable]
 public sealed class MonitorWorkerHarnessTests
 {
     private const string ConnEnv = "ConnectionStrings__IdiotProof";
-    private static readonly string DbName = $"IdiotProof_Harness_{Guid.NewGuid():N}";
-    private static readonly string ConnStr = $@"Server=(localdb)\MSSQLLocalDB;Database={DbName};Trusted_Connection=True;TrustServerCertificate=True;";
+    private static readonly string DbName = global::IdiotProof.Core.Tests.TestSqlServer.NewDatabaseName("IdiotProof_Harness");
+    private static string ConnStr => global::IdiotProof.Core.Tests.TestSqlServer.ConnectionStringFor(DbName);
 
     // Tuesday 2026-07-14, 10:30 ET (EDT) — inside RTH, not a holiday.
     private static readonly DateTimeOffset RthInstant = new(2026, 7, 14, 14, 30, 0, TimeSpan.Zero);
@@ -44,6 +45,7 @@ public sealed class MonitorWorkerHarnessTests
     [OneTimeSetUp]
     public void PinEnvironment()
     {
+        global::IdiotProof.Core.Tests.TestSqlServer.Require();
         savedConn = Environment.GetEnvironmentVariable(ConnEnv);
         savedBroker = Environment.GetEnvironmentVariable(TradingServiceRegistration.BrokerEnvVar);
         savedFeed = Environment.GetEnvironmentVariable(TradingServiceRegistration.FeedEnvVar);
@@ -62,19 +64,13 @@ public sealed class MonitorWorkerHarnessTests
     [OneTimeTearDown]
     public async Task RestoreEnvironment()
     {
+        if (!global::IdiotProof.Core.Tests.TestSqlServer.IsConfigured) return;
         Environment.SetEnvironmentVariable(ConnEnv, savedConn);
         Environment.SetEnvironmentVariable(TradingServiceRegistration.BrokerEnvVar, savedBroker);
         Environment.SetEnvironmentVariable(TradingServiceRegistration.FeedEnvVar, savedFeed);
         Environment.SetEnvironmentVariable("IDIOTPROOF_STREAMING", savedStreaming);
         Environment.SetEnvironmentVariable(TradingServiceRegistration.HistoryStoreEnvVar, savedHistoryStore);
-        SqlConnection.ClearAllPools();
-        try
-        {
-            await using var conn = new SqlConnection(@"Server=(localdb)\MSSQLLocalDB;Database=master;Trusted_Connection=True;TrustServerCertificate=True;");
-            await conn.OpenAsync();
-            await using var cmd = new SqlCommand($"IF DB_ID('{DbName}') IS NOT NULL BEGIN ALTER DATABASE [{DbName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{DbName}] END", conn);
-            await cmd.ExecuteNonQueryAsync();
-        }
+        try { await global::IdiotProof.Core.Tests.TestSqlServer.DropDatabaseAsync(DbName); }
         catch (SqlException) { /* best-effort cleanup */ }
         try { Directory.Delete(root, recursive: true); } catch { /* best-effort temp cleanup */ }
     }

@@ -55,14 +55,14 @@ public sealed class CoreHostOptions
 /// </summary>
 public static class CoreServiceRegistration
 {
-    public const string LocalDbConnectionString =
-        @"Server=(localdb)\MSSQLLocalDB;Database=IdiotProof;Trusted_Connection=True;TrustServerCertificate=True;";
+    /// <summary>The last resort when nothing is configured: the shared Azure SQL database, signed in as the developer (IP-T545). Never a local instance.</summary>
+    public const string DefaultConnectionString = CloudDatabases.Main;
 
-    /// <summary>Env var <c>ConnectionStrings__IdiotProof</c> → configuration → LocalDB (same for every host and for design time).</summary>
+    /// <summary>Env var <c>ConnectionStrings__IdiotProof</c> → configuration → <see cref="CloudDatabases.Main"/> (same for every host and for design time).</summary>
     public static string ResolveConnectionString(IConfiguration configuration) =>
         Environment.GetEnvironmentVariable("ConnectionStrings__IdiotProof")
         ?? configuration.GetConnectionString("IdiotProof")
-        ?? LocalDbConnectionString;
+        ?? DefaultConnectionString;
 
     /// <summary>
     /// Surfaces the MindAttic Vault buckets (LLM, Brokers, … plus Security for the auth pepper)
@@ -97,7 +97,7 @@ public static class CoreServiceRegistration
             sql => sql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorNumbersToAdd: null)));
         services.AddScoped<AppDbContext>(sp => sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
-        // ── Permanent market history (IP-T454): its own database, on the local SQL Server Developer instance unless
+        // ── Permanent market history (IP-T454): its own database, IdiotProof_History on Azure SQL (CloudDatabases.History) unless
         //    ConnectionStrings__IdiotProofHistory / ConnectionStrings:IdiotProofHistory says otherwise ──
         services.AddSingleton(_ => IdiotProof.Core.History.HistoryDatabase.FromEnvironment(configuration.GetConnectionString("IdiotProofHistory")));
         services.AddScoped(sp => new IdiotProof.Core.History.HistoryBackfillService(

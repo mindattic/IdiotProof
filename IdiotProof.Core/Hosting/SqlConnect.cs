@@ -224,15 +224,14 @@ public static class SqlConnect
 /// Connection strings of the research databases (IP-T542). A study names its own database
 /// (<c>IdiotProof_Research_GAP</c>, <c>IdiotProof_Research_T375</c>, ...), so one template carries the server and
 /// the credentials and the database name is put in per run: env <c>ConnectionStrings__IdiotProofResearch</c>, then
-/// configuration <c>ConnectionStrings:IdiotProofResearch</c>, then LocalDB. Whatever database the template names
+/// configuration <c>ConnectionStrings:IdiotProofResearch</c>, then <see cref="CloudDatabases.ResearchTemplate"/> (IP-T545; never a local instance). Whatever database the template names
 /// is replaced.
 /// </summary>
 public static class ResearchDatabase
 {
     public const string EnvVar = "ConnectionStrings__IdiotProofResearch";
     public const string ConfigurationName = "IdiotProofResearch";
-    public const string DefaultTemplate =
-        @"Server=(localdb)\MSSQLLocalDB;Database=IdiotProof_Research;Trusted_Connection=True;TrustServerCertificate=True;Command Timeout=600;";
+    public const string DefaultTemplate = CloudDatabases.ResearchTemplate;
 
     public static string Template(IConfiguration? configuration) =>
         Environment.GetEnvironmentVariable(EnvVar) is { Length: > 0 } env ? env

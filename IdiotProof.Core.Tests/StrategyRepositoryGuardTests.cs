@@ -9,15 +9,15 @@ namespace IdiotProof.Blazor.Tests;
 /// (no caller may flip another user's row) and open-position safety (a row
 /// holding shares must stay active so the Monitor keeps managing the exit;
 /// deleting it would discard the exit rules for a live position).
-/// Integration tests against SQL Server LocalDB, same harness as
+/// Integration tests against a real SQL Server (opt-in, see TestSqlServer), same harness as
 /// ConditionProgressRepositoryTests.
 /// </summary>
 [TestFixture]
+[Category(global::IdiotProof.Core.Tests.TestSqlServer.Category)]
 public sealed class StrategyRepositoryGuardTests
 {
-    private static readonly string DbName = $"IdiotProof_Test_{Guid.NewGuid():N}";
-    private static readonly string ConnStr =
-        $@"Server=(localdb)\MSSQLLocalDB;Database={DbName};Trusted_Connection=True;TrustServerCertificate=True;";
+    private static readonly string DbName = global::IdiotProof.Core.Tests.TestSqlServer.NewDatabaseName("IdiotProof_Test");
+    private static string ConnStr => global::IdiotProof.Core.Tests.TestSqlServer.ConnectionStringFor(DbName);
 
     private IDbContextFactory<AppDbContext> factory = null!;
     private StrategyRepository repo = null!;
@@ -27,6 +27,7 @@ public sealed class StrategyRepositoryGuardTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
+        global::IdiotProof.Core.Tests.TestSqlServer.Require();
         factory = new SqlServerDbContextFactory(ConnStr);
         using var db = factory.CreateDbContext();
         db.Database.EnsureCreated();
@@ -39,6 +40,7 @@ public sealed class StrategyRepositoryGuardTests
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
+        if (!global::IdiotProof.Core.Tests.TestSqlServer.IsConfigured) return;
         using var db = factory.CreateDbContext();
         db.Database.EnsureDeleted();
     }

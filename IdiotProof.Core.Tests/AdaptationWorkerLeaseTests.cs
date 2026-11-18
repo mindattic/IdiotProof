@@ -17,14 +17,15 @@ namespace IdiotProof.Core.Tests;
 /// <summary>
 /// IP-T386: only the instance holding the Monitor leader lease runs adaptation passes, so a
 /// standby never writes duplicate AdaptationDecisions rows. The lease is a real sp_getapplock on a
-/// throwaway LocalDB database; strategies and decisions live in an in-memory store.
+/// throwaway SQL Server database; strategies and decisions live in an in-memory store.
 /// </summary>
 [TestFixture]
+[Category(global::IdiotProof.Core.Tests.TestSqlServer.Category)]
 public sealed class AdaptationWorkerLeaseTests
 {
-    private static readonly string DbName = $"IdiotProof_AdaptLease_{Guid.NewGuid():N}";
-    private static readonly string Master = @"Server=(localdb)\MSSQLLocalDB;Database=master;Trusted_Connection=True;TrustServerCertificate=True;";
-    private static readonly string ConnStr = $@"Server=(localdb)\MSSQLLocalDB;Database={DbName};Trusted_Connection=True;TrustServerCertificate=True;";
+    private static readonly string DbName = global::IdiotProof.Core.Tests.TestSqlServer.NewDatabaseName("IdiotProof_AdaptLease");
+    private static string Master => global::IdiotProof.Core.Tests.TestSqlServer.Master;
+    private static string ConnStr => global::IdiotProof.Core.Tests.TestSqlServer.ConnectionStringFor(DbName);
     private static readonly DateTime Open = new(2026, 11, 2, 14, 30, 0, DateTimeKind.Utc); // 9:30 ET
 
     private IDbContextFactory<AppDbContext> factory = null!;
@@ -34,6 +35,7 @@ public sealed class AdaptationWorkerLeaseTests
     [OneTimeSetUp]
     public async Task CreateDatabase()
     {
+        global::IdiotProof.Core.Tests.TestSqlServer.Require();
         await using var conn = new SqlConnection(Master);
         await conn.OpenAsync();
         await using var cmd = new SqlCommand($"CREATE DATABASE [{DbName}]", conn);
@@ -43,6 +45,7 @@ public sealed class AdaptationWorkerLeaseTests
     [OneTimeTearDown]
     public async Task DropDatabase()
     {
+        if (!global::IdiotProof.Core.Tests.TestSqlServer.IsConfigured) return;
         SqlConnection.ClearAllPools();
         await using var conn = new SqlConnection(Master);
         await conn.OpenAsync();

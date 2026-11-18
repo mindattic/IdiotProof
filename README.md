@@ -2,7 +2,7 @@
 
 Describe a trade in plain English and IdiotProof turns it into a strategy that a 24/7 Monitor evaluates against live market data, firing only when its conditions, an LLM panel and a risk guard all agree. Everything it can do (every strategy, every trade, every Alpaca endpoint) is one `idiotproof <noun> <verb>` command away, run through a single local Hub, and the same commands are MCP tools so you can drive it by talking to Claude.
 
-[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/) [![Blazor Server](https://img.shields.io/badge/Blazor-Server-512BD4)](https://learn.microsoft.com/aspnet/core/blazor/) [![SQL Server](https://img.shields.io/badge/SQL%20Server-LocalDB-CC2927)](https://learn.microsoft.com/sql/database-engine/configure-windows/sql-server-express-localdb) [![Broker](https://img.shields.io/badge/broker-Alpaca-FFCD00)](https://alpaca.markets/) [![Status](https://img.shields.io/badge/status-active%20development-yellow)](docs/BIBLE.md)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/) [![Blazor Server](https://img.shields.io/badge/Blazor-Server-512BD4)](https://learn.microsoft.com/aspnet/core/blazor/) [![Azure SQL](https://img.shields.io/badge/Azure%20SQL-Database-CC2927)](https://learn.microsoft.com/azure/azure-sql/database/) [![Broker](https://img.shields.io/badge/broker-Alpaca-FFCD00)](https://alpaca.markets/) [![Status](https://img.shields.io/badge/status-active%20development-yellow)](docs/BIBLE.md)
 
 ![A published strategy replay: ADVB minute candles with VWAP, entry and exit markers, a volume strip and a per-condition truth band underneath](docs/images/replay-run.png)
 
@@ -143,7 +143,7 @@ Long-running commands stream: the CLI calls them on the Hub's `/api/stream` (ser
 
 The system is one long-running process, the Hub, plus the optional web app, sharing one SQL database; the database is the communication channel. Anything you change from the CLI or the UI is picked up by the Monitor on its next pass, roughly a second later, with no restart. The full field-by-field walkthrough is in [user-guide.htm](IdiotProof.Blazor/wwwroot/user-guide.htm), which the running app also serves at `/user-guide.htm`.
 
-Prerequisites: .NET 10 SDK, SQL Server LocalDB (ships with Visual Studio or the SQL Server Express LocalDB package), and Node 18+ only if you want to run Cypress.
+Prerequisites: .NET 10 SDK, the Azure CLI signed in with `az login` as an account that has access to the IdiotProof databases, and Node 18+ only if you want to run Cypress. No SQL Server is installed or run locally: the databases live in Azure SQL on `sql-mindattic-f65744.database.windows.net` (Entra sign-in only), and with nothing configured every host connects there as you.
 
 ### Step 1 build and create the database
 
@@ -151,8 +151,10 @@ Prerequisites: .NET 10 SDK, SQL Server LocalDB (ships with Visual Studio or the 
 git clone https://github.com/mindattic/IdiotProof.git
 cd IdiotProof
 dotnet build IdiotProof.slnx
-dotnet ef database update --project IdiotProof.Blazor
+az login                                   # once; the default connection strings sign in as you
 ```
+
+The shared `IdiotProof` database already exists and carries the schema. `dotnet ef database update --project IdiotProof.Blazor` is only for applying a new migration, and with `ConnectionStrings__IdiotProof` unset it targets that shared cloud database, the one the Hub trades on.
 
 ### Step 2 start the Hub (and optionally the web UI)
 
@@ -163,7 +165,7 @@ idiotproof hub start                       # the Hub: hosts the Monitor loop and
 dotnet run --project IdiotProof.Blazor
 ```
 
-Both default to the same LocalDB database (`IdiotProof`). The Hub acquires the SQL leader lease and starts ticking; `idiotproof hub logs` shows its log. `idiotproof-monitor.exe` (`IdiotProof.Monitor`) is now a shim that starts the Hub, so old shortcuts keep working; the lease guarantees only one process trades. Register an account in the UI on first run.
+Both default to the same Azure SQL database (`IdiotProof`). The Hub acquires the SQL leader lease and starts ticking; `idiotproof hub logs` shows its log. `idiotproof-monitor.exe` (`IdiotProof.Monitor`) is now a shim that starts the Hub, so old shortcuts keep working; the lease guarantees only one process trades. Register an account in the UI on first run.
 
 ### Step 3 real market data
 
@@ -253,7 +255,7 @@ Data flows one way from market data down to an order; audit and state flow back 
           └────────┬───────────┘
                    │
           ┌────────▼──────────────────────────────────────────┐
-          │                SQL Server (LocalDB)                 │
+          │              Azure SQL Database                     │
           │                  IdiotProof database                 │
           │  Strategies · UserPreferences · ConditionProgress    │
           │  UserApiKeys · AuditLogs · Workspaces · LiveBars      │
@@ -359,7 +361,7 @@ Verbs (the key services, by call site):
 ├── Brokers\providers.json                     (alpaca-paper, alpaca-live — IdiotProof's own bucket)
 └── Security\providers.json                    (pepper.v1, bootstrap-token — MindAttic.Authentication)
 
-SQL Server (LocalDB by default)                ← canonical runtime state, shared by Blazor + Monitor + ResearchScanner
+Azure SQL Database (the default)               ← canonical runtime state, shared by Blazor + Monitor + ResearchScanner
 └── IdiotProof database
     ├── AuthUsers, ...                          (MindAttic.Authentication — Argon2id, sessions, MFA scaffolding)
     ├── UserApiKeys                             (per-user routing opt-in, feed, Claude model; secrets live in Vault)
@@ -381,7 +383,17 @@ Connection string priority, identical for the Blazor host, the Monitor and the R
 
 1. The `ConnectionStrings__IdiotProof` environment variable.
 2. `ConnectionStrings:IdiotProof` from `IConfiguration` (`appsettings.json`).
-3. The LocalDB fallback: `Server=(localdb)\MSSQLLocalDB;Database=IdiotProof;Trusted_Connection=True;TrustServerCertificate=True;`.
+3. The Azure SQL default, which carries no secret and signs in as whoever ran `az login`: `Server=tcp:sql-mindattic-f65744.database.windows.net,1433;Database=IdiotProof;Authentication=Active Directory Default;Encrypt=True;Connect Timeout=60;MultipleActiveResultSets=True;`.
+
+There is no local fallback: nothing is ever saved to a local SQL Server unless a connection string says so. The history database (`ConnectionStrings__IdiotProofHistory`, default `IdiotProof_History`) and the research databases (`ConnectionStrings__IdiotProofResearch`, a template whose database name each study replaces, e.g. `IdiotProof_Research_GAP`) resolve the same way on the same server; the three defaults are the constants in `IdiotProof.Core/Hosting/CloudDatabases.cs`. Unattended processes (the Hub service, scheduled jobs) get service-principal strings through those three environment variables.
+
+A new research study needs its database provisioned first, because the app never creates a database on Azure SQL (it stops with a message saying so). The server's ten free-offer serverless databases are all in use, so a new one is billed:
+
+```bash
+az sql db create --resource-group rg-mindattic-data --server sql-mindattic-f65744 --name IdiotProof_Research_<STUDY> --edition GeneralPurpose --compute-model Serverless --family Gen5 --capacity 1 --auto-pause-delay 60
+```
+
+That is General Purpose serverless `GP_S_Gen5_1`, auto-pausing after 60 idle minutes. Then add the login that will run the study as a user of that database with rights to create tables.
 
 `IDIOTPROOF_DATA_DIR` overrides the per-app state root, which is useful for parallel test and dev runs.
 
@@ -556,7 +568,7 @@ The operations are `monitor status`, `keys set`, `strategy from-watchlist`, `use
 
 ### Unattended operation
 
-The Hub is Windows-Service-ready: `idiotproof hub install-service` (or `tools/install-hub-service.ps1`) registers `IdiotProof.Hub` to run as you, because LocalDB and the Data Protection ring are per-user. A SQL `sp_getapplock` leader lease guarantees only one instance trades per database; a second instance waits in standby and takes over automatically if the leader dies. Shutdown is graceful via `IHostApplicationLifetime`.
+The Hub is Windows-Service-ready: `idiotproof hub install-service` (or `tools/install-hub-service.ps1`) registers `IdiotProof.Hub` to run as you, because the Data Protection ring is per-user; the service reaches the databases through the service-principal connection strings in its environment (`ConnectionStrings__IdiotProof`, `ConnectionStrings__IdiotProofHistory`, `ConnectionStrings__IdiotProofResearch`). A SQL `sp_getapplock` leader lease guarantees only one instance trades per database; a second instance waits in standby and takes over automatically if the leader dies. Shutdown is graceful via `IHostApplicationLifetime`.
 
 ## The web app
 
@@ -640,6 +652,8 @@ A candidate fire is high-stakes, so every keyed provider on the panel votes befo
 dotnet build IdiotProof.slnx
 dotnet test IdiotProof.slnx
 ```
+
+No SQL Server is needed to build or to run the tests. The 83 tests in 14 `IdiotProof.Core.Tests` fixtures that need a real one (EF repositories on a relational database, the `sp_getapplock` leader lease, the Monitor harness, the history columnstore) carry `[Category("SqlServer")]` and are skipped unless `IDIOTPROOF_TEST_SQLSERVER` holds a server-level connection string whose login may create and drop databases (a container, a spare instance, later an Azure elastic pool). Each fixture makes and drops its own scratch database (`IdiotProof_Test_{guid}` and the like). The helper, `IdiotProof.Core.Tests/TestSqlServer.cs`, refuses any database named `IdiotProof`, `IdiotProof_History` or `IdiotProof_Research*`, and the test run pins the three `ConnectionStrings__IdiotProof*` variables to a server that cannot answer, so no test can reach a real database. Skipping them by default trades that coverage for not needing a local SQL Server.
 
 Counts from the last full Debug run (2026-10-31, .NET 10 SDK, each project run on its own); 37,319 tests, all green:
 

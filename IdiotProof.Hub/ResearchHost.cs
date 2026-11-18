@@ -38,7 +38,7 @@ public sealed class ResearchHost(IConfiguration configuration, ILoggerFactory lo
             if (!researchDb.Contains(parameters.DataTiers.ResearchDbGuardPattern, StringComparison.Ordinal))
                 throw new InvalidOperationException($"Refusing to run: '{researchDb}' is not a research database name.");
             // Server and credentials come from ConnectionStrings__IdiotProofResearch / ConnectionStrings:IdiotProofResearch
-            // (LocalDB when unset); the study names the database (IP-T542).
+            // (the Azure SQL server when unset, IP-T545); the study names the database (IP-T542).
             var connection = ResearchDatabase.ConnectionStringFor(researchDb, configuration);
             // Wakes a paused serverless database before anything else touches it. On Azure SQL Database a research
             // database that does not exist stops here with a message to provision it: Migrate below would otherwise

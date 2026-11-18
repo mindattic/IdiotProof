@@ -43,7 +43,7 @@ internal sealed class GapperStudyHost : IDisposable
             .AddLogging()
             .AddSingleton<TimeProvider>(new FakeTimeProvider(Now))
             .AddDbContextFactory<AppDbContext>(o => o.UseInMemoryDatabase($"gapper-host-{Guid.NewGuid():N}"))
-            .AddSingleton(new IdiotProofDatabase(@"Server=(localdb)\MSSQLLocalDB;Database=IdiotProof_Research_Test;"))
+            .AddSingleton(new IdiotProofDatabase("Server=tcp:127.0.0.1,1;Database=IdiotProof_Research_Test;") /* never opened: only its name is checked */)
             .AddSingleton(Settings)
             .AddSingleton<SettingsRepository>()
             .AddSingleton<GapperStudyServices>(sp => new GapperStudyServices(

@@ -100,7 +100,7 @@ public sealed record HubInstallServiceArgs
     [Option("exe", Description = "The Hub exe the service runs (default: the published C:\\Apps\\IdiotProof\\Hub\\idiotproof-hub.exe).", Example = @"C:\Apps\IdiotProof\Hub\idiotproof-hub.exe")]
     public string? Exe { get; init; }
 
-    [Option("account", Description = "Windows account to run as (default: you, as DOMAIN\\user or .\\user). Must be the user who owns the LocalDB database and keys.", Example = @".\trader")]
+    [Option("account", Description = "Windows account to run as (default: you, as DOMAIN\\user or .\\user). Must be the user who owns the keys (the Data Protection ring).", Example = @".\trader")]
     public string? Account { get; init; }
 
     [Option("password", Description = "That account's Windows password (required unless --dry-run; never logged).")]

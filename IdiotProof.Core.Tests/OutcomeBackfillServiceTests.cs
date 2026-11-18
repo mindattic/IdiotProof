@@ -14,11 +14,11 @@ namespace IdiotProof.Blazor.Tests;
 /// drop should not.
 /// </summary>
 [TestFixture]
+[Category(global::IdiotProof.Core.Tests.TestSqlServer.Category)]
 public sealed class OutcomeBackfillServiceTests
 {
-    private static readonly string DbName = $"IdiotProof_Test_{Guid.NewGuid():N}";
-    private static readonly string ConnStr =
-        $@"Server=(localdb)\MSSQLLocalDB;Database={DbName};Trusted_Connection=True;TrustServerCertificate=True;";
+    private static readonly string DbName = global::IdiotProof.Core.Tests.TestSqlServer.NewDatabaseName("IdiotProof_Test");
+    private static string ConnStr => global::IdiotProof.Core.Tests.TestSqlServer.ConnectionStringFor(DbName);
 
     private IDbContextFactory<AppDbContext> factory = null!;
 
@@ -28,6 +28,7 @@ public sealed class OutcomeBackfillServiceTests
     [OneTimeSetUp]
     public void OneTimeSetUp()
     {
+        global::IdiotProof.Core.Tests.TestSqlServer.Require();
         factory = new SqlServerDbContextFactory(ConnStr);
         using var db = factory.CreateDbContext();
         db.Database.EnsureCreated();
@@ -36,6 +37,7 @@ public sealed class OutcomeBackfillServiceTests
     [OneTimeTearDown]
     public void OneTimeTearDown()
     {
+        if (!global::IdiotProof.Core.Tests.TestSqlServer.IsConfigured) return;
         using var db = factory.CreateDbContext();
         db.Database.EnsureDeleted();
     }
