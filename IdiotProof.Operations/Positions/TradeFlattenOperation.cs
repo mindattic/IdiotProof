@@ -37,7 +37,15 @@ public sealed class TradeFlattenOperation : IOperation<TradeFlattenArgs>
         if (!string.IsNullOrWhiteSpace(args.Strategy))
         {
             var s = await StrategyRefs.ResolveAsync(ctx, args.Strategy);
-            var mode = args.Mode ?? OrderIntent.ParseMode(s.BrokerMode);
+            var mode = OrderIntent.ParseMode(s.BrokerMode);
+            // A strategy is flattened only in its own account: --mode paper on a Sandbox strategy
+            // sold the Paper account's shares under that strategy's id (IP-T569).
+            if (args.Mode is { } asked && asked != mode)
+                return OperationResult.Usage($"{s.Symbol} '{s.Title}' trades in {mode}; flattening it in {asked} would sell that account's shares under it. " +
+                    $"Drop --mode, or close the {asked} account's {s.Symbol} with `idiotproof trade flatten --symbol {s.Symbol} --mode {asked.ToString().ToLowerInvariant()}`.");
+            if (mode == BrokerMode.Sandbox)
+                return OperationResult.Usage($"{s.Symbol} '{s.Title}' is a Sandbox strategy: its position is simulated, with no broker account to flatten. " +
+                    "The Monitor closes it on the strategy's own exit rules.");
             if (s.PositionQty == 0)
                 return OperationResult.Ok(new { s.Id, closed = 0 }, $"{s.Symbol} '{s.Title}' books no position; nothing to flatten.");
             var held = await BrokerPositions.GetAsync(ctx, owner, mode, s.Symbol);
