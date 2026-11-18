@@ -63,20 +63,24 @@ public sealed partial class TransactionGateway
             confirmedBy = "code";
         }
 
-        // 3 ── send it to the owner's Alpaca account
+        // 3 ── send it to the owner's Alpaca account. Once a Live/always-confirm code is redeemed
+        // (or, for any mode, once the send itself may have reached Alpaca) the caller's token is no
+        // longer honored: cancelling here must not leave a spent code or an executed instruction
+        // with no audit row (IP-T551, same shape as IP-T549).
+        var sendCt = CancellationToken.None;
         try
         {
-            await using var api = await alpaca.ForOwnerAsync(instruction.OwnerUserId, instruction.Mode, ct);
+            await using var api = await alpaca.ForOwnerAsync(instruction.OwnerUserId, instruction.Mode, sendCt);
             object? body = instruction.BodyJson is { Length: > 0 } json ? JsonDocument.Parse(json).RootElement.Clone() : null;
-            var response = await api.SendAsync(new HttpMethod(method), instruction.Path, body, null, ct);
+            var response = await api.SendAsync(new HttpMethod(method), instruction.Path, body, null, sendCt);
             return await AuditInstructionAsync(Stop(GatewayStatus.Placed, $"Alpaca {instruction.Mode} accepted {instruction.Action}.") with
             {
                 Response = response,
-            }, caller, confirmedBy, ct);
+            }, caller, confirmedBy, sendCt);
         }
         catch (AlpacaAccessException ex)
         {
-            return await AuditInstructionAsync(Stop(GatewayStatus.Blocked, ex.Message), caller, confirmedBy, ct);
+            return await AuditInstructionAsync(Stop(GatewayStatus.Blocked, ex.Message), caller, confirmedBy, sendCt);
         }
         catch (AlpacaApiException ex)
         {
@@ -85,18 +89,18 @@ public sealed partial class TransactionGateway
                 BrokerStatus = (int)ex.Status,
                 BrokerCode = ex.AlpacaCode,
                 BrokerMessage = ex.AlpacaMessage,
-            }, caller, confirmedBy, ct);
+            }, caller, confirmedBy, sendCt);
         }
         catch (JsonException ex)
         {
-            return await AuditInstructionAsync(Stop(GatewayStatus.Rejected, "The instruction body is not valid JSON: " + ex.Message), caller, confirmedBy, ct);
+            return await AuditInstructionAsync(Stop(GatewayStatus.Rejected, "The instruction body is not valid JSON: " + ex.Message), caller, confirmedBy, sendCt);
         }
-        catch (Exception ex) when (ex is HttpRequestException || ex is OperationCanceledException && !ct.IsCancellationRequested)
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
         {
             // The request may or may not have reached Alpaca (connection reset, timeout): the
             // confirm code is spent either way, so the attempt must be on the audit trail.
             return await AuditInstructionAsync(Stop(GatewayStatus.Rejected,
-                $"No answer from Alpaca ({ex.GetType().Name}: {ex.Message}); check the account before retrying."), caller, confirmedBy, ct);
+                $"No answer from Alpaca ({ex.GetType().Name}: {ex.Message}); check the account before retrying."), caller, confirmedBy, sendCt);
         }
     }
 
