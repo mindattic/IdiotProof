@@ -23,6 +23,34 @@ public static class StrategyBranchResolver
         if (baseDef.ConditionalBlocks.Count == 0)
             return baseDef;
 
+        var clone = CloneBase(baseDef);
+        foreach (var block in baseDef.ConditionalBlocks)
+        {
+            var matched = block.Evaluate(snapshot);
+            matched?.Overrides.ApplyTo(clone);
+        }
+        return clone;
+    }
+
+    /// <summary>
+    /// Resolves from branch choices already made: <paramref name="taken"/>[i] is the index of the
+    /// branch taken in block i, or -1 for none. Lets a caller that has evaluated the conditions
+    /// (the backtester's report) apply them without evaluating stateful conditions a second time.
+    /// </summary>
+    public static StrategyDefinition Resolve(StrategyDefinition baseDef, IReadOnlyList<int> taken)
+    {
+        if (baseDef.ConditionalBlocks.Count == 0)
+            return baseDef;
+
+        var clone = CloneBase(baseDef);
+        for (var i = 0; i < baseDef.ConditionalBlocks.Count && i < taken.Count; i++)
+            if (taken[i] >= 0)
+                baseDef.ConditionalBlocks[i].Branches[taken[i]].Overrides.ApplyTo(clone);
+        return clone;
+    }
+
+    private static StrategyDefinition CloneBase(StrategyDefinition baseDef)
+    {
         var clone = new StrategyDefinition
         {
             Id                     = baseDef.Id,
@@ -72,13 +100,6 @@ public static class StrategyBranchResolver
         foreach (var t in baseDef.TakeProfitTargets)  clone.TakeProfitTargets.Add(t);
         foreach (var c in baseDef.ThenWhen)           clone.ThenWhen.Add(c);
         foreach (var s in baseDef.NextSteps)          clone.NextSteps.Add(s);
-
-        foreach (var block in baseDef.ConditionalBlocks)
-        {
-            var matched = block.Evaluate(snapshot);
-            matched?.Overrides.ApplyTo(clone);
-        }
-
         return clone;
     }
 }

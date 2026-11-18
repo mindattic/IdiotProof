@@ -17,9 +17,9 @@ namespace IdiotProof.Strategies.Backtesting;
 ///   • Breakout(level)  — latches true the first bar whose High ≥ level (price broke out).
 ///                        Stays latched for the rest of the cycle.
 ///   • Pullback(support)— only considered after a Breakout has latched; latches true the
-///                        first subsequent bar whose Low ≤ support (the retest). If no
-///                        support level was given, latches on the first bar that closes
-///                        below the breakout bar's high (any retracement).
+///                        first bar whose Low ≤ support (the retest). If no support level
+///                        was given, latches on the first bar that closes below the window
+///                        high, as the live evaluator does (any retracement).
 ///   • Everything else (VWAP/EMA/ADX/RSI/HoldsAbove/…) is evaluated against the per-bar
 ///     IndicatorSnapshot, exactly as the live <see cref="DslStrategy"/> does. Its first
 ///     true bar is recorded as the fire time; it must be true on the entry bar to count.
@@ -159,8 +159,10 @@ public static class StrategyBacktester
                 continue;
             }
 
-            var active = StrategyBranchResolver.Resolve(stepDef, snapshot);
+            // Evaluate branch conditions once: a second pass on the same stateful instances
+            // (crossings) reported the taken branch as not taken (IP-T565).
             var branchState = ReadBranches(stepDef, snapshot);
+            var active = StrategyBranchResolver.Resolve(stepDef, branchState.Taken);
             triggers = active.EntryConditions.Select(c => triggerFor[c]).ToList();
 
             // 1) Update every trigger's satisfied state for this bar.
@@ -595,8 +597,13 @@ public static class StrategyBacktester
                 bool brokeOut = breakout?.Latched ?? false;
                 if (!Latched && brokeOut)
                 {
-                    decimal retest = level is { } lvl ? (decimal)lvl : (breakout?.BreakoutHigh ?? bar.High);
-                    if (bar.Low <= retest)
+                    // With a support level: the bar trades down to it. Without one: like live
+                    // (Price < WindowHigh), a close below the window high; no window data fails
+                    // closed. Comparing Low to the breakout bar's own high latched on that bar (IP-T564).
+                    bool retested = level is { } lvl
+                        ? bar.Low <= (decimal)lvl
+                        : snapshot.WindowHigh is { } wh && (double)bar.Close < wh;
+                    if (retested)
                         Latched = true;
                 }
                 Satisfied = Latched;
