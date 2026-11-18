@@ -23,6 +23,9 @@ public sealed record RiskCheckArgs
 
     [Option("short", Description = "A short entry (stop above entry) instead of a long.")]
     public bool Short { get; init; }
+
+    [Option("mode", Description = "Which account's daily loss to check against: sandbox, paper (default) or live.", Short = 'm')]
+    public IdiotProof.Core.Trading.BrokerMode Mode { get; init; } = IdiotProof.Core.Trading.BrokerMode.Paper;
 }
 
 /// <summary>
@@ -54,7 +57,7 @@ public sealed class RiskCheckOperation : IOperation<RiskCheckArgs>
             RewardDollars = args.Target is { } t ? Math.Abs(t - args.Entry) * Math.Max(args.Qty, 0) : 0m,
             Rationale = "risk check (dry run)",
         };
-        var guardian = await ctx.Get<RiskGuardianService>().GetForUserAsync(owner, ctx.CancellationToken);
+        var guardian = await ctx.Get<RiskGuardianService>().GetForUserAsync(owner, args.Mode, ctx.CancellationToken);
         var r = guardian.ValidateTrade(setup);
         var maxQty = args.Entry > 0 && args.Stop > 0 ? guardian.CalculateMaxQuantity(args.Entry, args.Stop) : 0;
 

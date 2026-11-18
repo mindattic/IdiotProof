@@ -1796,7 +1796,7 @@ public sealed class MonitorWorker(
         // audit found RecordTradePnL was never called in production, so the
         // daily-loss guard could never trip. Uses the filled quantity and price.
         var realized = DirectionalOrders.RealizedPnl(direction, (decimal)entry, exitPrice, sellQty);
-        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
+        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, IdiotProof.Core.Trading.OrderIntent.ParseMode(stored.BrokerMode), ct);
         guardian?.RecordTradePnL(realized);
 
         var exitUtc = UtcNow;
@@ -1877,7 +1877,7 @@ public sealed class MonitorWorker(
         var price = stop.FilledAvgPrice ?? stop.StopPrice ?? (decimal)entry;
         var exitUtc = stop.FilledUtc ?? UtcNow;
         var realized = DirectionalOrders.RealizedPnl(direction, (decimal)entry, price, qty);
-        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, ct);
+        var guardian = await riskGuardianService.GetForUserAsync(stored.OwnerUserId, IdiotProof.Core.Trading.OrderIntent.ParseMode(stored.BrokerMode), ct);
         guardian?.RecordTradePnL(realized);
 
         if (qty < stored.PositionQty)

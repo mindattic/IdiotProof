@@ -147,7 +147,7 @@ public sealed class AdaptationService(IDbContextFactory<AppDbContext> dbFactory,
         }
 
         var adapted = Adapted(baseDef, chosen);
-        var guardian = await risk.GetForUserAsync(strategy.OwnerUserId, ct);
+        var guardian = await risk.GetForUserAsync(strategy.OwnerUserId, IdiotProof.Core.Trading.OrderIntent.ParseMode(strategy.BrokerMode), ct);
         var verdict = guardian.ValidateTrade(SetupFor(adapted, closed[^1].Close));
         decision.RiskSummary = Truncate(verdict.Summary, 400);
         if (!verdict.IsApproved)

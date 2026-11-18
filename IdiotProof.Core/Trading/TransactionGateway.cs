@@ -373,7 +373,7 @@ public sealed partial class TransactionGateway(
             return (null, null);
         }
 
-        var guardian = await riskGuardians.GetForUserAsync(intent.OwnerUserId, ct);
+        var guardian = await riskGuardians.GetForUserAsync(intent.OwnerUserId, intent.Mode, ct);
         var setup = ToSetup(intent);
         if (setup is null)
         {

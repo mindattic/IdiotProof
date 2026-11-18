@@ -5467,7 +5467,7 @@ Changes saved state. Times are US Eastern.
     },
     "research_db": {
       "type": "string",
-      "description": "Research database name on LocalDB (default IdiotProof_Research_GAP).",
+      "description": "Research database name on the research server (ConnectionStrings__IdiotProofResearch, default the Azure SQL server; default name IdiotProof_Research_GAP).",
       "default": "IdiotProof_Research_GAP"
     },
     "app_cache": {
@@ -5503,7 +5503,7 @@ Changes saved state. Times are US Eastern.
 
 The permanent market history database (IP-T454): its server and size, rows per table (minute bars, daily bars, splits, news, filings), symbols covered per kind, the newest coverage, and the backfill queue.
 
-Reads the history database on the local SQL Server (ConnectionStrings__IdiotProofHistory, default localhost/IdiotProof_History). Creates the schema if it is missing; never fetches data.
+Reads the history database (ConnectionStrings__IdiotProofHistory, default IdiotProof_History on the Azure SQL server, signed in as you). Creates the schema if it is missing; never fetches data.
 
 CLI equivalent: idiotproof history status
 Examples:
@@ -5546,7 +5546,7 @@ DESTRUCTIVE. If it returns confirmation-required, show the preview and call agai
     },
     "account": {
       "type": "string",
-      "description": "Windows account to run as (default: you, as DOMAIN\\user or .\\user). Must be the user who owns the LocalDB database and keys."
+      "description": "Windows account to run as (default: you, as DOMAIN\\user or .\\user). Must be the user who owns the keys (the Data Protection ring)."
     },
     "password": {
       "type": "string",
@@ -10790,7 +10790,7 @@ Changes saved state. Times are US Eastern.
 
 Dry-run a setup through your Risk Guardian: approved or why not, worst case, and the largest size allowed. Places nothing.
 
-CLI equivalent: idiotproof risk check <symbol> --entry <decimal> --stop <decimal> --qty <int> [--target <decimal>] [--short]
+CLI equivalent: idiotproof risk check <symbol> --entry <decimal> --stop <decimal> --qty <int> [--target <decimal>] [--short] [--mode <sandbox|paper|live>]
 Examples:
   idiotproof risk check NVDA --entry 100 --stop 98 --qty 20
   idiotproof risk check TSLA --entry 250 --stop 255 --qty 5 --target 240 --short
@@ -10831,6 +10831,16 @@ Read-only. Times are US Eastern.
       "type": "boolean",
       "description": "A short entry (stop above entry) instead of a long.",
       "default": false
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "sandbox",
+        "paper",
+        "live"
+      ],
+      "description": "Which account\u0027s daily loss to check against: sandbox, paper (default) or live.",
+      "default": "paper"
     }
   },
   "additionalProperties": false,
@@ -10943,9 +10953,10 @@ Read-only. Times are US Eastern.
 
 Today's realized P&L, losses counted against the daily breaker, remaining room, breaker and kill-switch state.
 
-CLI equivalent: idiotproof risk status
+CLI equivalent: idiotproof risk status [--mode <sandbox|paper|live>]
 Examples:
   idiotproof risk status
+  idiotproof risk status --mode live
 
 Read-only. Times are US Eastern.
 
@@ -10954,7 +10965,18 @@ Read-only. Times are US Eastern.
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "description": "Today\u0027s realized P\u0026L, losses counted against the daily breaker, remaining room, breaker and kill-switch state.",
-  "properties": {},
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": [
+        "sandbox",
+        "paper",
+        "live"
+      ],
+      "description": "Which account: sandbox, paper (default) or live. Each has its own daily loss limit.",
+      "default": "paper"
+    }
+  },
   "additionalProperties": false
 }
 ```

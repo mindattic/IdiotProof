@@ -5,6 +5,12 @@ using Microsoft.EntityFrameworkCore;
 using IdiotProof.Core.Services;
 namespace IdiotProof.Operations.Risk;
 
+public sealed record RiskStatusArgs
+{
+    [Option("mode", Description = "Which account: sandbox, paper (default) or live. Each has its own daily loss limit.", Short = 'm')]
+    public IdiotProof.Core.Trading.BrokerMode Mode { get; init; } = IdiotProof.Core.Trading.BrokerMode.Paper;
+}
+
 /// <summary>Today's risk picture for <c>risk status</c>.</summary>
 public sealed record RiskStatusView(
     string TradingDay, decimal MaxLossPerDay, decimal DailyLossCounted, decimal RemainingDailyRisk, decimal DailyLossPercent,
@@ -19,12 +25,13 @@ public sealed record RiskStatusView(
 /// </summary>
 [Operation("risk status", Summary = "Today's realized P&L, losses counted against the daily breaker, remaining room, breaker and kill-switch state.", Risk = OperationRisk.Read)]
 [Example("idiotproof risk status")]
-public sealed class RiskStatusOperation : IOperation<NoArgs>
+[Example("idiotproof risk status --mode live")]
+public sealed class RiskStatusOperation : IOperation<RiskStatusArgs>
 {
-    public async Task<OperationResult> ExecuteAsync(NoArgs args, OperationContext ctx)
+    public async Task<OperationResult> ExecuteAsync(RiskStatusArgs args, OperationContext ctx)
     {
         var owner = ctx.RequireOwner();
-        var guardian = await ctx.Get<RiskGuardianService>().GetForUserAsync(owner, ctx.CancellationToken);
+        var guardian = await ctx.Get<RiskGuardianService>().GetForUserAsync(owner, args.Mode, ctx.CancellationToken);
         var status = guardian.GetStatus();
         var killSwitch = await ctx.Get<RiskGuardianService>().IsKillSwitchOnAsync(owner, ctx.CancellationToken);
 
@@ -37,13 +44,20 @@ public sealed class RiskStatusOperation : IOperation<NoArgs>
         if (ctx.Services.GetService(typeof(IDbContextFactory<AppDbContext>)) is IDbContextFactory<AppDbContext> dbFactory)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ctx.CancellationToken);
-            var today = await db.TradeDiary
-                .Where(t => t.OwnerUserId == owner && t.ExitUtc != null && t.ExitUtc >= dayStartUtc)
+            var mine = db.TradeDiary.Where(t => t.OwnerUserId == owner);
+            mine = args.Mode switch
+            {
+                IdiotProof.Core.Trading.BrokerMode.Sandbox => mine.Where(t => t.Broker == "Sandbox"),
+                IdiotProof.Core.Trading.BrokerMode.Paper   => mine.Where(t => t.Broker != "Sandbox" && t.IsPaper),
+                _                                         => mine.Where(t => t.Broker != "Sandbox" && !t.IsPaper),
+            };
+            var today = await mine
+                .Where(t => t.ExitUtc != null && t.ExitUtc >= dayStartUtc)
                 .Select(t => t.RealizedPnL)
                 .ToListAsync(ctx.CancellationToken);
             realized = today.Sum(p => p ?? 0m);
             closed = today.Count;
-            open = await db.TradeDiary.CountAsync(t => t.OwnerUserId == owner && t.Status == TradeDiaryStatus.Open, ctx.CancellationToken);
+            open = await mine.CountAsync(t => t.Status == TradeDiaryStatus.Open, ctx.CancellationToken);
         }
 
         var view = new RiskStatusView(day.ToString("yyyy-MM-dd"), status.MaxLossPerDay, status.DailyLossSoFar, status.RemainingDailyRisk,
@@ -54,6 +68,7 @@ public sealed class RiskStatusOperation : IOperation<NoArgs>
             : status.IsCircuitBreakerTripped ? "HALTED: the daily circuit breaker tripped; entries resume next trading day at 4:00 AM ET."
             : $"Entries allowed. A new trade may risk up to {Fmt.Money(Math.Min(status.MaxLossPerTrade, status.RemainingDailyRisk))} worst case.";
         var block = new KeyValueBlock()
+            .Add("Account", args.Mode + " (each account has its own daily loss limit)")
             .Add("Trading day", view.TradingDay + " (rolls at 4:00 AM ET)")
             .Add("Realized P&L today", $"{Fmt.SignedMoney(realized)} over {closed} closed trade{(closed == 1 ? "" : "s")} ({open} open in the diary)")
             .Add("Losses counted", $"{Fmt.Money(status.DailyLossSoFar)} of {Fmt.Money(status.MaxLossPerDay)} ({Fmt.PercentPoints(view.DailyLossPercent, 1)})")

@@ -53,14 +53,14 @@ public class RiskOperationsTests
     [Test]
     public async Task Set_ChangesOnlyTheNamedLimits_KeepsTheDailyCounter_AndRefusesNonsense()
     {
-        var guardian = await services.GetRequiredService<RiskGuardianService>().GetForUserAsync(owner);
+        var guardian = await services.GetRequiredService<RiskGuardianService>().GetForUserAsync(owner, IdiotProof.Core.Trading.BrokerMode.Paper);
         guardian.RecordTradePnL(-30m);
 
         var result = await new RiskSetOperation().ExecuteAsync(new RiskSetArgs { MaxLossPerTrade = 50m, MaxLossPerDay = 200m }, Context());
 
         Assert.That(result.IsOk, Is.True, result.Message);
         Assert.That(result.Human, Does.Contain("max loss/trade 100 -> 50").And.Contain("max loss/day 500 -> 200"));
-        var after = await services.GetRequiredService<RiskGuardianService>().GetForUserAsync(owner);
+        var after = await services.GetRequiredService<RiskGuardianService>().GetForUserAsync(owner, IdiotProof.Core.Trading.BrokerMode.Paper);
         Assert.Multiple(() =>
         {
             Assert.That(after, Is.SameAs(guardian), "the Guardian (and its daily counter) survives a limit change");
@@ -78,24 +78,25 @@ public class RiskOperationsTests
     [Test]
     public async Task Status_ShowsRealizedPnl_CountedLosses_AndRoomLeft()
     {
-        var guardian = await services.GetRequiredService<RiskGuardianService>().GetForUserAsync(owner);
+        var guardian = await services.GetRequiredService<RiskGuardianService>().GetForUserAsync(owner, IdiotProof.Core.Trading.BrokerMode.Paper);
         guardian.RecordTradePnL(-120m);
         await using (var db = await services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
         {
             db.TradeDiary.AddRange(
-                new TradeDiaryEntry { OwnerUserId = owner, Symbol = "NVDA", EntryUtc = DateTime.UtcNow.AddMinutes(-30), ExitUtc = DateTime.UtcNow.AddMinutes(-5), RealizedPnL = -120m, Status = TradeDiaryStatus.Closed },
-                new TradeDiaryEntry { OwnerUserId = owner, Symbol = "INTC", EntryUtc = DateTime.UtcNow.AddMinutes(-20), ExitUtc = DateTime.UtcNow.AddMinutes(-2), RealizedPnL = 45m, Status = TradeDiaryStatus.Closed },
+                new TradeDiaryEntry { OwnerUserId = owner, Symbol = "NVDA", EntryUtc = DateTime.UtcNow.AddMinutes(-30), ExitUtc = DateTime.UtcNow.AddMinutes(-5), RealizedPnL = -120m, Status = TradeDiaryStatus.Closed, Broker = "Alpaca", IsPaper = true },
+                new TradeDiaryEntry { OwnerUserId = owner, Symbol = "INTC", EntryUtc = DateTime.UtcNow.AddMinutes(-20), ExitUtc = DateTime.UtcNow.AddMinutes(-2), RealizedPnL = 45m, Status = TradeDiaryStatus.Closed, Broker = "Alpaca", IsPaper = true },
+                new TradeDiaryEntry { OwnerUserId = owner, Symbol = "TSLA", EntryUtc = DateTime.UtcNow.AddMinutes(-20), ExitUtc = DateTime.UtcNow.AddMinutes(-1), RealizedPnL = -400m, Status = TradeDiaryStatus.Closed, Broker = "Alpaca", IsPaper = false },
                 new TradeDiaryEntry { OwnerUserId = Guid.NewGuid(), Symbol = "AMD", EntryUtc = DateTime.UtcNow.AddMinutes(-20), ExitUtc = DateTime.UtcNow, RealizedPnL = -999m, Status = TradeDiaryStatus.Closed });
             await db.SaveChangesAsync();
         }
 
-        var result = await new RiskStatusOperation().ExecuteAsync(new NoArgs(), Context());
+        var result = await new RiskStatusOperation().ExecuteAsync(new RiskStatusArgs(), Context());
 
         Assert.That(result.IsOk, Is.True, result.Message);
         var view = (RiskStatusView)result.Data!;
         Assert.Multiple(() =>
         {
-            Assert.That(view.RealizedPnlToday, Is.EqualTo(-75m), "only this owner's trades");
+            Assert.That(view.RealizedPnlToday, Is.EqualTo(-75m), "only this owner's Paper trades, not the Live loss");
             Assert.That(view.TradesClosedToday, Is.EqualTo(2));
             Assert.That(view.DailyLossCounted, Is.EqualTo(120m));
             Assert.That(view.RemainingDailyRisk, Is.EqualTo(380m));
@@ -114,7 +115,7 @@ public class RiskOperationsTests
         var vetoed = await Check(100m, 98m, 10);
         Assert.That(Data(vetoed).GetProperty("approved").GetBoolean(), Is.False);
         Assert.That(vetoed.Human, Does.Contain("KILL SWITCH ON"));
-        Assert.That(((RiskStatusView)(await new RiskStatusOperation().ExecuteAsync(new NoArgs(), Context())).Data!).EntriesAllowed, Is.False);
+        Assert.That(((RiskStatusView)(await new RiskStatusOperation().ExecuteAsync(new RiskStatusArgs(), Context())).Data!).EntriesAllowed, Is.False);
 
         var ask = await new RiskKillSwitchOperation().ExecuteAsync(new RiskKillSwitchArgs { State = "off" }, Context());
         Assert.That(ask.Status, Is.EqualTo(OperationStatus.ConfirmationRequired));
@@ -144,6 +145,6 @@ public class RiskOperationsTests
             Assert.That(data.GetProperty("max_quantity").GetInt32(), Is.EqualTo(33));
             Assert.That(result.Human, Does.Contain("BLOCK: Worst-case risk $120.00 exceeds max $100.00"));
         });
-        Assert.That((await services.GetRequiredService<RiskGuardianService>().GetForUserAsync(owner)).GetStatus().DailyLossSoFar, Is.EqualTo(0m));
+        Assert.That((await services.GetRequiredService<RiskGuardianService>().GetForUserAsync(owner, IdiotProof.Core.Trading.BrokerMode.Paper)).GetStatus().DailyLossSoFar, Is.EqualTo(0m));
     }
 }

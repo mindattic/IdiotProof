@@ -46,12 +46,12 @@ public sealed class RiskGuardianServiceTests
         var service = new RiskGuardianService(factory);
         var userId = Guid.NewGuid(); // no UserPreferences row → canonical defaults
 
-        var guardian = await service.GetForUserAsync(userId);
+        var guardian = await service.GetForUserAsync(userId, IdiotProof.Core.Trading.BrokerMode.Paper);
         guardian.RecordTradePnL(-300m);
         var remainingBefore = guardian.GetRemainingDailyRisk();
 
         service.Invalidate(userId);
-        var after = await service.GetForUserAsync(userId);
+        var after = await service.GetForUserAsync(userId, IdiotProof.Core.Trading.BrokerMode.Paper);
 
         Assert.Multiple(() =>
         {
@@ -63,11 +63,31 @@ public sealed class RiskGuardianServiceTests
     }
 
     [Test]
+    public async Task EachAccount_HasItsOwnDailyLossCounter()
+    {
+        // IP-T575: a losing Paper day must not use up Live's (or Sandbox's) daily loss room.
+        var service = new RiskGuardianService(factory);
+        var userId = Guid.NewGuid();
+        var paper = await service.GetForUserAsync(userId, IdiotProof.Core.Trading.BrokerMode.Paper);
+        var live = await service.GetForUserAsync(userId, IdiotProof.Core.Trading.BrokerMode.Live);
+        var roomBefore = live.GetRemainingDailyRisk();
+
+        paper.RecordTradePnL(-300m);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(live, Is.Not.SameAs(paper));
+            Assert.That(live.GetRemainingDailyRisk(), Is.EqualTo(roomBefore));
+            Assert.That(paper.GetRemainingDailyRisk(), Is.EqualTo(roomBefore - 300m));
+        });
+    }
+
+    [Test]
     public async Task Invalidate_UnknownUser_IsANoOp()
     {
         var service = new RiskGuardianService(factory);
         Assert.DoesNotThrow(() => service.Invalidate(Guid.NewGuid()));
-        Assert.That(await service.GetForUserAsync(Guid.NewGuid()), Is.Not.Null);
+        Assert.That(await service.GetForUserAsync(Guid.NewGuid(), IdiotProof.Core.Trading.BrokerMode.Paper), Is.Not.Null);
     }
 }
 

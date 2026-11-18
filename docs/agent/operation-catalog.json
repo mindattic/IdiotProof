@@ -839,7 +839,7 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "$id": "idiotproof:strategy-canon:1",
       "title": "IdiotProof canonical strategy JSON, schema version 1",
-      "$comment": "Generated from the strict reader\u0027s allow-lists (StrategyJson). The reader is the authority; this schema accepts nothing the reader refuses on the points it expresses, with one exception JSON Schema cannot state: a whole-number key must be written without a fraction or exponent (2, not 2.0). It is stricter than the reader in these places: an enum given as a number in a string, a time with surrounding spaces, and a non-array \u0027branches\u0027, branch \u0027entryConditions\u0027 or branch \u0027takeProfitTargets\u0027 (which the reader ignores). Rules it cannot state: every step\u0027s symbol equals the strategy\u0027s, a route (onStop, onTarget, onExit) names a later step or \u0027end\u0027, a step is not named \u0027end\u0027, and numbers must be finite.",
+      "$comment": "Generated from the strict reader\u0027s allow-lists (StrategyJson). The reader is the authority; this schema accepts nothing the reader refuses on the points it expresses, with one exception JSON Schema cannot state: a whole-number key must be written without a fraction or exponent (2, not 2.0). It is stricter than the reader in these places: an enum given as a number in a string and a time with surrounding spaces. Rules it cannot state: every step\u0027s symbol equals the strategy\u0027s, a route (onStop, onTarget, onExit) names a later step or \u0027end\u0027, a step is not named \u0027end\u0027, and numbers must be finite.",
       "type": "object",
       "description": "The canonical strategy JSON (IP-LAW-8): the versioned, strict form of a strategy. The reader fails closed: an unknown key, an unknown condition type or a value of the wrong kind refuses the whole strategy.",
       "properties": {
@@ -15686,7 +15686,7 @@
           "value_kind": "string",
           "format": "text",
           "required": false,
-          "description": "Research database name on LocalDB (default IdiotProof_Research_GAP).",
+          "description": "Research database name on the research server (ConnectionStrings__IdiotProofResearch, default the Azure SQL server; default name IdiotProof_Research_GAP).",
           "default": "IdiotProof_Research_GAP",
           "enum_values": null,
           "example": "IdiotProof_Research_GAP",
@@ -15791,7 +15791,7 @@
           },
           "research_db": {
             "type": "string",
-            "description": "Research database name on LocalDB (default IdiotProof_Research_GAP).",
+            "description": "Research database name on the research server (ConnectionStrings__IdiotProofResearch, default the Azure SQL server; default name IdiotProof_Research_GAP).",
             "default": "IdiotProof_Research_GAP"
           },
           "app_cache": {
@@ -15828,7 +15828,7 @@
       "verb": "status",
       "tool_name": "history_status",
       "summary": "The permanent market history database (IP-T454): its server and size, rows per table (minute bars, daily bars, splits, news, filings), symbols covered per kind, the newest coverage, and the backfill queue.",
-      "description": "Reads the history database on the local SQL Server (ConnectionStrings__IdiotProofHistory, default localhost/IdiotProof_History). Creates the schema if it is missing; never fetches data.",
+      "description": "Reads the history database (ConnectionStrings__IdiotProofHistory, default IdiotProof_History on the Azure SQL server, signed in as you). Creates the schema if it is missing; never fetches data.",
       "risk": "read",
       "usage": "idiotproof history status",
       "parameters": [],
@@ -15882,7 +15882,7 @@
           "value_kind": "string",
           "format": "text",
           "required": false,
-          "description": "Windows account to run as (default: you, as DOMAIN\\user or .\\user). Must be the user who owns the LocalDB database and keys.",
+          "description": "Windows account to run as (default: you, as DOMAIN\\user or .\\user). Must be the user who owns the keys (the Data Protection ring).",
           "default": null,
           "enum_values": null,
           "example": ".\\trader",
@@ -15974,7 +15974,7 @@
           },
           "account": {
             "type": "string",
-            "description": "Windows account to run as (default: you, as DOMAIN\\user or .\\user). Must be the user who owns the LocalDB database and keys."
+            "description": "Windows account to run as (default: you, as DOMAIN\\user or .\\user). Must be the user who owns the keys (the Data Protection ring)."
           },
           "password": {
             "type": "string",
@@ -28698,7 +28698,7 @@
       "summary": "Dry-run a setup through your Risk Guardian: approved or why not, worst case, and the largest size allowed. Places nothing.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof risk check \u003Csymbol\u003E --entry \u003Cdecimal\u003E --stop \u003Cdecimal\u003E --qty \u003Cint\u003E [--target \u003Cdecimal\u003E] [--short]",
+      "usage": "idiotproof risk check \u003Csymbol\u003E --entry \u003Cdecimal\u003E --stop \u003Cdecimal\u003E --qty \u003Cint\u003E [--target \u003Cdecimal\u003E] [--short] [--mode \u003Csandbox|paper|live\u003E]",
       "parameters": [
         {
           "name": "symbol",
@@ -28795,6 +28795,26 @@
           "enum_values": null,
           "example": true,
           "example_source": "example"
+        },
+        {
+          "name": "mode",
+          "json_name": "mode",
+          "kind": "option",
+          "position": null,
+          "short": "m",
+          "type": "sandbox|paper|live",
+          "value_kind": "enum",
+          "format": "one of the parameter\u0027s enum_values",
+          "required": false,
+          "description": "Which account\u0027s daily loss to check against: sandbox, paper (default) or live.",
+          "default": "paper",
+          "enum_values": [
+            "sandbox",
+            "paper",
+            "live"
+          ],
+          "example": "paper",
+          "example_source": "default"
         }
       ],
       "examples": [
@@ -28840,6 +28860,16 @@
             "type": "boolean",
             "description": "A short entry (stop above entry) instead of a long.",
             "default": false
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "sandbox",
+              "paper",
+              "live"
+            ],
+            "description": "Which account\u0027s daily loss to check against: sandbox, paper (default) or live.",
+            "default": "paper"
           }
         },
         "additionalProperties": false,
@@ -29087,11 +29117,36 @@
       "summary": "Today\u0027s realized P\u0026L, losses counted against the daily breaker, remaining room, breaker and kill-switch state.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof risk status",
-      "parameters": [],
+      "usage": "idiotproof risk status [--mode \u003Csandbox|paper|live\u003E]",
+      "parameters": [
+        {
+          "name": "mode",
+          "json_name": "mode",
+          "kind": "option",
+          "position": null,
+          "short": "m",
+          "type": "sandbox|paper|live",
+          "value_kind": "enum",
+          "format": "one of the parameter\u0027s enum_values",
+          "required": false,
+          "description": "Which account: sandbox, paper (default) or live. Each has its own daily loss limit.",
+          "default": "paper",
+          "enum_values": [
+            "sandbox",
+            "paper",
+            "live"
+          ],
+          "example": "live",
+          "example_source": "example"
+        }
+      ],
       "examples": [
         {
           "command_line": "idiotproof risk status",
+          "description": null
+        },
+        {
+          "command_line": "idiotproof risk status --mode live",
           "description": null
         }
       ],
@@ -29099,7 +29154,18 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "description": "Today\u0027s realized P\u0026L, losses counted against the daily breaker, remaining room, breaker and kill-switch state.",
-        "properties": {},
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "sandbox",
+              "paper",
+              "live"
+            ],
+            "description": "Which account: sandbox, paper (default) or live. Each has its own daily loss limit.",
+            "default": "paper"
+          }
+        },
         "additionalProperties": false
       }
     },

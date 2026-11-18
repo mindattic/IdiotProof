@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using IdiotProof.Shared.Risk;
 using Microsoft.EntityFrameworkCore;
 using IdiotProof.Core.Data;
+using IdiotProof.Core.Trading;
 
 namespace IdiotProof.Core.Services;
 
@@ -39,7 +40,9 @@ public sealed class RiskGuardianService(IDbContextFactory<AppDbContext> dbFactor
     /// Monitor evaluates strategies in parallel and may hit two strategies
     /// from the same user back-to-back.
     /// </summary>
-    private readonly ConcurrentDictionary<Guid, CacheEntry> cache = new();
+    // One Guardian per account (Sandbox, Paper, Live): a losing day in one never blocks entries in
+    // another (IP-T575).
+    private readonly ConcurrentDictionary<(Guid User, BrokerMode Mode), CacheEntry> cache = new();
 
     private sealed class CacheEntry(RiskGuardian guardian, DateTime configLoadedUtc)
     {
@@ -54,9 +57,9 @@ public sealed class RiskGuardianService(IDbContextFactory<AppDbContext> dbFactor
     /// config is older than <see cref="ConfigTtl"/>, the limits are re-read
     /// and swapped in on the SAME instance.
     /// </summary>
-    public async Task<RiskGuardian> GetForUserAsync(Guid userId, CancellationToken ct = default)
+    public async Task<RiskGuardian> GetForUserAsync(Guid userId, BrokerMode mode, CancellationToken ct = default)
     {
-        if (cache.TryGetValue(userId, out var hit))
+        if (cache.TryGetValue((userId, mode), out var hit))
         {
             if (DateTime.UtcNow - hit.ConfigLoadedUtc > ConfigTtl)
             {
@@ -68,8 +71,8 @@ public sealed class RiskGuardianService(IDbContextFactory<AppDbContext> dbFactor
 
         var config = await LoadConfigAsync(userId, ct);
         var fresh = new RiskGuardian(config);
-        fresh.SeedDailyLoss(await RealizedLossTodayAsync(userId, ct));
-        var entry = cache.GetOrAdd(userId, new CacheEntry(fresh, DateTime.UtcNow));
+        fresh.SeedDailyLoss(await RealizedLossTodayAsync(userId, mode, ct));
+        var entry = cache.GetOrAdd((userId, mode), new CacheEntry(fresh, DateTime.UtcNow));
         return entry.Guardian;
     }
 
@@ -78,13 +81,20 @@ public sealed class RiskGuardianService(IDbContextFactory<AppDbContext> dbFactor
     /// midnight, as <see cref="RiskGuardian.RecordTradePnL"/> counts them. A new Guardian (first use
     /// after a Hub restart) starts from this instead of $0 (IP-T507).
     /// </summary>
-    internal async Task<decimal> RealizedLossTodayAsync(Guid userId, CancellationToken ct)
+    internal async Task<decimal> RealizedLossTodayAsync(Guid userId, BrokerMode mode, CancellationToken ct)
     {
         var todayEt = DateOnly.FromDateTime(EasternTime.FromUtc(DateTime.UtcNow));
         var sinceUtc = EasternTime.ToUtc(todayEt.ToDateTime(TimeOnly.MinValue));
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var losses = await db.TradeDiary
-            .Where(t => t.OwnerUserId == userId && t.ExitUtc >= sinceUtc && t.RealizedPnL < 0m)
+        var rows = db.TradeDiary.Where(t => t.OwnerUserId == userId && t.ExitUtc >= sinceUtc && t.RealizedPnL < 0m);
+        // This account's trades only, classified as the diary does (DiarySupport.ModeOf).
+        rows = mode switch
+        {
+            BrokerMode.Sandbox => rows.Where(t => t.Broker == "Sandbox"),
+            BrokerMode.Paper   => rows.Where(t => t.Broker != "Sandbox" && t.IsPaper),
+            _                  => rows.Where(t => t.Broker != "Sandbox" && !t.IsPaper),
+        };
+        var losses = await rows
             .Select(t => t.RealizedPnL!.Value)
             .ToListAsync(ct);
         return losses.Sum(l => Math.Abs(l));
@@ -99,8 +109,8 @@ public sealed class RiskGuardianService(IDbContextFactory<AppDbContext> dbFactor
     /// </summary>
     public void Invalidate(Guid userId)
     {
-        if (cache.TryGetValue(userId, out var entry))
-            entry.ConfigLoadedUtc = DateTime.MinValue;
+        foreach (var (key, entry) in cache)
+            if (key.User == userId) entry.ConfigLoadedUtc = DateTime.MinValue;
     }
 
     /// <summary>The SettingsKv key holding a user's kill switch ("true" while new entries are halted).</summary>

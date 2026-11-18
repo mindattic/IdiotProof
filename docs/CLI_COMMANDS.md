@@ -2492,7 +2492,7 @@ Risk: write
 
 Parameters:
       --research              Import the gapper study's research database (daily bars, splits, news, filings, coverage ranges). (default: false)
-      --research-db <string>  Research database name on LocalDB (default IdiotProof_Research_GAP). (default: IdiotProof_Research_GAP)
+      --research-db <string>  Research database name on the research server (ConnectionStrings__IdiotProofResearch, default the Azure SQL server; default name IdiotProof_Research_GAP). (default: IdiotProof_Research_GAP)
       --app-cache             Import the app database's own bar cache (HistoricalBars) from the app's connection string. (default: false)
       --minutes               Import the 1-minute file store (every covered day, zero-bar days included). (default: false)
       --bar-root <string>     Minute-bar file store root (default D:\IdiotProofData\gapper-study\bars). (default: D:\\IdiotProofData\\gapper-study\\bars)
@@ -2508,7 +2508,7 @@ Examples:
 ```text
 The permanent market history database (IP-T454): its server and size, rows per table (minute bars, daily bars, splits, news, filings), symbols covered per kind, the newest coverage, and the backfill queue.
 
-Reads the history database on the local SQL Server (ConnectionStrings__IdiotProofHistory, default localhost/IdiotProof_History). Creates the schema if it is missing; never fetches data.
+Reads the history database (ConnectionStrings__IdiotProofHistory, default IdiotProof_History on the Azure SQL server, signed in as you). Creates the schema if it is missing; never fetches data.
 
 Usage: idiotproof history status
 Risk: read
@@ -2531,7 +2531,7 @@ Risk: destructive
 
 Parameters:
       --exe <string>       The Hub exe the service runs (default: the published C:\Apps\IdiotProof\Hub\idiotproof-hub.exe).
-      --account <string>   Windows account to run as (default: you, as DOMAIN\user or .\user). Must be the user who owns the LocalDB database and keys.
+      --account <string>   Windows account to run as (default: you, as DOMAIN\user or .\user). Must be the user who owns the keys (the Data Protection ring).
       --password <string>  That account's Windows password (required unless --dry-run; never logged).
       --monitor            Host the trading Monitor in the service (it places real orders unattended). Off by default. (default: false)
       --start <string>     Start type: delayed-auto (default), auto or demand. (default: delayed-auto)
@@ -4915,16 +4915,17 @@ Examples:
 ```text
 Dry-run a setup through your Risk Guardian: approved or why not, worst case, and the largest size allowed. Places nothing.
 
-Usage: idiotproof risk check <symbol> --entry <decimal> --stop <decimal> --qty <int> [--target <decimal>] [--short]
+Usage: idiotproof risk check <symbol> --entry <decimal> --stop <decimal> --qty <int> [--target <decimal>] [--short] [--mode <sandbox|paper|live>]
 Risk: read
 
 Parameters:
-  <symbol>                Ticker, e.g. NVDA. (required)
-      --entry <decimal>   Planned entry price. (required)
-      --stop <decimal>    Planned protective stop price. (required)
-      --qty <int>         Planned share count. (required)
-      --target <decimal>  Planned take-profit price, for the reward:risk warning.
-      --short             A short entry (stop above entry) instead of a long. (default: false)
+  <symbol>                         Ticker, e.g. NVDA. (required)
+      --entry <decimal>            Planned entry price. (required)
+      --stop <decimal>             Planned protective stop price. (required)
+      --qty <int>                  Planned share count. (required)
+      --target <decimal>           Planned take-profit price, for the reward:risk warning.
+      --short                      A short entry (stop above entry) instead of a long. (default: false)
+  -m, --mode <sandbox|paper|live>  Which account's daily loss to check against: sandbox, paper (default) or live. (default: paper)
 
 Examples:
   idiotproof risk check NVDA --entry 100 --stop 98 --qty 20
@@ -4986,11 +4987,15 @@ Examples:
 ```text
 Today's realized P&L, losses counted against the daily breaker, remaining room, breaker and kill-switch state.
 
-Usage: idiotproof risk status
+Usage: idiotproof risk status [--mode <sandbox|paper|live>]
 Risk: read
+
+Parameters:
+  -m, --mode <sandbox|paper|live>  Which account: sandbox, paper (default) or live. Each has its own daily loss limit. (default: paper)
 
 Examples:
   idiotproof risk status
+  idiotproof risk status --mode live
 ```
 
 ## scan
