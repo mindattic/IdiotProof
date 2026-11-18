@@ -687,7 +687,8 @@ absent or whose type is unrecognized blocks; zero votes, abstain-only, unparseab
 below-threshold split block (a vote defaults to Abstain). The LLM gate is skipped only when
 voting is off for both the host and the strategy owner, or no Claude key resolves (the owner's,
 then the host's). Exits are risk-reducing and skip the LLM
-panel but are audit-logged and honor the Risk Guardian kill-switch. User-initiated manual orders
+panel and the Risk Guardian, kill-switch included (a tripped switch must never trap an open
+position), but are audit-logged. User-initiated manual orders
 (the Options section) are not automated fires; they are governed by the Paper/Live consent rule
 and Live password elevation instead. (Risk gate: `RiskGuardian*` tests; LLM gate:
 `LlmVotingServiceTests`, `UserClaudeKeyResolverTests`; condition layer: `ConditionFailClosedTests`.)
