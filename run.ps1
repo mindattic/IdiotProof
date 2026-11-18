@@ -151,8 +151,10 @@ function Test-NeedsPublish($c) {
 function Stop-Deployed($c) {
     $exe   = Join-Path $c.OutDir $c.ExeName
     $name  = [System.IO.Path]::GetFileNameWithoutExtension($c.ExeName)
+    # A Hub run as the IdiotProof.Hub Windows service hides its path from a non-elevated session;
+    # a dev instance from the repo's bin\ never does, so an unreadable path is the deployed one (IP-T576).
     $procs = @(Get-Process $name -ErrorAction SilentlyContinue |
-        Where-Object { $_.Path -and $_.Path -ieq $exe })
+        Where-Object { ($_.Path -and $_.Path -ieq $exe) -or (-not $_.Path -and $c.Name -eq 'Hub') })
     # The Hub hosts the Monitor: ask it to stop gracefully first (drain operations, finish the
     # tick, release the SQL leader lease) via the deployed CLI's `hub stop`, then wait for it.
     if ($procs.Count -gt 0 -and $c.Name -eq 'Hub') {
@@ -160,7 +162,7 @@ function Stop-Deployed($c) {
         if (Test-Path $cli) {
             Write-Host '  Asking the running Hub to stop gracefully...' -ForegroundColor DarkYellow
             & $cli hub stop | Out-Host
-            foreach ($p in $procs) { $null = $p.WaitForExit(60000) }
+            foreach ($p in $procs) { try { $null = $p.WaitForExit(60000) } catch { Start-Sleep -Seconds 5 } }
             $procs = @($procs | Where-Object { -not $_.HasExited })
         }
     }
