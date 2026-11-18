@@ -145,6 +145,8 @@ builder.Logging.AddFilter("IdiotProof", LogLevel.Warning);
 builder.Logging.AddHubLogDatabase();
 
 var app = builder.Build();
+// Every Hub error files a fix ticket from here on (IP-T579; IDIOTPROOF_HUB_ERROR_TICKETS=0 turns it off).
+HubErrorTickets.Start(app.Services.GetRequiredService<ILoggerFactory>());
 
 // Schema first — same as every other host — so operations never meet a stale database.
 using (var scope = app.Services.CreateScope())
