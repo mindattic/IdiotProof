@@ -60,8 +60,8 @@ public sealed class AdaptationWorker(
             log.LogDebug("Adaptation pass skipped: this instance does not hold the Monitor leader lease.");
             return false;
         }
-        await PassAsync(ct);
-        await adaptation.RecordOutcomesAsync(ct);
+        try { await PassAsync(ct); }
+        finally { await adaptation.RecordOutcomesAsync(ct); }
         return true;
     }
 
@@ -83,20 +83,29 @@ public sealed class AdaptationWorker(
 
         foreach (var id in ids)
         {
-            if (!await adaptation.IsOptedInAsync(id, ct)) continue;
-            string symbol;
-            await using (var db = await dbFactory.CreateDbContextAsync(ct))
-                symbol = await db.Strategies.Where(s => s.Id == id).Select(s => s.Symbol).FirstAsync(ct);
+            // One strategy's failure (row deleted mid-pass, a delisted symbol's bar fetch) must not
+            // skip the rest of the pass (IP-T555).
+            try
+            {
+                if (!await adaptation.IsOptedInAsync(id, ct)) continue;
+                string symbol;
+                await using (var db = await dbFactory.CreateDbContextAsync(ct))
+                    symbol = await db.Strategies.Where(s => s.Id == id).Select(s => s.Symbol).FirstAsync(ct);
 
-            var bars = new List<Candle>();
-            await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, periodStartUtc, nowUtc, TimeSpan.FromMinutes(1), ct))
-                bars.Add(c);
-            var dayEt = DateOnly.FromDateTime(nowEt);
-            var result = await adaptation.AdaptAsync(id, bars, periodStartUtc, nowUtc, ct: ct,
-                leaders: (def, token) => LeadersAsync(def, dayEt, ids, token),
-                priorSessions: barStore is null ? null
-                    : token => barStore.GetBarsAsync(symbol, dayEt.AddDays(-14), dayEt.AddDays(-1), IdiotProof.Core.Evidence.BarTimeframe.Minute1, token));
-            log.LogInformation("Adaptation {Symbol} {Strategy}: {Outcome} ({Reason})", symbol, id, result.Outcome, result.Reason);
+                var bars = new List<Candle>();
+                await foreach (var c in feed.GetHistoricalCandlesAsync(symbol, periodStartUtc, nowUtc, TimeSpan.FromMinutes(1), ct))
+                    bars.Add(c);
+                var dayEt = DateOnly.FromDateTime(nowEt);
+                var result = await adaptation.AdaptAsync(id, bars, periodStartUtc, nowUtc, ct: ct,
+                    leaders: (def, token) => LeadersAsync(def, dayEt, ids, token),
+                    priorSessions: barStore is null ? null
+                        : token => barStore.GetBarsAsync(symbol, dayEt.AddDays(-14), dayEt.AddDays(-1), IdiotProof.Core.Evidence.BarTimeframe.Minute1, token));
+                log.LogInformation("Adaptation {Symbol} {Strategy}: {Outcome} ({Reason})", symbol, id, result.Outcome, result.Reason);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                log.LogWarning(ex, "Adaptation skipped strategy {Strategy}.", id);
+            }
         }
     }
 
