@@ -59,15 +59,18 @@ public static class DiarySupport
             BrokerMode.Live => q.Where(t => t.Broker != "Sandbox" && !t.IsPaper),
             _ => q,
         };
-        var rows = await q.OrderByDescending(t => t.EntryUtc).Take(take).ToListAsync(ctx.CancellationToken);
+        // The strategy filter runs in memory, so the row limit applies after it, not before (IP-T558).
+        var filterByStrategy = !string.IsNullOrWhiteSpace(f.Strategy);
+        var rows = await q.OrderByDescending(t => t.EntryUtc).Take(filterByStrategy ? 50_000 : take).ToListAsync(ctx.CancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(f.Strategy))
+        if (filterByStrategy)
         {
-            var key = f.Strategy.Trim();
+            var key = f.Strategy!.Trim();
             var compact = key.Replace("-", "");
             rows = rows.Where(t =>
                     (compact.Length >= 4 && t.StrategyId.ToString("N").StartsWith(compact, StringComparison.OrdinalIgnoreCase))
                     || t.StrategyTitle.Contains(key, StringComparison.OrdinalIgnoreCase))
+                .Take(take)
                 .ToList();
         }
         return rows;
