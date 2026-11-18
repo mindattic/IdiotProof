@@ -119,7 +119,8 @@ public static class MinuteBarMath
             if (b.StartUtc >= fromUtc && b.EndUtc <= toUtc) byStart[Floor(b.StartUtc)] = b;
         var result = new List<Candle>();
         Candle? last = null;
-        for (var t = Floor(fromUtc); t < toUtc; t = t.AddMinutes(1))
+        // Whole bars only: a bar starting at t ends at t+1m, which must not pass toUtc (IP-T563).
+        for (var t = Floor(fromUtc); t.AddMinutes(1) <= toUtc; t = t.AddMinutes(1))
         {
             if (byStart.TryGetValue(t, out var real))
             {
