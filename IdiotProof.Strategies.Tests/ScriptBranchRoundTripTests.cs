@@ -43,7 +43,7 @@ public class ScriptBranchRoundTripTests
     [Test]
     public void GhostReplayFixture_RoundTripsThroughText()
     {
-        var json = File.ReadAllText(Path.Combine(RepoRoot(), "tests", "IdiotProof.Cypress", "cypress", "fixtures", "ghost-branched-strategy.json"));
+        var json = File.ReadAllText(Path.Combine(TestContext.CurrentContext.TestDirectory, "Fixtures", "ghost-branched-strategy.json"));
         var def = StrategyJson.Deserialize(json);
         Assert.That(def.ConditionalBlocks, Has.Count.EqualTo(1));
         var text = Lossless(def);

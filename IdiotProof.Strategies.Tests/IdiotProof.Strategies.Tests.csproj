@@ -34,4 +34,8 @@
     <ProjectReference Include="..\IdiotProof.DataFeeds\IdiotProof.DataFeeds.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
