@@ -95,7 +95,7 @@ public static partial class StrategyJson
             ["$schema"] = SchemaDialect,
             ["$id"] = SchemaId,
             ["title"] = "IdiotProof canonical strategy JSON, schema version " + CurrentSchemaVersion,
-            ["$comment"] = "Generated from the strict reader's allow-lists (StrategyJson). The reader is the authority; this schema accepts nothing the reader refuses on the points it expresses, with one exception JSON Schema cannot state: a whole-number key must be written without a fraction or exponent (2, not 2.0). It is stricter than the reader in these places: an enum given as a number in a string, a time with surrounding spaces, and a non-array 'branches', branch 'entryConditions' or branch 'takeProfitTargets' (which the reader ignores). Rules it cannot state: every step's symbol equals the strategy's, a route (onStop, onTarget, onExit) names a later step or 'end', a step is not named 'end', and numbers must be finite.",
+            ["$comment"] = "Generated from the strict reader's allow-lists (StrategyJson). The reader is the authority; this schema accepts nothing the reader refuses on the points it expresses, with one exception JSON Schema cannot state: a whole-number key must be written without a fraction or exponent (2, not 2.0). It is stricter than the reader in these places: an enum given as a number in a string and a time with surrounding spaces. Rules it cannot state: every step's symbol equals the strategy's, a route (onStop, onTarget, onExit) names a later step or 'end', a step is not named 'end', and numbers must be finite.",
         };
         foreach (var (key, value) in root.ToList())
         {

@@ -427,7 +427,7 @@ public static partial class StrategyJson
     {
         RequireOnly(el, "conditionalBlock", BlockKeys);
         var block = new ConditionalBlock();
-        if (el.TryGetProperty("branches", out var branches) && branches.ValueKind == JsonValueKind.Array)
+        if (OptionalArray(el, "branches", "conditionalBlock") is { } branches)
         {
             foreach (var b in branches.EnumerateArray())
             {
@@ -455,13 +455,26 @@ public static partial class StrategyJson
             StopLossPercent = GetDouble(el, "stopLossPercent"),
             TrailingStopPercent = GetDouble(el, "trailingStopPercent"),
         };
-        if (el.TryGetProperty("entryConditions", out var conds) && conds.ValueKind == JsonValueKind.Array)
+        if (OptionalArray(el, "entryConditions", "overrides") is { } conds)
             foreach (var c in conds.EnumerateArray())
                 o.EntryConditions.Add(ReadCondition(c));
-        if (el.TryGetProperty("takeProfitTargets", out var targets) && targets.ValueKind == JsonValueKind.Array)
+        if (OptionalArray(el, "takeProfitTargets", "overrides") is { } targets)
             foreach (var t in targets.EnumerateArray())
                 o.TakeProfitTargets.Add(ReadTarget(t));
         return o;
+    }
+
+    /// <summary>
+    /// An optional list: absent or null → null; an array → the array; anything else is malformed.
+    /// Silently skipping a non-array dropped a branch's entry conditions, so it applied with fewer
+    /// gates than written (fails open, IP-T570).
+    /// </summary>
+    private static JsonElement? OptionalArray(JsonElement el, string name, string context)
+    {
+        if (!el.TryGetProperty(name, out var v) || v.ValueKind == JsonValueKind.Null) return null;
+        return v.ValueKind == JsonValueKind.Array
+            ? v
+            : throw new StrategyJsonException($"'{name}' in {context} must be a JSON array, not {v.ValueKind}.");
     }
 
     // ── strict readers ──────────────────────────────────────────────────
