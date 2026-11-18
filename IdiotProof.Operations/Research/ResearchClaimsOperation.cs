@@ -36,6 +36,9 @@ public sealed record ResearchClaimsArgs
 [Example("idiotproof research claims --macro")]
 public sealed class ResearchClaimsOperation : IOperation<ResearchClaimsArgs>
 {
+    private static IQueryable<ResearchClaim> Ranked(IQueryable<ResearchClaim> q) =>
+        q.OrderByDescending(c => c.SignificanceScore ?? -1).ThenByDescending(c => c.CreatedUtc);
+
     public async Task<OperationResult> ExecuteAsync(ResearchClaimsArgs args, OperationContext ctx)
     {
         if (args.Limit is < 1 or > 500) return OperationResult.Usage("--limit must be 1-500.");
@@ -51,21 +54,22 @@ public sealed class ResearchClaimsOperation : IOperation<ResearchClaimsArgs>
         if (args.Macro) q = q.Where(c => c.IsMacro);
         if (args.Portents) q = q.Where(c => !c.HasHappenedAlready && c.Status == "Pending");
         if (args.MinScore is { } min) q = q.Where(c => c.SignificanceScore != null && c.SignificanceScore >= min);
-        // Macro claims carry their tickers as JSON, so a ticker filter keeps them for a client-side check.
-        if (ticker is not null) q = q.Where(c => c.Ticker == ticker || c.IsMacro);
+        List<ResearchClaim> fetched;
+        if (ticker is null)
+            fetched = await Ranked(q).Take(args.Limit).ToListAsync(ctx.CancellationToken);
+        else
+        {
+            // Two queries: the ticker's own claims can't be crowded out by higher-scored macro claims
+            // (IP-T572). Macro claims carry their tickers as JSON, so they are checked client-side.
+            var own = await Ranked(q.Where(c => c.Ticker == ticker)).Take(args.Limit).ToListAsync(ctx.CancellationToken);
+            var macro = (await Ranked(q.Where(c => c.IsMacro && c.Ticker != ticker)).Take(args.Limit * 5).ToListAsync(ctx.CancellationToken))
+                .Where(c => ResearchSupport.AffectedTickers(c.AffectedTickersJson).Contains(ticker, StringComparer.OrdinalIgnoreCase));
+            fetched = [.. own.Concat(macro)
+                .OrderByDescending(c => c.SignificanceScore ?? -1).ThenByDescending(c => c.CreatedUtc)
+                .Take(args.Limit)];
+        }
 
-        var fetched = await q
-            .OrderByDescending(c => c.SignificanceScore ?? -1)
-            .ThenByDescending(c => c.CreatedUtc)
-            .Take(ticker is null ? args.Limit : args.Limit * 5)
-            .ToListAsync(ctx.CancellationToken);
-
-        var rows = fetched
-            .Where(c => ticker is null || c.Ticker == ticker
-                || ResearchSupport.AffectedTickers(c.AffectedTickersJson).Contains(ticker, StringComparer.OrdinalIgnoreCase))
-            .Take(args.Limit)
-            .Select(ResearchSupport.ToRow)
-            .ToList();
+        var rows = fetched.Select(ResearchSupport.ToRow).ToList();
 
         var lastScan = await db.ScanRuns.AsNoTracking()
             .Where(s => s.CompletedUtc != null)
