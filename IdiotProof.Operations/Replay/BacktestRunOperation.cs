@@ -95,7 +95,8 @@ public sealed class BacktestRunOperation : IOperation<BacktestRunArgs>
         var to = continuous is not null ? continuous[^1] : args.To ?? from;
         if (to < from) return OperationResult.Usage("--to is before --from.");
         if (to > todayEt) return OperationResult.Usage($"--to {to:yyyy-MM-dd} is in the future.");
-        if (to.DayNumber - from.DayNumber + 1 > MaxDays) return OperationResult.Usage($"At most {MaxDays} calendar days per run.");
+        // --days is already capped in trading days above; the calendar cap is for the --from/--to form (IP-T557).
+        if (continuous is null && to.DayNumber - from.DayNumber + 1 > MaxDays) return OperationResult.Usage($"At most {MaxDays} calendar days per run.");
 
         var feed = ctx.Get<IMarketDataFeed>();
         var source = feed is MockDataFeed ? "Mock (synthetic prices — rehearsal only)" : $"{feed.FeedName} ({ReplayKit.FeedLabel(feed)})";
