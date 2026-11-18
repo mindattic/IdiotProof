@@ -239,12 +239,15 @@ public static class StrategyStamp
     private static void Transition(StampWriter w, StrategyDefinition step, int index, int count)
     {
         var g = w.G;
-        w.Top("THEN WHEN", $"flat after step {index + 1}, waiting for step {index + 2}");
+        w.Top("THEN WHEN", step.HasRoutes
+            ? $"flat after step {index + 1}, waiting for the step its exit leads to"
+            : $"flat after step {index + 1}, waiting for step {index + 2}");
         if (step.ThenWhen.Count == 0) w.Row("(no condition - the next step arms as soon as this one is flat)");
         foreach (var c in step.ThenWhen) w.Row($"{g.Bullet} {StampText.Describe(c)}");
         w.Row(step.ThenWithinDays is { } days
             ? $"{g.Bullet} within {days} {(days == 1 ? "day" : "days")} of the exit, or the sequence ends"
             : $"{g.Bullet} no deadline");
+        foreach (var route in step.RouteLines()) w.Row($"{g.Bullet} {g.Clean(route)}");
         w.Bottom();
         w.Connector($"step {index + 2}/{count}");
     }

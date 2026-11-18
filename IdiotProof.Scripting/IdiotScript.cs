@@ -100,6 +100,38 @@ public sealed class StrategyBuilder
         return this;
     }
 
+    /// <summary>
+    /// Where the sequence goes when the current step is stopped out (hard or trailing stop): a later
+    /// step's name, or "end" to finish the sequence. The step's ThenWhen/Within still gate the hand-off.
+    /// Example: <c>.OnStop("end")</c>.
+    /// </summary>
+    public StrategyBuilder OnStop(string step)
+    {
+        strategy.OnStopStep = RouteName(step);
+        return this;
+    }
+
+    /// <summary>Where the sequence goes when the current step's final take-profit target fills: a later step's name, or "end". Example: <c>.OnTarget("second-leg")</c>.</summary>
+    public StrategyBuilder OnTarget(string step)
+    {
+        strategy.OnTargetStep = RouteName(step);
+        return this;
+    }
+
+    /// <summary>Where the sequence goes after any exit with no route of its own (a stop or target without one falls back to it): a later step's name, or "end". Example: <c>.OnExit("re-entry")</c>.</summary>
+    public StrategyBuilder OnExit(string step)
+    {
+        strategy.OnExitStep = RouteName(step);
+        return this;
+    }
+
+    private static string RouteName(string step)
+    {
+        var name = (step ?? "").Trim();
+        if (name.Length == 0) throw new ArgumentException("A route needs a step name or \"end\".", nameof(step));
+        return StrategyDefinition.IsEndStep(name) ? StrategyDefinition.EndStep : name;
+    }
+
     private static bool IsUntouched(StrategyDefinition def)
     {
         var seed = Stock.Ticker(def.Symbol).Session(def.Session).strategy;
@@ -1109,6 +1141,9 @@ public sealed class StrategyBuilder
                 parts.Add($"ThenWhen({cond.ToScript()})");
             if (step.ThenWithinDays is { } days)
                 parts.Add($"Within({days})");
+            if (step.OnStopStep is { } onStop) parts.Add($"OnStop(\"{onStop}\")");
+            if (step.OnTargetStep is { } onTarget) parts.Add($"OnTarget(\"{onTarget}\")");
+            if (step.OnExitStep is { } onExit) parts.Add($"OnExit(\"{onExit}\")");
         }
         return string.Join("\n    .", parts);
     }
@@ -1424,6 +1459,158 @@ public sealed class StrategyDefinition
         yield return this;
         foreach (var step in NextSteps) yield return step;
     }
+
+    // ── Branching (IP-T529) ─────────────────────────────────────────────
+    // A step may name where the sequence goes depending on how the step ended. A route names a LATER
+    // step or "end", never an earlier one, so a sequence always terminates; a retry is Repeat's job.
+    // With no route a step hands on to the step after it, exactly as before, and none of the keys
+    // below is written, so a linear sequence's canon and stamp do not move (IP-LAW-14).
+
+    /// <summary>The route target that ends the sequence instead of arming a step.</summary>
+    public const string EndStep = "end";
+
+    /// <summary>The step to arm after this one is stopped out (hard or trailing stop), or "end". Null = no route.</summary>
+    public string? OnStopStep { get; set; }
+
+    /// <summary>The step to arm after this one's final take-profit target fills, or "end". Null = no route.</summary>
+    public string? OnTargetStep { get; set; }
+
+    /// <summary>The step to arm after any exit that has no route of its own (a stop or a target falls back to it too), or "end". Null = the next step in order.</summary>
+    public string? OnExitStep { get; set; }
+
+    public bool HasRoutes => OnStopStep is not null || OnTargetStep is not null || OnExitStep is not null;
+
+    /// <summary>This step's routes in plain words, one per route ("stopped out: the sequence ends"); empty when it has none.</summary>
+    public IReadOnlyList<string> RouteLines()
+    {
+        static string To(string route) => IsEndStep(route) ? "the sequence ends" : $"go to step \"{route}\"";
+        var lines = new List<string>();
+        if (OnStopStep is { } stop) lines.Add($"stopped out: {To(stop)}");
+        if (OnTargetStep is { } target) lines.Add($"target hit: {To(target)}");
+        if (OnExitStep is { } any) lines.Add($"{(lines.Count > 0 ? "any other exit" : "any exit")}: {To(any)}");
+        else if (lines.Count > 0) lines.Add("any other exit: the next step in order");
+        return lines;
+    }
+
+    public static bool IsEndStep(string? name) => string.Equals(name?.Trim(), EndStep, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The index of the step with this name (0 = this root), or -1.</summary>
+    public int IndexOfStep(string name)
+    {
+        int i = 0;
+        foreach (var step in AllSteps())
+        {
+            if (string.Equals(step.StepName, name, StringComparison.OrdinalIgnoreCase)) return i;
+            i++;
+        }
+        return -1;
+    }
+
+    /// <summary>How a step ended, from the exit reason the Monitor records (a <c>GapperExitReason</c> name) or the backtester's text.</summary>
+    public static StepExitKind ExitKindOf(string? exitReason)
+    {
+        var key = (exitReason ?? "").Replace(" ", "").Trim();
+        if (key.Equals("StopLoss", StringComparison.OrdinalIgnoreCase) || key.Equals("TrailingStop", StringComparison.OrdinalIgnoreCase))
+            return StepExitKind.Stop;
+        return key.Equals("TargetHit", StringComparison.OrdinalIgnoreCase) ? StepExitKind.Target : StepExitKind.Other;
+    }
+
+    /// <summary>The route name that applies to an exit of this kind from this step, or null for "the next step in order".</summary>
+    public string? RouteFor(StepExitKind kind) => kind switch
+    {
+        StepExitKind.Stop => OnStopStep ?? OnExitStep,
+        StepExitKind.Target => OnTargetStep ?? OnExitStep,
+        _ => OnExitStep,
+    };
+
+    /// <summary>
+    /// Called on the root: the step to arm after step <paramref name="stepIndex"/> exits this way, or
+    /// null when the sequence ends there. A route that names no later step (unknown or backward; the
+    /// strict reader refuses both) arms nothing: the sequence ends rather than guess.
+    /// </summary>
+    public int? NextStepAfter(int stepIndex, StepExitKind kind)
+    {
+        var route = StepAt(stepIndex).RouteFor(kind);
+        if (route is null) return stepIndex + 1 < StepCount ? stepIndex + 1 : null;
+        if (IsEndStep(route)) return null;
+        var target = IndexOfStep(route);
+        return target > stepIndex ? target : null;
+    }
+
+    /// <inheritdoc cref="NextStepAfter(int, StepExitKind)"/>
+    public int? NextStepAfter(int stepIndex, string? exitReason) => NextStepAfter(stepIndex, ExitKindOf(exitReason));
+
+    /// <summary>
+    /// Called on the root: everything wrong with the routes, one sentence each (empty = fine). A route
+    /// must name "end" or a later step; no step may itself be named "end".
+    /// </summary>
+    public IReadOnlyList<string> RouteProblems()
+    {
+        var problems = new List<string>();
+        int index = 0;
+        foreach (var step in AllSteps())
+        {
+            var label = step.StepName is { Length: > 0 } n ? $"step \"{n}\"" : $"step {index + 1}";
+            if (IsEndStep(step.StepName))
+                problems.Add($"A step cannot be named \"{EndStep}\": that name ends the sequence in OnStop/OnTarget/OnExit.");
+            foreach (var (verb, route) in new[] { ("OnStop", step.OnStopStep), ("OnTarget", step.OnTargetStep), ("OnExit", step.OnExitStep) })
+            {
+                if (route is null || IsEndStep(route)) continue;
+                var target = IndexOfStep(route);
+                if (string.IsNullOrWhiteSpace(route) || target < 0)
+                    problems.Add($"{verb}(\"{route}\") on {label} names no step of this strategy; use a step's name or \"{EndStep}\".");
+                else if (target <= index)
+                    problems.Add($"{verb}(\"{route}\") on {label} points back at {(target == index ? "itself" : "an earlier step")}; a route may only go to a later step or \"{EndStep}\" (use Repeat to run the sequence again).");
+            }
+            index++;
+        }
+        return problems;
+    }
+
+    /// <summary>
+    /// Called on the root: the entry deadline, in days after the prior step's exit, of an armed step:
+    /// the Within of the step that hands on to it. When routes let several steps hand on to it, the
+    /// shortest of their Withins applies (which step it came from is not stored). Null = no deadline.
+    /// In a linear sequence this is the previous step's Within.
+    /// </summary>
+    public int? WithinDaysInto(int stepIndex)
+    {
+        int? shortest = null;
+        for (int from = 0; from < stepIndex && from < StepCount; from++)
+        {
+            if (StepAt(from).ThenWithinDays is not { } days) continue;
+            bool handsOn = false;
+            foreach (var kind in new[] { StepExitKind.Stop, StepExitKind.Target, StepExitKind.Other })
+                handsOn |= NextStepAfter(from, kind) == stepIndex;
+            if (handsOn && (shortest is null || days < shortest)) shortest = days;
+        }
+        return shortest;
+    }
+
+    /// <summary>Called on the root: the indexes of steps no exit of an earlier step can ever arm (step 0 is always reachable).</summary>
+    public IReadOnlyList<int> UnreachableSteps()
+    {
+        var reachable = new bool[StepCount];
+        reachable[0] = true;
+        for (int i = 0; i < StepCount; i++)
+        {
+            if (!reachable[i]) continue;
+            foreach (var kind in new[] { StepExitKind.Stop, StepExitKind.Target, StepExitKind.Other })
+                if (NextStepAfter(i, kind) is { } next) reachable[next] = true;
+        }
+        return Enumerable.Range(0, StepCount).Where(i => !reachable[i]).ToList();
+    }
+}
+
+/// <summary>How a step of a sequence ended, for its OnStop/OnTarget/OnExit routes (IP-T529).</summary>
+public enum StepExitKind
+{
+    /// <summary>Any exit that is neither a stop nor the final target: sell-by time, peak giveback, velocity exhaustion, a failed While.</summary>
+    Other,
+    /// <summary>The hard stop or the trailing stop.</summary>
+    Stop,
+    /// <summary>The final take-profit target.</summary>
+    Target,
 }
 
 /// <summary>
@@ -2600,6 +2787,9 @@ public sealed class ConditionalBuilder
     public StrategyBuilder ThenWhen(Func<ConditionFactory, ICondition> condition) => parent.ThenWhen(condition);
     public StrategyBuilder ThenWhen(ICondition condition) => parent.ThenWhen(condition);
     public StrategyBuilder Within(int days) => parent.Within(days);
+    public StrategyBuilder OnStop(string step) => parent.OnStop(step);
+    public StrategyBuilder OnTarget(string step) => parent.OnTarget(step);
+    public StrategyBuilder OnExit(string step) => parent.OnExit(step);
     public StrategyDefinition Build() => parent.Build();
     public string ToScript() => parent.ToScript();
 }

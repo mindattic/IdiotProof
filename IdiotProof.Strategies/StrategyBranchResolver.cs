@@ -63,6 +63,9 @@ public static class StrategyBranchResolver
             VelocityExhaustionExtensionSwitchPct = baseDef.VelocityExhaustionExtensionSwitchPct,
             StepName               = baseDef.StepName,
             ThenWithinDays         = baseDef.ThenWithinDays,
+            OnStopStep             = baseDef.OnStopStep,
+            OnTargetStep           = baseDef.OnTargetStep,
+            OnExitStep             = baseDef.OnExitStep,
         };
         foreach (var c in baseDef.EntryConditions)    clone.EntryConditions.Add(c);
         foreach (var c in baseDef.WhileConditions)    clone.WhileConditions.Add(c);

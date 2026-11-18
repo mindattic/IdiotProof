@@ -156,6 +156,9 @@ public static partial class StrategyJson
         ["stepName"] = new(() => Text(), "This step's name in a sequence."),
         ["thenWhen"] = new(() => ListOf("condition"), "The transition to the next step: every one must hold."),
         ["thenWithinDays"] = new(() => Whole(minimum: 1), "The transition must happen within this many days (at least 1)."),
+        ["onStop"] = new(() => Text(), "Where the sequence goes when this step is stopped out: a later step's name, or \"end\"."),
+        ["onTarget"] = new(() => Text(), "Where the sequence goes when this step's final take-profit target fills: a later step's name, or \"end\"."),
+        ["onExit"] = new(() => Text(), "Where the sequence goes after any exit with no route of its own: a later step's name, or \"end\". Absent = the next step in order."),
         ["nextSteps"] = new(() => ListOf("step"), "The later steps of a sequence, in order. Only the strategy itself carries them; a step never nests steps."),
     };
 

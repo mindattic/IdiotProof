@@ -41,7 +41,10 @@ public static class StrategyHtml
                 var rows = step.ThenWhen.Select(c => Li(Esc(c.ToScript()))).ToList();
                 if (rows.Count == 0) rows.Add(Li("(no condition — arms as soon as this step is flat)"));
                 rows.Add(Kv("Within", step.ThenWithinDays is { } days ? $"{days} {(days == 1 ? "day" : "days")} of the exit" : "no deadline"));
-                Card(sb, "Then when", $"flat after step {k + 1}, waiting for step {k + 2}", rows);
+                rows.AddRange(step.RouteLines().Select(route => Li(Esc(route))));
+                Card(sb, "Then when", step.HasRoutes
+                    ? $"flat after step {k + 1}, waiting for the step its exit leads to"
+                    : $"flat after step {k + 1}, waiting for step {k + 2}", rows);
             }
         }
         sb.Append("</div>");

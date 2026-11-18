@@ -35,6 +35,9 @@ public static class StrategyNarrator
                     : ".";
                 sections.Add(("Then when", [when + within]));
             }
+            if (step.HasRoutes)
+                sections.Add(("Routes", [.. step.RouteLines().Select(r => "When this step is " + r + "."),
+                    "A route may only lead to a later step or end the sequence."]));
         }
         sections.Add(("Sequence", [d.ShouldRepeat
             ? "After the last step exits the sequence starts again at step 1" + (d.MaxCycles is { } max ? $", at most {max} times a day." : ".")

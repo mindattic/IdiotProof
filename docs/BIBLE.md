@@ -340,6 +340,34 @@ The Monitor half shipped with it (IP-T445, commit ca15e97f): the `Strategy` row'
 `strategy show`'s `sequence: step k/N` row and `strategy step <id> [--reset]`. A sequence runs end
 to end in the live Monitor as well as in the backtester.
 
+**Branching states (IP-T529).** A step may say where the sequence goes depending on how the step
+ended: `OnStop("name")` (hard or trailing stop), `OnTarget("name")` (the final take-profit target)
+and `OnExit("name")` (any exit with no route of its own; a stop or target without one falls back to
+it). The name is a later step's, or `"end"` to finish the sequence. A route may only go forward, so
+a sequence always terminates; running it again is `Repeat`'s job. The step's own `ThenWhen` and
+`Within` still gate the hand-off, whichever step it leads to. With no route a step hands on to the
+step after it exactly as before, and the canon keys `onStop`, `onTarget`, `onExit` are written only
+when set, so a linear sequence's JSON, stamp and script are byte-identical. `StrategyDefinition`
+owns the rule (`NextStepAfter`, `RouteProblems`, `UnreachableSteps`, `WithinDaysInto`); the
+backtester and the Monitor both ask it, the Monitor from the exit reason the row already keeps
+(`LastExitReason`), so no new column carries state. The strict reader refuses a route that names no
+step, an earlier step or the step itself, and a step named `end` ([IP-LAW-8](#IP-LAW-8)); the same
+problems are IPS026 and IPS027 in `ScriptDiagnostics`, and IPS028 warns about a step every earlier
+exit routes around. An armed step's entry deadline is the `Within` of the step that hands on to it;
+when routes let several steps hand on to it the shortest applies, because which step it came from
+is not stored. Example (`DslBranchingStepsTests`):
+
+```
+Ticker("GAPT").Step("ride").Session(IS.RTH).Quantity(1)
+  .IsAboveVwap().Long().StopLossPercent(5).TakeProfitPercent(10).SellBy("11:00")
+  .ThenWhen(IsAboveVwap()).Within(1).OnStop("end").OnTarget("runner")
+  .Step("pullback").IsAboveVwap().Long().StopLossPercent(4).OnExit("end")
+  .Step("runner").IsAboveVwap().Long().StopLossPercent(4)
+```
+
+Built and checked on the model, canon and diagnostics; the backtester and Monitor routing are
+compiled only and have not run a routed sequence yet.
+
 **Gapper sequences (IP-T527, samples only).** `GapperSequenceTemplates` (`IdiotProof.Scripting`) holds three
 long-only multi-step gapper templates, each starting with the `classic-gapper` ride: `gapper-ride-vwap-pullback`
 (second leg 09:35-10:30 on a higher low above VWAP, out by 11:00), `gapper-ride-retest` (second leg 09:31-09:40
@@ -817,8 +845,12 @@ and the sequence keys are written only when used, so a strategy with no later st
 stamps and scripts byte-identically to a strategy written before steps existed. Runtime sequence
 state (which step is armed, since when) belongs on that same row, never on a second row or a
 settings key, so the repository's guards ([IP-LAW-11](#IP-LAW-11)) and the gapper cap see one
-strategy. (`IdiotProof.Scripting/StrategyJson.cs` — `nextSteps` allowed on the root only;
-`DslSequenceTests` goldens.)
+strategy. A step's routes (`onStop`, `onTarget`, `onExit`; IP-T529) are part of that same canon
+and follow the same rule: written only when set, they name a later step or `end` and never an
+earlier one, so a sequence always terminates and a linear sequence's canon does not move; a route
+the reader cannot resolve quarantines the strategy rather than arming a guess.
+(`IdiotProof.Scripting/StrategyJson.cs` — `nextSteps` allowed on the root only;
+`DslSequenceTests` goldens, `DslBranchingStepsTests`.)
 
 ## 6. Verified state {#IP-§6}
 Build/test evidence (recorded 2026-10-03, .NET 10 SDK): `dotnet test IdiotProof.slnx -c Debug`

@@ -244,6 +244,10 @@ public static class ScriptParser
                 }
                 break;
             case "within":   if (nums.Count >= 1 && nums[0] >= 1) b.Within((int)nums[0]); break;
+            // Routes out of a step (IP-T529); a route with no name is dropped and reported by the diagnostics.
+            case "onstop":   if (RouteArg(args) is { } onStop) b.OnStop(onStop); break;
+            case "ontarget": if (RouteArg(args) is { } onTarget) b.OnTarget(onTarget); break;
+            case "onexit":   if (RouteArg(args) is { } onExit) b.OnExit(onExit); break;
 
             // Loops
             case "while":          b.While(); break;
@@ -269,6 +273,13 @@ public static class ScriptParser
         foreach (var raw in args.Split(','))
             result.Add(raw.Trim().Trim('"').Trim());
         return result;
+    }
+
+    /// <summary>The step name inside OnStop("name") / OnTarget(...) / OnExit(...), unquoted; null when empty.</summary>
+    internal static string? RouteArg(string args)
+    {
+        var name = (args ?? "").Trim().Trim('"').Trim();
+        return name.Length == 0 ? null : name;
     }
 
     internal static List<decimal> ParseNumericArgs(string args)

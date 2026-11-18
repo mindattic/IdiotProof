@@ -79,7 +79,7 @@ public static class ScriptDiagnostics
         ["entryatrollinglow"] = "In", ["isnearrollinglow"] = "In", ["entryatsupport"] = "In",
         ["entryatrollinghigh"] = "In", ["isnearrollinghigh"] = "In", ["entryatresistance"] = "In", ["isbreakingout"] = "In",
         ["repeat"] = "i", ["for"] = "NNI", ["foreach"] = "N*",
-        ["step"] = "S", ["within"] = "I",
+        ["step"] = "S", ["within"] = "I", ["onstop"] = "S", ["ontarget"] = "S", ["onexit"] = "S",
         ["isabovevwap"] = "", ["abovevwap"] = "", ["isbelowvwap"] = "", ["belowvwap"] = "",
         ["onvwapreclaim"] = "", ["onvwaploss"] = "", ["isdipositive"] = "", ["isdinegative"] = "",
         ["ishigherlow"] = "", ["islowerhigh"] = "", ["isrsibullishdivergence"] = "", ["isrsibearishdivergence"] = "",
@@ -388,6 +388,10 @@ public static class ScriptDiagnostics
         Token stepToken = default;
         Token? pendingTransition = null;
         string stepName = "";
+        // Routes (IP-T529): each step's name and token, and every OnStop/OnTarget/OnExit with the step it sits in.
+        var stepNames = new List<string> { "" };
+        var stepTokens = new List<Token?> { null };
+        var routes = new List<(int Step, string Verb, string Target, Token At)>();
 
         void Report(ScriptDiagnosticDescriptor code, string message, Token at) =>
             diags.Add(Make(code, message, at.Start, at.Text.Length, null, src, lineStarts));
@@ -416,9 +420,15 @@ public static class ScriptDiagnostics
                         stepIndex++;
                         hasDirection = false;
                         pendingTransition = null;
+                        stepNames.Add("");
+                        stepTokens.Add(null);
                     }
                     stepToken = at;
                     stepName = name;
+                    stepNames[stepIndex] = name;
+                    stepTokens[stepIndex] = at;
+                    if (StrategyDefinition.IsEndStep(name))
+                        Report(Codes.IPS026, $"A step cannot be named \"{StrategyDefinition.EndStep}\": that name ends the sequence in OnStop/OnTarget/OnExit.", at);
                     ifOpen = whileOpen = false;
                     if (name.Length > 0 && !names.Add(name))
                         Report(Codes.IPS023, $"Duplicate step name \"{name}\": every step in a sequence needs its own name.", at);
@@ -434,6 +444,13 @@ public static class ScriptDiagnostics
                     pendingTransition ??= at;
                     onlySetupSoFar = false;
                     break;
+                case "onstop": case "ontarget": case "onexit":
+                {
+                    var verb = call.Name.ToLowerInvariant() switch { "onstop" => "OnStop", "ontarget" => "OnTarget", _ => "OnExit" };
+                    routes.Add((stepIndex, verb, call.RawArgs.Trim().Trim('"').Trim(), at));
+                    onlySetupSoFar = false;
+                    break;
+                }
                 case "repeat":
                     if (stepIndex >= 1)
                         Report(Codes.IPS022, "Repeat() applies to the whole sequence, not one step; the parser treats it as if it were in the first step.", at);
@@ -467,6 +484,46 @@ public static class ScriptDiagnostics
         EndStep();
         if (pendingTransition is { } dangling)
             Report(Codes.IPS025, "ThenWhen(...)/Within(...) has no following Step(...): the last step of a sequence has nothing to move on to, so the transition would be ignored.", dangling);
+
+        if (routes.Count == 0) return;
+        int IndexOf(string name) => stepNames.FindIndex(n => n.Length > 0 && n.Equals(name, StringComparison.OrdinalIgnoreCase));
+        bool routesOk = true;
+        foreach (var (step, verb, target, routeAt) in routes)
+        {
+            if (StrategyDefinition.IsEndStep(target)) continue;
+            var to = IndexOf(target);
+            if (target.Length == 0 || to < 0)
+            {
+                Report(Codes.IPS026, $"{verb}(\"{target}\") names no step of this strategy; use a step's name or \"{StrategyDefinition.EndStep}\".", routeAt);
+                routesOk = false;
+            }
+            else if (to <= step)
+            {
+                Report(Codes.IPS027, $"{verb}(\"{target}\") points back at {(to == step ? "its own step" : "an earlier step")}; a route may only go to a later step or \"{StrategyDefinition.EndStep}\" (use Repeat to run the sequence again).", routeAt);
+                routesOk = false;
+            }
+        }
+        if (!routesOk) return;
+
+        // Reachability, the way StrategyDefinition.NextStepAfter walks it: a stop or target with no
+        // route of its own falls back to OnExit, and with none at all to the next step in order.
+        int count = stepNames.Count;
+        string? Route(int step, string verb) => routes.LastOrDefault(r => r.Step == step && r.Verb == verb) is { Verb: not null } r ? r.Target : null;
+        var reachable = new bool[count];
+        reachable[0] = true;
+        for (int i = 0; i < count; i++)
+        {
+            if (!reachable[i]) continue;
+            var onExit = Route(i, "OnExit");
+            foreach (var route in new[] { Route(i, "OnStop") ?? onExit, Route(i, "OnTarget") ?? onExit, onExit })
+            {
+                if (route is null) { if (i + 1 < count) reachable[i + 1] = true; }
+                else if (!StrategyDefinition.IsEndStep(route)) reachable[IndexOf(route)] = true;
+            }
+        }
+        for (int i = 1; i < count; i++)
+            if (!reachable[i] && stepTokens[i] is { } unreached)
+                Report(Codes.IPS028, $"Step \"{stepNames[i]}\" can never be reached: every earlier step routes all of its exits elsewhere.", unreached);
     }
 
     private static void CheckArguments(string verb, List<Token> tokens, int lparen, List<ScriptDiagnostic> diags, string src, int[] lineStarts)

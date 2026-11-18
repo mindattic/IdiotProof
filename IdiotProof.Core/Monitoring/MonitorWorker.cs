@@ -937,7 +937,7 @@ public sealed class MonitorWorker(
 
         // An armed later step that never entered inside the prior step's Within window ends the
         // sequence, so a hand-off can't sit armed for weeks.
-        if (stored.StepIndex > 0 && root.StepAt(stored.StepIndex - 1).ThenWithinDays is { } withinDays
+        if (stored.StepIndex > 0 && root.WithinDaysInto(stored.StepIndex) is { } withinDays
             && stored.LastExitedUtc is { } priorExit && UtcNow - priorExit > TimeSpan.FromDays(withinDays))
         {
             await EndSequenceAsync(stored, root, $"step {stored.StepIndex + 1} did not enter within {withinDays} day(s) of the prior step's exit", ct);
@@ -1803,10 +1803,13 @@ public sealed class MonitorWorker(
         }
         else
         {
-            var moreSteps = stored.StepIndex + 1 < root.StepCount;
+            // Where this exit leads (IP-T529): the step's OnStop/OnTarget/OnExit route, else the next step
+            // in order. The reason is stored on the row, so the transition reads the same route back.
+            var moreSteps = root.NextStepAfter(stored.StepIndex, decision.Reason.ToString()) is not null;
             await strategyRepo.RecordExitFillAsync(stored.Id, exitPrice, decision.Reason.ToString(), exitUtc, ct, moreSteps: moreSteps);
             stored.PositionQty = 0;
             stored.LastExitedUtc = exitUtc;
+            stored.LastExitReason = decision.Reason.ToString();
             stored.AwaitingTransition = moreSteps;
             ProtectiveStopsKeeper.Forget(stored.Id);
             var exitCategory = decision.Reason switch
@@ -1865,11 +1868,12 @@ public sealed class MonitorWorker(
         if (qty < stored.PositionQty)
             logger.LogWarning("[{Title}] {Symbol} protective stop filled {Qty} of {Booked} booked shares; closing the bookkeeping — check the broker position.",
                 stored.Title, stored.Symbol, qty, stored.PositionQty);
-        var moreSteps = stored.StepIndex + 1 < root.StepCount;
+        var moreSteps = root.NextStepAfter(stored.StepIndex, StepExitKind.Stop) is not null;
         await strategyRepo.RecordExitFillAsync(stored.Id, price, GapperExitReason.StopLoss.ToString(), exitUtc, ct, moreSteps: moreSteps);
         ProtectiveStopsKeeper.Forget(stored.Id);
         stored.PositionQty = 0;
         stored.LastExitedUtc = exitUtc;
+        stored.LastExitReason = GapperExitReason.StopLoss.ToString();
         stored.AwaitingTransition = moreSteps;
         var exitSide = DirectionalOrders.SideLabel(DirectionalOrders.ExitSide(direction));
         await LogAuditAsync("exit-sl",
@@ -1922,10 +1926,11 @@ public sealed class MonitorWorker(
     private async Task EvaluateTransitionAsync(IdiotProof.Core.Data.Strategy stored, StrategyDefinition root, StrategyDefinition step,
         IReadOnlyList<Candle> candles, decimal? previousClose, CancellationToken ct)
     {
-        var next = stored.StepIndex + 1;
-        if (next >= root.StepCount)
+        // The step this exit leads to: its OnStop/OnTarget/OnExit route (read from the exit reason the
+        // row keeps), else the next step in order (IP-T529).
+        if (root.NextStepAfter(stored.StepIndex, stored.LastExitReason) is not { } next)
         {
-            await EndSequenceAsync(stored, root, $"no step follows step {stored.StepIndex + 1}", ct);
+            await EndSequenceAsync(stored, root, $"no step follows step {stored.StepIndex + 1} after a {stored.LastExitReason ?? "(unrecorded)"} exit", ct);
             return;
         }
         var label = $"step {next + 1}/{root.StepCount} pending";
@@ -1970,6 +1975,8 @@ public sealed class MonitorWorker(
         }
 
         var armedUtc = UtcNow;
+        var fromStep = stored.StepIndex + 1;
+        var via = step.RouteFor(StrategyDefinition.ExitKindOf(stored.LastExitReason)) is null ? "" : $" (routed by its {stored.LastExitReason} exit)";
         await strategyRepo.AdvanceStepAsync(stored.Id, next, armedUtc, ct);
         stored.StepIndex = next;
         stored.AwaitingTransition = false;
@@ -1980,7 +1987,7 @@ public sealed class MonitorWorker(
             $"(step {next + 1}/{root.StepCount}{StepLabel(nextStep)} armed)", ct, (decimal)snapshot.Price);
         var held = step.ThenWhen.Count == 0 ? "no ThenWhen condition" : string.Join(" and ", step.ThenWhen.Select(c => c.ToScript()));
         await LogAuditAsync("step-advance",
-            $"[{stored.Title}] {stored.Symbol} step {next + 1}/{root.StepCount}{StepLabel(nextStep)} armed — {held} held after step {next}'s exit @ {snapshot.Price:F2}",
+            $"[{stored.Title}] {stored.Symbol} step {next + 1}/{root.StepCount}{StepLabel(nextStep)} armed — {held} held after step {fromStep}'s exit{via} @ {snapshot.Price:F2}",
             userId: stored.OwnerUserId, ct: ct);
         logger.LogInformation("[{Title}] {Symbol} step {Next}/{Count} armed ({Held}).", stored.Title, stored.Symbol, next + 1, root.StepCount, held);
     }

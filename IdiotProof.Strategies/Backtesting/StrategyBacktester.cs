@@ -103,6 +103,7 @@ public static class StrategyBacktester
         int cycle = 1;
         bool blockReentry = false;
         bool awaitingTransition = false;
+        int nextStep = 0; // the step the pending transition arms: the next in order, or a route's target (IP-T529)
         DateTime exitUtc = default;
 
         // The sequence is over (last step exited, or a ThenWhen deadline passed): Repeat restarts at step 0.
@@ -148,8 +149,8 @@ public static class StrategyBacktester
                 }
                 else if (holds)
                 {
-                    report.StepTransitions.Add(new StepTransition(bar.StartUtc, step, step + 1));
-                    step++;
+                    report.StepTransitions.Add(new StepTransition(bar.StartUtc, step, nextStep));
+                    step = nextStep;
                     stepDef = steps[step];
                     allTriggers = stepTriggers[step];
                     foreach (var t in allTriggers) t.Reset();
@@ -203,11 +204,14 @@ public static class StrategyBacktester
                 {
                     FinalizeTrade(open, isLong);
                     report.Trades.Add(open);
+                    var exitKind = ExitKind(open);
                     open = null;
                     exitUtc = bar.StartUtc;
 
-                    if (step + 1 < steps.Count)
+                    // Where this exit leads: the step's OnStop/OnTarget/OnExit route, else the next step in order.
+                    if (definition.NextStepAfter(step, exitKind) is { } routed)
                     {
+                        nextStep = routed;
                         awaitingTransition = true;
                         foreach (var t in transitionTriggers[step]) t.Reset();
                     }
@@ -381,7 +385,7 @@ public static class StrategyBacktester
         // Feeds the trailing-stop (next bar) and peak-giveback exits. Long-shaped, like the live exit brain.
         if (isLong && bar.High > trade.PeakSinceEntry) trade.PeakSinceEntry = bar.High;
 
-        // Scale-out targets, in order.
+        // Scale-out targets, in order. (ExitKind below reads a final fill with none of the fixed reasons as the target.)
         while (nextTarget < targets.Count && remaining > 0)
         {
             var tgt = targets[nextTarget];
@@ -436,6 +440,22 @@ public static class StrategyBacktester
             });
             remaining = 0;
         }
+    }
+
+    /// <summary>
+    /// How a closed trade ended, for the step's OnStop/OnTarget/OnExit routes (IP-T529): the last fill's
+    /// reason. The stops and the time/giveback/While exits have fixed reasons; a final fill with any
+    /// other reason is the last take-profit target (its reason is the target's own label).
+    /// </summary>
+    private static StepExitKind ExitKind(BacktestTrade trade)
+    {
+        var reason = trade.Exits.Count > 0 ? trade.Exits[^1].Reason : "";
+        return reason switch
+        {
+            "Stop loss" or "Trailing stop" => StepExitKind.Stop,
+            "While condition failed" or "End of session" or "Peak giveback" or "Time exit" or "" => StepExitKind.Other,
+            _ => StepExitKind.Target,
+        };
     }
 
     private static void FinalizeTrade(BacktestTrade trade, bool isLong)

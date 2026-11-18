@@ -91,6 +91,10 @@ public static partial class StrategyJson
         if (def.ThenWhen.Count > 0)
             root["thenWhen"] = new JsonArray(def.ThenWhen.Select(WriteCondition).ToArray());
         if (def.ThenWithinDays is { } withinDays) root["thenWithinDays"] = withinDays;
+        // Routes (IP-T529), written only when set: a linear sequence's canon does not move.
+        if (def.OnStopStep is { } onStop) root["onStop"] = onStop;
+        if (def.OnTargetStep is { } onTarget) root["onTarget"] = onTarget;
+        if (def.OnExitStep is { } onExit) root["onExit"] = onExit;
         if (isRoot && def.NextSteps.Count > 0)
             root["nextSteps"] = new JsonArray(def.NextSteps.Select(step => (JsonNode)WriteDefinition(step, isRoot: false)).ToArray());
         return root;
@@ -190,7 +194,7 @@ public static partial class StrategyJson
         "velocityExhaustionPctPerMin", "velocityExhaustionWindowMinutes", "velocityExhaustionArmTime",
         "velocityExhaustionMinRunPercent", "velocityExhaustionRequireLowerHigh",
         "velocityExhaustionRequireVwapLoss", "velocityExhaustionExtensionSwitchPct",
-        "stepName", "thenWhen", "thenWithinDays",
+        "stepName", "thenWhen", "thenWithinDays", "onStop", "onTarget", "onExit",
     ];
 
     private static readonly string[] RootKeys = [.. DefinitionKeys, "schemaVersion", "nextSteps"];
@@ -331,7 +335,24 @@ public static partial class StrategyJson
             }
         }
 
+        def.OnStopStep = ReadRoute(root, "onStop");
+        def.OnTargetStep = ReadRoute(root, "onTarget");
+        def.OnExitStep = ReadRoute(root, "onExit");
+        // A route that names no later step is never guessed around: the whole strategy is refused.
+        if (isRoot && def.RouteProblems() is { Count: > 0 } routeProblems)
+            throw new StrategyJsonException(routeProblems[0]);
+
         return def;
+    }
+
+    /// <summary>A route key: absent, or a non-empty step name ("end" is stored lower case).</summary>
+    private static string? ReadRoute(JsonElement root, string key)
+    {
+        if (!root.TryGetProperty(key, out var el)) return null;
+        if (el.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(el.GetString()))
+            throw new StrategyJsonException($"'{key}' must be a step name or \"{StrategyDefinition.EndStep}\".");
+        var name = el.GetString()!.Trim();
+        return StrategyDefinition.IsEndStep(name) ? StrategyDefinition.EndStep : name;
     }
 
     private static ICondition ReadCondition(JsonElement el)

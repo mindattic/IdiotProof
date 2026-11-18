@@ -139,6 +139,18 @@ public static class ScriptDiagnosticCodes
         "ThenWhen(...)/Within(...) has no following Step(...): the last step has nothing to move on to, so the transition would be ignored.",
         noFix: "Either the transition is removed or a step is added; the author decides.");
 
+    public static readonly ScriptDiagnosticDescriptor IPS026 = new("IPS026", Error, "Route names no step",
+        "OnStop/OnTarget/OnExit needs the name of a step of this strategy, or \"end\"; a step itself cannot be named \"end\".",
+        noFix: "Which step was meant is the author's to say.");
+
+    public static readonly ScriptDiagnosticDescriptor IPS027 = new("IPS027", Error, "Route points backwards",
+        "OnStop/OnTarget/OnExit may only go to a later step or \"end\", so a sequence always finishes; Repeat runs it again.",
+        noFix: "Whether the steps are reordered or the route is dropped is the author's decision.");
+
+    public static readonly ScriptDiagnosticDescriptor IPS028 = new("IPS028", Warning, "Step can never be reached",
+        "No exit of an earlier step leads to this step: every earlier step routes all of its exits elsewhere.",
+        noFix: "Either a route is added to it or the step is removed; the author decides.");
+
     /// <summary>Every code, in code order, reflected from the fields above.</summary>
     public static IReadOnlyList<ScriptDiagnosticDescriptor> All { get; } =
     [

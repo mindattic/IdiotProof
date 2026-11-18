@@ -383,6 +383,18 @@ internal sealed class StepReader(StrategyBuilder builder, ScriptChain chain, Blo
                 return true;
             }
 
+            case "onstop": case "ontarget": case "onexit":
+            {
+                blocks.EndLegacyBlock();
+                if (ScriptParser.RouteArg(call.RawArgs) is { } route)
+                {
+                    if (call.Name.Equals("onstop", StringComparison.OrdinalIgnoreCase)) builder.OnStop(route);
+                    else if (call.Name.Equals("ontarget", StringComparison.OrdinalIgnoreCase)) builder.OnTarget(route);
+                    else builder.OnExit(route);
+                }
+                return true;
+            }
+
             default:
                 return false;
         }
