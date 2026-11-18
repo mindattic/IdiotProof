@@ -9,7 +9,8 @@ namespace IdiotProof.Core.Services;
 
 /// <summary>
 /// Translates trader prose into IdiotScript fluent text via the MindAttic.Legion
-/// gateway. The system prompt is built from reflection on <see cref="StrategyBuilder"/>
+/// gateway, and repairs what the model wrote until it validates or the bounded repair
+/// rounds run out (IP-T524, <see cref="GenerationRepairLoop"/>). The system prompt is built from reflection on <see cref="StrategyBuilder"/>
 /// + <see cref="Conditions"/> so the verb catalog never drifts from the codebase
 /// — adding a new builder method automatically teaches Claude about it.
 ///
@@ -22,48 +23,72 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
     internal const string UnsupportedMarker = "UNSUPPORTED:";
 
     /// <summary>
-    /// Single-shot generation. Returns the raw IdiotScript text Claude produced,
-    /// stripped of any explanatory prose / fence markers. Caller is responsible
-    /// for parse-time validation; Claude is told to emit ONLY a fluent chain.
+    /// Generates a strategy script and repairs it until it validates (IP-T524). Every output the
+    /// model returns goes through <paramref name="inspect"/> (the caller's validator: script
+    /// diagnostics, the parser, the strict canon reader and the save-time guards). An output the
+    /// validator can correct by itself is accepted with no further call; any other rejected output
+    /// goes back to the model with its errors and the proposed fixes, at most
+    /// <paramref name="maxRepairRounds"/> more times (<see cref="GenerationRepairLoop"/>). The
+    /// result carries a value only when an output validated; otherwise the last diagnostics.
+    /// A reply that is the model's own <c>UNSUPPORTED:</c> line ends it at once.
     /// <paramref name="claude"/> is the requesting user's key (<see cref="IdiotProof.Core.Identity.IClaudeKeyContext"/>:
-    /// their own, then the host's); it is used for this one call and never stored.
+    /// their own, then the host's); it is used for these calls and never stored.
     /// </summary>
-    public async Task<GenerationResult> GenerateAsync(string prose, string ticker, SignalVotingCredentials claude, CancellationToken ct = default)
+    public async Task<GenerationResult<T>> GenerateAsync<T>(string prose, string ticker, SignalVotingCredentials claude,
+        Func<string, GenerationCheck<T>> inspect, int maxRepairRounds = GenerationRepairPolicy.DefaultRounds, CancellationToken ct = default)
+        where T : class
     {
         if (string.IsNullOrWhiteSpace(prose))
-            return new GenerationResult(false, "", "Provide a description of the strategy you want.");
+            return GenerationResult<T>.Failed("Provide a description of the strategy you want.");
 
         if (string.IsNullOrWhiteSpace(claude.ClaudeApiKey))
-            return new GenerationResult(false, "", UserClaudeKeyResolver.NoKeyMessage);
+            return GenerationResult<T>.Failed(UserClaudeKeyResolver.NoKeyMessage);
 
         var systemPrompt = BuildSystemPrompt();
         var userMessage  = BuildUserMessage(prose, ticker);
+        var unsupported = false;
 
-        try
+        async Task<string> Ask(GenerationFeedback? feedback, CancellationToken token)
         {
             var content = await legion.CallAsync(
                 providerId: "claude",
                 apiKey: claude.ClaudeApiKey,
                 model: claude.ClaudeModel ?? appSettings.LlmVoterModel ?? "claude-sonnet-5",
                 systemPrompt: systemPrompt,
-                userMessage: userMessage,
+                userMessage: feedback is null ? userMessage : userMessage + "\n\n" + feedback.Render(),
                 maxTokens: 1024,
-                ct: ct).ConfigureAwait(false);
-
-            var script = StripCodeFence(content).Trim();
-            if (string.IsNullOrWhiteSpace(script))
-                return new GenerationResult(false, "", "LLM returned an empty response.");
-            if (script.StartsWith(UnsupportedMarker, StringComparison.OrdinalIgnoreCase))
-                return new GenerationResult(false, "",
-                    "The DSL can't express part of this request, so no strategy was made: "
-                    + script[UnsupportedMarker.Length..].Trim());
-
-            return new GenerationResult(true, script, null);
+                ct: token).ConfigureAwait(false);
+            return StripUsings(StripCodeFence(content ?? "")).Trim();
         }
+
+        GenerationCheck<T> Inspect(string script)
+        {
+            if (string.IsNullOrWhiteSpace(script))
+                return GenerationCheck<T>.Rejected(["The reply was empty. Reply with the fluent chain only."]);
+            if (script.StartsWith(UnsupportedMarker, StringComparison.OrdinalIgnoreCase))
+            {
+                unsupported = true;
+                return GenerationCheck<T>.Declined(
+                    "The DSL can't express part of this request, so no strategy was made: " + script[UnsupportedMarker.Length..].Trim());
+            }
+            return inspect(script);
+        }
+
+        try
+        {
+            var outcome = await GenerationRepairLoop.RunAsync(Ask, Inspect, maxRepairRounds, ct).ConfigureAwait(false);
+            if (outcome.Success)
+                return new GenerationResult<T>(true, outcome.Value, outcome.Output, null, [], outcome.Repair);
+            var error = unsupported
+                ? outcome.Errors[0]
+                : "The LLM's strategy did not validate" + (outcome.Repair.Rounds > 0 ? $" after {outcome.Repair.Rounds} repair round(s)" : "") + ".";
+            return new GenerationResult<T>(false, null, unsupported ? "" : outcome.Output, error, unsupported ? [] : outcome.Errors, outcome.Repair);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             logger.LogError(ex, "StrategyScriptGenerator failed for ticker {Ticker}", ticker);
-            return new GenerationResult(false, "", $"Generation error: {ex.Message}");
+            return GenerationResult<T>.Failed($"Generation error: {ex.Message}");
         }
     }
 
@@ -319,5 +344,29 @@ public sealed class StrategyScriptGenerator(LegionClient legion, AppSettings app
         return body.Trim();
     }
 
-    public sealed record GenerationResult(bool Success, string Script, string? Error);
+    /// <summary>
+    /// <c>Value</c> is set only when an output validated. <c>Script</c> is the last text the model
+    /// returned (fences stripped); <c>Diagnostics</c> are the last output's errors when it never
+    /// validated; <c>Repair</c> says how many calls and rounds were used and what was corrected.
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex LeadingUsing =
+        new(@"\A\s*using\s+(static\s+)?[A-Za-z_][\w.]*\s*;", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Drops <c>using ...;</c> lines a model puts before the chain (the prompt's own branching
+    /// example shows one). They are C# framing, like a code fence, and no part of the strategy.
+    /// </summary>
+    internal static string StripUsings(string content)
+    {
+        var text = content;
+        while (LeadingUsing.Match(text) is { Success: true } m) text = text[m.Length..];
+        return text;
+    }
+
+    public sealed record GenerationResult<T>(bool Success, T? Value, string Script, string? Error,
+        IReadOnlyList<string> Diagnostics, GenerationRepairReport Repair)
+        where T : class
+    {
+        public static GenerationResult<T> Failed(string error) => new(false, null, "", error, [], GenerationRepairReport.None);
+    }
 }

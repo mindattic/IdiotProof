@@ -10578,7 +10578,7 @@
       "verb": "from-transcript",
       "tool_name": "gapper_from_transcript",
       "summary": "Read a transcript and propose re-validated gapper candidate cards; nothing is queued until you \u0060gapper arm\u0060 one.",
-      "description": null,
+      "description": "Every candidate is re-validated (symbol shape, profile rules, at most five). When the LLM\u0027s reply has anything unreadable or a candidate that fails validation, it gets its own reply back with those problems for at most \u0060llm.repair.rounds\u0060 more calls (default 2); the result\u0027s \u0060repair\u0060 says what was sent back. Candidates that still fail are dropped and listed under warnings.",
       "risk": "read",
       "usage": "idiotproof gapper from-transcript \u003Ctranscript\u003E",
       "parameters": [
@@ -24464,7 +24464,7 @@
       "verb": "from-text",
       "tool_name": "strategy_from_text",
       "summary": "Turn a plain-English description into a strategy (via the LLM), show its stamp, and save it only when you confirm.",
-      "description": "The first call writes the IdiotScript, validates it and shows the stamp with a confirmation code; nothing is saved. Re-run with --confirm \u003Ccode\u003E to save exactly what was shown (the LLM is not called again). It saves inactive, in Sandbox by default, 1 share when unsized.",
+      "description": "The first call writes the IdiotScript, validates it and shows the stamp with a confirmation code; nothing is saved. A script that does not validate is repaired: spelling and punctuation fixes that leave a fully valid script are applied directly, anything else goes back to the LLM with its errors for at most \u0060llm.repair.rounds\u0060 more calls (default 2). The result\u0027s \u0060repair\u0060 says what was corrected; a script that never validates is refused with its last errors. Re-run with --confirm \u003Ccode\u003E to save exactly what was shown (the LLM is not called again). It saves inactive, in Sandbox by default, 1 share when unsized.",
       "risk": "write",
       "usage": "idiotproof strategy from-text \u003Cdescription\u003E [--ticker \u003Cstring\u003E] [--mode \u003Csandbox|paper|live\u003E] [--title \u003Cstring\u003E]",
       "parameters": [

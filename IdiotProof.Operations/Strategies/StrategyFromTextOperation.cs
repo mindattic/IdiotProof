@@ -26,6 +26,8 @@ public sealed record StrategyFromTextArgs
 
 [Operation("strategy from-text", Summary = "Turn a plain-English description into a strategy (via the LLM), show its stamp, and save it only when you confirm.", Risk = OperationRisk.Write,
     Description = "The first call writes the IdiotScript, validates it and shows the stamp with a confirmation code; nothing is saved. " +
+                  "A script that does not validate is repaired: spelling and punctuation fixes that leave a fully valid script are applied directly, anything else goes back to the LLM with its errors " +
+                  "for at most `llm.repair.rounds` more calls (default 2). The result's `repair` says what was corrected; a script that never validates is refused with its last errors. " +
                   "Re-run with --confirm <code> to save exactly what was shown (the LLM is not called again). It saves inactive, in Sandbox by default, 1 share when unsized.")]
 [Example("idiotproof strategy from-text \"Buy NVDA when it reclaims VWAP with volume, stop 2% under, take profit at 190\"")]
 [Example("idiotproof strategy from-text \"long on a 9 EMA reclaim above VWAP, 3% stop\" --ticker AMD --mode paper")]
@@ -55,36 +57,41 @@ public sealed class StrategyFromTextOperation : IOperation<StrategyFromTextArgs>
             return OperationResult.Usage("Which symbol? Pass --ticker SYM (no ticker-looking word in the description).");
 
         var credentials = await ctx.Get<IClaudeKeyContext>().ResolveAsync(ctx.CancellationToken);
-        var generated = await ctx.Get<StrategyScriptGenerator>().GenerateAsync(prose, ticker, credentials, ctx.CancellationToken);
-        if (!generated.Success) return OperationResult.Fail(generated.Error ?? "The LLM didn't produce a strategy.");
-
-        StrategyDefinition def;
-        try { def = StrategyDrafts.FromScript(generated.Script); }
-        catch (OperationException ex)
+        var policy = await GenerationRepairPolicy.ReadAsync(ctx.Get<SettingsRepository>(), ctx.CancellationToken);
+        // The repair loop (IP-T524): every script the model returns is validated in full; a complete
+        // deterministic fix is taken without another call, anything else goes back to the model.
+        var generated = await ctx.Get<StrategyScriptGenerator>().GenerateAsync(prose, ticker, credentials,
+            script => GeneratedStrategyCheck.Inspect(script, ticker), policy.MaxRounds, ctx.CancellationToken);
+        var repair = generated.Repair;
+        if (!generated.Success || generated.Value is null)
         {
-            return OperationResult.Fail($"The LLM wrote IdiotScript that doesn't parse ({ex.Message}). Nothing saved.\n\n{generated.Script}",
-                new { Script = generated.Script });
+            var why = generated.Error ?? "The LLM didn't produce a strategy.";
+            if (generated.Diagnostics.Count == 0) return OperationResult.Fail(why, new { Saved = false, Repair = repair });
+            return OperationResult.Fail(
+                $"{why} Nothing saved. Reword the description, or fix the script and use `strategy create --script`.\n" +
+                string.Join("\n", generated.Diagnostics.Select(d => "  - " + d)) +
+                (repair.Steps.Count == 0 ? "" : "\n" + repair.Render()) + "\n\n" + generated.Script,
+                new { Saved = false, generated.Script, Errors = generated.Diagnostics, Repair = repair });
         }
-        var applied = StrategyDrafts.ApplyDefaults(def, ticker);
+
+        var def = generated.Value.Definition;
+        var v = generated.Value.Validation;
+        var applied = generated.Value.Applied.ToList();
         if (!string.Equals(def.Symbol, ticker, StringComparison.OrdinalIgnoreCase))
             applied.Add($"note: the script trades {def.Symbol}, not {ticker}");
-        var v = StrategyDrafts.Validate(def);
         var stamp = def.ToStamp(new StampOptions { IncludePayload = false });
         var defaults = applied.Count == 0 ? "" : $"Defaults applied: {string.Join(", ", applied)}.\n";
-
-        if (v.HasErrors)
-            return OperationResult.Fail("The generated strategy has errors and was not saved — reword the description, or fix the script and use `strategy create --script`:\n" +
-                v.Render(ctx.Width) + "\n\n" + v.Script, new { Saved = false, Stamp = v.StampId, v.Findings, v.Script });
+        var repaired = repair.Steps.Count == 0 ? "" : repair.Render() + "\n";
 
         var title = StrategyDrafts.TitleFor(def, args.Title);
         var payload = JsonSerializer.Serialize(new { canon = v.Canon, title, mode = args.Mode.ToString(), prose });
         var pending = await ctx.Get<ConfirmationStore>().IssueAsync(owner, Kind, payload, Hash(payload),
             $"SAVE {def.Symbol} '{title}' ({v.StampId}) · {args.Mode}, inactive", ctx.CancellationToken);
 
-        var preview = stamp + "\n" + v.Script + "\n\n" + defaults + v.Render(ctx.Width) +
+        var preview = stamp + "\n" + v.Script + "\n\n" + defaults + repaired + v.Render(ctx.Width) +
                       $"\n\nNothing saved yet. To save it as {args.Mode}, inactive: idiotproof strategy from-text \"...\" --confirm {pending.Code}";
         return OperationResult.NeedsConfirmation(pending.Code, preview, pending.ExpiresUtc,
-            new { Saved = false, Stamp = v.StampId, def.Symbol, Title = title, Mode = args.Mode.ToString(), v.Script, v.Findings, v.Risk });
+            new { Saved = false, Stamp = v.StampId, def.Symbol, Title = title, Mode = args.Mode.ToString(), v.Script, v.Findings, v.Risk, Repair = repair });
     }
 
     private static async Task<OperationResult> SaveConfirmedAsync(OperationContext ctx, Guid owner)

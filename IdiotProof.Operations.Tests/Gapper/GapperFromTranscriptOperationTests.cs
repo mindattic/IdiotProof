@@ -25,13 +25,34 @@ public class GapperFromTranscriptOperationTests
         Assert.That(result.IsOk, Is.True, result.Message);
         Assert.Multiple(() =>
         {
-            Assert.That(kit.Model.Requests.Single(), Does.Contain("gapping 14%"), "the file's text went to the model");
+            Assert.That(kit.Model.Requests[0], Does.Contain("gapping 14%"), "the file's text went to the model");
+            Assert.That(kit.Model.Requests, Has.Count.EqualTo(3), "two candidates failed validation, so the reply went back for the default two repair rounds");
+            Assert.That(kit.Model.Requests[1], Does.Contain("Repair round 1").And.Contain("Skipped EFGH"));
             Assert.That(result.Human, Does.Contain("── ABCD ──").And.Contain("idiotproof gapper arm ABCD --gap 12").And.Contain("--stop 7").And.Contain("--giveback 18"));
             Assert.That(result.Human, Does.Not.Contain("── EFGH ──"), "a candidate whose dials fail validation is dropped");
             Assert.That(result.Human, Does.Contain("invalid symbol").And.Contain("Skipped EFGH"));
             Assert.That(result.Human, Does.Contain("none queued"));
         });
         Assert.That(await kit.StrategiesAsync(), Is.Empty);
+    }
+
+    [Test]
+    public async Task ABadReplyThenAGoodOne_TakesOneRepairRound()
+    {
+        using var kit = new GapperKit();
+        kit.Model.Replies.Enqueue("[{\"symbol\":\"ABCD\",\"rationale\":\"cut off");
+        kit.Model.Reply = "[{\"symbol\":\"ABCD\",\"rationale\":\"Runner.\",\"profile\":{\"stopLossPercent\":7}}]";
+
+        var result = await new GapperFromTranscriptOperation().ExecuteAsync(new GapperFromTranscriptArgs { Transcript = "ABCD is gapping" }, kit.Context());
+
+        Assert.That(result.IsOk, Is.True, result.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(kit.Model.Requests, Has.Count.EqualTo(2));
+            Assert.That(kit.Model.Requests[1], Does.Contain("cut off before the candidate list finished"));
+            Assert.That(result.Human, Does.Contain("── ABCD ──").And.Contain("1 of 2 repair round(s) used"));
+            Assert.That(result.Human, Does.Not.Contain("Warnings:"), "the accepted reply had nothing wrong with it");
+        });
     }
 
     [Test]

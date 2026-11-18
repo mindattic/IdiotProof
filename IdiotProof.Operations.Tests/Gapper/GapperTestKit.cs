@@ -121,12 +121,15 @@ internal sealed class GapperKit : IDisposable
     {
         public string Reply { get; set; } = "[]";
 
+        /// <summary>Replies for the first calls, in order (IP-T524: "bad output, then good output"); once used up, <see cref="Reply"/> answers.</summary>
+        public Queue<string> Replies { get; } = new();
+
         public List<string> Requests { get; } = [];
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             Requests.Add(request.Content is null ? "" : await request.Content.ReadAsStringAsync(ct));
-            var payload = JsonSerializer.Serialize(new { content = new[] { new { type = "text", text = Reply } }, stop_reason = "end_turn" });
+            var payload = JsonSerializer.Serialize(new { content = new[] { new { type = "text", text = Replies.Count > 0 ? Replies.Dequeue() : Reply } }, stop_reason = "end_turn" });
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(payload, Encoding.UTF8, "application/json") };
         }
     }

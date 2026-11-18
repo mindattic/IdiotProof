@@ -89,6 +89,38 @@ red-outline confirmation. (`IdiotProof.Brokers/BrokerRouter.cs`,
 phase/verb reference — by reflecting on the real `StrategyBuilder` + `Conditions` types so the
 documented/prompted DSL can never drift from the code that actually compiles.
 (`IdiotProof.Core/Services/StrategyScriptGenerator.cs`.)
+What a model writes is repaired until it validates, or refused (IP-T524). One loop,
+`GenerationRepairLoop.RunAsync` (`IdiotProof.Core/Services/GenerationRepair.cs`), sits behind
+`strategy from-text` (`StrategyScriptGenerator.GenerateAsync`) and `gapper from-transcript`
+(`GapperInterpreter.InterpretAsync`): every output goes through the caller's validator, and a
+rejected output goes back to the model, through Legion, with its own text, the exact errors and
+the proposed fixes, for at most `llm.repair.rounds` extra calls (default 2, 0 to 5; 0 = one call).
+The loop returns a value only when the validator accepted one; when the rounds run out the
+operation fails with the last output's diagnostics and no confirmation code exists, so nothing
+unvalidated can be saved. A model's own `UNSUPPORTED:` line ends it without a round. For a script
+the validator is `GeneratedStrategyCheck.Inspect` (`IdiotProof.Operations/Strategies`): no error
+from `ScriptDiagnostics`, the parser reads it, and `StrategyDrafts.Validate` finds no error (the
+canon is written and read back by the strict reader of [IP-LAW-8](#IP-LAW-8), a stop exists, and
+the other save-time guards). It corrects an output without the model only when
+`ScriptDiagnostics.Repair` offers a whole corrected script and that script passes the same
+validation in full: spelling and punctuation (a misspelled verb with one closest match, a
+parenthesis, an unterminated string, a quoted number, ignored arguments, a missing `EndIf()`),
+plus the code fence and leading `using` lines the generator strips. This is the one place a
+`ScriptFix` is applied instead of returned, and it is applied to the model's text before the
+preview the owner confirms. A repair fixes form, never substance: no stop, size, direction or
+symbol is added here, so an error with no single edit, a script that does not parse and every
+guard finding (no stop, a stop on the wrong side, a percent out of range, a bad symbol) is a
+model round or a failure. For a transcript the reader was already tolerant of form (key case, a
+number in quotes); a reply that is unreadable, cut off or has a candidate that fails validation
+is a model round, candidates are never corrected, and when the rounds run out the candidates that
+validated are kept and the rest stay in the warnings. Both results carry `repair`:
+`model_calls`, `rounds`, `max_rounds`, `deterministic_fixes` and `steps` (each `deterministic` or
+`model`, with the problems, the fixes applied or proposed, and whether the result was accepted).
+`strategy from-watchlist` calls no model and repairs nothing: it saves without a confirmation, so
+an invalid item is reported and skipped. `FakeLlmHandler` (`IDIOTPROOF_FAKE_LLM`) plays several
+`[[script: ...]]` markers in order, one per call, so a test can script "bad output, then good
+output". (`GenerationRepairLoopTests`, `StrategyFromTextOperationTests`,
+`GapperFromTranscriptOperationTests`.)
 
 ### {#IP-LAW-5} The Monitor loop survives its own failures
 `SupervisedLoop` catches per-tick exceptions, applies capped exponential backoff, resets on the

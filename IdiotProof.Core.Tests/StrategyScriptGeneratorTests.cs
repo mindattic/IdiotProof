@@ -108,6 +108,17 @@ public sealed class StrategyScriptGeneratorTests
     }
 
     [Test]
+    public void StripUsings_RemovesLeadingUsingLines_AndNothingElse()
+    {
+        const string chain = "Stock.Ticker(\"AAPL\").Long().Build();";
+        Assert.Multiple(() =>
+        {
+            Assert.That(StrategyScriptGenerator.StripUsings("using static IdiotProof.Scripting.Conditions;\nusing System;\n" + chain).Trim(), Is.EqualTo(chain));
+            Assert.That(StrategyScriptGenerator.StripUsings(chain), Is.EqualTo(chain));
+        });
+    }
+
+    [Test]
     public void StripCodeFence_LeavesCleanCodeUntouched()
     {
         const string clean = "Stock.Ticker(\"AAPL\").Long().Build();";

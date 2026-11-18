@@ -15,7 +15,14 @@ public sealed record GapperInterpretation(
     bool Success,
     IReadOnlyList<GapperCandidate> Candidates,
     IReadOnlyList<string> Warnings,
-    string? Error);
+    string? Error,
+    GenerationRepairReport? Repair = null);
+
+/// <summary>
+/// One reading of a model reply: the candidates that validated, every warning, and the warnings
+/// that are problems with the reply itself (what a repair round sends back to the model).
+/// </summary>
+public sealed record GapperReading(List<GapperCandidate> Candidates, List<string> Warnings, List<string> Problems);
 
 /// <summary>
 /// Turns free-form natural language — typically a video transcript — into
@@ -23,7 +30,9 @@ public sealed record GapperInterpretation(
 /// MindAttic.Legion (HOUSE-LAW-4); the model is instructed to emit a STRICT
 /// JSON array against the GapperProfile schema, and everything it returns is
 /// re-validated here (symbol shape, GapperProfile.Validate, candidate cap)
-/// so a hallucinated field can never reach a strategy row unchecked.
+/// so a hallucinated field can never reach a strategy row unchecked. A reply with
+/// anything unreadable or skipped goes back to the model with those problems for a
+/// bounded number of rounds (IP-T524, <see cref="GenerationRepairLoop"/>).
 ///
 /// Deliberately review-first: the caller renders candidates as cards and the
 /// human queues each one — a transcript is untrusted input and must never
@@ -41,7 +50,8 @@ public sealed class GapperInterpreter(
     /// <paramref name="claude"/> is the requesting user's key (<see cref="IdiotProof.Core.Identity.IClaudeKeyContext"/>: their
     /// own, then the host's); it is used for this one call and never stored.
     /// </summary>
-    public async Task<GapperInterpretation> InterpretAsync(string transcript, SignalVotingCredentials claude, CancellationToken ct = default)
+    public async Task<GapperInterpretation> InterpretAsync(string transcript, SignalVotingCredentials claude,
+        int maxRepairRounds = GenerationRepairPolicy.DefaultRounds, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(transcript))
             return new GapperInterpretation(false, [], [], "Paste a transcript or describe the plays first.");
@@ -51,27 +61,50 @@ public sealed class GapperInterpreter(
 
         try
         {
-            var content = await legion.CallAsync(
+            var baseProfile = BaseProfile();
+            var systemPrompt = BuildSystemPrompt(baseProfile);
+            GapperReading? best = null;
+
+            Task<string> Ask(GenerationFeedback? feedback, CancellationToken token) => legion.CallAsync(
                 providerId: "claude",
                 apiKey: claude.ClaudeApiKey,
                 model: claude.ClaudeModel ?? appSettings.LlmVoterModel ?? "claude-sonnet-5",
-                systemPrompt: BuildSystemPrompt(BaseProfile()),
-                userMessage: transcript,
+                systemPrompt: systemPrompt,
+                userMessage: feedback is null ? transcript : transcript + "\n\n" + feedback.Render(),
                 // Headroom for 5 full candidates with verbose rationales —
                 // 2000 could truncate mid-array, and a missing ']' loses
                 // EVERY candidate, not just the last one.
                 maxTokens: 4000,
-                ct: ct).ConfigureAwait(false);
+                ct: token);
 
-            var (candidates, warnings) = ParseCandidates(content, BaseProfile());
-            if (candidates.Count == 0)
-                return new GapperInterpretation(false, [], warnings,
-                    warnings.Count > 0
+            // The repair loop (IP-T524). The reader is already tolerant of form (key case, a number
+            // in quotes); anything it had to skip or could not read is a problem that goes back to
+            // the model. Candidates are never corrected here: a dial or a symbol is substance.
+            GenerationCheck<GapperReading> Inspect(string content)
+            {
+                var reading = ReadCandidates(content, baseProfile);
+                if (best is null || reading.Candidates.Count > best.Candidates.Count
+                    || (reading.Candidates.Count == best.Candidates.Count && reading.Problems.Count <= best.Problems.Count))
+                    best = reading;
+                return reading.Problems.Count == 0
+                    ? GenerationCheck<GapperReading>.Valid(reading)
+                    : GenerationCheck<GapperReading>.Rejected(reading.Problems);
+            }
+
+            var outcome = await GenerationRepairLoop.RunAsync(Ask, Inspect, maxRepairRounds, ct).ConfigureAwait(false);
+            // Rounds ran out with problems left: keep the reading with the most validated candidates.
+            // Each one passed validation on its own; what was skipped stays in the warnings.
+            var final = outcome.Value ?? best!;
+            if (final.Candidates.Count == 0)
+                return new GapperInterpretation(false, [], final.Warnings,
+                    final.Warnings.Count > 0
                         ? "No usable gapper candidates survived validation — see warnings."
-                        : "The text didn't describe any premarket gap plays I could turn into a gapper.");
+                        : "The text didn't describe any premarket gap plays I could turn into a gapper.",
+                    outcome.Repair);
 
-            return new GapperInterpretation(true, candidates, warnings, null);
+            return new GapperInterpretation(true, final.Candidates, final.Warnings, null, outcome.Repair);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             logger.LogError(ex, "Gapper transcript interpretation failed.");
@@ -133,8 +166,21 @@ public sealed class GapperInterpreter(
     /// </summary>
     internal static (List<GapperCandidate> Candidates, List<string> Warnings) ParseCandidates(string content, GapperProfile baseProfile)
     {
+        var reading = ReadCandidates(content, baseProfile);
+        return (reading.Candidates, reading.Warnings);
+    }
+
+    /// <summary>
+    /// <see cref="ParseCandidates"/> plus which of its warnings are problems with the model's output
+    /// (unreadable, cut off, a candidate skipped or read with defaults) as opposed to notes.
+    /// </summary>
+    internal static GapperReading ReadCandidates(string content, GapperProfile baseProfile)
+    {
         var candidates = new List<GapperCandidate>();
         var warnings = new List<string>();
+        var problems = new List<string>();
+        void Problem(string text) { warnings.Add(text); problems.Add(text); }
+        GapperReading Done() => new(candidates, warnings, problems);
 
         var start = content.IndexOf('[');
         var end = content.LastIndexOf(']');
@@ -143,26 +189,26 @@ public sealed class GapperInterpreter(
             // Distinguish "no array at all" from "array started but never
             // closed" — the latter means the model hit the token cap and the
             // user should know shortening the transcript will help.
-            warnings.Add(start >= 0
+            Problem(start >= 0
                 ? "The response was cut off before the candidate list finished (no closing ']') — try a shorter transcript or fewer plays."
                 : "Response contained no JSON array.");
-            return (candidates, warnings);
+            return Done();
         }
 
         JsonDocument doc;
         try { doc = JsonDocument.Parse(content[start..(end + 1)]); }
         catch (JsonException ex)
         {
-            warnings.Add($"Response was not valid JSON: {ex.Message}");
-            return (candidates, warnings);
+            Problem($"Response was not valid JSON: {ex.Message}");
+            return Done();
         }
 
         using (doc)
         {
             if (doc.RootElement.ValueKind != JsonValueKind.Array)
             {
-                warnings.Add("Response JSON was not an array.");
-                return (candidates, warnings);
+                Problem("Response JSON was not an array.");
+                return Done();
             }
 
             foreach (var el in doc.RootElement.EnumerateArray())
@@ -176,7 +222,7 @@ public sealed class GapperInterpreter(
                 var symbol = GetStringCI(el, "symbol")?.Trim().ToUpperInvariant() ?? "";
                 if (!System.Text.RegularExpressions.Regex.IsMatch(symbol, "^[A-Z]{1,6}$"))
                 {
-                    warnings.Add($"Skipped candidate with invalid symbol '{symbol}'.");
+                    Problem($"Skipped candidate with invalid symbol '{symbol}'.");
                     continue;
                 }
 
@@ -193,14 +239,14 @@ public sealed class GapperInterpreter(
                     }
                     catch (JsonException ex)
                     {
-                        warnings.Add($"{symbol}: profile block unreadable ({ex.Message}) — using defaults.");
+                        Problem($"{symbol}: profile block unreadable ({ex.Message}) — using defaults.");
                     }
                 }
 
-                var problems = profile.Validate();
-                if (problems.Count > 0)
+                var invalid = profile.Validate();
+                if (invalid.Count > 0)
                 {
-                    warnings.Add($"Skipped {symbol}: {string.Join(" ", problems)}");
+                    Problem($"Skipped {symbol}: {string.Join(" ", invalid)}");
                     continue;
                 }
 
@@ -209,7 +255,7 @@ public sealed class GapperInterpreter(
             }
         }
 
-        return (candidates, warnings);
+        return Done();
     }
 
     // AllowReadingFromString: LLMs frequently emit numeric fields as strings

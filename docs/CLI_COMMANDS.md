@@ -2244,6 +2244,8 @@ Examples:
 ```text
 Read a transcript and propose re-validated gapper candidate cards; nothing is queued until you `gapper arm` one.
 
+Every candidate is re-validated (symbol shape, profile rules, at most five). When the LLM's reply has anything unreadable or a candidate that fails validation, it gets its own reply back with those problems for at most `llm.repair.rounds` more calls (default 2); the result's `repair` says what was sent back. Candidates that still fail are dropped and listed under warnings.
+
 Usage: idiotproof gapper from-transcript <transcript>
 Risk: read
 
@@ -5213,7 +5215,7 @@ Examples:
 ```text
 Turn a plain-English description into a strategy (via the LLM), show its stamp, and save it only when you confirm.
 
-The first call writes the IdiotScript, validates it and shows the stamp with a confirmation code; nothing is saved. Re-run with --confirm <code> to save exactly what was shown (the LLM is not called again). It saves inactive, in Sandbox by default, 1 share when unsized.
+The first call writes the IdiotScript, validates it and shows the stamp with a confirmation code; nothing is saved. A script that does not validate is repaired: spelling and punctuation fixes that leave a fully valid script are applied directly, anything else goes back to the LLM with its errors for at most `llm.repair.rounds` more calls (default 2). The result's `repair` says what was corrected; a script that never validates is refused with its last errors. Re-run with --confirm <code> to save exactly what was shown (the LLM is not called again). It saves inactive, in Sandbox by default, 1 share when unsized.
 
 Usage: idiotproof strategy from-text <description> [--ticker <string>] [--mode <sandbox|paper|live>] [--title <string>]
 Risk: write

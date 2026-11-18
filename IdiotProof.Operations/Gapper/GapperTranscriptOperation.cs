@@ -14,10 +14,13 @@ public sealed record GapperFromTranscriptArgs
 /// Turns trader talk (a video transcript, chat, notes) into gapper candidate cards through the
 /// same <see cref="GapperInterpreter"/> the Gapper tab uses: Legion with the owner's Claude key,
 /// strict JSON, every candidate re-validated (symbol shape, <c>GapperProfile.Validate</c>, the
-/// five-candidate cap). Review-first: nothing is queued — each card ends with the exact
+/// five-candidate cap). A reply with anything unreadable or skipped is sent back to the model with
+/// those problems for at most <c>llm.repair.rounds</c> more calls (IP-T524). Review-first: nothing is queued — each card ends with the exact
 /// <c>gapper arm</c> command that would queue it.
 /// </summary>
-[Operation("gapper from-transcript", Summary = "Read a transcript and propose re-validated gapper candidate cards; nothing is queued until you `gapper arm` one.", Risk = OperationRisk.Read)]
+[Operation("gapper from-transcript", Summary = "Read a transcript and propose re-validated gapper candidate cards; nothing is queued until you `gapper arm` one.", Risk = OperationRisk.Read,
+    Description = "Every candidate is re-validated (symbol shape, profile rules, at most five). When the LLM's reply has anything unreadable or a candidate that fails validation, it gets its own reply back with those problems " +
+                  "for at most `llm.repair.rounds` more calls (default 2); the result's `repair` says what was sent back. Candidates that still fail are dropped and listed under warnings.")]
 [Example("idiotproof gapper from-transcript notes.txt")]
 [Example("idiotproof gapper from-transcript -", Description = "Pipe a transcript in: `type video.txt | idiotproof gapper from-transcript -`.")]
 public sealed class GapperFromTranscriptOperation : IOperation<GapperFromTranscriptArgs>
@@ -29,7 +32,9 @@ public sealed class GapperFromTranscriptOperation : IOperation<GapperFromTranscr
         if (string.IsNullOrWhiteSpace(text)) return OperationResult.Usage("The transcript is empty — pass a file, the text, or `-` and pipe it in.");
 
         var creds = await ctx.Get<IClaudeKeyContext>().ResolveAsync(ctx.CancellationToken);
-        var result = await ctx.Get<GapperInterpreter>().InterpretAsync(text, creds, ctx.CancellationToken);
+        var policy = await GenerationRepairPolicy.ReadAsync(ctx.Get<SettingsRepository>(), ctx.CancellationToken);
+        var result = await ctx.Get<GapperInterpreter>().InterpretAsync(text, creds, policy.MaxRounds, ctx.CancellationToken);
+        var repair = result.Repair ?? GenerationRepairReport.None;
 
         var cards = result.Candidates.Select(c => new
         {
@@ -39,7 +44,7 @@ public sealed class GapperFromTranscriptOperation : IOperation<GapperFromTranscr
             Script = GapperRules.Compose(c.Symbol, c.Profile).Script,
             ArmCommand = ArmCommand(c),
         }).ToList();
-        var data = new { result.Success, Candidates = cards, result.Warnings, result.Error };
+        var data = new { result.Success, Candidates = cards, result.Warnings, result.Error, Repair = repair };
         if (!result.Success)
             return OperationResult.Fail(result.Error ?? "No gapper candidates.", data);
 
@@ -50,6 +55,7 @@ public sealed class GapperFromTranscriptOperation : IOperation<GapperFromTranscr
             parts.Add($"── {c.Symbol} ──\n{c.Rationale}\n{kv.Render()}\nqueue: {c.ArmCommand}");
         }
         if (result.Warnings.Count > 0) parts.Add("Warnings:\n" + string.Join("\n", result.Warnings.Select(w => "  - " + w)));
+        if (repair.Steps.Count > 0) parts.Add(repair.Render());
         parts.Add($"{cards.Count} candidate(s), none queued. Review each card, then run its `gapper arm` line.");
         return OperationResult.Ok(data, string.Join("\n\n", parts));
     }

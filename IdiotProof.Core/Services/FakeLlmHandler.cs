@@ -17,6 +17,13 @@ namespace IdiotProof.Core.Services;
 ///      the Describe-tab prose (lets each spec choose its own IdiotScript), or
 ///   2. a default reclaim chain on the ticker named in the user message.
 ///
+/// Several markers script a conversation with the repair loop (IP-T524): the first
+/// call gets the first marker's script, repair round N gets marker N+1 (the round
+/// number is read from the request's "Repair round N" line), and when the rounds
+/// outnumber the markers the last one repeats. So "[[script: bad]] [[script: good]]"
+/// is "bad output, then good output", and one marker is the same bad output every time.
+/// The handler keeps no state between calls.
+///
 /// This class never ships active: Program.cs gates the registration on
 /// Development + the env flag, and nothing else references it.
 /// </summary>
@@ -24,6 +31,9 @@ public sealed class FakeLlmHandler : HttpMessageHandler
 {
     private static readonly Regex ScriptMarker =
         new(@"\[\[script:\s*(.+?)\s*\]\]", RegexOptions.Singleline | RegexOptions.Compiled);
+
+    private static readonly Regex RepairRound =
+        new(Regex.Escape(GenerationFeedback.RoundMarker) + @"(\d+)", RegexOptions.Compiled);
 
     private static readonly Regex TickerLine =
         new(@"Ticker:\s*([A-Za-z\.]+)", RegexOptions.Compiled);
@@ -35,10 +45,12 @@ public sealed class FakeLlmHandler : HttpMessageHandler
             ? ""
             : await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
-        var marker = ScriptMarker.Match(body);
+        var markers = ScriptMarker.Matches(body);
         string script;
-        if (marker.Success)
+        if (markers.Count > 0)
         {
+            var round = RepairRound.Match(body) is { Success: true } r && int.TryParse(r.Groups[1].Value, out var n) ? n : 0;
+            var marker = markers[Math.Min(round, markers.Count - 1)];
             // The marker travels through JSON serialization, so unescape it
             // back to raw text before returning it as the "model output".
             script = JsonSerializer.Deserialize<string>($"\"{marker.Groups[1].Value}\"") ?? "";
