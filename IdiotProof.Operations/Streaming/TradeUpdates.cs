@@ -259,8 +259,15 @@ public sealed class TradeUpdatesListener : IAsyncDisposable
             Failure = ex.Message;
         }
         lock (watchers)
+        {
+            // Set under the same lock Subscribe takes, so a late subscriber can't add a channel
+            // after these are completed but before the task reports done (IP-T562).
+            ended = true;
             foreach (var w in watchers) w.Writer.TryComplete();
+        }
     }
+
+    private bool ended;
 
     private async ValueTask OnMessageAsync(JsonElement message)
     {
@@ -304,7 +311,7 @@ public sealed class TradeUpdatesListener : IAsyncDisposable
         var channel = Channel.CreateBounded<TradeUpdate>(new BoundedChannelOptions(1000) { FullMode = BoundedChannelFullMode.DropOldest });
         lock (watchers)
         {
-            if (run is { IsCompleted: true }) channel.Writer.TryComplete();
+            if (ended) channel.Writer.TryComplete();
             else watchers.Add(channel);
         }
         return (channel.Reader, new Unsubscribe(this, channel));
