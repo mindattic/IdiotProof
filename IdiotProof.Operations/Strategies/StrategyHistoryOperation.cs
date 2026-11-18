@@ -54,7 +54,7 @@ public static class StrategyTrail
         foreach (var t in trades)
         {
             events.Add(new(t.EntryUtc, "diary", "trade-entry",
-                $"{t.Direction} {t.Quantity} {t.Symbol} @ {Fmt.Money(t.EntryPrice)} ({(t.IsPaper ? "paper" : t.Broker)}) — {t.Status}"));
+                $"{t.Direction} {Diary.DiarySupport.Qty(t.Quantity)} {t.Symbol} @ {Fmt.Money(t.EntryPrice)} ({(t.IsPaper ? "paper" : t.Broker)}) — {t.Status}"));
             if (t.ExitUtc is { } exit)
                 events.Add(new(exit, "diary", "trade-exit",
                     $"exit @ {(t.ExitPrice is { } px ? Fmt.Money(px) : "?")} — {t.ExitReason ?? "?"}" +

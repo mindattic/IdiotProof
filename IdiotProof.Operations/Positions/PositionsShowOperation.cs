@@ -113,7 +113,7 @@ public sealed class PositionsShowOperation : IOperation<PositionsShowArgs>
 
     internal static string DiaryLine(TradeDiaryEntry t)
     {
-        var entry = $"{t.Status} · {t.Direction.ToLowerInvariant()} {t.Quantity} @ {Fmt.Money(t.EntryPrice)} {Fmt.Et(t.EntryUtc)}";
+        var entry = $"{t.Status} · {t.Direction.ToLowerInvariant()} {Diary.DiarySupport.Qty(t.Quantity)} @ {Fmt.Money(t.EntryPrice)} {Fmt.Et(t.EntryUtc)}";
         if (t.StopLossPrice is { } stop) entry += $" · stop {Fmt.Money(stop)}";
         if (t.ExitUtc is { } exit)
             entry += $" → out @ {AccountReads.Money(t.ExitPrice)} {Fmt.Et(exit)} ({t.ExitReason}) {AccountReads.Signed(t.RealizedPnL)}";

@@ -63,7 +63,7 @@ public sealed class TradeDiaryRepository(IDbContextFactory<AppDbContext> dbFacto
     /// </summary>
     public async Task CloseAsync(
         Guid strategyId, decimal exitPrice, string exitReason, string? exitOrderId,
-        decimal realizedPnL, int soldQty, DateTime exitUtc, CancellationToken ct = default)
+        decimal realizedPnL, decimal soldQty, DateTime exitUtc, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var row = await db.TradeDiary
@@ -140,7 +140,7 @@ public sealed class TradeDiaryRepository(IDbContextFactory<AppDbContext> dbFacto
     /// (e.g. the position was opened outside IdiotProof, or by a strategy).
     /// </summary>
     public async Task<bool> CloseManualAsync(Guid ownerUserId, string symbol, bool isPaper, decimal? exitPrice,
-        string? exitOrderId, int quantity, DateTime exitUtc, string exitReason, CancellationToken ct = default)
+        string? exitOrderId, decimal quantity, DateTime exitUtc, string exitReason, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var row = await db.TradeDiary

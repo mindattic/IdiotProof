@@ -2883,8 +2883,8 @@ namespace IdiotProof.Core.Migrations
                     b.Property<decimal?>("PeakGivebackPercent")
                         .HasColumnType("decimal(9,4)");
 
-                    b.Property<int>("Quantity")
-                        .HasColumnType("int");
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,9)");
 
                     b.Property<decimal?>("RealizedPnL")
                         .HasColumnType("decimal(18,2)");

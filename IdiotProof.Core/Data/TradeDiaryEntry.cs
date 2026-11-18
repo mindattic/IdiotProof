@@ -58,7 +58,10 @@ public sealed class TradeDiaryEntry
     [Column(TypeName = "decimal(18,4)")]
     public decimal EntryPrice { get; set; }
 
-    public int Quantity { get; set; }
+    /// <summary>Shares (or coins) filled, exact: fractional and notional fills book their real
+    /// quantity instead of a rounded-up whole share (IP-T566). Alpaca quotes up to 9 decimals.</summary>
+    [Column(TypeName = "decimal(18,9)")]
+    public decimal Quantity { get; set; }
 
     /// <summary>Dollar sizing when the strategy is notional (else null).</summary>
     [Column(TypeName = "decimal(18,2)")]

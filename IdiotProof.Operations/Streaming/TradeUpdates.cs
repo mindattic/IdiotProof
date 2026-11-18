@@ -142,7 +142,7 @@ public sealed class FillRecorder(
         if (row.EntryOrderId == u.OrderId)
         {
             if (avg is > 0) row.EntryPrice = avg.Value;
-            if (u.FilledQty is > 0) row.Quantity = (int)Math.Ceiling(u.FilledQty.Value);
+            if (u.FilledQty is > 0) row.Quantity = u.FilledQty.Value; // exact, fractional included (IP-T566)
         }
         else
         {
@@ -166,7 +166,7 @@ public sealed class FillRecorder(
         var symbol = u.Symbol.Trim().ToUpperInvariant();
         if (symbol.Length > 20) symbol = symbol[..20];
         var avg = u.FilledAvgPrice ?? u.Price;
-        var qty = (int)Math.Ceiling(u.FilledQty ?? u.Qty ?? 0);
+        var qty = u.FilledQty ?? u.Qty ?? 0m; // exact, fractional included (IP-T566)
         if (u.Side.Equals("buy", StringComparison.OrdinalIgnoreCase))
         {
             await diary.RecordManualEntryAsync(new TradeDiaryEntry

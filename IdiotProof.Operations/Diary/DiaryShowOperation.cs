@@ -33,7 +33,7 @@ public sealed class DiaryShowOperation : IOperation<DiaryShowArgs>
         var kv = new KeyValueBlock()
             .Add("id", t.Id.ToString())
             .Add("strategy", $"{t.StrategyTitle} ({t.StrategyId.ToString("N")[..8]})")
-            .Add("trade", $"{t.Direction} {t.Quantity} {t.Symbol}" + (t.Notional is { } n ? $" (sized {Fmt.Money(n)} notional)" : ""))
+            .Add("trade", $"{t.Direction} {DiarySupport.Qty(t.Quantity)} {t.Symbol}" + (t.Notional is { } n ? $" (sized {Fmt.Money(n)} notional)" : ""))
             .Add("account", $"{r.Mode} via {t.Broker}" + (r.Mode == "live" ? " — real money" : ""))
             .Add("status", t.Status)
             .Add("entry", $"{Fmt.Money(t.EntryPrice)} at {Fmt.Et(t.EntryUtc)}" + (t.EntryOrderId is { } eo ? $" (order {eo})" : ""))

@@ -737,7 +737,10 @@ public sealed partial class TransactionGateway(
         {
             var symbol = o.Symbol.Trim().ToUpperInvariant();
             var price = o.LimitPrice ?? intent.ReferencePrice;
-            var whole = (int)Math.Ceiling(o.SizeQuantity);
+            // The exact size, fractional included (IP-T566); a notional order's shares are estimated
+            // from its price until the fill recorder books the real filled quantity.
+            var qty = o.SizeQuantity > 0 ? o.SizeQuantity
+                : o.Notional is { } notional && price is > 0m ? Math.Round(notional / price.Value, 9) : 0m;
             var now = DateTime.UtcNow;
             if (intent.Purpose == OrderPurpose.Entry)
             {
@@ -752,7 +755,7 @@ public sealed partial class TransactionGateway(
                     IsPaper = client.IsPaper,
                     EntryUtc = now,
                     EntryPrice = price ?? 0m,
-                    Quantity = whole,
+                    Quantity = qty,
                     Notional = o.Notional,
                     EntryOrderId = outcome.Order?.BrokerOrderId,
                     StopLossPrice = intent.StopLossPrice ?? o.StopLoss?.StopPrice,
@@ -762,7 +765,7 @@ public sealed partial class TransactionGateway(
             else
             {
                 await diary.CloseManualAsync(intent.OwnerUserId, symbol.Length <= 20 ? symbol : symbol[..20], client.IsPaper,
-                    price, outcome.Order?.BrokerOrderId, whole, now, "Manual", ct);
+                    price, outcome.Order?.BrokerOrderId, qty, now, "Manual", ct);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

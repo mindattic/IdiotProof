@@ -27,7 +27,7 @@ public record DiaryFilterArgs
 /// <summary>One diary trade as the diary operations show it (the full row, flattened, with derived mode and hold time).</summary>
 public sealed record DiaryRow(
     Guid Id, string Short, Guid StrategyId, string Strategy, string Symbol, string Direction, string Mode, string Broker,
-    DateTime EntryUtc, decimal EntryPrice, int Quantity, decimal? Notional, DateTime? ExitUtc, decimal? ExitPrice,
+    DateTime EntryUtc, decimal EntryPrice, decimal Quantity, decimal? Notional, DateTime? ExitUtc, decimal? ExitPrice,
     string? ExitReason, decimal? RealizedPnL, decimal? ReturnPercent, string Status, decimal? StopLossPrice,
     decimal? StopLossPercent, decimal? TrailingStopPercent, decimal? TakeProfitPrice, decimal? InitialRisk,
     decimal? RMultiple, double? HoldMinutes, string? EntryOrderId, string? ExitOrderId);
@@ -118,13 +118,16 @@ public static class DiarySupport
         var risk = InitialRisk(t);
         return new DiaryRow(
             t.Id, t.Id.ToString("N")[..8], t.StrategyId, t.StrategyTitle, t.Symbol, t.Direction, ModeOf(t).ToString().ToLowerInvariant(),
-            t.Broker, t.EntryUtc, t.EntryPrice, t.Quantity, t.Notional, t.ExitUtc, t.ExitPrice, t.ExitReason, t.RealizedPnL,
+            t.Broker, t.EntryUtc, t.EntryPrice, Qty(t.Quantity), t.Notional, t.ExitUtc, t.ExitPrice, t.ExitReason, t.RealizedPnL,
             t.ReturnPercent, t.Status, t.StopLossPrice, t.StopLossPercent, t.TrailingStopPercent, t.TakeProfitPrice,
             risk is { } r ? Math.Round(r, 2) : null,
             risk is { } rr && t.RealizedPnL is { } pnl && t.Status == TradeDiaryStatus.Closed ? Math.Round(pnl / rr, 2) : null,
             t.ExitUtc is { } exit ? Math.Round((exit - t.EntryUtc).TotalMinutes, 1) : null,
             t.EntryOrderId, t.ExitOrderId);
     }
+
+    /// <summary>A quantity without the column's trailing zeros: 5, 0.0125 (decimal(18,9) reads back as 5.000000000).</summary>
+    public static decimal Qty(decimal quantity) => quantity / 1.000000000000000000000000000000000m;
 
     /// <summary>"12m", "3h 05m", "2d 4h".</summary>
     public static string Hold(double? minutes)
