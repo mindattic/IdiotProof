@@ -158,7 +158,7 @@ public class GapperExploreTests
                 Assert.That(table.Binary(GapperExploreStage.Target).Count(v => v == true), Is.GreaterThan(50));
                 Assert.That(boosted08.Pooled, Is.GreaterThan(0.95), "premarket volume from 06:00 gives the runners away by 08:00");
                 Assert.That(boosted08.FoldValues, Has.Count.EqualTo(4));
-                Assert.That(ledger.Count(t => t.Track == "visibility"), Is.EqualTo(6), "three learners at two times");
+                Assert.That(ledger.Count(t => t.Track == "visibility"), Is.EqualTo(10), "five learners (benchmark, screen, screen+news, logistic, boosted) at two times");
                 Assert.That(ledger.Count(t => t.Track == "models"), Is.GreaterThan(4));
                 Assert.That(models.Trials, Is.EqualTo(ledger.Count(t => t.Track == "models")));
                 Assert.That(exits.Trials, Is.Zero, "the exit table is descriptive");
