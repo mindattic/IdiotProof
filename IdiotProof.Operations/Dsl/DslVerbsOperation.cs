@@ -1,6 +1,7 @@
 using IdiotProof.Operations.Rendering;
 
 using IdiotProof.Core.Services;
+using IdiotProof.Scripting;
 namespace IdiotProof.Operations.Dsl;
 
 public sealed record DslVerbsArgs
@@ -16,7 +17,9 @@ public sealed record DslVerb(string Phase, string Name, string Signature, string
 /// The IdiotScript verb catalog, reflected off the real <c>StrategyBuilder</c> and <c>Conditions</c>
 /// types (IP-LAW-4) by the same <see cref="StrategyScriptGenerator"/> code that writes the LLM
 /// prompt and the Learning Center, so the list can never drift from what actually compiles. Each
-/// verb carries its <see cref="DslGlossary"/> title and description when it has one.
+/// verb carries its <see cref="DslGlossary"/> title and description when it has one. The data also
+/// carries every diagnostic code the analyzer can report on a script written with these verbs
+/// (IP-T526), from <see cref="ScriptDiagnosticCodes"/>; <c>dsl diagnostics</c> prints them.
 /// </summary>
 [Operation("dsl verbs", Summary = "The IdiotScript verb catalog by phase, reflected from the code that compiles it (IP-LAW-4).", Risk = OperationRisk.Read)]
 [Example("idiotproof dsl verbs")]
@@ -57,8 +60,10 @@ public sealed class DslVerbsOperation : IOperation<DslVerbsArgs>
                 table.Row(v.Signature, v.Description ?? v.Title ?? "");
             blocks.Add($"{g.Phase.ToUpperInvariant()} — {g.Role} ({g.Verbs.Count})\n{table.Render()}");
         }
-        blocks.Add($"{verbs.Count} verbs, reflected from StrategyBuilder and Conditions. `idiotproof dsl glossary <verb>` explains one.");
-        return Task.FromResult(OperationResult.Ok(new { phases = groups.Select(g => new { phase = g.Phase, role = g.Role, count = g.Verbs.Count }), verbs },
+        blocks.Add($"{verbs.Count} verbs, reflected from StrategyBuilder and Conditions. `idiotproof dsl glossary <verb>` explains one; "
+                   + "`idiotproof dsl diagnostics` lists the error codes a script can get and `idiotproof dsl schema` the canonical JSON.");
+        var diagnostics = ScriptDiagnosticCodes.All.Select(DslDiagnosticCode.From).ToList();
+        return Task.FromResult(OperationResult.Ok(new { phases = groups.Select(g => new { phase = g.Phase, role = g.Role, count = g.Verbs.Count }), verbs, diagnostics },
             string.Join("\n\n", blocks)));
     }
 

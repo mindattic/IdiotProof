@@ -89,6 +89,9 @@ red-outline confirmation. (`IdiotProof.Brokers/BrokerRouter.cs`,
 phase/verb reference — by reflecting on the real `StrategyBuilder` + `Conditions` types so the
 documented/prompted DSL can never drift from the code that actually compiles.
 (`IdiotProof.Core/Services/StrategyScriptGenerator.cs`.)
+Diagnostic codes (`ScriptDiagnosticCodes`), the strategy JSON schema (`StrategyJson.Schema()`, `dsl schema`),
+argument formats and the usage-error payload are published by `agent catalog --json` from the code that
+enforces them, under contract tests (IP-T526).
 What a model writes is repaired until it validates, or refused (IP-T524). One loop,
 `GenerationRepairLoop.RunAsync` (`IdiotProof.Core/Services/GenerationRepair.cs`), sits behind
 `strategy from-text` (`StrategyScriptGenerator.GenerateAsync`) and `gapper from-transcript`

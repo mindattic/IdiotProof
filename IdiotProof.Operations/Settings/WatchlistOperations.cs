@@ -82,7 +82,7 @@ public sealed record WatchlistChangeArgs
     [Argument(0, Name = "symbols", Description = "One or more ticker symbols (space or comma separated).")]
     public string[] Symbols { get; init; } = [];
 
-    [Option("workspace", Description = "Which workspace (name or id); needed only when you have more than one.")]
+    [Option("workspace", Description = "Which workspace (name or id); needed only when you have more than one.", Example = "Default")]
     public string? Workspace { get; init; }
 }
 

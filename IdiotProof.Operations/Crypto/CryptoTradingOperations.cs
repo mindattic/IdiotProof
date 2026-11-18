@@ -38,7 +38,7 @@ public sealed record CryptoOrderArgs
     [Option("mode", Description = "paper (default) or live (needs a confirmation code). Sandbox does not simulate crypto.", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Paper;
 
-    [Option("note", Description = "Why: kept in the audit trail.")]
+    [Option("note", Description = "Why: kept in the audit trail.", Example = "Trimming before earnings")]
     public string? Note { get; init; }
 }
 

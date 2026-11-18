@@ -223,7 +223,7 @@ public sealed class OperationDispatcher(
         var (closest, _, unique) = OperationNames.Closest(name, catalog.Operations.Select(o => o.Name));
         if (bind is not null && closest is not null && unique && (meant = catalog.Find(closest)) is not null)
         {
-            try { fix = ArgsBinder.CorrectedCall(meant, bind(meant), new CallChange("operation", null, name, meant.Name)); }
+            try { fix = ArgsBinder.CorrectedCall(meant, bind(meant), new CallChange(CallChangeKinds.Operation, null, name, meant.Name)); }
             catch (Exception ex) { logger?.LogDebug(ex, "No corrected call for {Typed}", name); }
             if (fix is not null) rename = fix.Changes[0];
         }

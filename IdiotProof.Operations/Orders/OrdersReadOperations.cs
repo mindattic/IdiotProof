@@ -19,7 +19,7 @@ public sealed record OrdersListArgs
     [Option("symbol", Description = "Only orders for these symbols (comma-separated).")]
     public string? Symbol { get; init; }
 
-    [Option("side", Description = "Only buy or sell orders.")]
+    [Option("side", Description = "Only buy or sell orders.", Example = "buy")]
     public string? Side { get; init; }
 
     [Option("limit", Description = "Most orders per account (default 50, Alpaca's max 500).")]

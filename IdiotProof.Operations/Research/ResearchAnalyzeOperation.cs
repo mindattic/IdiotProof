@@ -18,7 +18,7 @@ public sealed record ResearchAnalyzeArgs
     [Option("text", Description = "Analyze this text instead of fetching anything.")]
     public string? Text { get; init; }
 
-    [Option("source", Description = "Source name to record (default: the URL's host, Alpaca's outlet, or \"manual\").")]
+    [Option("source", Description = "Source name to record (default: the URL's host, Alpaca's outlet, or \"manual\").", Example = "manual")]
     public string? Source { get; init; }
 
     [Option("days", Description = "News lookback for a ticker, 1-30 days (default 3).")]

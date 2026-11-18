@@ -17,7 +17,7 @@ public sealed record ReplayLiveArgs
     [Option("pages", Description = "Render the run pages and archive indexes (HTML only; publishing stays manual).")]
     public bool Pages { get; init; } = true;
 
-    [Option("out", Description = "Archive folder for the pages (default the mindattic.com replays folder).")]
+    [Option("out", Description = "Archive folder for the pages (default the mindattic.com replays folder).", Example = @"D:\Replays")]
     public string? Out { get; init; }
 }
 

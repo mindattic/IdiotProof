@@ -31,7 +31,7 @@ public sealed record OrderClassArgs
     [Option("tif", Description = "Time in force: day (default) or gtc.")]
     public string TimeInForce { get; init; } = "day";
 
-    [Option("client-id", Description = "Your own id for the parent order (Alpaca client_order_id).")]
+    [Option("client-id", Description = "Your own id for the parent order (Alpaca client_order_id).", Example = "my-bracket-001")]
     public string? ClientId { get; init; }
 
     [Option("stop", Description = "Planned protective stop for the Risk Guardian when the order has no stop-loss child (OTO with only a take-profit).", Short = 's')]
@@ -40,7 +40,7 @@ public sealed record OrderClassArgs
     [Option("mode", Description = "Where it routes: sandbox (simulator, the default), paper, or live (needs confirmation).", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Sandbox;
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "Trimming before earnings")]
     public string? Note { get; init; }
 }
 

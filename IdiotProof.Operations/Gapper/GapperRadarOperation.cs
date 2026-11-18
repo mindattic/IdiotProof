@@ -18,10 +18,10 @@ public sealed record GapperRadarArgs
     [Option("why", Description = "Show every reason, warning and headline under each name.")]
     public bool Why { get; init; }
 
-    [Option("dir", Description = @"Data cache folder (default D:\IdiotProofData\radar).")]
+    [Option("dir", Description = @"Data cache folder (default D:\IdiotProofData\radar).", Example = @"D:\IdiotProofData\radar")]
     public string? Dir { get; init; }
 
-    [Option("watchlist", Description = "Also set this Alpaca paper-account watchlist to the listed names (created when missing), e.g. \"Gapper radar\".")]
+    [Option("watchlist", Description = "Also set this Alpaca paper-account watchlist to the listed names (created when missing), e.g. \"Gapper radar\".", Example = "Gapper radar")]
     public string? Watchlist { get; init; }
 
     [Option("save", Description = @"Also write the rendered list to <dir>\radar-<session>.txt.")]

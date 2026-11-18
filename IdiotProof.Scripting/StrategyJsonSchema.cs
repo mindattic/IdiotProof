@@ -95,7 +95,7 @@ public static partial class StrategyJson
             ["$schema"] = SchemaDialect,
             ["$id"] = SchemaId,
             ["title"] = "IdiotProof canonical strategy JSON, schema version " + CurrentSchemaVersion,
-            ["$comment"] = "Generated from the strict reader's allow-lists (StrategyJson). The reader is the authority; this schema accepts nothing the reader refuses on the points it expresses, with one exception JSON Schema cannot state: a whole-number key must be written without a fraction or exponent (2, not 2.0). It is stricter than the reader in these places: an enum given as a number in a string, a time with surrounding spaces, and a non-array 'branches', branch 'entryConditions' or branch 'takeProfitTargets' (which the reader ignores). Rules it cannot state: every step's symbol equals the strategy's, and numbers must be finite.",
+            ["$comment"] = "Generated from the strict reader's allow-lists (StrategyJson). The reader is the authority; this schema accepts nothing the reader refuses on the points it expresses, with one exception JSON Schema cannot state: a whole-number key must be written without a fraction or exponent (2, not 2.0). It is stricter than the reader in these places: an enum given as a number in a string, a time with surrounding spaces, and a non-array 'branches', branch 'entryConditions' or branch 'takeProfitTargets' (which the reader ignores). Rules it cannot state: every step's symbol equals the strategy's, a route (onStop, onTarget, onExit) names a later step or 'end', a step is not named 'end', and numbers must be finite.",
         };
         foreach (var (key, value) in root.ToList())
         {
@@ -156,9 +156,9 @@ public static partial class StrategyJson
         ["stepName"] = new(() => Text(), "This step's name in a sequence."),
         ["thenWhen"] = new(() => ListOf("condition"), "The transition to the next step: every one must hold."),
         ["thenWithinDays"] = new(() => Whole(minimum: 1), "The transition must happen within this many days (at least 1)."),
-        ["onStop"] = new(() => Text(), "Where the sequence goes when this step is stopped out: a later step's name, or \"end\"."),
-        ["onTarget"] = new(() => Text(), "Where the sequence goes when this step's final take-profit target fills: a later step's name, or \"end\"."),
-        ["onExit"] = new(() => Text(), "Where the sequence goes after any exit with no route of its own: a later step's name, or \"end\". Absent = the next step in order."),
+        ["onStop"] = new(() => Route(), "Where the sequence goes when this step is stopped out: a later step's name, or \"end\"."),
+        ["onTarget"] = new(() => Route(), "Where the sequence goes when this step's final take-profit target fills: a later step's name, or \"end\"."),
+        ["onExit"] = new(() => Route(), "Where the sequence goes after any exit with no route of its own: a later step's name, or \"end\". Absent = the next step in order."),
         ["nextSteps"] = new(() => ListOf("step"), "The later steps of a sequence, in order. Only the strategy itself carries them; a step never nests steps."),
     };
 
@@ -292,6 +292,17 @@ public static partial class StrategyJson
     private static JsonObject ListOf(string definition) => new() { ["type"] = "array", ["items"] = Ref(definition) };
 
     private static JsonObject Text() => new() { ["type"] = new JsonArray("string", "null") };
+
+    /// <summary>
+    /// A route key (IP-T529): a non-blank string, never null (the reader refuses both). That it must name a
+    /// later step or "end" is a rule the schema cannot state; "end" is the one value that is always valid.
+    /// </summary>
+    private static JsonObject Route() => new()
+    {
+        ["type"] = "string",
+        ["pattern"] = "\\S",
+        ["examples"] = new JsonArray(StrategyDefinition.EndStep),
+    };
 
     private static JsonObject Flag() => new() { ["type"] = new JsonArray("boolean", "null") };
 

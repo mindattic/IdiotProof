@@ -10,7 +10,7 @@ public sealed record EvidenceSurvivalArgs
     [Option("strategy", Description = "Only replay trades whose strategy/family name contains this text (case-insensitive).")]
     public string? Strategy { get; init; }
 
-    [Option("symbol", Description = "Only this symbol's replay trades.")]
+    [Option("symbol", Description = "Only this symbol's replay trades.", Example = "AAPL")]
     public string? Symbol { get; init; }
 
     [Option("from", Description = "First trade day (yyyy-MM-dd ET).")]

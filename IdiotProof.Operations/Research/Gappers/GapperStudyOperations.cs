@@ -454,7 +454,7 @@ public sealed class GapperExploreOperation : IOperation<GapperExploreArgs>
 
 public sealed record GapperDetectorExportArgs
 {
-    [Option("out", Description = @"Where to write formation-detector.json (default: IdiotProof.Core\Catalogs in the repo that holds the study folder).")]
+    [Option("out", Description = @"Where to write formation-detector.json (default: IdiotProof.Core\Catalogs in the repo that holds the study folder).", Example = @"D:\Tempormation-detector.json")]
     public string? Out { get; init; }
 }
 

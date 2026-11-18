@@ -209,10 +209,10 @@ public abstract record GapperDialArgs
     [Option("max-price", Description = "Highest price that qualifies.")]
     public double? MaxPrice { get; init; }
 
-    [Option("entry-start", Description = "Entry window start, ET (HH:mm).")]
+    [Option("entry-start", Description = "Entry window start, ET (HH:mm).", Example = "04:00")]
     public string? EntryStart { get; init; }
 
-    [Option("entry-end", Description = "Entry window end, ET (HH:mm).")]
+    [Option("entry-end", Description = "Entry window end, ET (HH:mm).", Example = "09:00")]
     public string? EntryEnd { get; init; }
 
     [Option("stop", Description = "Hard stop below entry, percent.")]
@@ -224,10 +224,10 @@ public abstract record GapperDialArgs
     [Option("giveback", Description = "Sell once price gives back this percent of the entry-to-peak run.")]
     public double? Giveback { get; init; }
 
-    [Option("arm-exit", Description = "ET time the giveback exit arms (HH:mm).")]
+    [Option("arm-exit", Description = "ET time the giveback exit arms (HH:mm).", Example = "09:15")]
     public string? ArmExit { get; init; }
 
-    [Option("sell-by", Description = "Hard flatten time, ET (HH:mm), before the 9:30 bell.")]
+    [Option("sell-by", Description = "Hard flatten time, ET (HH:mm), before the 9:30 bell.", Example = "09:28")]
     public string? SellBy { get; init; }
 
     [Option("notional", Description = "Position size in dollars.")]

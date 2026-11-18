@@ -64,6 +64,14 @@ public sealed class OptionAttribute(string name) : Attribute
 
     /// <summary>Optional one-letter alias (<c>-a</c>); <c>'\0'</c> means none.</summary>
     public char Short { get; init; }
+
+    /// <summary>
+    /// Optional example value, written as it would be typed on the CLI (<c>"AAPL"</c>, <c>"2026-10-30"</c>).
+    /// The catalog publishes it for this parameter; without one the example comes from the
+    /// operation's <see cref="ExampleAttribute"/> lines, then the default, then the type. The
+    /// catalog rejects a value the binder would not accept.
+    /// </summary>
+    public string? Example { get; init; }
 }
 
 /// <summary>
@@ -84,4 +92,12 @@ public sealed class ArgumentAttribute(int position) : Attribute
 
     /// <summary>Positional arguments are required unless said otherwise.</summary>
     public bool Required { get; init; } = true;
+
+    /// <summary>
+    /// Optional example value, written as it would be typed on the CLI (<c>"AAPL"</c>, <c>"2026-10-30"</c>).
+    /// The catalog publishes it for this parameter; without one the example comes from the
+    /// operation's <see cref="ExampleAttribute"/> lines, then the default, then the type. The
+    /// catalog rejects a value the binder would not accept.
+    /// </summary>
+    public string? Example { get; init; }
 }

@@ -48,7 +48,7 @@ public sealed record CryptoFeeEstimateArgs
     [Argument(2, Name = "to", Description = "Destination address.")]
     public string To { get; init; } = "";
 
-    [Option("from", Description = "Source address (default: your Alpaca wallet).")]
+    [Option("from", Description = "Source address (default: your Alpaca wallet).", Example = "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984")]
     public string? From { get; init; }
 
     [Option("mode", Description = "paper or live (default paper).")]
@@ -69,7 +69,7 @@ public sealed record CryptoWithdrawArgs
     [Option("mode", Description = "paper or live (default paper). Always needs a confirmation code.")]
     public BrokerMode Mode { get; init; } = BrokerMode.Paper;
 
-    [Option("note", Description = "Why: kept in the audit trail.")]
+    [Option("note", Description = "Why: kept in the audit trail.", Example = "Moving to cold storage")]
     public string? Note { get; init; }
 }
 

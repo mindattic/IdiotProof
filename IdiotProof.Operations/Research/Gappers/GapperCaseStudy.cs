@@ -30,7 +30,7 @@ public sealed record GapperCaseStudyArgs
     [Option("top", Description = "Runners per session (default 5).")]
     public int Top { get; init; } = 5;
 
-    [Option("extra", Description = "Extra names per day, e.g. \"2026-11-09:CKX,GFR;2026-11-06:NWGL\".")]
+    [Option("extra", Description = "Extra names per day, e.g. \"2026-11-09:CKX,GFR;2026-11-06:NWGL\".", Example = "2026-11-09:CKX,GFR;2026-11-06:NWGL")]
     public string? Extra { get; init; }
 }
 

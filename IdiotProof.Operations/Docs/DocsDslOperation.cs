@@ -9,7 +9,7 @@ namespace IdiotProof.Operations.Docs;
 
 public sealed record DocsDslArgs
 {
-    [Argument(0, Name = "verb", Description = "An IdiotScript verb or alias: StopLoss, IsAboveVwap, OnReclaim, RequireAdxAbove, ...")]
+    [Argument(0, Name = "verb", Description = "An IdiotScript verb or alias (StopLoss, IsAboveVwap, OnReclaim, RequireAdxAbove, ...) or a diagnostic code (IPS006).")]
     public string Verb { get; init; } = "";
 }
 
@@ -17,17 +17,25 @@ public sealed record DocsDslArgs
 /// <c>docs dsl</c> (IP-T270): everything about one IdiotScript verb in one place: its phase and
 /// every overload as reflected from <see cref="StrategyBuilder"/> / <see cref="Conditions"/>
 /// (IP-LAW-4), the glossary meaning, the method's XML doc comment and source line, a worked
-/// example built from the real signature, and where the checkout already uses it.
+/// example built from the real signature, and where the checkout already uses it. Given a
+/// diagnostic code (<c>IPS006</c>) it explains that code instead (IP-T526): severity, meaning and
+/// what its fix does or why it has none, from <see cref="ScriptDiagnosticCodes"/>.
 /// </summary>
 [Operation("docs dsl", Summary = "Explain one IdiotScript verb: phase, signatures, meaning, doc comment, an example from its real signature, and uses.", Risk = OperationRisk.Read)]
 [Example("idiotproof docs dsl StopLoss")]
 [Example("idiotproof docs dsl IsAboveVwap --json")]
+[Example("idiotproof docs dsl IPS006", Description = "A diagnostic code: what it means and what its fix does.")]
 public sealed class DocsDslOperation : IOperation<DocsDslArgs>
 {
     public async Task<OperationResult> ExecuteAsync(DocsDslArgs args, OperationContext ctx)
     {
         var wanted = DslVerbsOperation.NameOf(args.Verb);
         if (wanted.Length == 0) return OperationResult.Usage("Name a verb, e.g. `idiotproof docs dsl StopLoss` (`dsl verbs` lists them).");
+        if (ScriptDiagnosticCodes.Find(wanted) is { } code)
+        {
+            var diagnostic = DslDiagnosticCode.From(code);
+            return OperationResult.Ok(new { diagnostic }, diagnostic.Render());
+        }
 
         var glossary = DslGlossary.Find(wanted) ?? DslGlossary.All.FirstOrDefault(e => e.Key.Equals(wanted, StringComparison.OrdinalIgnoreCase));
         var catalog = Catalog();

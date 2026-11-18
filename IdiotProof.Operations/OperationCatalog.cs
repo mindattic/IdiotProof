@@ -98,10 +98,20 @@ public sealed class OperationCatalog
     /// <summary>The closest operation name to what was typed, for "did you mean" messages.</summary>
     public string? Suggest(string name) => OperationNames.Suggest(name, Operations.Select(o => o.Name));
 
-    /// <summary>The whole catalog as JSON — what <c>/api/catalog</c>, <c>agent catalog</c> and the docs export emit.</summary>
+    /// <summary>
+    /// The whole catalog as JSON — what <c>/api/catalog</c>, <c>agent catalog</c> and the docs export emit.
+    /// Besides the operations it carries what a caller needs to get a call right and to apply a
+    /// correction (IP-T526), each part reflected from the code that enforces it:
+    /// <c>value_formats</c> (how each argument type may be written, from the binder's tables),
+    /// <c>errors</c> (the shape of a usage error and its corrected call) and <c>dsl</c> (every
+    /// IdiotScript diagnostic code, the fix payload, and the schema of the canonical strategy JSON).
+    /// </summary>
     public JsonObject ToJsonNode() => new()
     {
         ["program"] = OperationDescriptor.ProgramName,
+        ["value_formats"] = ValueFormats.ToJson(),
+        ["errors"] = SelfDescription.Errors(),
+        ["dsl"] = SelfDescription.Dsl(),
         ["operations"] = new JsonArray([.. Operations.Select(o => (JsonNode)o.ToJson())]),
     };
 
@@ -273,7 +283,10 @@ public sealed class OperationCatalog
                 Property = prop,
                 DefaultValue = defaultValue,
                 EnumValues = valueType.IsEnum ? [.. Enum.GetValues(valueType).Cast<object>().Select(OperationParameter.EnumWireName)] : [],
+                DeclaredExample = option?.Example ?? argument?.Example,
             });
+            if (parameters[^1] is { DeclaredExample: { } declared } described && ArgsBinder.ExampleValue(described, declared) is null)
+                problems.Add($"'{op}': parameter '{name}' has Example \"{declared}\", which is not {ValueFormats.For(kind).Expects}.");
         }
 
         foreach (var dupe in parameters.GroupBy(p => OperationNames.Fold(p.Name)).Where(g => g.Count() > 1))

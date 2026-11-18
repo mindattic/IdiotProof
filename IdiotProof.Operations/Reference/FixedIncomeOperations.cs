@@ -20,13 +20,13 @@ public sealed record AssetsBondsArgs
     [Option("subtype", Description = "Treasury subtype filter (bill, note, bond, strips, tips, floating_rate).")]
     public string? Subtype { get; init; }
 
-    [Option("bond-status", Description = "Bond status filter (outstanding, matured, pre_issuance).")]
+    [Option("bond-status", Description = "Bond status filter (outstanding, matured, pre_issuance).", Example = "outstanding")]
     public string? BondStatus { get; init; }
 
-    [Option("cusips", Description = "Only these CUSIPs, comma separated.")]
+    [Option("cusips", Description = "Only these CUSIPs, comma separated.", Example = "912810TM0")]
     public string[] Cusips { get; init; } = [];
 
-    [Option("isins", Description = "Only these ISINs, comma separated.")]
+    [Option("isins", Description = "Only these ISINs, comma separated.", Example = "US912810TM09")]
     public string[] Isins { get; init; } = [];
 
     [Option("search", Description = "Keep bonds whose description, issuer, ticker, CUSIP or ISIN contains this text.")]

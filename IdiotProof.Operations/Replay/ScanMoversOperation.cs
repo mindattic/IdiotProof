@@ -33,7 +33,7 @@ public sealed record ScanMoversArgs
     [Option("pages", Description = "With --replay: render run pages and archive indexes (HTML only).")]
     public bool Pages { get; init; } = true;
 
-    [Option("out", Description = "Archive folder for the pages (default the mindattic.com replays folder).")]
+    [Option("out", Description = "Archive folder for the pages (default the mindattic.com replays folder).", Example = @"D:\Replays")]
     public string? Out { get; init; }
 }
 

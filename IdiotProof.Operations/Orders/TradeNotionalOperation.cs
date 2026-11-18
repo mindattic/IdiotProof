@@ -24,7 +24,7 @@ public sealed record TradeNotionalArgs
     [Option("mode", Description = "Where it routes: sandbox (simulator, the default), paper, or live (needs confirmation).", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Sandbox;
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "Trimming before earnings")]
     public string? Note { get; init; }
 }
 

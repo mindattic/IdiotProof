@@ -16,7 +16,7 @@ public sealed record ReplayRunArgs
     [Argument(1, Name = "date", Required = false, Description = "The ET trading day (yyyy-MM-dd); default the last completed trading day.")]
     public DateOnly? Date { get; init; }
 
-    [Option("strategy", Description = "Replay this saved strategy (id, id prefix, stamp id or symbol) instead of the symbol's own.", Short = 's')]
+    [Option("strategy", Description = "Replay this saved strategy (id, id prefix, stamp id or symbol) instead of the symbol's own.", Short = 's', Example = "AAPL")]
     public string? Strategy { get; init; }
 
     [Option("profile", Description = "Replay a gapper profile on the fly (e.g. classic-gapper, penny-runner).", Short = 'p')]
@@ -31,7 +31,7 @@ public sealed record ReplayRunArgs
     [Option("pages", Description = "Render the run page and archive indexes (HTML only; publishing stays manual).")]
     public bool Pages { get; init; } = true;
 
-    [Option("out", Description = "Archive folder for the pages (default the mindattic.com replays folder).")]
+    [Option("out", Description = "Archive folder for the pages (default the mindattic.com replays folder).", Example = @"D:\Replays")]
     public string? Out { get; init; }
 }
 

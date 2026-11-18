@@ -10,7 +10,7 @@ public sealed record StrategyValidateArgs
     [Option("script", Description = "Validate this IdiotScript text instead of a saved strategy (`-` reads stdin).", Short = 's')]
     public string? Script { get; init; }
 
-    [Option("canon", Description = "Validate this canonical JSON instead of a saved strategy (`-` reads stdin).")]
+    [Option("canon", Description = "Validate this canonical JSON instead of a saved strategy (`-` reads stdin).", Example = "-")]
     public string? Canon { get; init; }
 }
 

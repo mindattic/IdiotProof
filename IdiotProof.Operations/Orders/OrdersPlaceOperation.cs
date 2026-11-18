@@ -101,7 +101,7 @@ public sealed record OrdersPlaceArgs
     [Option("client-id", Description = "Your own order id (Alpaca client_order_id, up to 128 characters).")]
     public string? ClientId { get; init; }
 
-    [Option("intent", Description = "Position intent: buy-to-open, buy-to-close, sell-to-open or sell-to-close.")]
+    [Option("intent", Description = "Position intent: buy-to-open, buy-to-close, sell-to-open or sell-to-close.", Example = "buy-to-open")]
     public string? Intent { get; init; }
 
     [Option("stop", Description = "Planned protective stop for an entry (the Risk Guardian refuses entries without one).", Short = 's')]
@@ -113,7 +113,7 @@ public sealed record OrdersPlaceArgs
     [Option("mode", Description = "Where it routes: sandbox (simulator, the default), paper, or live (needs confirmation).", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Sandbox;
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "Trimming before earnings")]
     public string? Note { get; init; }
 }
 

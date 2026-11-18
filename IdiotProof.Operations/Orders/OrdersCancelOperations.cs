@@ -13,7 +13,7 @@ public sealed record OrdersCancelArgs
     [Option("mode", Description = "The account the order is in: paper (default), live (needs confirmation) or sandbox.", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Paper;
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "No longer wanted")]
     public string? Note { get; init; }
 }
 
@@ -63,7 +63,7 @@ public sealed record OrdersCancelAllArgs
     [Option("mode", Description = "The account: paper (default), live (needs confirmation) or sandbox.", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Paper;
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "Flat into the close")]
     public string? Note { get; init; }
 }
 

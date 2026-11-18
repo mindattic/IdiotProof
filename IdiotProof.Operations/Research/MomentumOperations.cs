@@ -34,7 +34,7 @@ public sealed record MomentumExtractArgs
     [Option("force", Description = "Re-extract transcripts that already have claims (their claims and outcomes are replaced).")]
     public bool Force { get; init; }
 
-    [Option("dir", Description = @"Data folder for the market-data caches (default D:\IdiotProofData\momentum).")]
+    [Option("dir", Description = @"Data folder for the market-data caches (default D:\IdiotProofData\momentum).", Example = @"D:\IdiotProofData\momentum")]
     public string? Dir { get; init; }
 }
 
@@ -60,7 +60,7 @@ public sealed record MomentumVerifyArgs
     [Option("force", Description = "Re-verify claims that already have outcomes.")]
     public bool Force { get; init; }
 
-    [Option("dir", Description = @"Data folder for the market-data caches (default D:\IdiotProofData\momentum).")]
+    [Option("dir", Description = @"Data folder for the market-data caches (default D:\IdiotProofData\momentum).", Example = @"D:\IdiotProofData\momentum")]
     public string? Dir { get; init; }
 }
 
@@ -79,7 +79,7 @@ public sealed class MomentumVerifyOperation : IOperation<MomentumVerifyArgs>
 
 public sealed record MomentumReResolveArgs
 {
-    [Option("dir", Description = @"Market-data cache folder (default D:\IdiotProofData\momentum).")]
+    [Option("dir", Description = @"Market-data cache folder (default D:\IdiotProofData\momentum).", Example = @"D:\IdiotProofData\momentum")]
     public string? Dir { get; init; }
 }
 
@@ -97,7 +97,7 @@ public sealed class MomentumReResolveOperation : IOperation<MomentumReResolveArg
 
 public sealed record MomentumExportArgs
 {
-    [Option("out", Description = @"Where to write the JSON (default D:\IdiotProofData\momentum\edge-calls.json).")]
+    [Option("out", Description = @"Where to write the JSON (default D:\IdiotProofData\momentum\edge-calls.json).", Example = @"D:\IdiotProofData\momentum\edge-calls.json")]
     public string? Out { get; init; }
 }
 
@@ -118,7 +118,7 @@ public sealed record MomentumReportArgs
     [Option("since", Description = "Only claims with a trade date on or after this ET date, yyyy-MM-dd.")]
     public DateOnly? Since { get; init; }
 
-    [Option("out", Description = "Where to write the markdown report (default docs/research/momentum-claims-report.md in the repo, else the data folder).")]
+    [Option("out", Description = "Where to write the markdown report (default docs/research/momentum-claims-report.md in the repo, else the data folder).", Example = "docs/research/momentum-claims-report.md")]
     public string? Out { get; init; }
 }
 

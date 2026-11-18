@@ -22,6 +22,19 @@ idiotproof agent bootstrap --json     # the same, machine-readable
   unless the person asks.
 - Then learn the surface: `idiotproof help`, `idiotproof <noun> --help`,
   `idiotproof agent catalog --json` (the MCP server exposes the same catalog as tools).
+- The catalog describes itself, so read it before guessing (everything in it is generated from
+  the code that enforces it):
+  - each parameter of each operation has its `type`, `value_kind`, `format`, `required`,
+    `default`, `enum_values` and an `example` the binder accepts (`example_source` says whether
+    it was declared, taken from an example command, the default, or only the type's sample);
+  - `value_formats` says, per value kind, what is accepted (dates `yyyy-MM-dd`, ET times
+    `HH:mm`, numbers, flags), what is refused but corrected for you, and what is never corrected;
+  - `errors` lists every status with its exit code and gives the JSON Schema of a usage error's
+    `data` (`errors[]`, `fix` with `command_line`, `argv`, `args`, `changes`), the meaning of
+    each change `kind`, and how to apply the corrected call;
+  - `dsl` lists every IdiotScript diagnostic code (IPS001...) with what its fix does or why it
+    has none, the schema of the repair payload (`diagnostics`, `fixes`, `corrected_script`), and
+    `strategy_schema`, the JSON Schema of the canonical strategy JSON.
 - Every command acts for one owner: `--user <guid>`, else the saved default
   (`idiotproof users use <guid>`), else the Hub's default when only one user exists.
   `idiotproof users whoami` says which and why.
@@ -98,6 +111,9 @@ idiotproof docs story K1              # a user story with its status and proving
 idiotproof docs explain TransactionGateway   # doc comment, declaration path:line, callers
 idiotproof docs ticket IP-T259        # a ticket with its commits and dependencies
 idiotproof docs dsl StopLoss          # an IdiotScript verb: phase, signatures, example
+idiotproof docs dsl IPS006            # a diagnostic code: meaning, and what its fix does
+idiotproof dsl diagnostics            # every diagnostic code (dsl verbs --json carries them too)
+idiotproof dsl schema                 # the canonical strategy JSON: every key, type and required key
 ```
 
 The laws in [docs/BIBLE.md §5](../BIBLE.md#IP-§5) are non-negotiable; if a request would break
@@ -127,6 +143,10 @@ one (for example "skip the stop loss" breaks IP-LAW-2), say so instead of lookin
   replacement) and `corrected_script` is the whole script with the fixes applied, when that
   re-checks clean. `dsl validate --fix` (or `dsl parse --fix`) returns the corrected script as
   the result. Commands that save or activate a strategy never apply a fix: send the corrected
-  script yourself, after checking it says what was meant.
+  script yourself, after checking it says what was meant. `dsl diagnostics <code>` explains a
+  code; one that has no fix says why, and that part needs the person's decision.
+- Canonical strategy JSON the strict reader refuses → there is no fix payload; the message
+  names the key or value. Correct it against `dsl schema` (the reader is the authority; the
+  schema lists exactly the keys it accepts).
 - `Blocked` → report it (rule 3).
 - Anything else → show the message; `idiotproof hub logs` has the Hub side.

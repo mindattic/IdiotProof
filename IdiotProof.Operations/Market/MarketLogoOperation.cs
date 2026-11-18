@@ -10,7 +10,7 @@ public sealed record MarketLogoArgs
     [Option("placeholder", Description = "When Alpaca has no logo, save its generated placeholder instead of failing.")]
     public bool Placeholder { get; init; }
 
-    [Option("dir", Description = @"Folder to save into (default %LOCALAPPDATA%\MindAttic\IdiotProof\Logos).")]
+    [Option("dir", Description = @"Folder to save into (default %LOCALAPPDATA%\MindAttic\IdiotProof\Logos).", Example = @"C:\Temp\logos")]
     public string? Dir { get; init; }
 }
 

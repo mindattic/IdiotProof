@@ -18,7 +18,7 @@ public sealed record MarketWatchArgs
     [Option("news", Description = "Also stream news headlines for these symbols (all news when no symbol is given).")]
     public bool News { get; init; }
 
-    [Option("feed", Description = "Stock feed: sip, iex or delayed_sip (default: the Hub's market data tier).")]
+    [Option("feed", Description = "Stock feed: sip, iex or delayed_sip (default: the Hub's market data tier).", Example = "sip")]
     public string? Feed { get; init; }
 
     [Option("options-feed", Description = "Options feed: opra or indicative (default opra).")]

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text.Json;
 
 namespace IdiotProof.Operations;
@@ -8,14 +9,22 @@ namespace IdiotProof.Operations;
 /// </summary>
 public enum OperationStatus
 {
+    // The descriptions are what the agent catalog publishes for each status (IP-T526).
+    [Description("The operation ran.")]
     Ok = 0,
+
+    [Description("The operation ran and failed; 'message' says why.")]
     Failed = 1,
+
+    [Description("The call was not understood, so nothing ran: unknown operation or option, missing or unreadable argument. 'data' may carry the corrected call (see usage_error).")]
     UsageError = 2,
 
     /// <summary>A safety gate (risk guardian, market hours, live-mode elevation) vetoed the action.</summary>
+    [Description("A safety gate refused the action. Final: do not retry or work around it.")]
     Blocked = 3,
 
     /// <summary>Nothing happened yet: re-run with the returned confirmation code to proceed.</summary>
+    [Description("Nothing happened yet. Show the person the preview; re-run with the returned confirmation code only on their explicit yes.")]
     ConfirmationRequired = 4,
 }
 

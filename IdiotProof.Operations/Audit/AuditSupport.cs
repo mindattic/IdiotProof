@@ -10,7 +10,7 @@ public record AuditFilterArgs
     [Option("since", Description = "First ET date to include, yyyy-MM-dd (default: everything kept).")]
     public DateOnly? Since { get; init; }
 
-    [Option("kind", Description = "Only these categories, comma-separated: signal-fire, entry, exit, order-rejected, risk, broker, system, ...")]
+    [Option("kind", Description = "Only these categories, comma-separated: signal-fire, entry, exit, order-rejected, risk, broker, system, ...", Example = "entry,exit")]
     public string[]? Kind { get; init; }
 
     [Option("system", Description = "Include system-wide rows that belong to no user (default on; --no-system for only yours).")]

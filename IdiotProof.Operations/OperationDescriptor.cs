@@ -31,6 +31,19 @@ public enum ParameterValueKind
 /// <summary>An example command line from <see cref="ExampleAttribute"/>.</summary>
 public sealed record OperationExample(string CommandLine, string? Description);
 
+/// <summary>
+/// One accepted value of a parameter and where it came from: <c>declared</c> (the attribute's
+/// Example), <c>example</c> (one of the operation's example command lines), <c>default</c> (the
+/// args record's default) or <c>type</c> (the type's generic example, or the first enum value).
+/// </summary>
+public sealed record ParameterExample(JsonNode? Value, string Source)
+{
+    public const string Declared = "declared";
+    public const string FromExample = "example";
+    public const string FromDefault = "default";
+    public const string FromType = "type";
+}
+
 /// <summary>One option or argument of an operation, reflected from its args record.</summary>
 public sealed class OperationParameter
 {
@@ -65,26 +78,18 @@ public sealed class OperationParameter
     /// <summary>For enums: the accepted kebab-case names, in declaration order.</summary>
     public IReadOnlyList<string> EnumValues { get; init; } = [];
 
+    /// <summary>The example value the args record declares for this parameter (CLI spelling), or null.</summary>
+    public string? DeclaredExample { get; init; }
+
+    /// <summary>How a value of this parameter's type may be written (<see cref="ValueFormats"/>).</summary>
+    public ValueFormat Format => ValueFormats.For(ValueKind);
+
     public bool IsFlag => ValueKind == ParameterValueKind.Boolean;
 
     public bool IsArray => ValueKind == ParameterValueKind.StringArray;
 
     /// <summary>Short type label for help and the catalog: <c>int</c>, <c>uuid</c>, <c>paper|live</c>, <c>string[]</c>.</summary>
-    public string TypeLabel => ValueKind switch
-    {
-        ParameterValueKind.String => "string",
-        ParameterValueKind.Boolean => "bool",
-        ParameterValueKind.Int32 => "int",
-        ParameterValueKind.Int64 => "long",
-        ParameterValueKind.Decimal => "decimal",
-        ParameterValueKind.Double => "number",
-        ParameterValueKind.Guid => "uuid",
-        ParameterValueKind.Date => "date",
-        ParameterValueKind.Time => "time",
-        ParameterValueKind.Enum => string.Join('|', EnumValues),
-        ParameterValueKind.StringArray => "string[]",
-        _ => "string",
-    };
+    public string TypeLabel => ValueKind == ParameterValueKind.Enum ? string.Join('|', EnumValues) : Format.Type;
 
     /// <summary>The kebab-case wire name of an enum member (<c>ShortSale</c> → <c>short-sale</c>).</summary>
     public static string EnumWireName(object value) => OperationNames.ToKebab(value.ToString()!);
@@ -142,6 +147,7 @@ public sealed class OperationDescriptor
     private readonly JsonObject schema;
     private readonly Func<object, object, OperationContext, Task<OperationResult>> invoker;
     private readonly ConstructorInfo? argsConstructor;
+    private readonly Lazy<IReadOnlyDictionary<OperationParameter, ParameterExample>> parameterExamples;
 
     internal OperationDescriptor(
         OperationAttribute attribute,
@@ -165,6 +171,7 @@ public sealed class OperationDescriptor
         Examples = examples;
         this.argsConstructor = argsConstructor;
         schema = BuildSchema();
+        parameterExamples = new(BuildParameterExamples);
 
         // One closed generic thunk per operation, so dispatch is a delegate call, not MethodInfo.Invoke.
         invoker = (Func<object, object, OperationContext, Task<OperationResult>>)Delegate.CreateDelegate(
@@ -283,10 +290,14 @@ public sealed class OperationDescriptor
             ["position"] = p.Position,
             ["short"] = p.Short?.ToString(),
             ["type"] = p.TypeLabel,
+            ["value_kind"] = p.Format.Type,
+            ["format"] = p.Format.Expects,
             ["required"] = p.Required,
             ["description"] = p.Description,
             ["default"] = p.DefaultJson(),
             ["enum_values"] = p.EnumValues.Count == 0 ? null : new JsonArray([.. p.EnumValues.Select(v => (JsonNode)v)]),
+            ["example"] = ExampleOf(p).Value?.DeepClone(),
+            ["example_source"] = ExampleOf(p).Source,
         })]),
         ["examples"] = new JsonArray([.. Examples.Select(e => (JsonNode)new JsonObject
         {
@@ -295,6 +306,51 @@ public sealed class OperationDescriptor
         })]),
         ["input_schema"] = JsonSchema,
     };
+
+    /// <summary>
+    /// One accepted value for the parameter, as the JSON an MCP call or the Hub's args object takes
+    /// (IP-T526). The first of: the example its attribute declares; the value one of the operation's
+    /// <see cref="ExampleAttribute"/> command lines passes (bound by the real binder); its default;
+    /// the first enum value or the type's own example (<see cref="ValueFormat.Example"/>).
+    /// </summary>
+    public ParameterExample ExampleOf(OperationParameter parameter) => parameterExamples.Value[parameter];
+
+    private IReadOnlyDictionary<OperationParameter, ParameterExample> BuildParameterExamples()
+    {
+        var fromExamples = new Dictionary<OperationParameter, object>();
+        var nameTokens = Name.Split(' ');
+        foreach (var example in Examples)
+        {
+            try
+            {
+                var tokens = ArgvParser.Split(example.CommandLine).Skip(1).ToList(); // drop the program name
+                var rest = ArgvParser.ExtractGlobals(tokens).Remaining;
+                if (rest.Count < nameTokens.Length || !rest.Take(nameTokens.Length).SequenceEqual(nameTokens)) continue;
+                var bound = ArgsBinder.Bind(this, rest.Skip(nameTokens.Length).ToList());
+                if (!bound.Success || bound.Values is null) continue;
+                foreach (var (parameter, value) in bound.Values)
+                    if (value is not null and not string[] { Length: 0 }) fromExamples.TryAdd(parameter, value);
+            }
+            catch (Exception)
+            {
+                // An example that does not split or bind is the completeness test's to report; it just gives no value here.
+            }
+        }
+
+        var result = new Dictionary<OperationParameter, ParameterExample>();
+        foreach (var p in Parameters)
+        {
+            if (p.DeclaredExample is { } declared && ArgsBinder.ExampleValue(p, declared) is { } declaredValue)
+                result[p] = new(ArgsBinder.ToJson(declaredValue), ParameterExample.Declared);
+            else if (fromExamples.TryGetValue(p, out var used))
+                result[p] = new(ArgsBinder.ToJson(used), ParameterExample.FromExample);
+            else if (p.DefaultValue is not (null or false or "") && p.DefaultJson() is { } def)
+                result[p] = new(def, ParameterExample.FromDefault);
+            else
+                result[p] = new(p.ValueKind == ParameterValueKind.Enum ? p.EnumValues.FirstOrDefault() : p.Format.Example?.DeepClone(), ParameterExample.FromType);
+        }
+        return result;
+    }
 
     /// <summary>Runs the operation instance against bound args.</summary>
     internal Task<OperationResult> InvokeAsync(object operation, object args, OperationContext ctx) =>

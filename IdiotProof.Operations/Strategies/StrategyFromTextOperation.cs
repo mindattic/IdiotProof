@@ -20,7 +20,7 @@ public sealed record StrategyFromTextArgs
     [Option("mode", Description = "Broker mode for the saved strategy: sandbox (default) or paper.", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Sandbox;
 
-    [Option("title", Description = "Title for the saved strategy (default: its own name, else \"SYM strategy\").")]
+    [Option("title", Description = "Title for the saved strategy (default: its own name, else \"SYM strategy\").", Example = "NVDA VWAP reclaim")]
     public string? Title { get; init; }
 }
 

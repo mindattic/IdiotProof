@@ -11,13 +11,13 @@ public sealed record StrategyCreateArgs
     [Option("canon", Description = "The strategy as canonical JSON (what `strategy export --format json` prints) (`-` reads stdin).")]
     public string? Canon { get; init; }
 
-    [Option("title", Description = "Title (default: the strategy's own name, else \"SYM strategy\").")]
+    [Option("title", Description = "Title (default: the strategy's own name, else \"SYM strategy\").", Example = "NVDA VWAP reclaim")]
     public string? Title { get; init; }
 
-    [Option("ticker", Description = "Symbol to use when the script doesn't name one.")]
+    [Option("ticker", Description = "Symbol to use when the script doesn't name one.", Example = "NVDA")]
     public string? Ticker { get; init; }
 
-    [Option("description", Description = "Free-form description stored with the strategy.")]
+    [Option("description", Description = "Free-form description stored with the strategy.", Example = "Reclaim of VWAP after the open")]
     public string? Description { get; init; }
 
     [Option("mode", Description = "Broker mode: sandbox (default) or paper. Live is a separate, confirmed step.", Short = 'm')]

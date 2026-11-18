@@ -10,7 +10,7 @@ public sealed record EvidenceSizingArgs
     [Option("strategy", Description = "Size from this strategy's closed trades in the diary (title, case-insensitive).")]
     public string? Strategy { get; init; }
 
-    [Option("symbol", Description = "Size from this symbol's closed trades in the diary.")]
+    [Option("symbol", Description = "Size from this symbol's closed trades in the diary.", Example = "AAPL")]
     public string? Symbol { get; init; }
 
     [Option("wins", Description = "Manual mode: winning trades (use with --losses and --payoff).")]

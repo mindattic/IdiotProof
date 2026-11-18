@@ -17,10 +17,10 @@ public record DiaryFilterArgs
     [Option("mode", Description = "Only trades in this mode: sandbox, paper or live.")]
     public BrokerMode? Mode { get; init; }
 
-    [Option("symbol", Description = "Only this symbol.")]
+    [Option("symbol", Description = "Only this symbol.", Example = "AAPL")]
     public string? Symbol { get; init; }
 
-    [Option("strategy", Description = "Only this strategy: an id prefix or part of its title at trade time.")]
+    [Option("strategy", Description = "Only this strategy: an id prefix or part of its title at trade time.", Example = "Gap and go")]
     public string? Strategy { get; init; }
 }
 

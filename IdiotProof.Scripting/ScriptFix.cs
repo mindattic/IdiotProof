@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 namespace IdiotProof.Scripting;
 
 /// <summary>
@@ -8,7 +10,15 @@ namespace IdiotProof.Scripting;
 /// A diagnostic carries one only when a single correct edit exists; where the right edit is a
 /// judgement call (which number, which symbol, where a branch ends) there is none.
 /// </summary>
-public sealed record ScriptFix(string Code, int Offset, int Length, int Line, int Column, string Replacement, string Description)
+[Description("One edit that corrects a diagnostic: replace 'length' characters at 'offset' with 'replacement'.")]
+public sealed record ScriptFix(
+    [property: Description("The diagnostic code the fix is for (IPS001...).")] string Code,
+    [property: Description("0-based character offset in the text that was analyzed.")] int Offset,
+    [property: Description("How many characters to replace; 0 is an insertion.")] int Length,
+    [property: Description("The same position as a 1-based line, for people.")] int Line,
+    [property: Description("The same position as a 1-based column, for people.")] int Column,
+    [property: Description("The text to put there; empty is a deletion.")] string Replacement,
+    [property: Description("What the edit does, in words.")] string Description)
 {
     /// <summary>The text with just this edit made.</summary>
     public string Apply(string text) => text[..Offset] + Replacement + text[(Offset + Length)..];

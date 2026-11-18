@@ -25,7 +25,7 @@ public sealed record OrdersReplaceArgs
     [Option("tif", Description = "New time in force: day, gtc, opg, cls, ioc or fok.")]
     public string? TimeInForce { get; init; }
 
-    [Option("client-id", Description = "New client order id for the replacement order.")]
+    [Option("client-id", Description = "New client order id for the replacement order.", Example = "my-order-002")]
     public string? ClientId { get; init; }
 
     [Option("stop", Description = "Protective stop for the position, needed when --qty raises an entry's size (the Risk Guardian checks the whole new size).")]
@@ -34,7 +34,7 @@ public sealed record OrdersReplaceArgs
     [Option("mode", Description = "The account the order is in: paper (default) or live (needs confirmation).", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Paper;
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "Moving the limit closer")]
     public string? Note { get; init; }
 }
 

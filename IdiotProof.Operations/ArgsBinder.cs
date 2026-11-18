@@ -58,6 +58,41 @@ public sealed record BindResult(object? Args, IReadOnlyList<string> Errors)
 /// </summary>
 public static partial class ArgsBinder
 {
+    // ── the accepted forms, as data ──
+    // The converters below read these tables and ValueFormats publishes them (agent catalog,
+    // IP-T526), so what the catalog says a date, a time, a flag or a number may look like is what
+    // the binder accepts.
+
+    /// <summary>The date forms the binder reads.</summary>
+    internal static readonly string[] DateFormats = ["yyyy-MM-dd", "yyyy-M-d"];
+
+    /// <summary>Other date forms with one reading: refused, with the ISO date offered as the correction.</summary>
+    internal static readonly string[] DateRepairFormats =
+    [
+        "yyyy/M/d", "yyyy.M.d", "yyyyMMdd", "MMM d yyyy", "MMMM d yyyy", "MMM d, yyyy", "MMMM d, yyyy", "d MMM yyyy", "d MMMM yyyy",
+    ];
+
+    /// <summary>The ET time-of-day forms the binder reads.</summary>
+    internal static readonly string[] TimeFormats = ["H:mm", "HH:mm", "H:mm:ss", "HH:mm:ss", "h:mm tt", "h:mmtt", "h:mm:ss tt"];
+
+    /// <summary>Four digits (0930): refused, with HH:mm offered as the correction.</summary>
+    internal const string TimeDigitsFormat = "HHmm";
+
+    /// <summary>An hour with am/pm (9am, 9 am): refused, with HH:mm offered as the correction.</summary>
+    internal static readonly string[] TimeMeridiemFormats = ["h tt", "htt"];
+
+    /// <summary>The words read as true and as false (case-insensitive).</summary>
+    internal static readonly string[] TrueWords = ["true", "yes", "1", "on"];
+
+    internal static readonly string[] FalseWords = ["false", "no", "0", "off"];
+
+    /// <summary>One-letter flags: refused, with true/false offered as the correction.</summary>
+    internal static readonly IReadOnlyDictionary<string, string> BoolShorthand =
+        new Dictionary<string, string> { ["y"] = "true", ["t"] = "true", ["n"] = "false", ["f"] = "false" };
+
+    /// <summary>The only shape in which a number may contain commas: thousands groups AND a decimal point.</summary>
+    internal const string ThousandsPattern = @"^[+-]?[1-9]\d{0,2}(,\d{3})+\.\d+$";
+
     /// <summary>Binds a JSON object (or null/undefined for "no args").</summary>
     public static BindResult Bind(OperationDescriptor descriptor, JsonElement json) => Bind(descriptor, json, withFix: true);
 
@@ -82,7 +117,7 @@ public static partial class ArgsBinder
                         errors.Add(new BindError(message));
                         continue;
                     }
-                    rename = new CallChange("option", parameter.JsonName, property.Name, parameter.JsonName);
+                    rename = new CallChange(CallChangeKinds.Option, parameter.JsonName, property.Name, parameter.JsonName);
                     errors.Add(new BindError(message, null, rename));
                 }
                 else if (values.ContainsKey(parameter))
@@ -202,7 +237,7 @@ public static partial class ArgsBinder
                     named.Add(given);
                     errors.Add(new BindError(
                         $"{message} <{argument.Name}> is a positional argument: pass the value without {spelled}.",
-                        argument.JsonName, new CallChange("argument", argument.JsonName, spelled, $"<{argument.Name}>")));
+                        argument.JsonName, new CallChange(CallChangeKinds.Argument, argument.JsonName, spelled, $"<{argument.Name}>")));
                     continue;
                 }
 
@@ -215,7 +250,7 @@ public static partial class ArgsBinder
                     errors.Add(new BindError(message));
                     continue;
                 }
-                errors.Add(new BindError(message, null, new CallChange("option", option.JsonName, spelled, "--" + option.Name)));
+                errors.Add(new BindError(message, null, new CallChange(CallChangeKinds.Option, option.JsonName, spelled, "--" + option.Name)));
             }
 
             string value;
@@ -333,7 +368,7 @@ public static partial class ArgsBinder
             && ConvertText(parameter, repaired, out var value, out _, quoteJson))
         {
             values[parameter] = value;
-            return new BindError(error, parameter.JsonName, new CallChange("value", parameter.JsonName, sent, repaired));
+            return new BindError(error, parameter.JsonName, new CallChange(CallChangeKinds.Value, parameter.JsonName, sent, repaired));
         }
         return new BindError(error, parameter.JsonName);
     }
@@ -360,7 +395,7 @@ public static partial class ArgsBinder
                 var plain = StripMoney(t).Replace("_", "", StringComparison.Ordinal);
                 return decimal.TryParse(plain, NumberStyles.Float, inv, out _) ? plain : null;
             case ParameterValueKind.Boolean:
-                return t.ToLowerInvariant() switch { "y" or "t" => "true", "n" or "f" => "false", _ => null };
+                return BoolShorthand.GetValueOrDefault(t.ToLowerInvariant());
             case ParameterValueKind.Enum:
                 // One typo from a single accepted value (two for long names); "long" is not a misspelled "buy".
                 var (closest, _, unique) = OperationNames.Closest(t, p.EnumValues, maxDistance: t.Length >= 8 ? 2 : 1);
@@ -377,11 +412,7 @@ public static partial class ArgsBinder
     private static DateOnly? RepairDate(string t)
     {
         var inv = CultureInfo.InvariantCulture;
-        string[] exact =
-        [
-            "yyyy/M/d", "yyyy.M.d", "yyyyMMdd", "MMM d yyyy", "MMMM d yyyy", "MMM d, yyyy", "MMMM d, yyyy", "d MMM yyyy", "d MMMM yyyy",
-        ];
-        if (DateOnly.TryParseExact(t, exact, inv, DateTimeStyles.AllowWhiteSpaces, out var date)) return date;
+        if (DateOnly.TryParseExact(t, DateRepairFormats, inv, DateTimeStyles.AllowWhiteSpaces, out var date)) return date;
 
         // An ISO instant: the date is its first ten characters.
         if (t.Length > 10 && t[10] is 'T' or ' ' && DateOnly.TryParseExact(t[..10], "yyyy-MM-dd", inv, DateTimeStyles.None, out date))
@@ -399,8 +430,8 @@ public static partial class ArgsBinder
     private static TimeOnly? RepairTime(string t)
     {
         var inv = CultureInfo.InvariantCulture;
-        if (t.Length == 4 && t.All(char.IsAsciiDigit) && TimeOnly.TryParseExact(t, "HHmm", inv, DateTimeStyles.None, out var time)) return time;
-        return TimeOnly.TryParseExact(t, ["h tt", "htt"], inv, DateTimeStyles.None, out time) ? time : null;
+        if (t.Length == 4 && t.All(char.IsAsciiDigit) && TimeOnly.TryParseExact(t, TimeDigitsFormat, inv, DateTimeStyles.None, out var time)) return time;
+        return TimeOnly.TryParseExact(t, TimeMeridiemFormats, inv, DateTimeStyles.None, out time) ? time : null;
     }
 
     /// <summary>
@@ -514,7 +545,7 @@ public static partial class ArgsBinder
         _ => value.ToString() ?? "",
     };
 
-    private static JsonNode? ToJson(object value) => value switch
+    internal static JsonNode? ToJson(object value) => value switch
     {
         string s => JsonValue.Create(s),
         bool b => JsonValue.Create(b),
@@ -601,6 +632,10 @@ public static partial class ArgsBinder
         return false;
     }
 
+    /// <summary>A declared example (CLI spelling) as the value the binder reads from it, or null when the binder would refuse it.</summary>
+    internal static object? ExampleValue(OperationParameter parameter, string text) =>
+        ConvertText(parameter, text, out var value, out _, quoteJson: false) ? value : null;
+
     /// <summary>Converts one text value (an argv token or a JSON string) to the parameter's type.</summary>
     private static bool ConvertText(OperationParameter p, string text, out object? value, out string? error, bool quoteJson)
     {
@@ -642,11 +677,11 @@ public static partial class ArgsBinder
                 value = guid;
                 break;
             case ParameterValueKind.Date:
-                ok = DateOnly.TryParseExact(text, ["yyyy-MM-dd", "yyyy-M-d"], inv, DateTimeStyles.None, out var date);
+                ok = DateOnly.TryParseExact(text, DateFormats, inv, DateTimeStyles.None, out var date);
                 value = date;
                 break;
             case ParameterValueKind.Time:
-                ok = TimeOnly.TryParseExact(text.Trim(), ["H:mm", "HH:mm", "H:mm:ss", "HH:mm:ss", "h:mm tt", "h:mmtt", "h:mm:ss tt"], inv, DateTimeStyles.None, out var time);
+                ok = TimeOnly.TryParseExact(text.Trim(), TimeFormats, inv, DateTimeStyles.None, out var time);
                 value = time;
                 break;
             case ParameterValueKind.Enum:
@@ -672,28 +707,15 @@ public static partial class ArgsBinder
         return ok;
     }
 
-    private static string Expectation(OperationParameter p) => p.ValueKind switch
-    {
-        ParameterValueKind.Boolean => "true or false",
-        ParameterValueKind.Int32 => "a whole number",
-        ParameterValueKind.Int64 => "a whole number",
-        ParameterValueKind.Decimal or ParameterValueKind.Double => "a number",
-        ParameterValueKind.Guid => "a GUID",
-        ParameterValueKind.Date => "a date (yyyy-MM-dd)",
-        ParameterValueKind.Time => "an ET time of day (HH:mm, e.g. 09:30 or 15:55)",
-        ParameterValueKind.Enum => "one of " + string.Join(", ", p.EnumValues),
-        ParameterValueKind.StringArray => "a list of strings",
-        _ => "text",
-    };
+    private static string Expectation(OperationParameter p) => p.ValueKind == ParameterValueKind.Enum
+        ? "one of " + string.Join(", ", p.EnumValues)
+        : ValueFormats.For(p.ValueKind).Expects;
 
     private static bool TryBool(string text, out bool value)
     {
-        switch (text.Trim().ToLowerInvariant())
-        {
-            case "true" or "yes" or "1" or "on": value = true; return true;
-            case "false" or "no" or "0" or "off": value = false; return true;
-            default: value = false; return false;
-        }
+        var word = text.Trim().ToLowerInvariant();
+        value = TrueWords.Contains(word);
+        return value || FalseWords.Contains(word);
     }
 
     /// <summary>Lets <c>$1,250.50</c> through as a number (people paste prices).</summary>
@@ -705,7 +727,7 @@ public static partial class ArgsBinder
     private static bool ThousandsOk(string text) =>
         // ...and only with a decimal point too (IP-T511): "1,005" is 1005 to some and 1.005 to others,
         // so a bare comma group is refused; "1,005.00", "1005" and "1.005" are unambiguous.
-        !text.Contains(',') || System.Text.RegularExpressions.Regex.IsMatch(text, @"^[+-]?[1-9]\d{0,2}(,\d{3})+\.\d+$");
+        !text.Contains(',') || Regex.IsMatch(text, ThousandsPattern);
 
     private static string StripMoney(string text) => text.Trim().Replace("$", "", StringComparison.Ordinal);
 

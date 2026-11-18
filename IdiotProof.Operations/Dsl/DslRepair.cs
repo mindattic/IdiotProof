@@ -1,9 +1,18 @@
+using System.ComponentModel;
 using IdiotProof.Scripting;
 
 namespace IdiotProof.Operations.Dsl;
 
 /// <summary>One IdiotScript diagnostic as the operations return it: where, what, and the fix when one is determinable.</summary>
-public sealed record DslDiagnostic(string Severity, string Code, int Line, int Column, string Message, string? Suggestion, ScriptFix? Fix)
+[Description("One problem in an IdiotScript.")]
+public sealed record DslDiagnostic(
+    [property: Description("error or warning. An error means the script is refused.")] string Severity,
+    [property: Description("The diagnostic code (IPS001...); dsl.diagnostics in the agent catalog explains each.")] string Code,
+    [property: Description("1-based line of the problem.")] int Line,
+    [property: Description("1-based column of the problem.")] int Column,
+    [property: Description("What is wrong.")] string Message,
+    [property: Description("The closest known verb, for an unknown verb; null otherwise.")] string? Suggestion,
+    [property: Description("The edit that corrects this problem; null when there is none or more than one.")] ScriptFix? Fix)
 {
     public static DslDiagnostic From(ScriptDiagnostic d) =>
         new(d.IsError ? "error" : "warning", d.Code, d.Line, d.Column, d.Message, d.Suggestion, d.Fix);
@@ -15,7 +24,11 @@ public sealed record DslDiagnostic(string Severity, string Code, int Line, int C
 /// corrected script when applying them leaves a script that re-analyzes clean. It is data for the
 /// caller to resend; no operation that saves or activates a strategy applies it.
 /// </summary>
-public sealed record DslRepairData(IReadOnlyList<DslDiagnostic> Diagnostics, IReadOnlyList<ScriptFix> Fixes, string? CorrectedScript);
+[Description("The self-repair payload of an IdiotScript, the same shape wherever a script error is reported. Nothing in it was applied for the caller.")]
+public sealed record DslRepairData(
+    [property: Description("Every diagnostic of the text as written.")] IReadOnlyList<DslDiagnostic> Diagnostics,
+    [property: Description("The fixes those diagnostics carry.")] IReadOnlyList<ScriptFix> Fixes,
+    [property: Description("The whole script with every fix applied, only when it re-analyzes with no error and parses; otherwise null.")] string? CorrectedScript);
 
 /// <summary>Builds and prints the self-repair payload for the <c>dsl</c> and <c>strategy</c> operations.</summary>
 public static class DslRepair

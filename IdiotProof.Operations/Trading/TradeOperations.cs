@@ -38,7 +38,7 @@ public sealed record TradeArgs
     [Option("tif", Description = "Time in force: day (default) or gtc.")]
     public string TimeInForce { get; init; } = "day";
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "Trimming before earnings")]
     public string? Note { get; init; }
 }
 

@@ -21,7 +21,7 @@ public sealed record OptionsOrderArgs
     [Option("mode", Description = "Where it routes: sandbox (simulator, the default), paper, or live (needs confirmation).", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Sandbox;
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "Trimming before earnings")]
     public string? Note { get; init; }
 }
 
@@ -43,7 +43,7 @@ public sealed record OptionsSellArgs
     [Option("open", Description = "Write (sell to open, level 1+: covered call / cash-secured put) instead of selling contracts you hold.")]
     public bool Open { get; init; }
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "Trimming before earnings")]
     public string? Note { get; init; }
 }
 
@@ -59,7 +59,7 @@ public sealed record OptionsCloseArgs
     [Option("mode", Description = "Which account holds it: sandbox (default), paper or live (needs confirmation).", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Sandbox;
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "Trimming before earnings")]
     public string? Note { get; init; }
 }
 

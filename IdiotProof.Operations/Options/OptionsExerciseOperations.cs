@@ -26,7 +26,7 @@ public sealed record OptionsExerciseArgs
     [Option("mode", Description = "Which Alpaca account: paper (default) or live (needs confirmation). Sandbox can't exercise.", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Paper;
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "In the money at expiry")]
     public string? Note { get; init; }
 }
 

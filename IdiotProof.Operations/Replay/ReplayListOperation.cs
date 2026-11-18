@@ -12,7 +12,7 @@ public sealed record ReplayListArgs
     [Option("since", Description = "Only runs of ET trading days on or after this date (yyyy-MM-dd).")]
     public DateOnly? Since { get; init; }
 
-    [Option("kind", Description = "Only sim (hypothetical replays) or live (the Monitor's real trades).")]
+    [Option("kind", Description = "Only sim (hypothetical replays) or live (the Monitor's real trades).", Example = "sim")]
     public string? Kind { get; init; }
 
     [Option("fired", Description = "Only runs that fired.")]

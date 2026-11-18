@@ -74,7 +74,7 @@ public sealed record StrategyListArgs
     [Option("active", Description = "Only strategies the Monitor is evaluating.", Short = 'a')]
     public bool Active { get; init; }
 
-    [Option("symbol", Description = "Only this symbol.")]
+    [Option("symbol", Description = "Only this symbol.", Example = "NVDA")]
     public string? Symbol { get; init; }
 
     [Option("mode", Description = "Only this broker mode (sandbox, paper, live).")]
@@ -232,7 +232,7 @@ public sealed record StrategyImportArgs
     [Argument(0, Name = "source", Description = "A pasted stamp/armor/IPS1 payload, canonical JSON, or IdiotScript text (`-` reads stdin).")]
     public string Source { get; init; } = "";
 
-    [Option("title", Description = "Title for the new strategy (default: the strategy's own name or symbol).")]
+    [Option("title", Description = "Title for the new strategy (default: the strategy's own name or symbol).", Example = "NVDA VWAP reclaim")]
     public string? Title { get; init; }
 
     [Option("mode", Description = "Broker mode for the new strategy: sandbox (default) or paper. Live is a separate, confirmed step.", Short = 'm')]

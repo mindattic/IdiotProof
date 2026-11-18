@@ -117,7 +117,7 @@ public sealed record GapperFadePilotListArgs
     [Option("since", Description = "First ET date to include, yyyy-MM-dd (default: 30 days ago).")]
     public DateOnly? Since { get; init; }
 
-    [Option("symbol", Description = "Only this ticker.", Short = 's')]
+    [Option("symbol", Description = "Only this ticker.", Short = 's', Example = "AAPL")]
     public string? Symbol { get; init; }
 
     [Option("signals", Description = "Only rows where the 09:45 signal fired.")]

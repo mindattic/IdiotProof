@@ -22,7 +22,7 @@ public sealed record OptionsSpreadArgs
     [Option("mode", Description = "paper (default) or live (needs confirmation). The Sandbox simulator does not fill multi-leg orders.", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Paper;
 
-    [Option("note", Description = "Why — kept in the audit trail.")]
+    [Option("note", Description = "Why — kept in the audit trail.", Example = "Trimming before earnings")]
     public string? Note { get; init; }
 }
 

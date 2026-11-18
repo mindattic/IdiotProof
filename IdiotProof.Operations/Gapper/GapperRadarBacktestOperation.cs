@@ -11,10 +11,10 @@ public sealed record GapperRadarBacktestArgs
     [Option("to", Description = "Last session to replay, yyyy-MM-dd.")]
     public DateOnly? To { get; init; }
 
-    [Option("out", Description = @"JSON output (default D:\IdiotProofData\radar\backtest-<from>-<to>.json; tools/momentum/edge/radar_backtest.py scores it).")]
+    [Option("out", Description = @"JSON output (default D:\IdiotProofData\radar\backtest-<from>-<to>.json; tools/momentum/edge/radar_backtest.py scores it).", Example = @"D:\IdiotProofData\radar\backtest.json")]
     public string? Out { get; init; }
 
-    [Option("dir", Description = @"Data cache folder (default D:\IdiotProofData\radar).")]
+    [Option("dir", Description = @"Data cache folder (default D:\IdiotProofData\radar).", Example = @"D:\IdiotProofData\radar")]
     public string? Dir { get; init; }
 }
 

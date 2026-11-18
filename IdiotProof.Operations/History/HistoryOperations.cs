@@ -55,7 +55,7 @@ public sealed record HistoryImportArgs
     [Option("bar-root", Description = @"Minute-bar file store root (default D:\IdiotProofData\gapper-study\bars).")]
     public string BarRoot { get; init; } = @"D:\IdiotProofData\gapper-study\bars";
 
-    [Option("symbols", Description = "Minute import only these symbols (comma-separated); default every symbol in the store.")]
+    [Option("symbols", Description = "Minute import only these symbols (comma-separated); default every symbol in the store.", Example = "AAPL,MSFT")]
     public string? Symbols { get; init; }
 
     [Option("parallelism", Description = "Symbols imported at once (default 4).")]
