@@ -158,7 +158,9 @@ public static class AlarmSweep
                 for (int i = 0; i < w; i++)
                 {
                     var t = start.AddMinutes(OnsetSeries.EndMinute(i0 + i));
-                    fresh[i] = GapperFormationFeatures.LatestCatalyst(news, t) is { } c && (t - c.PublishedUtc).TotalMinutes <= FreshNewsMinutes;
+                    // Any item published within the window, not just the cluster's earliest: a 06:50
+                    // item read at 07:05 is fresh even when a 06:00 item started the cluster (IP-T567).
+                    fresh[i] = news.Any(c => c.PublishedUtc <= t && (t - c.PublishedUtc).TotalMinutes <= FreshNewsMinutes);
                 }
         }
         return new AlarmMorning
