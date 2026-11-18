@@ -79,6 +79,8 @@ if (HubHosting.WindowLogPath(isService, Environment.GetEnvironmentVariable(HubCo
 HubConsole.Start();
 // Off the taskbar from here on: the tray icon brings the window back on a click (IP-T574).
 using var tray = isService ? null : HubTray.Start("IdiotProof Hub", HubConsole.TrayEnvVar);
+// Hidden in the tray, the window draws nothing; the log file still gets every line (IP-T577).
+if (tray is not null) HubConsole.WindowVisible = () => tray.TerminalVisible;
 
 // One Hub per port (IP-T77): say who already has it and exit before touching the database.
 var port = HubWire.ResolvePort();

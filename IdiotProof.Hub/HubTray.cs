@@ -111,6 +111,9 @@ public sealed class HubTray : IDisposable
         return tray;
     }
 
+    /// <summary>True while the terminal is on screen (shown and not minimized); the console prints only then (IP-T577).</summary>
+    public bool TerminalVisible => OperatingSystem.IsWindows() && IsWindowVisible(console) && !IsIconic(console);
+
     /// <summary>Brings the terminal up, e.g. when the Hub has something to say that must be seen.</summary>
     public void ShowTerminal()
     {
