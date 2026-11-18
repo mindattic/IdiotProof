@@ -49,7 +49,7 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
 
         // Latest *trade*, not quote: premarket quotes can have a zero ask on
         // thin books, and the gapper logic keys off last traded price anyway.
-        var url = $"v2/stocks/{Uri.EscapeDataString(symbol)}/trades/latest?feed={feedTier}";
+        var url = $"v2/stocks/{Uri.EscapeDataString(symbol)}/trades/latest?feed={CurrentTier()}";
         using var response = await httpClient.GetAsync(url, ct).ConfigureAwait(false);
         if (response.StatusCode == System.Net.HttpStatusCode.Forbidden && TryDowngradeTier())
             return await GetLatestPriceAsync(symbol, ct).ConfigureAwait(false);
@@ -140,7 +140,7 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
         while (true)
         {
             if (onPage is not null) await onPage(ct).ConfigureAwait(false);
-            var tier = feedTier;
+            var tier = CurrentTier();
             var url = query + $"&feed={tier}" + (pageToken is null ? "" : $"&page_token={Uri.EscapeDataString(pageToken)}");
             using var response = await SendWithBackoffAsync(url, ct).ConfigureAwait(false);
             if (response.StatusCode == System.Net.HttpStatusCode.Forbidden && TryDowngradeTier()) continue;
@@ -212,7 +212,7 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
         while (true)
         {
             if (onPage is not null) await onPage(ct).ConfigureAwait(false);
-            var tier = feedTier;
+            var tier = CurrentTier();
             var url = query + $"&feed={tier}" + (pageToken is null ? "" : $"&page_token={Uri.EscapeDataString(pageToken)}");
             using var response = await SendWithBackoffAsync(url, ct).ConfigureAwait(false);
             if (response.StatusCode == System.Net.HttpStatusCode.Forbidden && TryDowngradeTier()) continue;
@@ -274,7 +274,7 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
     {
         while (true)
         {
-            var tier = feedTier;
+            var tier = CurrentTier();
             var url = $"v2/stocks/{Uri.EscapeDataString(symbol)}/bars"
                     + $"?timeframe={timeframe}&start={Uri.EscapeDataString(start)}&end={Uri.EscapeDataString(end)}"
                     + $"&limit=1000&adjustment=raw&feed={tier}"
@@ -328,7 +328,31 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
     {
         var t = (tier ?? "").Trim().ToLowerInvariant();
         if (t is not ("sip" or "iex")) throw new ArgumentException($"Alpaca's stock data tiers are sip and iex, not '{tier}'.", nameof(tier));
-        lock (feedTierLock) feedTier = t;
+        lock (feedTierLock) { feedTier = t; downgradedUtc = null; }
+    }
+
+    /// <summary>How long a 403 keeps requests on IEX before SIP is tried again.</summary>
+    public static readonly TimeSpan SipRetryAfter = TimeSpan.FromMinutes(15);
+
+    // When a 403 moved SIP to IEX; null when the tier was chosen (startup or SetTier).
+    private DateTime? downgradedUtc;
+
+    /// <summary>
+    /// The tier for the next request. A 403 downgrade is temporary: once <see cref="SipRetryAfter"/>
+    /// has passed SIP is tried again, so one transient refusal no longer pins an entitled account to
+    /// IEX until restart (IP-T571). A tier chosen with <see cref="SetTier"/> stays as chosen.
+    /// </summary>
+    private string CurrentTier()
+    {
+        lock (feedTierLock)
+        {
+            if (downgradedUtc is { } at && DateTime.UtcNow - at >= SipRetryAfter)
+            {
+                feedTier = "sip";
+                downgradedUtc = null;
+            }
+            return feedTier;
+        }
     }
 
     private bool TryDowngradeTier()
@@ -337,6 +361,7 @@ public sealed class AlpacaDataFeed : IMarketDataFeed, IAsyncDisposable
         {
             if (feedTier == "iex") return false;
             feedTier = "iex";
+            downgradedUtc = DateTime.UtcNow;
             return true;
         }
     }
