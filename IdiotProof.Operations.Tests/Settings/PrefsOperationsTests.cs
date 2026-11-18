@@ -15,6 +15,7 @@ public class PrefsOperationsTests
     {
         kit = new KeysTestKit();
         kit.Services.AddSingleton<UserPreferencesService>();
+        kit.Services.AddSingleton<RiskGuardianService>();
     }
 
     [TearDown]
