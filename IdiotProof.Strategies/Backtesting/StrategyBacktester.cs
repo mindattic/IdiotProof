@@ -368,7 +368,8 @@ public static class StrategyBacktester
         // Trailing stop off the peak (Risk phase). The replay used to ignore
         // TrailingStopLoss entirely, silently holding through pullbacks the
         // live evaluator would have sold — backtest ≠ live divergence.
-        if (isLong && def.TrailingStopPercent is { } tslPct && peakBefore > trade.EntryPrice)
+        // Trails from the fill like live (GapperExitEvaluator floors the peak at entry; PeakSinceEntry starts there), IP-T559.
+        if (isLong && def.TrailingStopPercent is { } tslPct)
         {
             var trailFloor = peakBefore * (1m - (decimal)(tslPct / 100.0));
             if (bar.Low <= trailFloor)
