@@ -393,10 +393,14 @@ public static class StrategyBacktester
             bool hit = isLong ? bar.High >= tgt.Price : bar.Low <= tgt.Price;
             if (!hit) break;
 
-            int shares = nextTarget == targets.Count - 1
-                ? remaining // last target takes whatever is left (covers rounding)
-                : Math.Min(remaining, (int)Math.Round(trade.Quantity * (tgt.Pct / 100.0)));
-            if (shares <= 0) shares = remaining;
+            // Live arithmetic (GapperExitEvaluator): round the cumulative percent of the rungs hit and
+            // sell only the shortfall; a rung that owes nothing is held, not a full exit (IP-T561).
+            int cumPct = 0;
+            for (int k = 0; k <= nextTarget; k++) cumPct += targets[k].Pct;
+            bool final = nextTarget == targets.Count - 1 || cumPct >= 100;
+            int shouldHaveSold = final ? trade.Quantity : (int)Math.Round(trade.Quantity * cumPct / 100.0);
+            int shares = Math.Min(remaining, shouldHaveSold - (trade.Quantity - remaining));
+            if (shares <= 0) { nextTarget++; continue; }
 
             trade.Exits.Add(new BacktestFill
             {
