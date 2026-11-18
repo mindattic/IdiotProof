@@ -47,6 +47,8 @@ public static class TradingServiceRegistration
         services.AddSingleton<ISplitSource>(sp => CreateSplitSource(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<IHistoricalBarStore>(sp => new HistoricalBarStore(
             BarCache(sp), sp.GetRequiredService<IMarketDataFeed>(), splits: sp.GetRequiredService<ISplitSource>()));
+        // IP-T447: the formation alert's paper-shadow report reads labeled bars, so it lives with the bar store.
+        services.AddScoped<IdiotProof.Core.Monitoring.Formation.FormationShadowReport>();
         services.AddSingleton(sp => CreateRouter(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<UserBrokerResolver>();
         // Every order — Monitor, manual, options, flatten — goes through the gateway.

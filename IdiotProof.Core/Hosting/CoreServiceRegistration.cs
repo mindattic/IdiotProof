@@ -116,11 +116,11 @@ public static class CoreServiceRegistration
             sp.GetService<TimeProvider>() ?? TimeProvider.System));
 
         // IP-T447: the study's validated detector (watch-only 08:00 alert), the history-backed reverse-split and filing
-        // inputs for the formation recorder, and the alert's paper-shadow report. Registered here, not with the Monitor,
+        // inputs for the formation recorder. Registered here, not with the Monitor (the paper-shadow report needs the bar store, so
+        // AddIdiotProofTrading registers it),
         // so the status and shadow reads work on any Hub.
         services.AddSingleton<IdiotProof.Core.Monitoring.Formation.FormationDetectorScorer>();
         services.AddSingleton<IdiotProof.Core.Monitoring.Formation.FormationReferenceSource>();
-        services.AddScoped<IdiotProof.Core.Monitoring.Formation.FormationShadowReport>();
 
         // ── Engine: storage, AppSettings overlay chain, workspaces, audit logger ──
         // The SQL workspace store is registered first so the engine's TryAdd keeps it.
