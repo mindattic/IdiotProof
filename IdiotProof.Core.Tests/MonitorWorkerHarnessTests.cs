@@ -328,12 +328,15 @@ public sealed class MonitorWorkerHarnessTests
         await RunWorkerUntilAsync(sp, async () => (await ReadAsync(sp, armed.Id)).Progress is not null, TimeSpan.FromSeconds(45));
 
         var (row, progress) = await ReadAsync(sp, armed.Id);
-        var trail = await AuditTrailAsync(sp);
+        // The fixture's database is shared by its tests, so another test's repair row is in the table: count only this strategy owner's.
+        await using var db = await sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
+        var repairs = await db.AuditLogs.AsNoTracking()
+            .Where(a => a.Category == IdiotProof.Core.Services.CanonRepair.AuditCategory && a.UserId == armed.OwnerUserId).ToListAsync();
         Assert.Multiple(() =>
         {
             Assert.That(row.ScriptJson, Is.EqualTo(broken), "a Live strategy's canon is not rewritten behind the owner's back");
             Assert.That(progress?.FirstFailingVerb, Does.Contain("invalid strategy").And.Contain("not auto-repaired").And.Contain("Live"));
-            Assert.That(trail, Does.Not.Contain(IdiotProof.Core.Services.CanonRepair.AuditCategory));
+            Assert.That(repairs, Is.Empty, "no repair audit row for this strategy's owner");
             Assert.That(row.PositionQty, Is.EqualTo(0));
         });
     }
