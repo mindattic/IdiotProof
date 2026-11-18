@@ -340,6 +340,18 @@ The Monitor half shipped with it (IP-T445, commit ca15e97f): the `Strategy` row'
 `strategy show`'s `sequence: step k/N` row and `strategy step <id> [--reset]`. A sequence runs end
 to end in the live Monitor as well as in the backtester.
 
+**Gapper sequences (IP-T527, samples only).** `GapperSequenceTemplates` (`IdiotProof.Scripting`) holds three
+long-only multi-step gapper templates, each starting with the `classic-gapper` ride: `gapper-ride-vwap-pullback`
+(second leg 09:35-10:30 on a higher low above VWAP, out by 11:00), `gapper-ride-retest` (second leg 09:31-09:40
+near the 20-bar high with speed, out by 09:44) and `gapper-ride-day-two` (a second premarket ride within one
+day). They are `strategy samples` entries, not gapper profiles: `gapper arm` cannot select them. The first two
+were replayed by `StrategyBacktester` on the gapper study's train days under its amendment 07
+(`research gappers explore --command gapper-sequences`) and both failed: net of the frozen cost model the
+single-step classic gapper made -8.26% per trade and the sequences -8.89% and -8.58%, the later leg losing
+1.47% and 1.35% net (-0.12% and +0.04% before costs). Result:
+[research/gapper-study-2026-11/gapper-sequences.md](research/gapper-study-2026-11/gapper-sequences.md). A new
+gapper profile needs a template that passes a registered criterion first.
+
 **Knowledge.** The Hub indexes the BIBLE (by section and law), AMENDMENTS, README, the agent
 docs, every user story and ticket (the USER_STORIES table plus `tickets ticket list --json`,
 read-only), every library's XML doc comments with their source `path:line`, and the static

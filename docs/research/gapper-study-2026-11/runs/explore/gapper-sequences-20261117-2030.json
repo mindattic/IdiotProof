@@ -1,0 +1,253 @@
+[
+  {
+    "strategy": "baseline: classic-gapper",
+    "script": "Ticker(\"SYM\")\n    .Name(\"SYM Gapper \u2014 Classic Gapper\")\n    .Session(IS.PREMARKET)\n    .QuantityNotional(1000)\n    .RequireEntryWindow(\"04:00\", \"09:00\")\n    .IsGapUp(5)\n    .IsVolumeAbove(2)\n    .IsPriceBetween(1, 50)\n    .Long()\n    .StopLossPercent(5)\n    .SellBy(\"09:28\")\n    .PeakGiveback(25, \"09:15\")",
+    "runs": 15216,
+    "days": 755,
+    "weightedRuns": 28176,
+    "gapperDays": 3710,
+    "step0Legs": 15216,
+    "laterLegs": 0,
+    "transitions": 0,
+    "gross": -0.027222576689430136,
+    "meanFrozenCost": 0.05534038681638556,
+    "net": [
+      {
+        "Mean": -0.08256296350581571,
+        "Lo": -0.08558936626465762,
+        "Hi": -0.07953656074697381,
+        "Days": 755
+      },
+      {
+        "Mean": -0.07847156578074997,
+        "Lo": -0.08144474494523286,
+        "Hi": -0.07549838661626708,
+        "Days": 755
+      },
+      {
+        "Mean": -0.0764582678586259,
+        "Lo": -0.07940490423601736,
+        "Hi": -0.07351163148123445,
+        "Days": 755
+      },
+      {
+        "Mean": -0.08256296350581571,
+        "Lo": -0.08558936626465762,
+        "Hi": -0.07953656074697381,
+        "Days": 755
+      }
+    ],
+    "median": -0.07449223719894715,
+    "winRate": 0.08226859738784781,
+    "folds": [
+      -0.08406775408244552,
+      -0.08723960155347382,
+      -0.08833744667056281,
+      -0.08099618004815745
+    ],
+    "positiveFolds": 0,
+    "sharpe": -0.6766258457492828,
+    "dsr": 1.1859456091556615e-226,
+    "pairedVsBaseline": null,
+    "sameRideAsBaseline": 15216,
+    "laterLeg": {
+      "trades": 0,
+      "days": 0,
+      "gross": null,
+      "net": null,
+      "median": null,
+      "winRate": null,
+      "exits": {}
+    },
+    "rideExits": {
+      "Peak giveback": 6471,
+      "Stop loss": 6940,
+      "Time exit": 1805
+    },
+    "criterion": null,
+    "tradesOmitted": 15216,
+    "tradesFile": "D:/IdiotProofData/gapper-study/explore/gapper-sequences/gapper-sequences-20261117-2030.full.json"
+  },
+  {
+    "strategy": "gapper-ride-vwap-pullback",
+    "script": "Ticker(\"SYM\")\n    .Step(\"ride\")\n    .Name(\"SYM Gapper sequence - ride, then VWAP pullback\")\n    .Session(IS.EXTENDED)\n    .Quantity(1)\n    .RequireEntryWindow(\"04:00\", \"09:00\")\n    .IsGapUp(5)\n    .IsVolumeAbove(2)\n    .IsPriceBetween(1, 50)\n    .Long()\n    .StopLossPercent(5)\n    .SellBy(\"09:28\")\n    .PeakGiveback(25, \"09:15\")\n    .ThenWhen(IsAboveVwap())\n    .Within(1)\n    .Step(\"pullback\")\n    .Session(IS.EXTENDED)\n    .Quantity(1)\n    .RequireEntryWindow(\"09:35\", \"10:30\")\n    .IsAboveVwap()\n    .IsHigherLow()\n    .IsGapUp(5)\n    .Long()\n    .StopLossPercent(8)\n    .SellBy(\"11:00\")\n    .PeakGiveback(25)",
+    "runs": 15216,
+    "days": 755,
+    "weightedRuns": 28176,
+    "gapperDays": 3710,
+    "step0Legs": 15216,
+    "laterLegs": 9461,
+    "transitions": 14247,
+    "gross": -0.02774233915354155,
+    "meanFrozenCost": 0.06118037999684677,
+    "net": [
+      {
+        "Mean": -0.08892271915038835,
+        "Lo": -0.09196487842172767,
+        "Hi": -0.08588055987904904,
+        "Days": 755
+      },
+      {
+        "Mean": -0.08328411756273964,
+        "Lo": -0.08626752851348679,
+        "Hi": -0.08030070661199248,
+        "Days": 755
+      },
+      {
+        "Mean": -0.08059631763277368,
+        "Lo": -0.08354921414994773,
+        "Hi": -0.07764342111559963,
+        "Days": 755
+      },
+      {
+        "Mean": -0.08437665708715632,
+        "Lo": -0.08740451062143119,
+        "Hi": -0.08134880355288145,
+        "Days": 755
+      }
+    ],
+    "median": -0.07869795259576104,
+    "winRate": 0.07211811470755253,
+    "folds": [
+      -0.09002273255466603,
+      -0.09354499802508086,
+      -0.09522443850017616,
+      -0.08814323680107598
+    ],
+    "positiveFolds": 0,
+    "sharpe": -0.727363906176195,
+    "dsr": 1.4109062629210295e-261,
+    "pairedVsBaseline": {
+      "Mean": -0.006359755644572698,
+      "Lo": -0.006743507582845741,
+      "Hi": -0.005976003706299656,
+      "Days": 755
+    },
+    "sameRideAsBaseline": 15216,
+    "laterLeg": {
+      "trades": 9461,
+      "days": 755,
+      "gross": -0.00120335474024687,
+      "net": {
+        "Mean": -0.014724114629538237,
+        "Lo": -0.015455669921930182,
+        "Hi": -0.013992559337146293,
+        "Days": 755
+      },
+      "median": -0.009763901564097295,
+      "winRate": 0.13262119967132294,
+      "exits": {
+        "Peak giveback": 9007,
+        "Stop loss": 195,
+        "Time exit": 259
+      }
+    },
+    "rideExits": {
+      "Peak giveback": 6471,
+      "Stop loss": 6940,
+      "Time exit": 1805
+    },
+    "criterion": {
+      "meanOk": false,
+      "sizeOk": true,
+      "legsOk": true,
+      "foldsOk": false,
+      "pairedOk": false,
+      "dsrOk": false,
+      "pass": false
+    },
+    "tradesOmitted": 15216,
+    "tradesFile": "D:/IdiotProofData/gapper-study/explore/gapper-sequences/gapper-sequences-20261117-2030.full.json"
+  },
+  {
+    "strategy": "gapper-ride-retest",
+    "script": "Ticker(\"SYM\")\n    .Step(\"ride\")\n    .Name(\"SYM Gapper sequence - ride, then pre-bell high retest\")\n    .Session(IS.EXTENDED)\n    .Quantity(1)\n    .RequireEntryWindow(\"04:00\", \"09:00\")\n    .IsGapUp(5)\n    .IsVolumeAbove(2)\n    .IsPriceBetween(1, 50)\n    .Long()\n    .StopLossPercent(5)\n    .SellBy(\"09:28\")\n    .PeakGiveback(25, \"09:15\")\n    .ThenWhen(IsAboveVwap())\n    .Within(1)\n    .Step(\"retest\")\n    .Session(IS.EXTENDED)\n    .Quantity(1)\n    .RequireEntryWindow(\"09:31\", \"09:40\")\n    .IsAboveVwap()\n    .IsAtResistance(1)\n    .VelocityAbove(0.2, 3)\n    .IsGapUp(5)\n    .Long()\n    .StopLossPercent(8)\n    .SellBy(\"09:44\")\n    .PeakGiveback(25)",
+    "runs": 15216,
+    "days": 755,
+    "weightedRuns": 28176,
+    "gapperDays": 3710,
+    "step0Legs": 15216,
+    "laterLegs": 5492,
+    "transitions": 13252,
+    "gross": -0.027125606125658917,
+    "meanFrozenCost": 0.058713395659220464,
+    "net": [
+      {
+        "Mean": -0.08583900178487948,
+        "Lo": -0.08884092768782739,
+        "Hi": -0.08283707588193157,
+        "Days": 755
+      },
+      {
+        "Mean": -0.08087665211625918,
+        "Lo": -0.08382754661307326,
+        "Hi": -0.07792575761944509,
+        "Days": 755
+      },
+      {
+        "Mean": -0.07847845085031782,
+        "Lo": -0.0814028015050078,
+        "Hi": -0.07555410019562785,
+        "Days": 755
+      },
+      {
+        "Mean": -0.08316500543952174,
+        "Lo": -0.08617694072849486,
+        "Hi": -0.08015307015054862,
+        "Days": 755
+      }
+    ],
+    "median": -0.07708238208144076,
+    "winRate": 0.07726433844406587,
+    "folds": [
+      -0.08715655051326109,
+      -0.09040935327994516,
+      -0.09208507581505804,
+      -0.08427670978866128
+    ],
+    "positiveFolds": 0,
+    "sharpe": -0.7012973356292275,
+    "dsr": 4.653605714552972e-246,
+    "pairedVsBaseline": {
+      "Mean": -0.0032760382790637654,
+      "Lo": -0.003576813127020461,
+      "Hi": -0.00297526343110707,
+      "Days": 755
+    },
+    "sameRideAsBaseline": 15216,
+    "laterLeg": {
+      "trades": 5492,
+      "days": 743,
+      "gross": 0.00039933390891794626,
+      "net": {
+        "Mean": -0.01349103398873146,
+        "Lo": -0.014522136609612971,
+        "Hi": -0.01245993136784995,
+        "Days": 743
+      },
+      "median": -0.01035121539673102,
+      "winRate": 0.20359543992984508,
+      "exits": {
+        "Peak giveback": 5037,
+        "Stop loss": 90,
+        "Time exit": 365
+      }
+    },
+    "rideExits": {
+      "Peak giveback": 6471,
+      "Stop loss": 6940,
+      "Time exit": 1805
+    },
+    "criterion": {
+      "meanOk": false,
+      "sizeOk": true,
+      "legsOk": true,
+      "foldsOk": false,
+      "pairedOk": false,
+      "dsrOk": false,
+      "pass": false
+    },
+    "tradesOmitted": 15216,
+    "tradesFile": "D:/IdiotProofData/gapper-study/explore/gapper-sequences/gapper-sequences-20261117-2030.full.json"
+  }
+]
