@@ -137,8 +137,9 @@ builder.Services.AddScoped<IOwnerContext, OperationOwnerContext>();
 builder.Services.AddScoped<IClaudeKeyContext, OwnerClaudeKeyContext>();
 
 builder.Logging.ClearProviders();
-// No ANSI colors: they'd paint over the green window and litter the log file.
-builder.Logging.AddSimpleConsole(o => { o.SingleLine = true; o.TimestampFormat = null; o.ColorBehavior = Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Disabled; });
+// The window's own logger (IP-T578): warnings and errors colored on screen, plain in the log file, and
+// errors handed to the ticket filer (IP-T579). No ANSI codes, so nothing litters the log file.
+builder.Logging.AddProvider(new HubConsoleLoggerProvider());
 builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
 builder.Logging.AddFilter("IdiotProof", LogLevel.Warning);
 // …and durably to the Hub's own MindAttic.Log database, with one entry per command (IP-T78).
