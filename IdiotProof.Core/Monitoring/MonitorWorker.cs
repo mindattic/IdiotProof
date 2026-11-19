@@ -554,8 +554,15 @@ public sealed class MonitorWorker(
         foreach (var stale in previousCloseCache.Keys.Where(k => !activeSet.Contains(k)).ToList())
             previousCloseCache.Remove(stale);
 
+        // IP-T583: exits and stops run before any entry, every tick. Pass 1 walks only strategies
+        // that hold shares; pass 2 walks the flat ones, where entry votes (slow LLM calls) happen,
+        // under a per-tick vote-time budget. A burst of entry signals can no longer starve an exit.
+        voteSpentThisTick = TimeSpan.Zero;
+        for (var pass = 0; pass < 2; pass++)
         foreach (var group in active.GroupBy(s => s.Symbol, StringComparer.OrdinalIgnoreCase))
         {
+            var passMembers = group.Where(s => (s.PositionQty > 0) == (pass == 0)).ToList();
+            if (passMembers.Count == 0) continue;
             var symbol = group.Key.ToUpperInvariant();
             IReadOnlyList<Candle> candles;
             decimal? previousClose;
@@ -581,7 +588,7 @@ public sealed class MonitorWorker(
             // independently here — both could open a real position on the same
             // symbol in the same tick with zero cross-strategy awareness.
             var gapperAlreadyFiredThisTick = false;
-            foreach (var stored in group)
+            foreach (var stored in passMembers)
             {
                 try
                 {
@@ -1099,6 +1106,15 @@ public sealed class MonitorWorker(
         return wait;
     }
 
+    // IP-T583: entry votes are slow (4 voters, seconds each). Per tick, at most this much time is
+    // spent on votes; an entry past the budget is simply not asked yet ("not approved yet") and
+    // is retried next tick while its conditions hold. One vote is also capped so a hung provider
+    // cannot hold the tick.
+    private TimeSpan voteSpentThisTick = TimeSpan.Zero;
+    private static readonly TimeSpan VoteBudgetPerTick = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan VoteTimeout = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan VoteStaleAfter = TimeSpan.FromSeconds(3);
+
     private async Task FireAsync(
         IdiotProof.Core.Data.Strategy stored,
         StrategyDefinition def,
@@ -1114,19 +1130,20 @@ public sealed class MonitorWorker(
         // strategy placed the "stop" below entry — RiskGuardian correctly
         // rejects that as a wrong-side stop, so every short candidate used to
         // be silently blocked before it ever reached the "signal-only" path.
-        var stopPrice = def.StopLossPrice is { } sl
+        decimal StopAt(decimal px) => def.StopLossPrice is { } sl
             ? (decimal)sl
             : def.StopLossPercent is { } slPct
                 ? isShort
-                    ? entryPrice * (1 + (decimal)slPct / 100m)
-                    : entryPrice * (1 - (decimal)slPct / 100m)
-                : entryPrice; // Guardian rejects stopless setups — surfaced in audit.
-
-        var quantity = def.Quantity > 0
+                    ? px * (1 + (decimal)slPct / 100m)
+                    : px * (1 - (decimal)slPct / 100m)
+                : px; // Guardian rejects stopless setups — surfaced in audit.
+        int QuantityAt(decimal px) => def.Quantity > 0
             ? def.Quantity
-            : def.NotionalAmount is { } notional && entryPrice > 0m
-                ? Math.Max(1, (int)Math.Floor(notional / entryPrice))
+            : def.NotionalAmount is { } notional && px > 0m
+                ? Math.Max(1, (int)Math.Floor(notional / px))
                 : 1;
+        var stopPrice = StopAt(entryPrice);
+        var quantity = QuantityAt(entryPrice);
 
         var signal = new TradeSignal
         {
@@ -1187,11 +1204,33 @@ public sealed class MonitorWorker(
         // unparseable votes, or a split below threshold all fail closed.
         var votingCredentials = await claudeKeys.ResolveAsync(stored.OwnerUserId, ct);
         (bool Approved, string Detail) panel = (true, MonitorOrders.PanelOffDetail);
+        System.Diagnostics.Stopwatch? voteWatch = null;
         if (votingCredentials.VotingEnabled && !string.IsNullOrWhiteSpace(votingCredentials.ClaudeApiKey))
         {
-            var voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, votingCredentials,
-                await LlmPanelSettings.ThresholdAsync(dbFactory, appSettings.LlmConsensusThreshold, ct), ct,
-                await SignalFactsAsync(stored.Symbol, signal.GeneratedUtc, ct));
+            if (voteSpentThisTick >= VoteBudgetPerTick)
+            {
+                logger.LogDebug("[{Title}] {Symbol} conditions met; this tick's vote budget is spent — the panel is asked on a later tick.",
+                    stored.Title, stored.Symbol);
+                return;
+            }
+            voteWatch = System.Diagnostics.Stopwatch.StartNew();
+            LlmVotingResult voteResult;
+            try
+            {
+                using var voteCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                voteCts.CancelAfter(VoteTimeout);
+                voteResult = await llmVoting.VoteOnSignalAsync(signal, candles, votingCredentials,
+                    await LlmPanelSettings.ThresholdAsync(dbFactory, appSettings.LlmConsensusThreshold, voteCts.Token), voteCts.Token,
+                    await SignalFactsAsync(stored.Symbol, signal.GeneratedUtc, voteCts.Token));
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                voteSpentThisTick += voteWatch.Elapsed;
+                logger.LogWarning("[{Title}] {Symbol} LLM panel did not answer within {Secs}s — not approved; asking again next tick.",
+                    stored.Title, stored.Symbol, VoteTimeout.TotalSeconds);
+                return;
+            }
+            voteSpentThisTick += voteWatch.Elapsed;
             if (voteResult.Votes.Count == 0 || voteResult.Consensus != VoteDecision.Approve)
             {
                 var why = voteResult.Votes.Count == 0
@@ -1216,6 +1255,15 @@ public sealed class MonitorWorker(
         // live in the TransactionGateway — the one road to a broker. The guardian judges the
         // setup at the signal price with the strategy's stop; the take-profit (first target, else
         // 1R) only feeds its reward:risk warning.
+        // The price the panel saw may be seconds old after a slow vote: re-read the freshest streamed
+        // trade and re-derive stop and size from it before the order is built.
+        if (voteWatch is not null && voteWatch.Elapsed >= VoteStaleAfter
+            && streaming?.GetLastTrade(stored.Symbol) is { Price: > 0m } fresh && UtcNow - fresh.TimestampUtc < TimeSpan.FromSeconds(30))
+        {
+            entryPrice = fresh.Price;
+            stopPrice  = StopAt(entryPrice);
+            quantity   = QuantityAt(entryPrice);
+        }
         var takeProfit = signal.Targets.Count > 0
             ? signal.Targets[0]
             : isShort
