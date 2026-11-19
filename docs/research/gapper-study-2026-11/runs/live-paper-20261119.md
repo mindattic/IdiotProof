@@ -82,6 +82,27 @@ ICCM −10.4%, SPRC re-entry −10.4%, OTLK −14.6%.
     rule on the large/mega bands and stops of 3-4% let it go. Candidate (with 7): take half off at +2R or
     trail the large/mega bands after +1%.
 
+## Close-out (09:28-09:34 ET)
+
+Paper 25K at 09:34: $24,951.01, **cumulative −$48.99 (−0.20%)**, session −$31.59. ~60 fills over the morning;
+cumulative P/L ranged from +$3.43 (06:49) to −$50.78 (09:30).
+
+- More stops on outlier prints (10): ZS 08:32 (stop on 197.83, sold 205.30) and DT 09:06 (stop on 43.50,
+  sold 46.49); five in all (DELL, MRVL, ALAB, ZS, DT). Real stops for comparison: PALU, PANW, MOD filled
+  at their stop level.
+- Stale entries (3) priced: ZS −$2.20 and MOD −$4.00 after 2-3 h resting. The stale-entry cleanup exists
+  (IP-T506) but fires after ~90 min (LGN 07:47 → cleared 09:15), while the Monitor showed LGN as held
+  with unrealized P&L. Candidate: timeout ~3 min, cancel resting entries at the 09:00 window close.
+- Sector concentration (8) cost money 08:18-08:30: AMD/AMDL/NVDA/SOXL fell together (AMD −$7.27 alone).
+- Premarket stops cost ~1.3x the set stop on penny/micro (OTLK 1.46x, ANPA 1.33x, ICCM ~1.2x).
+- **The 09:28 flatten missed again.** Exits go out tick by tick; one tick ran 09:27 → ~09:30, so 7 were
+  still held at the open (30 of 37 flattened, every fill at or better than its limit).
+13. **After 09:30 an exit can never fill.** The Monitor places the exit limit and, in the same tick and
+    second, finds it still `new`, logs "rested unfilled" and cancels it — even a marketable limit (RKLX
+    sell 9.50 with the bid at 9.53, 09:32). Repeats every tick; OKTG, RKLX, NBIL, STXU stayed held past
+    the strategy's own exit. Candidate fix (code bug): judge an exit unfilled only after one full tick /
+    30 s; for anything still held at 09:29 use a market-on-open order.
+
 ## Decisions waiting on the owner
 
 - Deploy IP-T583/IP-T585 (Hub publish) before relying on premarket exits again.
