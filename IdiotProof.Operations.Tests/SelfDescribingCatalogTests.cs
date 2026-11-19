@@ -332,7 +332,8 @@ public class SelfDescribingCatalogTests
         {
             Assert.That(repair.Diagnostics, Is.Not.Empty);
             Assert.That(repair.Fixes, Is.Not.Empty);
-            Assert.That(repair.Diagnostics.Select(d => d.Code), Is.SubsetOf(published));
+            // Distinct: two diagnostics may share a code (two quoted numbers are two IPS006), and NUnit's SubsetOf counts duplicates.
+            Assert.That(repair.Diagnostics.Select(d => d.Code).Distinct(), Is.SubsetOf(published));
             Assert.That(SchemaProperties(schema), Is.EquivalentTo(PropertiesOf(typeof(DslRepairData))));
             Assert.That(SchemaProperties(schema["properties"]!["diagnostics"]!["items"]!), Is.EquivalentTo(PropertiesOf(typeof(DslDiagnostic))));
             Assert.That(SchemaProperties(schema["properties"]!["fixes"]!["items"]!), Is.EquivalentTo(PropertiesOf(typeof(ScriptFix))));
