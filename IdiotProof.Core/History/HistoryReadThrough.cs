@@ -217,7 +217,7 @@ public sealed class HistoryReadThrough(
     // ── coverage ──
 
     /// <summary>Covered ranges of <paramref name="kind"/> overlapping [from, to] for many symbols in one query.</summary>
-    private static async Task<Dictionary<string, List<(DateOnly From, DateOnly To)>>> RangesAsync(SqlConnection c, IReadOnlyCollection<string> symbols, string kind, DateOnly from, DateOnly to, CancellationToken ct)
+    internal static async Task<Dictionary<string, List<(DateOnly From, DateOnly To)>>> RangesAsync(SqlConnection c, IReadOnlyCollection<string> symbols, string kind, DateOnly from, DateOnly to, CancellationToken ct)
     {
         await using var q = new SqlCommand("""
             SELECT Symbol, FromEt, ToEt FROM dbo.CoverageRanges

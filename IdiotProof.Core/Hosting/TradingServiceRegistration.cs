@@ -41,12 +41,26 @@ public static class TradingServiceRegistration
             sp.GetService<TimeProvider>() ?? TimeProvider.System, sp.GetService<Microsoft.Extensions.Logging.ILogger<IdiotProof.Core.History.FallbackBarCache>>());
     }
 
+    /// <summary>
+    /// The bar store's splits: read through the permanent history database (held splits served, uncovered spans fetched
+    /// once and kept), under the same switch as <see cref="BarCache"/>. The registered <see cref="ISplitSource"/> stays
+    /// the raw Alpaca source, which the history backfill itself fetches with.
+    /// </summary>
+    private static ISplitSource Splits(IServiceProvider sp)
+    {
+        var raw = sp.GetRequiredService<ISplitSource>();
+        var history = sp.GetService<IdiotProof.Core.History.HistoryDatabase>();
+        if (history is null || raw is NullSplitSource || string.Equals(Environment.GetEnvironmentVariable(HistoryStoreEnvVar), "app", StringComparison.OrdinalIgnoreCase)) return raw;
+        return new IdiotProof.Core.History.HistorySplitSource(history, raw, sp.GetService<TimeProvider>() ?? TimeProvider.System,
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<IdiotProof.Core.History.HistorySplitSource>>());
+    }
+
     public static IServiceCollection AddIdiotProofTrading(this IServiceCollection services)
     {
         services.AddSingleton<IMarketDataFeed>(sp => CreateFeed(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<ISplitSource>(sp => CreateSplitSource(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<IHistoricalBarStore>(sp => new HistoricalBarStore(
-            BarCache(sp), sp.GetRequiredService<IMarketDataFeed>(), splits: sp.GetRequiredService<ISplitSource>()));
+            BarCache(sp), sp.GetRequiredService<IMarketDataFeed>(), splits: Splits(sp)));
         // IP-T447: the formation alert's paper-shadow report reads labeled bars, so it lives with the bar store.
         services.AddScoped<IdiotProof.Core.Monitoring.Formation.FormationShadowReport>();
         services.AddSingleton(sp => CreateRouter(sp.GetRequiredService<AppSettings>()));
