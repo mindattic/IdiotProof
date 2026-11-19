@@ -10,7 +10,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IdiotProof.Core.Research.Gappers;
 
-public readonly record struct QuoteTick(DateTime TimeUtc, double Bid, double Ask);
+/// <summary>One NBBO quote; the sizes (shares at the touch) are 0 when the source did not carry them.</summary>
+public readonly record struct QuoteTick(DateTime TimeUtc, double Bid, double Ask, double BidSize = 0, double AskSize = 0);
 
 /// <summary>Historical NBBO quotes for one symbol over a UTC window.</summary>
 public interface IAlpacaQuoteSource
@@ -47,7 +48,9 @@ public sealed class AlpacaQuoteSource(StudyKeys keys, string feed, AlpacaDataRat
                 {
                     if (!q.TryGetProperty("t", out var t) || !q.TryGetProperty("bp", out var bp) || !q.TryGetProperty("ap", out var ap)) continue;
                     if (!DateTime.TryParse(t.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var when)) continue;
-                    result.Add(new QuoteTick(when, bp.GetDouble(), ap.GetDouble()));
+                    result.Add(new QuoteTick(when, bp.GetDouble(), ap.GetDouble(),
+                        q.TryGetProperty("bs", out var bs) && bs.ValueKind == JsonValueKind.Number ? bs.GetDouble() : 0,
+                        q.TryGetProperty("as", out var asz) && asz.ValueKind == JsonValueKind.Number ? asz.GetDouble() : 0));
                 }
             page = doc.RootElement.TryGetProperty("next_page_token", out var next) && next.ValueKind == JsonValueKind.String ? next.GetString() : null;
         } while (page is not null && result.Count < limit);
