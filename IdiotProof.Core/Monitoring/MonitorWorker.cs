@@ -108,6 +108,9 @@ public sealed class MonitorWorker(
     private readonly Dictionary<Guid, DateTime> lastHoldingLogUtc = new();
     // Consecutive exit limits that rested unfilled per strategy; widens the next exit's buffer (IP-T553).
     private readonly Dictionary<Guid, int> exitUnfilled = new();
+    // The exit limit still resting from an earlier tick per strategy: judged again next tick instead of
+    // being re-placed, and only cancelled once it has had ExitRestMinimum to fill (IP-T586).
+    private readonly Dictionary<Guid, WorkingExit> workingExits = new();
     private readonly Dictionary<Guid, DateTime> lastQuarantineLogUtc = new();
     private static readonly TimeSpan HoldingLogInterval    = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan QuarantineLogInterval = TimeSpan.FromMinutes(5);
@@ -1683,6 +1686,8 @@ public sealed class MonitorWorker(
             def.Direction, stored.PositionQty, (decimal)entry, filledUtc, def);
         if (decision is null)
         {
+            if (workingExits.Remove(stored.Id, out var staleExit))
+                await CancelStaleExitAsync(stored, staleExit, ct);
             if (await ProtectiveStopsKeeper.EnsureAsync(holding, ct) is { } stoppedOut)
                 await RecordBrokerStopOutAsync(stored, root, def.Direction, entry, stoppedOut, ct);
             return;
@@ -1759,7 +1764,11 @@ public sealed class MonitorWorker(
         // so the comparison stays valid). Sole-holder (today's case) → reconcile
         // exactly as before.
         var sharedSymbol = await strategyRepo.CountHoldingForSymbolAsync(stored.OwnerUserId, stored.Symbol, ct) > 1;
-        if (!sharedSymbol)
+        // An exit already working from an earlier tick is settled below, not re-placed (IP-T586); the
+        // broker may already be flat from its fill, which must not read as a phantom position.
+        var resumed = workingExits.TryGetValue(stored.Id, out var working) ? working : null;
+        if (resumed is not null) { sellQty = resumed.SellQty; sellsEverything = resumed.SellsEverything; }
+        if (!sharedSymbol && resumed is null)
         try
         {
             var brokerPositions = await broker.GetPositionsAsync(ct);
@@ -1811,14 +1820,18 @@ public sealed class MonitorWorker(
         // actually reach the live account.
         // Tagged with a client order id (IP-T506) so this exact order can be found again: its real
         // fill below, or the order a timed-out call may still have placed.
-        var exitClientId = MonitorOrderIds.NewExit(stored.Id, UtcNow);
-        var exitSentUtc = UtcNow;
+        var exitClientId = resumed?.ClientId ?? MonitorOrderIds.NewExit(stored.Id, UtcNow);
+        var exitSentUtc = resumed?.SentUtc ?? UtcNow;
+        string exitOrderId;
+        if (resumed is not null)
+            exitOrderId = resumed.OrderId;
+        else
+        {
         var exitOutcome = await gateway.SubmitAsync(
             MonitorOrders.Exit(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, direction, sellQty,
                 (decimal)decision.CurrentPrice, extendedHours, $"[{stored.Title}] exit {decision.Reason}", exitClientId, exitBuffer),
             new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LeaderCheck = LeaseHeldAsync }, ct);
 
-        string exitOrderId;
         if (exitOutcome.Status == IdiotProof.Core.Trading.GatewayStatus.Placed && exitOutcome.Order is { IsSuccess: true } placedExit)
             exitOrderId = placedExit.BrokerOrderId;
         else if (exitOutcome.BrokerThrew && await FindOwnOrderAsync(broker, stored.Symbol, exitClientId, exitSentUtc, ct) is { } thrownExit)
@@ -1841,6 +1854,7 @@ public sealed class MonitorWorker(
                 userId: stored.OwnerUserId, ct: ct);
             return;
         }
+        }
 
         // Book only what actually filled (IP-T506). "Placed" means the broker ACCEPTED the limit; one
         // resting unfilled (a fast drop past the 0.5% buffer, a halt, a thin book) used to be booked
@@ -1848,6 +1862,13 @@ public sealed class MonitorWorker(
         // Monitor management and no broker stop. An exit still resting is cancelled; the next tick
         // re-protects the position and tries again at the new price.
         var settled = await SettleExitAsync(broker, stored, exitClientId, exitOrderId, exitSentUtc, ct);
+        if (settled is { Resting: true })
+        {
+            workingExits[stored.Id] = new WorkingExit(exitClientId, exitOrderId, exitSentUtc, sellQty, sellsEverything);
+            await UpsertProgressAsync(stored, root, 1, 1, $"(holding {stored.PositionQty} @ {entry:F2} — exit order {exitOrderId} resting, judged again next tick)", ct);
+            return;
+        }
+        workingExits.Remove(stored.Id);
         if (settled is { StillWorking: true })
         {
             logger.LogWarning("[{Title}] {Symbol} exit order {Id} is still working after a cancel request; nothing booked, re-checking next tick.",
@@ -2288,9 +2309,12 @@ public sealed class MonitorWorker(
 
     private static readonly TimeSpan OrderPoll = TimeSpan.FromMilliseconds(500);
     private const int OrderPolls = 6;
+    /// <summary>An exit limit gets at least this long to fill (and at least one more tick) before it is judged unfilled and cancelled (IP-T586).</summary>
+    private static readonly TimeSpan ExitRestMinimum = TimeSpan.FromSeconds(30);
+    private sealed record WorkingExit(string ClientId, string OrderId, DateTime SentUtc, int SellQty, bool SellsEverything);
 
     /// <summary>What an exit actually did at the broker: the filled quantity and average price, or still working.</summary>
-    private sealed record ExitSettlement(decimal Quantity, decimal? AvgPrice, bool StillWorking = false);
+    private sealed record ExitSettlement(decimal Quantity, decimal? AvgPrice, bool StillWorking = false, bool Resting = false);
 
     /// <summary>
     /// The Monitor's own order (by its client order id) placed since <paramref name="sinceUtc"/>, polled
@@ -2404,6 +2428,8 @@ public sealed class MonitorWorker(
             }
             // Unlisted after the wait: can't tell, so book as before rather than risk a second exit.
             if (order is null) return null;
+            // Still open but young: leave it working; a later tick judges it (IP-T586).
+            if (UtcNow - sentUtc < ExitRestMinimum) return new(0m, null, Resting: true);
 
             var cancel = await gateway.SubmitAsync(MonitorOrders.Cancel(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, order.Id,
                     $"[{stored.Title}] exit limit unfilled after {OrderPolls * OrderPoll.TotalSeconds:0.#}s, cancelled"),
@@ -2425,6 +2451,22 @@ public sealed class MonitorWorker(
         {
             logger.LogWarning(ex, "[{Title}] could not confirm the exit fill for {Symbol}; booking it as placed.", stored.Title, stored.Symbol);
             return null;
+        }
+    }
+
+    /// <summary>The exit that was resting no longer applies (its decision cleared): cancel it so it can't sell behind the strategy's back.</summary>
+    private async Task CancelStaleExitAsync(IdiotProof.Core.Data.Strategy stored, WorkingExit exit, CancellationToken ct)
+    {
+        try
+        {
+            await gateway.SubmitAsync(MonitorOrders.Cancel(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, exit.OrderId,
+                    $"[{stored.Title}] exit no longer called for, cancelled"),
+                new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LeaderCheck = LeaseHeldAsync }, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[{Title}] could not cancel the stale exit {Id} for {Symbol}.", stored.Title, exit.OrderId, stored.Symbol);
         }
     }
 
