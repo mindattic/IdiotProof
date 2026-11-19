@@ -558,10 +558,14 @@ public sealed class MonitorWorker(
         // that hold shares; pass 2 walks the flat ones, where entry votes (slow LLM calls) happen,
         // under a per-tick vote-time budget. A burst of entry signals can no longer starve an exit.
         voteSpentThisTick = TimeSpan.Zero;
+        // Which pass a strategy belongs to is decided once, here (IP-T585): an exit in pass 1 sets
+        // PositionQty to 0 in memory, and judging membership again in pass 2 would evaluate that same
+        // strategy twice and could re-enter it in the tick it was stopped out.
+        var heldAtTickStart = active.Where(s => s.PositionQty > 0).Select(s => s.Id).ToHashSet();
         for (var pass = 0; pass < 2; pass++)
         foreach (var group in active.GroupBy(s => s.Symbol, StringComparer.OrdinalIgnoreCase))
         {
-            var passMembers = group.Where(s => (s.PositionQty > 0) == (pass == 0)).ToList();
+            var passMembers = group.Where(s => heldAtTickStart.Contains(s.Id) == (pass == 0)).ToList();
             if (passMembers.Count == 0) continue;
             var symbol = group.Key.ToUpperInvariant();
             IReadOnlyList<Candle> candles;
