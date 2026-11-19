@@ -755,6 +755,37 @@ public sealed class MonitorWorker(
         return merged;
     }
 
+    /// <summary>
+    /// Prints a protective stop needs on the stop side before it fires (IP-T588): the live tick plus the
+    /// one before it. Only 2 is implemented; the quote feed is not subscribed, so no bid check.
+    /// </summary>
+    private const int StopConfirmationPrints = 2;
+
+    /// <summary>
+    /// True when the stop decision also holds with the previous eligible print in place of the live tick.
+    /// With no live tick in <paramref name="candles"/> (bars only) or no earlier print there is nothing to
+    /// compare, so the stop stands.
+    /// </summary>
+    private bool StopConfirmed(string symbol, StrategyDefinition def, double entry, DateTime filledUtc,
+        IReadOnlyList<Candle> candles, IReadOnlyList<Candle>? dailyCandles, int initialQty, int currentQty)
+    {
+        if (StopConfirmationPrints < 2 || candles.Count < 2 || candles[^1].Note != "live-tick") return true;
+        if (streaming?.GetPreviousTrade(symbol) is not { Price: > 0m } previous) return true;
+
+        var basis = new List<Candle>(candles.Take(candles.Count - 1));
+        if (previous.TimestampUtc > basis[^1].EndUtc)
+            basis.Add(new Candle
+            {
+                Symbol = symbol, StartUtc = previous.TimestampUtc, EndUtc = previous.TimestampUtc,
+                Open = previous.Price, High = previous.Price, Low = previous.Price, Close = previous.Price,
+                Volume = basis[^1].Volume, Note = "live-tick",
+            });
+        var recheck = def.Direction == TradeDirection.Short
+            ? GapperExitEvaluator.EvaluateShort(def, entry, filledUtc, basis, UtcNow, dailyCandles, initialQty, currentQty)
+            : GapperExitEvaluator.Evaluate(def, entry, filledUtc, basis, UtcNow, dailyCandles, initialQty, currentQty);
+        return recheck is { Reason: GapperExitReason.StopLoss or GapperExitReason.TrailingStop };
+    }
+
     private async Task<decimal?> GetPreviousCloseAsync(string symbol, CancellationToken ct)
     {
         var todayEt = DateOnly.FromDateTime(
@@ -1596,6 +1627,16 @@ public sealed class MonitorWorker(
             decision = new GapperExitDecision(GapperExitReason.WhileFailed, (double)candles[^1].Close, (double)candles[^1].Close,
                 $"While {whileFailure} stopped holding");
 
+        // IP-T588: a stop decided on the live tick needs the print before it to agree, so one outlier
+        // print can't sell a position 4-6% under the market. Costs a real stop at most one more print.
+        if (decision is { Reason: GapperExitReason.StopLoss or GapperExitReason.TrailingStop }
+            && !StopConfirmed(stored.Symbol, def, entry, filledUtc, candles, dailyCandles, initialQty, stored.PositionQty))
+        {
+            logger.LogInformation("[{Title}] {Symbol} {Reason} on {Price:F2} held back: the previous print does not confirm it (outlier guard).",
+                stored.Title, stored.Symbol, decision.Reason, decision.CurrentPrice);
+            decision = null;
+        }
+
         // Surface "holding" in the progress badge so the UI shows live state.
         var current = (double)candles[^1].Close;
         await UpsertProgressAsync(stored, root, 1, 1,
@@ -2375,7 +2416,7 @@ public sealed class MonitorWorker(
                 await Task.Delay(OrderPoll, ct);
                 order = (await broker.GetOrdersAsync(stored.Symbol, openOnly: false, afterUtc: sentUtc.AddMinutes(-1), ct: ct))
                     .FirstOrDefault(o => o.Id == order.Id) ?? order;
-                if (!order.IsOpen) return new(order.FilledQuantity, order.FilledAvgPrice);
+                if (!order.IsOpen) return await ConfirmNoFillAsync(broker, stored, order, sentUtc, ct);
             }
             return new(order.FilledQuantity, order.FilledAvgPrice, StillWorking: true);
         }
@@ -2385,6 +2426,38 @@ public sealed class MonitorWorker(
             logger.LogWarning(ex, "[{Title}] could not confirm the exit fill for {Symbol}; booking it as placed.", stored.Title, stored.Symbol);
             return null;
         }
+    }
+
+    /// <summary>
+    /// A cancelled exit that reads as unfilled might have lost the race to a fill (IP-T587): re-read it, and
+    /// any other order this strategy placed for the exit, from the broker before concluding nothing sold.
+    /// Returns the real fill (full or partial) when there is one, else the zero-fill settlement.
+    /// </summary>
+    private async Task<ExitSettlement> ConfirmNoFillAsync(IdiotProof.Brokers.IBrokerClient broker, IdiotProof.Core.Data.Strategy stored,
+        BrokerOrder order, DateTime sentUtc, CancellationToken ct)
+    {
+        if (order.FilledQuantity > 0m) return new(order.FilledQuantity, order.FilledAvgPrice);
+        try
+        {
+            await Task.Delay(OrderPoll, ct);
+            var orders = await broker.GetOrdersAsync(stored.Symbol, openOnly: false, afterUtc: sentUtc.AddMinutes(-1), ct: ct);
+            var filled = orders.FirstOrDefault(o => o.Id == order.Id && o.FilledQuantity > 0m)
+                ?? orders.Where(o => MonitorOrderIds.IsExitOf(o, stored.Id) && o.FilledQuantity > 0m
+                        && (o.FilledUtc ?? o.SubmittedUtc ?? sentUtc) >= sentUtc.AddSeconds(-5))
+                    .OrderByDescending(o => o.FilledUtc ?? o.SubmittedUtc).FirstOrDefault();
+            if (filled is not null)
+            {
+                logger.LogWarning("[{Title}] {Symbol} exit {Id} was cancelled but filled {Qty} first; booking the fill.",
+                    stored.Title, stored.Symbol, filled.Id, filled.FilledQuantity);
+                return new(filled.FilledQuantity, filled.FilledAvgPrice);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[{Title}] could not re-read the cancelled exit {Id} for {Symbol}.", stored.Title, order.Id, stored.Symbol);
+        }
+        return new(order.FilledQuantity, order.FilledAvgPrice);
     }
 
     /// <summary>

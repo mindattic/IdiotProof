@@ -24,6 +24,7 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
     private readonly string apiSecretKey;
     private readonly string feed;
     private readonly ConcurrentDictionary<string, LatestPrice> lastTrades = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, LatestPrice> previousTrades = new(StringComparer.OrdinalIgnoreCase);
     private readonly object subscriptionLock = new();
     private readonly Dictionary<string, HashSet<string>> symbolsByOwner = new(StringComparer.Ordinal);
     private HashSet<string> subscribedSymbols = new(StringComparer.OrdinalIgnoreCase);
@@ -89,6 +90,30 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
     /// <summary>Last trade seen for a symbol, or null before the first print.</summary>
     public LatestPrice? GetLastTrade(string symbol) =>
         lastTrades.TryGetValue(symbol, out var lp) ? lp : null;
+
+    /// <summary>The eligible print before <see cref="GetLastTrade"/>, or null before a second print (IP-T588: stop confirmation).</summary>
+    public LatestPrice? GetPreviousTrade(string symbol) =>
+        previousTrades.TryGetValue(symbol, out var lp) ? lp : null;
+
+    /// <summary>
+    /// Trade condition codes that must not drive a price decision (IP-T588): prints that are not last-sale
+    /// eligible, out of sequence, average-price / contingent / cash / next-day / odd-lot, or a reference
+    /// price, so one of them can no longer trip a stop 4-6% off the real market.
+    /// </summary>
+    private static readonly HashSet<string> IneligibleConditions = new(StringComparer.Ordinal)
+    {
+        "B", "C", "G", "H", "I", "M", "N", "P", "R", "V", "W", "X", "Z", "U", "4", "7", "9", "3",
+    };
+
+    /// <summary>True when none of a trade's condition codes (<c>"c"</c> array) marks it ineligible as the last sale.</summary>
+    public static bool IsLastSaleEligible(JsonElement trade)
+    {
+        if (!trade.TryGetProperty("c", out var codes) || codes.ValueKind != JsonValueKind.Array) return true;
+        foreach (var code in codes.EnumerateArray())
+            if (code.ValueKind == JsonValueKind.String && code.GetString() is { } c && IneligibleConditions.Contains(c))
+                return false;
+        return true;
+    }
 
     /// <summary>Starts the connect/receive loop. Idempotent.</summary>
     public void Start()
@@ -257,10 +282,12 @@ public sealed class AlpacaStreamingClient : IAsyncDisposable
             {
                 case "t": // trade
                 {
+                    if (!IsLastSaleEligible(el)) break; // condition-coded / out-of-sequence print (IP-T588)
                     var symbol = el.GetProperty("S").GetString() ?? "";
                     var price = el.GetProperty("p").GetDecimal();
                     var ts = el.TryGetProperty("t", out var tsEl) ? tsEl.GetDateTime() : DateTime.UtcNow;
                     var lp = new LatestPrice(symbol, price, ts, "AlpacaStream");
+                    if (lastTrades.TryGetValue(symbol, out var before)) previousTrades[symbol] = before;
                     lastTrades[symbol] = lp;
                     TradeReceived?.Invoke(lp);
                     break;
