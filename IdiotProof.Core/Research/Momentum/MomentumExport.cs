@@ -64,6 +64,7 @@ public sealed partial class MomentumTracker
                 ["st"] = R(x.o.InvalidationLevel, 4), ["stS"] = x.o.InvalidationSource, ["n"] = Clip(x.o.Notes, 200),
                 ["why"] = Clip(string.Join(" | ", new[] { x.c.IdentityHint, x.c.RawQuote }.Where(s => s is not null)), 600),
                 ["smv"] = Rd(x.c.StatedMovePct, 0),
+                ["cat"] = x.c.CatalystType, ["catT"] = Clip(x.c.Catalyst, 200),
             });
         }
         var bragRows = brags.Select(x => new Dictionary<string, object?>

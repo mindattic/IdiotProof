@@ -72,6 +72,10 @@ public sealed class MomentumClaim
     [MaxLength(400)] public string? IdentityHint { get; set; }
     /// <summary>A move he quoted for the stock (+80%), percent.</summary>
     public double? StatedMovePct { get; set; }
+    /// <summary>The news or reason he gives for the move ("big in after hours after earnings"), as said; null when he gives none.</summary>
+    [MaxLength(400)] public string? Catalyst { get; set; }
+    /// <summary>The catalyst's type from <see cref="IdiotProof.Core.Research.Momentum.MomentumClaimExtractor.CatalystTypeVocabulary"/>; null when he gives none.</summary>
+    [MaxLength(40)] public string? CatalystType { get; set; }
     /// <summary>JSON array of setup tags (day-2-continuation, flush-higher-low, vwap-reclaim, wedge-breakout, ...).</summary>
     [MaxLength(1000)] public string? SetupTags { get; set; }
     [MaxLength(8)] public string Direction { get; set; } = "long";

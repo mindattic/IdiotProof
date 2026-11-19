@@ -161,6 +161,22 @@ public sealed partial class MomentumTracker
             md.AppendLine($"| {g.Key} | {g.Select(x => x.Row.Claim.Id).Distinct().Count()} | {ev.Count} | {Rate(tr.Count, ev.Count)} | {Rate(tr.Count(o => o.FirstTargetHit), tr.Count)} | {Rate(tr.Count(o => o.Verdict == MomentumVerdicts.Stopped), tr.Count)} | {Mean(pn)} / {Median(pn)} |");
         }
         md.AppendLine();
+        var withCatalyst = picks.Count(c => c.CatalystType != null);
+        var catalystExtracted = picks.Count(c => !string.IsNullOrEmpty(c.ExtractedBy) && !c.ExtractedBy.EndsWith(" p1", StringComparison.Ordinal) && !c.ExtractedBy.EndsWith(" p2", StringComparison.Ordinal));
+        md.AppendLine($"Catalysts he gives (prompt v3 and later; picks extracted earlier have none until `momentum extract --force`): {withCatalyst} of {catalystExtracted} picks name one.");
+        md.AppendLine();
+        md.AppendLine("| catalyst type | picks | scenarios evaluated | trigger rate | first target, of triggered | stopped, of triggered | mean / median plan P&L | top gapper |");
+        md.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|");
+        foreach (var g in rows.Where(r => r.Claim.CatalystType != null).GroupBy(r => r.Claim.CatalystType!).OrderByDescending(g => g.Select(r => r.Claim.Id).Distinct().Count()))
+        {
+            var ev = g.Select(r => r.Outcome).Where(o => o is not null && o.Verdict != MomentumVerdicts.Unverifiable).Select(o => o!).ToList();
+            var tr = ev.Where(o => o.TriggerHit).ToList();
+            var pn = ev.Where(o => o.PlanPnlPct != null).Select(o => o.PlanPnlPct!.Value).ToList();
+            var pk = g.Select(r => r.Claim).DistinctBy(c => c.Id).ToList();
+            var rk = pk.Where(c => byClaim.TryGetValue(c.Id, out var os) && os[0].TopGapper != null).ToList();
+            md.AppendLine($"| {g.Key} | {pk.Count} | {ev.Count} | {Rate(tr.Count, ev.Count)} | {Rate(tr.Count(o => o.FirstTargetHit), tr.Count)} | {Rate(tr.Count(o => o.Verdict == MomentumVerdicts.Stopped), tr.Count)} | {Mean(pn)} / {Median(pn)} | {Rate(rk.Count(c => byClaim[c.Id][0].TopGapper == true), rk.Count)} |");
+        }
+        md.AppendLine();
         md.AppendLine("| trigger kind | scenarios evaluated | trigger rate | first target, of triggered | of which need a pullback confirm | confirm reached, of triggered needing one | mean plan P&L |");
         md.AppendLine("|---|---:|---:|---:|---:|---:|---:|");
         foreach (var g in rows.Where(r => r.Scenario is not null).GroupBy(r => r.Scenario!.TriggerKind).OrderByDescending(g => g.Count()))
@@ -256,6 +272,7 @@ public sealed partial class MomentumTracker
         human.AppendLine($"  plan P&L ({entered.Count} entered): mean {Mean(entered.Select(o => o.PlanPnlPct!.Value))}, median {Median(entered.Select(o => o.PlanPnlPct!.Value))}; top gapper {Rate(withRank.Count(p => p.Os[0].TopGapper == true), withRank.Count)} of picks");
         human.AppendLine($"  brags accurate {Rate(bragJudged.Count(b => b.O.Verdict == MomentumVerdicts.BragAccurate), bragJudged.Count)} of {bragJudged.Count}");
         human.AppendLine("  top setups: " + string.Join(", ", picks.SelectMany(Tags).GroupBy(t => t).OrderByDescending(g => g.Count()).Take(6).Select(g => $"{g.Key} {g.Count()}")));
+        human.AppendLine($"  catalysts ({withCatalyst} of {catalystExtracted} picks): " + string.Join(", ", picks.Where(c => c.CatalystType != null).GroupBy(c => c.CatalystType!).OrderByDescending(g => g.Count()).Take(6).Select(g => $"{g.Key} {g.Count()}")));
         foreach (var r in rows.Where(r => r.Outcome is not null).OrderByDescending(r => r.Claim.TradeDate).ThenBy(r => r.Claim.Rank).Take(15))
             human.AppendLine($"  {r.Claim.TradeDate:yyyy-MM-dd} #{r.Claim.Rank} {r.Claim.Symbol ?? "?",-6} {r.Scenario?.TriggerKind} {Lv(r.Scenario?.Trigger)} -> {r.Outcome!.Verdict}" +
                              (r.Outcome.TriggerHit ? $" at {T(r.Outcome.TriggerUtc)}" : "") + (r.Outcome.PlanPnlPct is { } pp ? $", plan {P(pp)}" : ""));

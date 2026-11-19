@@ -390,6 +390,8 @@ public sealed partial class MomentumTracker(
                 ClaimType = v.Kind == "morning-update" ? PickMorning : PickWatchlist,
                 SpokenSymbol = Trunc(p.SpokenSymbol, 40), Symbol = sym, SymbolConfidence = sym is null ? null : Math.Round(conf, 2), SymbolNote = Trunc(note, 400),
                 IdentityHint = Trunc(p.IdentityHint, 400), StatedMovePct = p.StatedMovePct,
+                Catalyst = string.IsNullOrWhiteSpace(p.Catalyst) ? null : Trunc(p.Catalyst.Trim(), 400),
+                CatalystType = MomentumClaimExtractor.NormalizeCatalystType(p.CatalystType, p.Catalyst),
                 SetupTags = JsonSerializer.Serialize(NormalizeTags(p.SetupTags)), Direction = p.Direction?.Trim().ToLowerInvariant() == "short" ? "short" : "long",
                 Scenarios = JsonSerializer.Serialize(scenarios, Json), ReferencePrice = reference is { } r ? Math.Round(r, 4) : null,
                 RawQuote = quote, ExtractedBy = MomentumClaimExtractor.ExtractedBy, ExtractedUtc = now,

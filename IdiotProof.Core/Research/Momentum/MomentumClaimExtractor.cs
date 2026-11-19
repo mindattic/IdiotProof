@@ -24,6 +24,10 @@ public sealed record ExtractedPick
     [JsonPropertyName("spoken_symbol")] public string? SpokenSymbol { get; init; }
     [JsonPropertyName("identity_hint")] public string? IdentityHint { get; init; }
     [JsonPropertyName("stated_move_pct")] public double? StatedMovePct { get; init; }
+    /// <summary>The news or reason he gives for the move, as said; null when none.</summary>
+    [JsonPropertyName("catalyst")] public string? Catalyst { get; init; }
+    /// <summary>One of <see cref="MomentumClaimExtractor.CatalystTypeVocabulary"/>, or null.</summary>
+    [JsonPropertyName("catalyst_type")] public string? CatalystType { get; init; }
     [JsonPropertyName("setup_tags")] public List<string>? SetupTags { get; init; }
     [JsonPropertyName("direction")] public string? Direction { get; init; }
     [JsonPropertyName("scenarios")] public List<ExtractedScenario>? Scenarios { get; init; }
@@ -61,7 +65,7 @@ public sealed record MomentumExtraction
 public sealed class MomentumClaimExtractor(LegionClient legion, ILogger<MomentumClaimExtractor> logger)
 {
     public const string Model = "claude-haiku-4-5-20251001";
-    public const int PromptVersion = 2;
+    public const int PromptVersion = 3;
     public static string ExtractedBy => $"{Model} p{PromptVersion}";
 
     public static readonly IReadOnlyList<string> SetupTagVocabulary =
@@ -70,6 +74,22 @@ public sealed class MomentumClaimExtractor(LegionClient legion, ILogger<Momentum
         "gap-and-go", "red-to-green", "range-breakout", "high-of-day-break", "premarket-high-break", "pullback-confirm",
         "bull-flag", "double-bottom", "squeeze", "dip-buy", "other",
     ];
+
+    /// <summary>Catalyst types for a pick (prompt v3): what kind of news or reason he gives for the move.</summary>
+    public static readonly IReadOnlyList<string> CatalystTypeVocabulary =
+    [
+        "earnings", "upcoming-earnings", "acquisition", "investment", "offering", "fda", "contract", "partnership",
+        "analyst", "sector-sympathy", "macro", "other",
+    ];
+
+    /// <summary>The catalyst type lower-cased and checked against the vocabulary; an unknown type becomes "other", a blank one null.</summary>
+    public static string? NormalizeCatalystType(string? type, string? catalyst)
+    {
+        var t = type?.Trim().ToLowerInvariant().Replace(' ', '-').Replace('_', '-');
+        if (string.IsNullOrEmpty(t) || t is "null" or "none")
+            return string.IsNullOrWhiteSpace(catalyst) ? null : "other";
+        return CatalystTypeVocabulary.Contains(t) ? t : "other";
+    }
 
     public static readonly string SystemPrompt = $$"""
         You read transcripts of short stock-watchlist videos by a day trader called "Momentum." and extract
@@ -90,6 +110,11 @@ public sealed class MomentumClaimExtractor(LegionClient legion, ILogger<Momentum
         - spoken_symbol: the ticker exactly as the captions write it ("P A R A", "CHS", "VSA"); null if he never
           says it (then put what identifies the stock into identity_hint, e.g. "closed up over 80% into the weekend").
         - stated_move_pct: a percent move he states for the stock itself (80 for "closed up over 80%"), else null.
+        - catalyst: the news or reason he gives for the stock's move or for watching it, in a few of his words
+          ("big in after hours after earnings", "earnings coming up on the 20th", "solar names were hot today");
+          null when he gives none. Never invent one from the price action alone.
+        - catalyst_type: when catalyst is set, one of {{string.Join(", ", CatalystTypeVocabulary)}}
+          ("sector-sympathy" = moving with a hot sector or a peer's news); else null.
         - trigger_kind: "break" (break over / breakout above a level), "reclaim" (flush or dip, then back over a
           level or VWAP), "hold" (higher low / holding over a level, then bouncing).
         - requires_confirm: true when he says the entry is on a pullback that must hold ("confirm pullbacks back
@@ -111,6 +136,8 @@ public sealed class MomentumClaimExtractor(LegionClient legion, ILogger<Momentum
               "spoken_symbol": "VSA",
               "identity_hint": "ran well over 60% back on Friday",
               "stated_move_pct": 60,
+              "catalyst": null,
+              "catalyst_type": null,
               "setup_tags": ["topping-tail-break", "pullback-confirm"],
               "direction": "long",
               "scenarios": [
