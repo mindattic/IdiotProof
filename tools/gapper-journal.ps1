@@ -161,6 +161,15 @@ $mdPath = Join-Path $JournalDir "$Date.md"
 $jsonOut = Join-Path $JournalDir "$Date.json"
 
 # 1. Case study.
+# Public-docs privacy (IP-T598): the journal is committed, so no Alpaca paper account id (PA + 10 upper/digits)
+# may reach it. Digit-bearing matches are redacted; all-letter ones are words (e.g. PARTICIPANTS) and are just recased.
+function Protect-AccountIds([string]$Path) {
+    if (-not $Path -or -not (Test-Path $Path)) { return }
+    $t = [IO.File]::ReadAllText($Path)
+    $r = [regex]::Replace($t, 'PA[0-9A-Z]{10}', { param($m) if ($m.Value -match '[0-9]') { '[redacted-account]' } else { $m.Value.Substring(0, 1) + $m.Value.Substring(1).ToLowerInvariant() } })
+    if ($r -ne $t) { [IO.File]::WriteAllText($Path, $r, (New-Object Text.UTF8Encoding $false)) }
+}
+
 $csArgs = @('research', 'gappers', 'casestudy', '--from', $Date, '--to', $Date, '--top', "$Top")
 $named = @($Extra -split '[,\s]+' | Where-Object { $_ } | ForEach-Object { $_.ToUpperInvariant() })
 if ($named.Count) { $csArgs += @('--extra', "$Date`:$($named -join ',')") }
@@ -173,7 +182,8 @@ $csJsonFrom = if ($cs.json_path) { $cs.json_path } else { $cs.jsonPath }   # the
 $csMdFrom = if ($cs.md_path) { $cs.md_path } else { $cs.mdPath }
 if (-not $csJsonFrom -or -not (Test-Path $csJsonFrom)) { throw "The case study reported no output file ($($cs | ConvertTo-Json -Compress))" }
 Move-Item -Force $csJsonFrom $csJson
-if ($csMdFrom -and (Test-Path $csMdFrom)) { Move-Item -Force $csMdFrom $csMd }
+Protect-AccountIds $csJson
+if ($csMdFrom -and (Test-Path $csMdFrom)) { Move-Item -Force $csMdFrom $csMd; Protect-AccountIds $csMd }
 }
 $study = Get-Content $csJson -Raw -Encoding UTF8 | ConvertFrom-Json
 
@@ -271,6 +281,7 @@ $journal = [ordered]@{
     caseStudy = "data/$Date.casestudy.json"; runners = $rows
 }
 [IO.File]::WriteAllText($jsonOut, ($journal | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding $false))
+Protect-AccountIds $jsonOut
 "journal data -> $jsonOut"
 
 if ((Test-Path $mdPath) -and -not $Force) { "kept the existing $mdPath (-Force rewrites it; the hand-written sections would be lost)"; exit 0 }
