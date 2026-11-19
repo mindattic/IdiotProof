@@ -1,0 +1,69 @@
+# Live paper run — 2026-11-19 premarket (IP-T548), interim at 05:40 ET
+
+Account: Paper 25K (PA39UP8N9). 441 active Multi-Stage Gapper v2 strategies, 1 share each: 158 armed
+for today's radar (IP-T546) plus 283 still active from 11-18 (163 of those are not in today's top 300).
+Cumulative start of day: −$17.40 (−0.07%). At 05:40 ET: $24,984.22, **−$15.78 (−0.06%)**.
+
+## Fills so far (ET)
+
+| Time | Symbol | Tier | Entry | Exit | Result |
+|---|---|---|---|---|---|
+| 04:04 | PENG | large | 45.42 | open | 5 min resting in a 1.8% spread, filled 2c under limit |
+| 04:26 | MPU | penny | 3.25 | open | −3% within a minute; panel vetoed 04:23, approved 04:26 |
+| 04:26 | SPRC | micro | 0.4283 | 0.69 | **+61%** TrailingStop (12% off a ~+82% peak) |
+| 04:39 | INLF | micro | 0.27 | ~0.25 | −7% TrailingStop (12% trail fired below entry) |
+| 04:41 | MRVL | mega | 151.00 | open | |
+| 04:41 | AMD | mega | 545.99 | open | |
+| 04:49 | AXTX | classic | 5.76 | open | |
+| 04:50 | DELL | mega | 325.35 | open | filled 30c under limit after 8 min |
+| 04:58 | OTLK | micro | 0.48 | ~0.41 | **−14.6%** StopLoss set at −10% (see 5) |
+| 05:01 | GMM | penny | 1.91 | open | |
+| 05:02 | BEX | classic | 12.60 | open | |
+| 05:13 | NCPL | penny | 3.24 | open | −2.5% within a minute |
+| 05:19 | CRDO | large | 128.88 | open | |
+| 05:20 | AMDL | large | 53.80 | open | 2x AMD while AMD is held |
+| 05:21 | NVDA | mega | 154.00 | open | |
+| 05:22 | SOXL | large | 54.20 | open | 3x semis |
+| 05:22 | CRWD | mega | 251.98 | open | |
+| 05:23 | LITX | micro | 9.24 | open | |
+| 05:25 | AEHR | large | 52.30 | open | |
+| 05:35 | STX | mega | 541.18 | open | |
+
+Unfilled: MOD (limit 142.28 in a $137.88/$145.00 book, ~5% spread, since 04:37), ZS (since 05:02).
+
+## Reality vs model (divergences, running tally)
+
+1. **Monitor tick stall.** At 04:00 dozens of signals fire at once; each runs a catalyst lookup and a
+   ~5 s four-voter LLM vote sequentially inside the tick. One tick ran 04:02→04:06 and tripped the
+   MonitorOutageWatchdog (auto-filed IP-T583). Ticks of 30-80 s recur all morning. Fixed on main
+   (IP-T583 exits-first + 20 s vote budget, IP-T585 pass membership), **not yet deployed**.
+2. **Quorum lost to an unfunded voter.** The Claude voter fails (Anthropic credit balance too low,
+   then circuit-breaker). A 2-1 split of the other three is 2/4 = 50% → "no approval quorum".
+   11 panel approvals by 04:21 produced 1 order. Fix: top up credits, or count only voters that answered.
+3. **Wide premarket spreads.** PENG 1.8%, MOD ~5%: entry limits rest unfilled or fill only on a
+   pullback, while the Monitor already counts the strategy as holding. Candidate: skip entries with
+   spread > 1.0%, cancel an unfilled entry after 3 min.
+4. **Re-asking the panel until it says yes.** MPU vetoed 04:23, approved 04:26 on the same signal,
+   entered at the local top, −3% in a minute.
+5. **Broker stops do nothing before 09:30.** The GTC STP orders at Alpaca do not trigger in extended
+   hours; only the Monitor's own stop (a limit order) protects a premarket position. OTLK traded
+   through its −10% stop, the first exit limit rested unfilled, the second filled: −14.6%
+   (11-18: BRFH −13%, VWAV −21% vs a 10% stop). Assume ~1.4x the set stop on micro names premarket.
+6. **Buying the spike.** 9 of the first 12 fills were red within minutes; the small caps stayed red,
+   the large caps (AMD, DELL, MRVL) dipped and recovered. Same as 11-18 ("late entries on faded gaps").
+   Candidate for penny/micro: enter on the first 1-minute higher low above VWAP within 10 min of the signal.
+7. **Micro trailing stop is 12% wide.** SPRC kept +61% of a ~+82% run; INLF's trail fired below
+   entry (−7%). Candidate: arm the trail only after +5%, width 8%.
+8. **Sector concentration.** Semis held at once: AMD, AMDL (2x AMD), NVDA, MRVL, CRDO, SOXL (3x),
+   AEHR, plus STX and DELL hardware. The radar treats each symbol independently. Candidate: at most 2
+   open positions per sector, leveraged ETFs counted as their underlying.
+9. **Dollar P/L is price-weighted.** With 1 share, a −0.1% move on AMD costs more than SPRC's +61%
+   made; judge templates by percent per trade, not account dollars.
+
+## Decisions waiting on the owner
+
+- Deploy IP-T583/IP-T585 (Hub publish) before relying on premarket exits again.
+- Top up the Anthropic credit (restores the 4th voter).
+- File tickets for: spread filter + entry timeout (3), re-ask rule (4), premarket stop handling (5),
+  pullback entry for penny/micro (6), micro trail (7), sector cap (8).
+- Deactivate the 163 stale 11-18 strategies not in today's radar.
