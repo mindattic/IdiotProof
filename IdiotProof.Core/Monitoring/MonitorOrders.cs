@@ -31,6 +31,10 @@ public static class MonitorOrderIds
     /// <summary>An entry order the Monitor placed for this strategy.</summary>
     public static bool IsEntryOf(BrokerOrder order, Guid strategyId) =>
         order.ClientOrderId?.StartsWith($"{EntryPrefix}{strategyId:N}-", StringComparison.Ordinal) == true;
+
+    /// <summary>An exit order the Monitor placed for this strategy.</summary>
+    public static bool IsExitOf(BrokerOrder order, Guid strategyId) =>
+        order.ClientOrderId?.StartsWith($"{ExitPrefix}{strategyId:N}-", StringComparison.Ordinal) == true;
 }
 
 public static class MonitorOrders
