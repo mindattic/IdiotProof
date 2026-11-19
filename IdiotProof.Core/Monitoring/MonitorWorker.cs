@@ -1715,6 +1715,7 @@ public sealed class MonitorWorker(
         var direction = def.Direction;
         var exitBuffer = DirectionalOrders.ExitBufferFor(extendedHours, exitUnfilled.GetValueOrDefault(stored.Id));
         var limitPrice = DirectionalOrders.ExitLimit(direction, (decimal)decision.CurrentPrice, exitBuffer);
+        var openExit = OpenExitKind(direction, decision.Reason, def.ExitTime, UtcNow, exitUnfilled.GetValueOrDefault(stored.Id) > 0);
         var exitSide = DirectionalOrders.SideLabel(DirectionalOrders.ExitSide(direction));
 
         // Exit through the same per-user, per-strategy broker that holds the position — the
@@ -1768,6 +1769,7 @@ public sealed class MonitorWorker(
         // broker may already be flat from its fill, which must not read as a phantom position.
         var resumed = workingExits.TryGetValue(stored.Id, out var working) ? working : null;
         if (resumed is not null) { sellQty = resumed.SellQty; sellsEverything = resumed.SellsEverything; }
+        var atOpen = resumed?.AtOpen ?? openExit == true;
         if (!sharedSymbol && resumed is null)
         try
         {
@@ -1828,8 +1830,11 @@ public sealed class MonitorWorker(
         else
         {
         var exitOutcome = await gateway.SubmitAsync(
-            MonitorOrders.Exit(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, direction, sellQty,
-                (decimal)decision.CurrentPrice, extendedHours, $"[{stored.Title}] exit {decision.Reason}", exitClientId, exitBuffer),
+            openExit is { } opg
+                ? MonitorOrders.ExitAtOpen(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, direction, sellQty,
+                    (decimal)decision.CurrentPrice, opg, $"[{stored.Title}] exit {decision.Reason} at the {(opg ? "opening auction" : "open")}", exitClientId)
+                : MonitorOrders.Exit(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, direction, sellQty,
+                    (decimal)decision.CurrentPrice, extendedHours, $"[{stored.Title}] exit {decision.Reason}", exitClientId, exitBuffer),
             new IdiotProof.Core.Trading.GatewayOptions { Caller = "monitor", LeaderCheck = LeaseHeldAsync }, ct);
 
         if (exitOutcome.Status == IdiotProof.Core.Trading.GatewayStatus.Placed && exitOutcome.Order is { IsSuccess: true } placedExit)
@@ -1861,10 +1866,10 @@ public sealed class MonitorWorker(
         // as sold — after the protective stop was already withdrawn — leaving real shares with no
         // Monitor management and no broker stop. An exit still resting is cancelled; the next tick
         // re-protects the position and tries again at the new price.
-        var settled = await SettleExitAsync(broker, stored, exitClientId, exitOrderId, exitSentUtc, ct);
+        var settled = await SettleExitAsync(broker, stored, exitClientId, exitOrderId, exitSentUtc, ct, restsToAuction: atOpen);
         if (settled is { Resting: true })
         {
-            workingExits[stored.Id] = new WorkingExit(exitClientId, exitOrderId, exitSentUtc, sellQty, sellsEverything);
+            workingExits[stored.Id] = new WorkingExit(exitClientId, exitOrderId, exitSentUtc, sellQty, sellsEverything, atOpen);
             await UpsertProgressAsync(stored, root, 1, 1, $"(holding {stored.PositionQty} @ {entry:F2} — exit order {exitOrderId} resting, judged again next tick)", ct);
             return;
         }
@@ -2311,7 +2316,28 @@ public sealed class MonitorWorker(
     private const int OrderPolls = 6;
     /// <summary>An exit limit gets at least this long to fill (and at least one more tick) before it is judged unfilled and cancelled (IP-T586).</summary>
     private static readonly TimeSpan ExitRestMinimum = TimeSpan.FromSeconds(30);
-    private sealed record WorkingExit(string ClientId, string OrderId, DateTime SentUtc, int SellQty, bool SellsEverything);
+    private sealed record WorkingExit(string ClientId, string OrderId, DateTime SentUtc, int SellQty, bool SellsEverything, bool AtOpen = false);
+
+    /// <summary>Alpaca rejects an opg order submitted from 09:28 ET until 19:00 ET (the auction cutoff).</summary>
+    private static readonly TimeSpan OpenAuctionCutoff = new(9, 28, 0);
+    private static readonly TimeSpan MarketOpen = new(9, 30, 0);
+    /// <summary>A market-on-open exit rests until the auction; past this it is judged like any other exit.</summary>
+    private static readonly TimeSpan OpenAuctionSettled = new(9, 35, 0);
+
+    /// <summary>
+    /// How a long's pre-open SellBy exit goes out instead of chasing a limit (IP-T594): null = the usual
+    /// limit; true = a market-on-open (opg) order, once a limit has already gone unfilled and the auction
+    /// cutoff has not passed; false = a plain DAY market once the regular session is open. Only a SellBy
+    /// at or before the open qualifies, on a trading day.
+    /// </summary>
+    internal static bool? OpenExitKind(TradeDirection direction, GapperExitReason reason, TimeSpan? sellBy, DateTime utc, bool limitUnfilled)
+    {
+        if (direction == TradeDirection.Short || reason != GapperExitReason.SellByTime) return null;
+        if (sellBy is not { } at || at > MarketOpen || !MarketTime.IsEquityTradingDay(utc)) return null;
+        var tod = MarketTime.ToEasternTimeOfDay(utc);
+        if (tod < OpenAuctionCutoff) return limitUnfilled && tod >= new TimeSpan(4, 0, 0) ? true : null;
+        return tod >= MarketOpen && tod < new TimeSpan(16, 0, 0) ? false : null;
+    }
 
     /// <summary>What an exit actually did at the broker: the filled quantity and average price, or still working.</summary>
     private sealed record ExitSettlement(decimal Quantity, decimal? AvgPrice, bool StillWorking = false, bool Resting = false);
@@ -2413,7 +2439,7 @@ public sealed class MonitorWorker(
     /// broker can't be asked (the Sandbox simulator fills on placement, so it books as before).
     /// </summary>
     private async Task<ExitSettlement?> SettleExitAsync(IdiotProof.Brokers.IBrokerClient broker, IdiotProof.Core.Data.Strategy stored,
-        string clientId, string orderId, DateTime sentUtc, CancellationToken ct)
+        string clientId, string orderId, DateTime sentUtc, CancellationToken ct, bool restsToAuction = false)
     {
         if (!broker.SupportsOrderQueries) return null;
         try
@@ -2430,6 +2456,8 @@ public sealed class MonitorWorker(
             if (order is null) return null;
             // Still open but young: leave it working; a later tick judges it (IP-T586).
             if (UtcNow - sentUtc < ExitRestMinimum) return new(0m, null, Resting: true);
+            // A market-on-open order rests until the auction fills or expires it (IP-T594).
+            if (restsToAuction && MarketTime.ToEasternTimeOfDay(UtcNow) < OpenAuctionSettled) return new(0m, null, Resting: true);
 
             var cancel = await gateway.SubmitAsync(MonitorOrders.Cancel(stored.OwnerUserId, stored.Id, stored.BrokerMode, stored.Symbol, order.Id,
                     $"[{stored.Title}] exit limit unfilled after {OrderPolls * OrderPoll.TotalSeconds:0.#}s, cancelled"),

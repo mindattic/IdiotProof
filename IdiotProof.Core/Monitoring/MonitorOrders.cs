@@ -76,6 +76,20 @@ public static class MonitorOrders
         Note = note,
     };
 
+    /// <summary>A market exit for the opening auction (opg) or the regular session (day): <see cref="DirectionalOrders.ExitMarket"/> (IP-T594).</summary>
+    public static OrderIntent ExitAtOpen(Guid owner, Guid strategyId, string? brokerMode, string symbol, TradeDirection direction,
+        int quantity, decimal referencePrice, bool opg, string? note, string? clientOrderId = null) => new()
+    {
+        OwnerUserId = owner,
+        Mode = OrderIntent.ParseMode(brokerMode),
+        Purpose = OrderPurpose.Exit,
+        Origin = OrderOrigin.Monitor,
+        StrategyId = strategyId,
+        Order = DirectionalOrders.ExitMarket(symbol, direction, quantity, opg ? "OPG" : "DAY", clientOrderId),
+        ReferencePrice = referencePrice,
+        Note = note,
+    };
+
     /// <summary>
     /// The operator <c>flatten</c> command's exit: the Monitor's own exit shape, but a person
     /// asked for it (<see cref="OrderOrigin.Flatten"/>), so a Live one waits for a confirm code.

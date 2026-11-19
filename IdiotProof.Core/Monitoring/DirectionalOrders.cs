@@ -95,6 +95,23 @@ public static class DirectionalOrders
     };
 
     /// <summary>
+    /// A market exit for the opening auction (<paramref name="timeInForce"/> "OPG") or the regular
+    /// session ("DAY"). Never extended-hours: Alpaca takes only DAY limits there (IP-T594).
+    /// </summary>
+    public static OrderRequest ExitMarket(string symbol, TradeDirection direction, int quantity, string timeInForce,
+        string? clientOrderId = null) => new()
+    {
+        Symbol         = symbol,
+        Quantity       = quantity,
+        Side           = ExitSide(direction),
+        Type           = OrderType.Market,
+        TimeInForce    = timeInForce,
+        ExtendedHours  = false,
+        PositionIntent = IsShort(direction) ? "buy_to_close" : "sell_to_close",
+        ClientOrderId  = clientOrderId,
+    };
+
+    /// <summary>
     /// Whole shares the broker position holds in <paramref name="direction"/>: the positive quantity
     /// for a long, the negated negative quantity for a short (Alpaca reports shorts as "-10").
     /// A position on the other side counts as zero held.
