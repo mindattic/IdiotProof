@@ -60,6 +60,28 @@ Unfilled: MOD (limit 142.28 in a $137.88/$145.00 book, ~5% spread, since 04:37),
 9. **Dollar P/L is price-weighted.** With 1 share, a −0.1% move on AMD costs more than SPRC's +61%
    made; judge templates by percent per trade, not account dollars.
 
+## Update at 07:40 ET
+
+~45 fills by 07:40, 39 open positions. Cumulative P/L moved between −$25.16 (07:29) and +$3.43 (06:49);
+at 07:40 −$14.82. Closed so far: SPRC +61%, GMM +3.7%, MRVL +0.4%, DELL −0.1%, BRNX −6%, INLF −7%,
+ICCM −10.4%, SPRC re-entry −10.4%, OTLK −14.6%.
+
+3. (stronger) **Resting entry limits fill hours later on dead signals.** ZS: placed 05:02, filled 07:13.
+   MOD: placed 04:37 in a ~5% spread, filled 07:37 (3 h). RIOX 38 min, BETA 15 min, PALU 16 min. The
+   Monitor counts an unfilled entry as holding, so the strategy stops evaluating. Candidate: cancel an
+   entry limit unfilled after 3 min and return the strategy to watching.
+10. **Stops fired by single outlier prints.** DELL 07:37: stop on a 313.11 print while trading ~326.9,
+    sold at 325.02 (a +$1.58 position closed −$0.33). MRVL 07:38: stop on 145.54 while trading ~151.5,
+    sold at 151.60. Two mega-caps, ~4% low prints a minute apart, so likely condition-coded / out-of-
+    sequence trades counted as price. Candidate: ignore condition-coded trades for stops; premarket,
+    require bid < stop or two consecutive prints below it.
+11. **Re-entries after a closed trade.** SPRC re-entered at 0.48 after its +61% run and lost 10.4% in
+    4 min; INLF re-entered after a −7% trailing exit (open). One more loss makes it a pattern; candidate:
+    no re-entry on a symbol after a closed trade the same morning without a fresh setup.
+12. **Open gains round-trip.** Open P&L peaked +$20.78 at 06:49 and was −$7.24 by 07:29; no profit-taking
+    rule on the large/mega bands and stops of 3-4% let it go. Candidate (with 7): take half off at +2R or
+    trail the large/mega bands after +1%.
+
 ## Decisions waiting on the owner
 
 - Deploy IP-T583/IP-T585 (Hub publish) before relying on premarket exits again.
