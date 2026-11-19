@@ -156,7 +156,13 @@ public sealed class MonitorWorker(
     /// would let the next tick re-enter and double the position when the
     /// resting order finally fills.
     /// </summary>
-    private static readonly TimeSpan UnfilledEntryGrace = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan UnfilledEntryGrace = TimeSpan.FromMinutes(3);
+
+    /// <summary>
+    /// Entries already seen at the broker as a real position, by strategy id and the fill time they were
+    /// booked under (IP-T589): the resting-entry check stops asking the broker about them every tick.
+    /// </summary>
+    private readonly Dictionary<Guid, DateTime> entryConfirmedFilled = new();
     private readonly System.Collections.Concurrent.ConcurrentQueue<Candle> streamedBars = new();
     private AlpacaStreamingClient? streaming;
 
@@ -1555,6 +1561,11 @@ public sealed class MonitorWorker(
             entry = await TrueUpEntryPriceAsync(stored, entry, filledUtc, ct);
         }
 
+        // A resting entry limit is judged every tick, not only when an exit fires (IP-T589): the
+        // reconcile in the exit path below was only reached once a stop/target/sell-by tripped, so an
+        // unfilled limit sat for hours and then filled on a dead signal.
+        if (await ReconcileRestingEntryAsync(stored, def, root, entry, filledUtc, ct)) return;
+
         // The true original position size, so GapperExitEvaluator can calculate
         // per-rung quantities for multi-target scale-out ladders (Bug 3 fix).
         // Prefer the PERSISTED true fill/adoption size (stored.InitialPositionQty)
@@ -1732,32 +1743,8 @@ public sealed class MonitorWorker(
                         $"(entry order working — no fill yet after {heldFor.TotalSeconds:F0}s)", ct);
                     return;
                 }
-                // Cancel this strategy's own entry order first (IP-T506): the DAY limit may still be
-                // resting, and re-arming next to it could fill into an untracked position with no stop,
-                // or stack a second entry on top of it. Only the order tagged for this strategy is
-                // touched, never anything else on the account.
-                // Flat because a person sold it, not because the entry never filled (IP-T554).
-                if (await FindManualSaleAsync(broker, stored, direction, filledUtc, ct) is { } sale)
-                {
-                    await RecordManualSaleAsync(stored, direction, (decimal)entry, sale, ct);
-                    return;
-                }
-                if (!await CancelOwnEntryAsync(broker, stored, filledUtc, ct))
-                {
-                    await UpsertProgressAsync(stored, root, 1, 1,
-                        $"(entry order still working or part-filled after {heldFor.TotalSeconds:F0}s — re-checking next tick)", ct);
-                    return;
-                }
-                logger.LogWarning("[{Title}] {Symbol} exit ({Reason}) found NO broker position after {Secs:F0}s — " +
-                    "the entry order never filled. Clearing bookkeeping so it can re-arm.",
-                    stored.Title, stored.Symbol, decision.Reason, heldFor.TotalSeconds);
-                await strategyRepo.ClearUnfilledEntryAsync(stored.Id, ct);
-                try { await tradeDiary.MarkNotFilledAsync(stored.Id, UtcNow, ct); }
-                catch (Exception dex) { logger.LogError(dex, "[{Title}] trade-diary NotFilled mark failed.", stored.Title); }
-                await LogAuditAsync("position-reconciled",
-                    $"[{stored.Title}] {stored.Symbol} entry never filled at {broker.BrokerType} — " +
-                    "bookkeeping cleared, no order placed, strategy re-armed.",
-                    userId: stored.OwnerUserId, ct: ct);
+                await CancelAndClearUnfilledEntryAsync(broker, stored, root, direction, entry, filledUtc,
+                    $"exit ({decision.Reason}) found no broker position after {heldFor.TotalSeconds:F0}s", ct);
                 return;
             }
             if (heldQty < sellQty)
@@ -2457,6 +2444,97 @@ public sealed class MonitorWorker(
             stored.Title, stored.Symbol, sale.Id, off);
         await LogAuditAsync("position-reconciled", $"[{stored.Title}] {text}", userId: stored.OwnerUserId, ct: ct);
         if (alerts is not null) await alerts.TrySendAsync(text, ct);
+    }
+
+    /// <summary>
+    /// True once the strategy's entry window (a <c>RequireEntryWindow</c> gate) has closed for the day,
+    /// so nothing it placed should still be resting. False when it has no such window (IP-T589).
+    /// </summary>
+    internal static bool EntryWindowClosed(StrategyDefinition def, DateTime utc)
+    {
+        var tod = MarketTime.ToEasternTimeOfDay(utc);
+        foreach (var w in def.EntryConditions.OfType<TimeWindowCondition>())
+        {
+            var inside = w.StartEt <= w.EndEt ? tod >= w.StartEt && tod < w.EndEt : tod >= w.StartEt || tod < w.EndEt;
+            if (!inside) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Every tick for a strategy booked as holding but not yet seen at the broker (IP-T589): once the
+    /// entry has rested <see cref="UnfilledEntryGrace"/>, or its entry window has closed, ask the broker.
+    /// A real position marks the entry confirmed; none cancels the resting limit and returns the strategy
+    /// to watching. True when the entry was dealt with and the caller must stop for this tick.
+    /// </summary>
+    private async Task<bool> ReconcileRestingEntryAsync(IdiotProof.Core.Data.Strategy stored, StrategyDefinition def, StrategyDefinition root,
+        double entry, DateTime filledUtc, CancellationToken ct)
+    {
+        if (entryConfirmedFilled.TryGetValue(stored.Id, out var confirmed) && confirmed == filledUtc) return false;
+        var heldFor = UtcNow - filledUtc;
+        var windowClosed = EntryWindowClosed(def, UtcNow);
+        if (heldFor < UnfilledEntryGrace && !windowClosed) return false;
+        try
+        {
+            // Several strategies on one symbol share one broker position: it can't be attributed.
+            if (await strategyRepo.CountHoldingForSymbolAsync(stored.OwnerUserId, stored.Symbol, ct) > 1) return false;
+            var broker = await orderRouting.ResolveAsync(stored.OwnerUserId, IdiotProof.Core.Trading.OrderIntent.ParseMode(stored.BrokerMode), ct);
+            var positions = await broker.GetPositionsAsync(ct);
+            var held = positions.FirstOrDefault(p => p.Symbol.Equals(stored.Symbol, StringComparison.OrdinalIgnoreCase));
+            if (DirectionalOrders.HeldShares(held, def.Direction) > 0)
+            {
+                entryConfirmedFilled[stored.Id] = filledUtc;
+                return false;
+            }
+            return await CancelAndClearUnfilledEntryAsync(broker, stored, root, def.Direction, entry, filledUtc,
+                windowClosed && heldFor < UnfilledEntryGrace
+                    ? "entry window closed with the entry limit still resting"
+                    : $"entry limit unfilled after {heldFor.TotalSeconds:F0}s", ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[{Title}] resting-entry check failed — will retry next tick.", stored.Title);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// No broker position for a booked entry that has outlived its grace: cancel the strategy's own resting
+    /// entry and, if nothing filled (not even partly, re-read after the cancel), clear the bookkeeping so
+    /// it watches again. A fill that raced the cancel is left booked as held for the next tick to reconcile.
+    /// Returns true: the entry was dealt with (cleared, sold outside, or still settling).
+    /// </summary>
+    private async Task<bool> CancelAndClearUnfilledEntryAsync(IdiotProof.Brokers.IBrokerClient broker, IdiotProof.Core.Data.Strategy stored,
+        StrategyDefinition root, TradeDirection direction, double entry, DateTime filledUtc, string why, CancellationToken ct)
+    {
+        var heldFor = UtcNow - filledUtc;
+        // Flat because a person sold it, not because the entry never filled (IP-T554).
+        if (await FindManualSaleAsync(broker, stored, direction, filledUtc, ct) is { } sale)
+        {
+            await RecordManualSaleAsync(stored, direction, (decimal)entry, sale, ct);
+            return true;
+        }
+        // Cancel this strategy's own entry order first (IP-T506): the DAY limit may still be resting, and
+        // re-arming next to it could fill into an untracked position with no stop, or stack a second entry.
+        // Only the order tagged for this strategy is touched, never anything else on the account.
+        if (!await CancelOwnEntryAsync(broker, stored, filledUtc, ct))
+        {
+            await UpsertProgressAsync(stored, root, 1, 1,
+                $"(entry order still working or part-filled after {heldFor.TotalSeconds:F0}s — re-checking next tick)", ct);
+            return true;
+        }
+        logger.LogWarning("[{Title}] {Symbol} {Why} — the entry order never filled. Clearing bookkeeping so it can re-arm.",
+            stored.Title, stored.Symbol, why);
+        await strategyRepo.ClearUnfilledEntryAsync(stored.Id, ct);
+        entryConfirmedFilled.Remove(stored.Id);
+        try { await tradeDiary.MarkNotFilledAsync(stored.Id, UtcNow, ct); }
+        catch (Exception dex) { logger.LogError(dex, "[{Title}] trade-diary NotFilled mark failed.", stored.Title); }
+        await LogAuditAsync("position-reconciled",
+            $"[{stored.Title}] {stored.Symbol} entry never filled at {broker.BrokerType} ({why}) — " +
+            "bookkeeping cleared, no order placed, strategy re-armed.",
+            userId: stored.OwnerUserId, ct: ct);
+        return true;
     }
 
     /// <summary>
