@@ -546,7 +546,9 @@ direction carried beside the score (a dilution scores high and bearish), weights
 `CatalystClassifier` is the optional LLM half: a bounded channel of event ids that Haiku via
 MindAttic.Legion (`CatalystExtractor`) classifies in the background, writing the `Llm*` columns
 and re-scoring; headline and body travel in the user message only, never the system prompt;
-gated by `catalyst.intake.llmClassify`. `CatalystBackfillService` replays Alpaca news (paged, by
+gated by `catalyst.intake.llmClassify` and capped at `catalyst.intake.llmDailyBudget` live calls
+per ET day (default 500; every attempt counts, seeded from today's classified rows after a
+restart; over-budget ids stay unclassified for the backfill). `CatalystBackfillService` replays Alpaca news (paged, by
 date range) and EDGAR filings by date range through the same ingestor, pre-classifier and scorer,
 so history and live rows agree. Operations: `catalyst list|show|score|intake-status|backfill|reclassify`.
 Everything is off by default behind `catalyst.intake.enabled|ownerUserId|edgarPolling|llmClassify`

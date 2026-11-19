@@ -11,7 +11,8 @@ namespace IdiotProof.Core.Catalysts;
 /// <summary>
 /// The LLM half of the intake (IP-T443): a bounded queue of event ids that Haiku (through
 /// MindAttic.Legion, via <see cref="CatalystExtractor"/>) classifies in the background, writing the
-/// Llm* columns and re-scoring. Gated by <c>catalyst.intake.llmClassify</c>; the backfill calls
+/// Llm* columns and re-scoring. Gated by <c>catalyst.intake.llmClassify</c> and capped per ET day by
+/// <c>catalyst.intake.llmDailyBudget</c> (IP-T447); the backfill calls
 /// <see cref="ClassifyAsync"/> directly within its budget. Headline and body are untrusted input and
 /// travel in the user message only.
 /// </summary>
@@ -32,6 +33,10 @@ public sealed class CatalystClassifier(
     private long dropped;
     private long classified;
     private long failed;
+    private long overBudget;
+    private readonly Lock budgetGate = new();
+    private DateTime budgetDay;
+    private int usedToday;
 
     public CatalystScoringWeights Weights { get; init; } = CatalystCatalogs.ScoringWeights;
 
@@ -42,6 +47,46 @@ public sealed class CatalystClassifier(
     public long Classified => Interlocked.Read(ref classified);
 
     public long Failed => Interlocked.Read(ref failed);
+
+    /// <summary>Queued ids skipped because today's (ET) live call budget was spent.</summary>
+    public long OverBudget => Interlocked.Read(ref overBudget);
+
+    /// <summary>Live calls attempted so far today (ET), seeded at day start from today's live classified rows so a restart does not reset it.</summary>
+    public int UsedToday
+    {
+        get { lock (budgetGate) return budgetDay == EasternTime.FromUtc(time.GetUtcNow().UtcDateTime).Date ? usedToday : 0; }
+    }
+
+    /// <summary>
+    /// Takes one call from the ET day's live budget (IP-T447). Every attempt counts, answered or not,
+    /// since a failed parse still spent the tokens; a rejected call (no credit) is cheap but counted alike
+    /// so a dead key cannot spin through the whole queue.
+    /// </summary>
+    private async Task<bool> TryTakeBudgetAsync(int budget, CancellationToken ct)
+    {
+        if (budget <= 0) return false;
+        var nowUtc = time.GetUtcNow().UtcDateTime;
+        var day = EasternTime.FromUtc(nowUtc).Date;
+        bool seeded;
+        lock (budgetGate) seeded = budgetDay == day;
+        if (!seeded)
+        {
+            var dayStartUtc = EasternTime.ToUtc(day);
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+            var already = await db.CatalystEvents.AsNoTracking()
+                .CountAsync(e => !e.Backfilled && e.LlmClassifiedUtc != null && e.LlmClassifiedUtc >= dayStartUtc, ct);
+            lock (budgetGate)
+            {
+                if (budgetDay != day) { budgetDay = day; usedToday = already; }
+            }
+        }
+        lock (budgetGate)
+        {
+            if (usedToday >= budget) return false;
+            usedToday++;
+            return true;
+        }
+    }
 
     public bool Enqueue(Guid eventId)
     {
@@ -58,7 +103,14 @@ public sealed class CatalystClassifier(
             {
                 try
                 {
-                    if (!(await intakeSettings.ReadAsync(stoppingToken)).LlmClassify) continue;
+                    var config = await intakeSettings.ReadAsync(stoppingToken);
+                    if (!config.LlmClassify) continue;
+                    if (!await TryTakeBudgetAsync(config.LlmDailyBudget, stoppingToken))
+                    {
+                        // Left unclassified; the backfill (its own budget) or a later run can pick it up.
+                        Interlocked.Increment(ref overBudget);
+                        continue;
+                    }
                     await ClassifyAsync(id, stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }

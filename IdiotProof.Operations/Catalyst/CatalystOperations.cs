@@ -224,8 +224,8 @@ public sealed class CatalystIntakeStatusOperation : IOperation<NoArgs>
             .Add("EDGAR polling", !config.EdgarPolling ? $"off ({CatalystIntakeSettings.EdgarPollingKey})" : state?.EdgarLastPoll is { } p
                 ? $"on; last poll {Fmt.Et(state.EdgarLastPollUtc)}: {p.Entries} feed entries, {p.Candidates} new, {p.Inserted} stored, {p.Unmapped} without a ticker, {p.Failed} failed"
                 : "on; no poll yet")
-            .Add("LLM classify", !config.LlmClassify ? $"off ({CatalystIntakeSettings.LlmClassifyKey})" : classifier is null ? "on" :
-                $"on; {classifier.Pending} queued, {classifier.Classified} classified, {classifier.Failed} failed, {classifier.Dropped} dropped")
+            .Add("LLM classify", !config.LlmClassify ? $"off ({CatalystIntakeSettings.LlmClassifyKey})" : classifier is null ? $"on; budget {config.LlmDailyBudget}/day ET" :
+                $"on; {classifier.UsedToday}/{config.LlmDailyBudget} of today's budget ({CatalystIntakeSettings.LlmDailyBudgetKey}), {classifier.Pending} queued, {classifier.Classified} classified, {classifier.Failed} failed, {classifier.OverBudget} over budget, {classifier.Dropped} dropped")
             .Add("Today (ET)", $"news {news?.Count ?? 0} ({news?.Classified ?? 0} LLM-classified), EDGAR {edgar?.Count ?? 0} ({edgar?.Classified ?? 0} LLM-classified)")
             .Add("Latest stored", Fmt.Et(latest, "none"))
             .Add("Last error", state?.LastError is { } err ? $"{err} at {Fmt.Et(state.LastErrorUtc)}" : null);
