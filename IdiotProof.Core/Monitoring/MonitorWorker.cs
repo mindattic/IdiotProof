@@ -1716,12 +1716,6 @@ public sealed class MonitorWorker(
         var exitBuffer = DirectionalOrders.ExitBufferFor(extendedHours, exitUnfilled.GetValueOrDefault(stored.Id));
         var limitPrice = DirectionalOrders.ExitLimit(direction, (decimal)decision.CurrentPrice, exitBuffer);
         var openKind = OpenExitKind(direction, decision.Reason, def.ExitTime, UtcNow, exitUnfilled.GetValueOrDefault(stored.Id) > 0);
-        if (openKind == OpenExit.Hold && !workingExits.ContainsKey(stored.Id))
-        {
-            await UpsertProgressAsync(stored, root, 1, 1,
-                $"(holding {stored.PositionQty} @ {entry:F2} — past the 09:28 auction cutoff, exit {decision.Reason} goes out as a market order at 09:30)", ct);
-            return;
-        }
         bool? openExit = openKind switch { OpenExit.Opg => true, OpenExit.Market => false, _ => null };
         var exitSide = DirectionalOrders.SideLabel(DirectionalOrders.ExitSide(direction));
 
@@ -2334,11 +2328,11 @@ public sealed class MonitorWorker(
     /// <summary>
     /// How a long's pre-open SellBy exit goes out instead of chasing a limit (IP-T594): null = the usual
     /// limit; Opg = a market-on-open order, once a limit has already gone unfilled and the auction
-    /// cutoff has not passed; Hold = past the cutoff but before the bell, place nothing (the extended-hours
-    /// limit would chase a thin book) and wait for the DAY market; Market = a plain DAY market once the
-    /// regular session is open. Only a SellBy at or before the open qualifies, on a trading day.
+    /// cutoff has not passed; None from 09:28 to 09:30 = the usual extended-hours limit with its widening
+    /// retries (the pre-bell flatten the SellBy exists for); Market = a plain DAY market for whatever is
+    /// still held once the regular session is open. Only a SellBy at or before the open qualifies, on a trading day.
     /// </summary>
-    public enum OpenExit { None, Opg, Hold, Market }
+    public enum OpenExit { None, Opg, Market }
 
     internal static OpenExit OpenExitKind(TradeDirection direction, GapperExitReason reason, TimeSpan? sellBy, DateTime utc, bool limitUnfilled)
     {
@@ -2346,7 +2340,7 @@ public sealed class MonitorWorker(
         if (sellBy is not { } at || at > MarketOpen || !MarketTime.IsEquityTradingDay(utc)) return OpenExit.None;
         var tod = MarketTime.ToEasternTimeOfDay(utc);
         if (tod < OpenAuctionCutoff) return limitUnfilled && tod >= new TimeSpan(4, 0, 0) ? OpenExit.Opg : OpenExit.None;
-        if (tod < MarketOpen) return OpenExit.Hold;
+        if (tod < MarketOpen) return OpenExit.None;
         return tod < new TimeSpan(16, 0, 0) ? OpenExit.Market : OpenExit.None;
     }
 
