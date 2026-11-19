@@ -103,6 +103,16 @@ cumulative P/L ranged from +$3.43 (06:49) to −$50.78 (09:30).
     the strategy's own exit. Candidate fix (code bug): judge an exit unfilled only after one full tick /
     30 s; for anything still held at 09:29 use a market-on-open order.
 
+14. **Phantom holdings from a fill/cancel race.** 09:35: the Monitor placed exits for NBIL, RKLX, STXU and
+    cancelled each in the same second (13); the fills won the race, so Alpaca went flat, but the Monitor
+    booked "cancel accepted" and never recorded the exits. At 09:46 it still shows 3 strategies holding
+    (and logged HOLDING/unrealized P&L at 09:36); no reconcile within 11 min, so the diary misses three
+    exits. Fix (code): on a cancel ack for an exit, read the order's final state and book a fill if it
+    filled; the fix for 13 removes most of the race.
+
+**Final:** Paper 25K flat at $24,951.66 — cumulative **−$48.34 (−0.19%)** (11-18 −$17.40, 11-19 −$30.94).
+OKTG (last exit, 09:34) +$2.68.
+
 ## Decisions waiting on the owner
 
 - Deploy IP-T583/IP-T585 (Hub publish) before relying on premarket exits again.
