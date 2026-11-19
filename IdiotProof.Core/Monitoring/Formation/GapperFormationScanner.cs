@@ -71,7 +71,9 @@ public sealed class GapperFormationScanner(
                 var daily = await bars.DailyBarsAsync(symbol, dateEt, ct);
                 var prior = await bars.PriorDayMinuteBarsAsync(symbol, dateEt, ct);
                 var adv20 = Adv20(daily);
-                var decile = Decile(adv20, cfg.TodDecileEdges);
+                var decile = cfg.TodDecileEdgesDollars.Count > 0
+                    ? Decile(Adv20Dollars(daily), cfg.TodDecileEdgesDollars)
+                    : Decile(adv20, cfg.TodDecileEdges);
                 catalystsBySymbol.TryGetValue(symbol, out var symbolCatalysts);
                 references.TryGetValue(symbol, out var symbolReference);
 
@@ -180,6 +182,14 @@ public sealed class GapperFormationScanner(
         if (daily.Count == 0) return null;
         var last = daily.TakeLast(20).ToList();
         return (double)last.Average(c => c.Volume);
+    }
+
+    /// <summary>20-day average close x volume (USD), the measure the study's universe ranked its ADV deciles by (GapperUniverseBuilder).</summary>
+    internal static double? Adv20Dollars(IReadOnlyList<Candle> daily)
+    {
+        if (daily.Count == 0) return null;
+        var last = daily.TakeLast(20).ToList();
+        return (double)last.Average(c => c.Close * c.Volume);
     }
 
     internal static int? Decile(double? adv20, IReadOnlyList<double> edges)

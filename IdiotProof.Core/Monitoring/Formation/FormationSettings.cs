@@ -22,6 +22,13 @@ public sealed record FormationConfig
     public int ControlOneIn { get; init; } = 10;
     public string? TodProfilePath { get; init; }
     public IReadOnlyList<double> TodDecileEdges { get; init; } = [];
+
+    /// <summary>
+    /// The study's own ADV20 dollar-volume decile edges (USD). When set they win over <see cref="TodDecileEdges"/>
+    /// (ADV20 shares), and a symbol's decile is taken from its 20-day average close x volume, as the study's
+    /// universe assigned it (IP-T447).
+    /// </summary>
+    public IReadOnlyList<double> TodDecileEdgesDollars { get; init; } = [];
     public int RetentionDays { get; init; } = 30;
     public bool ArmingEnabled { get; init; }
     public TimeSpan? ScheduledAutoEt { get; init; }
@@ -51,6 +58,7 @@ public sealed class FormationSettings(SettingsRepository settings, TimeProvider 
     public const string ControlOneInKey = "formation.record.controlOneIn";
     public const string TodProfilePathKey = "formation.todProfilePath";
     public const string TodDecileEdgesKey = "formation.todDecileEdges";
+    public const string TodDecileEdgesDollarsKey = "formation.todDecileEdgesDollars";
     public const string RetentionDaysKey = "formation.retentionDays";
     public const string ArmingEnabledKey = "formation.arming.enabled";
     public const string ScheduledAutoEtKey = "gapper.auto.scheduledEt";
@@ -87,6 +95,7 @@ public sealed class FormationSettings(SettingsRepository settings, TimeProvider 
             ControlOneIn = Math.Clamp(await settings.GetIntAsync(ControlOneInKey, ct) ?? defaults.ControlOneIn, 1, 1000),
             TodProfilePath = NullIfBlank(await settings.GetAsync(TodProfilePathKey, ct)),
             TodDecileEdges = ParseEdges(await settings.GetAsync(TodDecileEdgesKey, ct)),
+            TodDecileEdgesDollars = ParseEdges(await settings.GetAsync(TodDecileEdgesDollarsKey, ct)),
             RetentionDays = Math.Clamp(await settings.GetIntAsync(RetentionDaysKey, ct) ?? defaults.RetentionDays, 1, 3650),
             ArmingEnabled = await settings.GetBoolAsync(ArmingEnabledKey, ct) ?? false,
             ScheduledAutoEt = ParseTime(await settings.GetAsync(ScheduledAutoEtKey, ct)),
