@@ -153,7 +153,8 @@ public sealed class ExhaustionScanner(
             description: $"Auto-armed exhaustion long: {d.Reason} (bounce {d.Reversal?.Probability:P0}, n={d.Reversal?.Samples}).",
             scriptJson: StrategyJson.Serialize(builder.Build()),
             author: Author,
-            ct: ct);
+            ct: ct,
+            kind: StrategyRepository.KindExhaustion);
         var mutation = await strategyRepo.SetActiveAsync(created.Id, true, owner, ct);
         return mutation == StrategyMutation.Ok ? created.Id : null;
     }

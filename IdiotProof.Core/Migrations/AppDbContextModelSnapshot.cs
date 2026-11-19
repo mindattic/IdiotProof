@@ -2730,6 +2730,10 @@ namespace IdiotProof.Core.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Kind")
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
                     b.Property<decimal?>("LastEntryPrice")
                         .HasColumnType("decimal(18,4)");
 

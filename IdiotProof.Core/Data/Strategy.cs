@@ -37,6 +37,14 @@ public sealed class Strategy
     [MaxLength(80)]
     public string? Author { get; set; }
 
+    /// <summary>What kind of strategy this row is, set by the code path that creates it, so tools
+    /// select by kind rather than by a word in the title (IP-T593): <c>"gapper"</c> (radar-armed or
+    /// auto-armed gapper), <c>"momentum"</c> (a Momentum. pick armed by <c>gapper momentum-arm</c>),
+    /// <c>"exhaustion"</c> (the exhaustion scanner's auto-armed long). Null = hand-made or unspecified.
+    /// Lower-case by convention. Metadata, not part of the canon (IP-LAW-8).</summary>
+    [MaxLength(24)]
+    public string? Kind { get; set; }
+
     /// <summary>The verbatim source material the strategy was distilled from — e.g. the
     /// trader's watchlist-video transcript. Recallable later so the origin/intent of the
     /// recipe is never lost. Intentionally denormalized: several strategies born from one

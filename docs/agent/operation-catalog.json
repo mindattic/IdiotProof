@@ -27098,7 +27098,7 @@
           "value_kind": "string",
           "format": "text",
           "required": true,
-          "description": "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow), tradeflow (retail imbalance collapse vs the high, H17) regsho-pull (Nasdaq and NYSE Reg SHO threshold lists and FINRA daily short volume, 2021-10-01..2026-11-06, resumable), alarms (alarm-time scoring 06:00-09:10 of count-CUSUM and rank-k onset rules vs gainers \u002B news: hit rate, lead to \u002B20%, false alarms per 100 mornings, per fold) or exit-routes (clock exit routes 09:15/09:20, opg limit by 09:27 with a 09:30:05 fallback, 09:31, 09:44, 09:50 with or without the LULD 09:44 exit, alone and with the drift-change and giveback overlays, plus the $1k/$5k/$25k participation capacity curve; default --times 08:30), fade-short (short at 09:45 the names whose premarket high was \u002B30/50/100% and that are still \u002B20% but under 10/5/0% from the 09:30 open, cover by 15:55 or 11:00 with optional stop and VWAP reclaim, net of the frozen cost model, borrow, SSR and Reg SHO variants, against a random short), fade-short-deep (IP-T479: the top fade short and its \u002B50% variant on train: deflated Sharpe vs the ledger, time-of-day profile and MAE timing, MAE-aware exits, shortability tiers, tail sizing, squeeze predictors), alarm-ride (IP-T483: long only, buy the R4 alarm alone, gated by the boosted top k or by fresh news, marketable or a passive -1% limit, sold by take-profit x stop x time-stop/velocity brackets or lottery trailing exits, net at the frozen cost and 0.5x/0.25x spread), watchlist (IP-T484: runner anatomy (\u002B50/\u002B100/\u002B300% by the 04:00-16:00 high), a D-1 16:00 watchlist (boosted, logistic, point score, recall/precision@10/20/50/100, prerequisite and catalyst lifts), all-day ignition (k x trailing 30-min volume, 2% session-high break, gap caps) and the ride (stops, trails, half, cooling exits) net at the frozen cost and 0.5x/0.25x spread), split-days-pull (IP-T490: raw 04:00-20:00 minute bars for D-1..D\u002B10 of every train reverse split, inferred ratio change and excluded unexplained \u003E \u002B200% move, resumable) or split-days (IP-T490: runs by day offset, ratio, announcement, float and promotion profile on those days, and a long calendar / ignition entry x ride grid net at the frozen cost and 0.5x/0.25x spread).",
+          "description": "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow), tradeflow (retail imbalance collapse vs the high, H17) regsho-pull (Nasdaq and NYSE Reg SHO threshold lists and FINRA daily short volume, 2021-10-01..2026-11-06, resumable), alarms (alarm-time scoring 06:00-09:10 of count-CUSUM and rank-k onset rules vs gainers \u002B news: hit rate, lead to \u002B20%, false alarms per 100 mornings, per fold) or exit-routes (clock exit routes 09:15/09:20, opg limit by 09:27 with a 09:30:05 fallback, 09:31, 09:44, 09:50 with or without the LULD 09:44 exit, alone and with the drift-change and giveback overlays, plus the $1k/$5k/$25k participation capacity curve; default --times 08:30), fade-short (short at 09:45 the names whose premarket high was \u002B30/50/100% and that are still \u002B20% but under 10/5/0% from the 09:30 open, cover by 15:55 or 11:00 with optional stop and VWAP reclaim, net of the frozen cost model, borrow, SSR and Reg SHO variants, against a random short), fade-short-deep (IP-T479: the top fade short and its \u002B50% variant on train: deflated Sharpe vs the ledger, time-of-day profile and MAE timing, MAE-aware exits, shortability tiers, tail sizing, squeeze predictors), alarm-ride (IP-T483: long only, buy the R4 alarm alone, gated by the boosted top k or by fresh news, marketable or a passive -1% limit, sold by take-profit x stop x time-stop/velocity brackets or lottery trailing exits, net at the frozen cost and 0.5x/0.25x spread), watchlist (IP-T484: runner anatomy (\u002B50/\u002B100/\u002B300% by the 04:00-16:00 high), a D-1 16:00 watchlist (boosted, logistic, point score, recall/precision@10/20/50/100, prerequisite and catalyst lifts), all-day ignition (k x trailing 30-min volume, 2% session-high break, gap caps) and the ride (stops, trails, half, cooling exits) net at the frozen cost and 0.5x/0.25x spread), split-days-pull (IP-T490: raw 04:00-20:00 minute bars for D-1..D\u002B10 of every train reverse split, inferred ratio change and excluded unexplained \u003E \u002B200% move, resumable) or split-days (IP-T490: runs by day offset, ratio, announcement, float and promotion profile on those days, and a long calendar / ignition entry x ride grid net at the frozen cost and 0.5x/0.25x spread), auctions-pull (IP-T472: Alpaca opening/closing auction prints for train Tier20\u002B gapper days and their controls, one file per day, resumable, paused through premarket) or auctions (official crosses vs the 09:30 bar open and 15:59 bar close, cross size vs volume), quotes-pull (IP-T472: NBBO within 60 s of every simulated entry and exit of the 08:30 buy-now entries pool, resumable, paused through premarket) or quotes-check (frozen cost model charge vs the quoted spread at those fills).",
           "default": "",
           "enum_values": null,
           "example": "build",
@@ -27218,7 +27218,7 @@
         "properties": {
           "command": {
             "type": "string",
-            "description": "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow), tradeflow (retail imbalance collapse vs the high, H17) regsho-pull (Nasdaq and NYSE Reg SHO threshold lists and FINRA daily short volume, 2021-10-01..2026-11-06, resumable), alarms (alarm-time scoring 06:00-09:10 of count-CUSUM and rank-k onset rules vs gainers \u002B news: hit rate, lead to \u002B20%, false alarms per 100 mornings, per fold) or exit-routes (clock exit routes 09:15/09:20, opg limit by 09:27 with a 09:30:05 fallback, 09:31, 09:44, 09:50 with or without the LULD 09:44 exit, alone and with the drift-change and giveback overlays, plus the $1k/$5k/$25k participation capacity curve; default --times 08:30), fade-short (short at 09:45 the names whose premarket high was \u002B30/50/100% and that are still \u002B20% but under 10/5/0% from the 09:30 open, cover by 15:55 or 11:00 with optional stop and VWAP reclaim, net of the frozen cost model, borrow, SSR and Reg SHO variants, against a random short), fade-short-deep (IP-T479: the top fade short and its \u002B50% variant on train: deflated Sharpe vs the ledger, time-of-day profile and MAE timing, MAE-aware exits, shortability tiers, tail sizing, squeeze predictors), alarm-ride (IP-T483: long only, buy the R4 alarm alone, gated by the boosted top k or by fresh news, marketable or a passive -1% limit, sold by take-profit x stop x time-stop/velocity brackets or lottery trailing exits, net at the frozen cost and 0.5x/0.25x spread), watchlist (IP-T484: runner anatomy (\u002B50/\u002B100/\u002B300% by the 04:00-16:00 high), a D-1 16:00 watchlist (boosted, logistic, point score, recall/precision@10/20/50/100, prerequisite and catalyst lifts), all-day ignition (k x trailing 30-min volume, 2% session-high break, gap caps) and the ride (stops, trails, half, cooling exits) net at the frozen cost and 0.5x/0.25x spread), split-days-pull (IP-T490: raw 04:00-20:00 minute bars for D-1..D\u002B10 of every train reverse split, inferred ratio change and excluded unexplained \u003E \u002B200% move, resumable) or split-days (IP-T490: runs by day offset, ratio, announcement, float and promotion profile on those days, and a long calendar / ignition entry x ride grid net at the frozen cost and 0.5x/0.25x spread).",
+            "description": "build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow), tradeflow (retail imbalance collapse vs the high, H17) regsho-pull (Nasdaq and NYSE Reg SHO threshold lists and FINRA daily short volume, 2021-10-01..2026-11-06, resumable), alarms (alarm-time scoring 06:00-09:10 of count-CUSUM and rank-k onset rules vs gainers \u002B news: hit rate, lead to \u002B20%, false alarms per 100 mornings, per fold) or exit-routes (clock exit routes 09:15/09:20, opg limit by 09:27 with a 09:30:05 fallback, 09:31, 09:44, 09:50 with or without the LULD 09:44 exit, alone and with the drift-change and giveback overlays, plus the $1k/$5k/$25k participation capacity curve; default --times 08:30), fade-short (short at 09:45 the names whose premarket high was \u002B30/50/100% and that are still \u002B20% but under 10/5/0% from the 09:30 open, cover by 15:55 or 11:00 with optional stop and VWAP reclaim, net of the frozen cost model, borrow, SSR and Reg SHO variants, against a random short), fade-short-deep (IP-T479: the top fade short and its \u002B50% variant on train: deflated Sharpe vs the ledger, time-of-day profile and MAE timing, MAE-aware exits, shortability tiers, tail sizing, squeeze predictors), alarm-ride (IP-T483: long only, buy the R4 alarm alone, gated by the boosted top k or by fresh news, marketable or a passive -1% limit, sold by take-profit x stop x time-stop/velocity brackets or lottery trailing exits, net at the frozen cost and 0.5x/0.25x spread), watchlist (IP-T484: runner anatomy (\u002B50/\u002B100/\u002B300% by the 04:00-16:00 high), a D-1 16:00 watchlist (boosted, logistic, point score, recall/precision@10/20/50/100, prerequisite and catalyst lifts), all-day ignition (k x trailing 30-min volume, 2% session-high break, gap caps) and the ride (stops, trails, half, cooling exits) net at the frozen cost and 0.5x/0.25x spread), split-days-pull (IP-T490: raw 04:00-20:00 minute bars for D-1..D\u002B10 of every train reverse split, inferred ratio change and excluded unexplained \u003E \u002B200% move, resumable) or split-days (IP-T490: runs by day offset, ratio, announcement, float and promotion profile on those days, and a long calendar / ignition entry x ride grid net at the frozen cost and 0.5x/0.25x spread), auctions-pull (IP-T472: Alpaca opening/closing auction prints for train Tier20\u002B gapper days and their controls, one file per day, resumable, paused through premarket) or auctions (official crosses vs the 09:30 bar open and 15:59 bar close, cross size vs volume), quotes-pull (IP-T472: NBBO within 60 s of every simulated entry and exit of the 08:30 buy-now entries pool, resumable, paused through premarket) or quotes-check (frozen cost model charge vs the quoted spread at those fills).",
             "default": ""
           },
           "split": {
@@ -29619,10 +29619,10 @@
       "noun": "strategy",
       "verb": "bulk",
       "tool_name": "strategy_bulk",
-      "summary": "Activate or deactivate many strategies at once (--all, --symbol, --mode). Live activations need one confirmation code for the batch.",
+      "summary": "Activate or deactivate many strategies at once (--all, --symbol, --mode, --kind). Live activations need one confirmation code for the batch.",
       "description": "Deactivation skips strategies holding a position (that would orphan the exit). Activation skips quarantined and soft-deleted strategies; when the batch would turn on any Live strategy, nothing happens until you re-run with the confirmation code, which is bound to exactly that batch.",
       "risk": "money",
-      "usage": "idiotproof strategy bulk \u003Caction\u003E [--all] [--symbol \u003Cstring\u003E] [--mode \u003Csandbox|paper|live\u003E]",
+      "usage": "idiotproof strategy bulk \u003Caction\u003E [--all] [--symbol \u003Cstring\u003E] [--mode \u003Csandbox|paper|live\u003E] [--kind \u003Cstring\u003E]",
       "parameters": [
         {
           "name": "action",
@@ -29694,6 +29694,22 @@
           ],
           "example": "paper",
           "example_source": "example"
+        },
+        {
+          "name": "kind",
+          "json_name": "kind",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "value_kind": "string",
+          "format": "text",
+          "required": false,
+          "description": "Only strategies of this kind (gapper, momentum, exhaustion, ...; \u0060none\u0060 = no kind); case-insensitive.",
+          "default": null,
+          "enum_values": null,
+          "example": "gapper",
+          "example_source": "declared"
         }
       ],
       "examples": [
@@ -29704,12 +29720,16 @@
         {
           "command_line": "idiotproof strategy bulk activate --symbol NVDA --mode paper",
           "description": null
+        },
+        {
+          "command_line": "idiotproof strategy bulk deactivate --kind gapper --mode paper",
+          "description": null
         }
       ],
       "input_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "description": "Activate or deactivate many strategies at once (--all, --symbol, --mode). Live activations need one confirmation code for the batch.",
+        "description": "Activate or deactivate many strategies at once (--all, --symbol, --mode, --kind). Live activations need one confirmation code for the batch.",
         "properties": {
           "action": {
             "type": "string",
@@ -29737,6 +29757,10 @@
               "live"
             ],
             "description": "Only strategies in this broker mode (sandbox, paper, live)."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Only strategies of this kind (gapper, momentum, exhaustion, ...; \u0060none\u0060 = no kind); case-insensitive."
           }
         },
         "additionalProperties": false,
@@ -29753,7 +29777,7 @@
       "summary": "Copy a strategy (optionally onto another symbol) as a new, inactive Sandbox strategy.",
       "description": "The copy gets the same canon (re-validated), never the original\u0027s position, history or Live routing. Cloning onto another symbol warns about fixed prices that belonged to the original\u0027s chart.",
       "risk": "write",
-      "usage": "idiotproof strategy clone \u003Cstrategy\u003E [--symbol \u003Cstring\u003E] [--title \u003Cstring\u003E] [--mode \u003Csandbox|paper|live\u003E]",
+      "usage": "idiotproof strategy clone \u003Cstrategy\u003E [--symbol \u003Cstring\u003E] [--title \u003Cstring\u003E] [--mode \u003Csandbox|paper|live\u003E] [--kind \u003Cstring\u003E]",
       "parameters": [
         {
           "name": "strategy",
@@ -29822,6 +29846,22 @@
           ],
           "example": "sandbox",
           "example_source": "default"
+        },
+        {
+          "name": "kind",
+          "json_name": "kind",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "value_kind": "string",
+          "format": "text",
+          "required": false,
+          "description": "Kind for the copy (e.g. gapper, momentum), at most 24 characters (default: the original\u0027s kind).",
+          "default": null,
+          "enum_values": null,
+          "example": "momentum",
+          "example_source": "declared"
         }
       ],
       "examples": [
@@ -29832,6 +29872,10 @@
         {
           "command_line": "idiotproof strategy clone NVDA --symbol AMD --title \u0022AMD VWAP reclaim\u0022",
           "description": null
+        },
+        {
+          "command_line": "idiotproof strategy clone NVDA --kind momentum",
+          "description": "The copy\u0027s kind; without --kind it keeps the original\u0027s."
         }
       ],
       "input_schema": {
@@ -29861,6 +29905,10 @@
             ],
             "description": "Broker mode for the copy: sandbox (default) or paper.",
             "default": "sandbox"
+          },
+          "kind": {
+            "type": "string",
+            "description": "Kind for the copy (e.g. gapper, momentum), at most 24 characters (default: the original\u0027s kind)."
           }
         },
         "additionalProperties": false,
@@ -29877,7 +29925,7 @@
       "summary": "Create a strategy from IdiotScript or canonical JSON after validating it. It starts inactive in Sandbox.",
       "description": "Exactly one of --script or --canon. A strategy with no size buys 1 share. Errors (no stop, stop on the wrong side of the target, a broken canon) stop the save; warnings are shown.",
       "risk": "write",
-      "usage": "idiotproof strategy create [--script \u003Cstring\u003E] [--canon \u003Cstring\u003E] [--title \u003Cstring\u003E] [--ticker \u003Cstring\u003E] [--description \u003Cstring\u003E] [--mode \u003Csandbox|paper|live\u003E] [--dry-run]",
+      "usage": "idiotproof strategy create [--script \u003Cstring\u003E] [--canon \u003Cstring\u003E] [--title \u003Cstring\u003E] [--ticker \u003Cstring\u003E] [--description \u003Cstring\u003E] [--mode \u003Csandbox|paper|live\u003E] [--kind \u003Cstring\u003E] [--dry-run]",
       "parameters": [
         {
           "name": "script",
@@ -29980,6 +30028,22 @@
           "example_source": "example"
         },
         {
+          "name": "kind",
+          "json_name": "kind",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "value_kind": "string",
+          "format": "text",
+          "required": false,
+          "description": "What kind of strategy this is (e.g. gapper, momentum), stored lower-case, at most 24 characters; tools select by it (\u0060strategy list --kind\u0060). Default: none.",
+          "default": null,
+          "enum_values": null,
+          "example": "gapper",
+          "example_source": "declared"
+        },
+        {
           "name": "dry-run",
           "json_name": "dry_run",
           "kind": "option",
@@ -30004,6 +30068,10 @@
         {
           "command_line": "idiotproof strategy create --canon - --mode paper",
           "description": "Reads canonical JSON from stdin."
+        },
+        {
+          "command_line": "idiotproof strategy create --script - --mode paper --kind gapper",
+          "description": "Tags the strategy as a gapper so \u0060strategy list --kind gapper\u0060 (and the daily retirement job) finds it."
         }
       ],
       "input_schema": {
@@ -30040,6 +30108,10 @@
             ],
             "description": "Broker mode: sandbox (default) or paper. Live is a separate, confirmed step.",
             "default": "sandbox"
+          },
+          "kind": {
+            "type": "string",
+            "description": "What kind of strategy this is (e.g. gapper, momentum), stored lower-case, at most 24 characters; tools select by it (\u0060strategy list --kind\u0060). Default: none."
           },
           "dry_run": {
             "type": "boolean",
@@ -30924,7 +30996,7 @@
       "summary": "List your strategies with mode, position and live condition progress.",
       "description": null,
       "risk": "read",
-      "usage": "idiotproof strategy list [--active] [--symbol \u003Cstring\u003E] [--mode \u003Csandbox|paper|live\u003E] [--deleted]",
+      "usage": "idiotproof strategy list [--active] [--symbol \u003Cstring\u003E] [--mode \u003Csandbox|paper|live\u003E] [--deleted] [--kind \u003Cstring\u003E]",
       "parameters": [
         {
           "name": "active",
@@ -30993,6 +31065,22 @@
           "enum_values": null,
           "example": true,
           "example_source": "type"
+        },
+        {
+          "name": "kind",
+          "json_name": "kind",
+          "kind": "option",
+          "position": null,
+          "short": null,
+          "type": "string",
+          "value_kind": "string",
+          "format": "text",
+          "required": false,
+          "description": "Only strategies of this kind (gapper, momentum, exhaustion, or any kind given at create); case-insensitive. \u0060none\u0060 lists the ones with no kind.",
+          "default": null,
+          "enum_values": null,
+          "example": "gapper",
+          "example_source": "declared"
         }
       ],
       "examples": [
@@ -31003,6 +31091,10 @@
         {
           "command_line": "idiotproof strategy list --active --mode live",
           "description": null
+        },
+        {
+          "command_line": "idiotproof strategy list --kind gapper --mode paper --json",
+          "description": "Every paper gapper strategy, as JSON rows carrying their kind."
         }
       ],
       "input_schema": {
@@ -31032,6 +31124,10 @@
             "type": "boolean",
             "description": "Include soft-deleted strategies (hidden by default).",
             "default": false
+          },
+          "kind": {
+            "type": "string",
+            "description": "Only strategies of this kind (gapper, momentum, exhaustion, or any kind given at create); case-insensitive. \u0060none\u0060 lists the ones with no kind."
           }
         },
         "additionalProperties": false

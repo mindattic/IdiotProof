@@ -23,6 +23,9 @@ public sealed record StrategyCreateArgs
     [Option("mode", Description = "Broker mode: sandbox (default) or paper. Live is a separate, confirmed step.", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Sandbox;
 
+    [Option("kind", Description = "What kind of strategy this is (e.g. gapper, momentum), stored lower-case, at most 24 characters; tools select by it (`strategy list --kind`). Default: none.", Example = "gapper")]
+    public string? Kind { get; init; }
+
     [Option("dry-run", Description = "Validate and show the stamp without saving anything.")]
     public bool DryRun { get; init; }
 }
@@ -31,6 +34,7 @@ public sealed record StrategyCreateArgs
     Description = "Exactly one of --script or --canon. A strategy with no size buys 1 share. Errors (no stop, stop on the wrong side of the target, a broken canon) stop the save; warnings are shown.")]
 [Example("idiotproof strategy create --script \"Stock.Ticker(\\\"NVDA\\\").IsAboveVwap().Long().StopLoss(170).TakeProfit(190).Build()\"")]
 [Example("idiotproof strategy create --canon - --mode paper", Description = "Reads canonical JSON from stdin.")]
+[Example("idiotproof strategy create --script - --mode paper --kind gapper", Description = "Tags the strategy as a gapper so `strategy list --kind gapper` (and the daily retirement job) finds it.")]
 public sealed class StrategyCreateOperation : IOperation<StrategyCreateArgs>
 {
     public async Task<OperationResult> ExecuteAsync(StrategyCreateArgs args, OperationContext ctx)
@@ -41,6 +45,7 @@ public sealed class StrategyCreateOperation : IOperation<StrategyCreateArgs>
         if (hasScript == hasJson)
             return OperationResult.Usage("Pass exactly one of --script \"<IdiotScript>\" or --canon \"<canonical JSON>\".");
         StrategyDrafts.RequireStartMode(args.Mode);
+        var kind = StrategyDrafts.RequireKind(args.Kind);
 
         var def = hasScript ? StrategyDrafts.FromScript(args.Script!) : StrategyDrafts.FromJson(args.Canon!);
         var applied = StrategyDrafts.ApplyDefaults(def, args.Ticker);
@@ -57,15 +62,16 @@ public sealed class StrategyCreateOperation : IOperation<StrategyCreateArgs>
             return OperationResult.Ok(new { Saved = false, Stamp = validation.StampId, def.Symbol, Applied = applied, validation.Findings, validation.Risk, validation.Script },
                 stamp + "\n" + defaults + report + "\n\nDry run: nothing saved.");
 
-        var created = await StrategyDrafts.SaveAsync(ctx, def, args.Title, args.Mode, "create", args.Description);
+        var created = await StrategyDrafts.SaveAsync(ctx, def, args.Title, args.Mode, "create", args.Description, kind: kind);
         var shortId = StrategyRefs.ShortGuid(created.Id);
         var human = stamp + "\n" + defaults + report +
-                    $"\n\nCreated {def.Symbol} '{created.Title}' as {shortId} ({validation.StampId}), inactive, {args.Mode}." +
+                    $"\n\nCreated {def.Symbol} '{created.Title}' as {shortId} ({validation.StampId}), inactive, {args.Mode}" +
+                    (created.Kind is { } k ? $", kind {k}." : ".") +
                     $"\nActivate it with `idiotproof strategy activate {shortId}`.";
         return OperationResult.Ok(new
         {
             Saved = true, created.Id, Short = shortId, Stamp = validation.StampId, def.Symbol, created.Title,
-            Mode = args.Mode.ToString(), Applied = applied, validation.Findings, validation.Risk,
+            Mode = args.Mode.ToString(), created.Kind, Applied = applied, validation.Findings, validation.Risk,
         }, human);
     }
 }

@@ -117,7 +117,8 @@ public static class GapperRules
             title: $"{build.Symbol} Gapper — {profileName}{titleSuffix}",
             symbol: build.Symbol, scriptText: build.Script, scriptJson: build.CanonicalJson,
             description: Describe(build.Profile, profileName),
-            author: $"{ctx.Caller.ToString().ToLowerInvariant()}-gapper", ct: ctx.CancellationToken);
+            author: $"{ctx.Caller.ToString().ToLowerInvariant()}-gapper", ct: ctx.CancellationToken,
+            kind: StrategyRepository.KindGapper);
         await repo.SetBrokerModeAsync([created.Id], mode.ToString(), owner, ctx.CancellationToken);
         created.BrokerMode = mode.ToString();
         return created;

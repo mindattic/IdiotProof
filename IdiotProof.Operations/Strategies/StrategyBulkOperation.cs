@@ -23,13 +23,17 @@ public sealed record StrategyBulkArgs
 
     [Option("mode", Description = "Only strategies in this broker mode (sandbox, paper, live).")]
     public BrokerMode? Mode { get; init; }
+
+    [Option("kind", Description = "Only strategies of this kind (gapper, momentum, exhaustion, ...; `none` = no kind); case-insensitive.", Example = "gapper")]
+    public string? Kind { get; init; }
 }
 
-[Operation("strategy bulk", Summary = "Activate or deactivate many strategies at once (--all, --symbol, --mode). Live activations need one confirmation code for the batch.", Risk = OperationRisk.Money,
+[Operation("strategy bulk", Summary = "Activate or deactivate many strategies at once (--all, --symbol, --mode, --kind). Live activations need one confirmation code for the batch.", Risk = OperationRisk.Money,
     Description = "Deactivation skips strategies holding a position (that would orphan the exit). Activation skips quarantined and soft-deleted strategies; " +
                   "when the batch would turn on any Live strategy, nothing happens until you re-run with the confirmation code, which is bound to exactly that batch.")]
 [Example("idiotproof strategy bulk deactivate --all")]
 [Example("idiotproof strategy bulk activate --symbol NVDA --mode paper")]
+[Example("idiotproof strategy bulk deactivate --kind gapper --mode paper")]
 public sealed class StrategyBulkOperation : IOperation<StrategyBulkArgs>
 {
     /// <summary>What happened to one strategy in the batch.</summary>
@@ -37,14 +41,15 @@ public sealed class StrategyBulkOperation : IOperation<StrategyBulkArgs>
 
     public async Task<OperationResult> ExecuteAsync(StrategyBulkArgs args, OperationContext ctx)
     {
-        if (!args.All && string.IsNullOrWhiteSpace(args.Symbol) && args.Mode is null)
-            return OperationResult.Usage("Say which strategies: --all, --symbol SYM and/or --mode MODE.");
+        if (!args.All && string.IsNullOrWhiteSpace(args.Symbol) && args.Mode is null && string.IsNullOrWhiteSpace(args.Kind))
+            return OperationResult.Usage("Say which strategies: --all, --symbol SYM, --mode MODE and/or --kind KIND.");
         var owner = ctx.RequireOwner();
         var repo = ctx.Get<StrategyRepository>();
         var selected = (await repo.GetAllForUserAsync(owner, ctx.CancellationToken))
             .Where(s => !StrategyArchive.IsDeleted(s))
             .Where(s => string.IsNullOrWhiteSpace(args.Symbol) || s.Symbol.Equals(args.Symbol.Trim(), StringComparison.OrdinalIgnoreCase))
             .Where(s => args.Mode is null || OrderIntent.ParseMode(s.BrokerMode) == args.Mode)
+            .Where(s => StrategyListOperation.MatchesKind(s, args.Kind))
             .OrderBy(s => s.Symbol).ThenBy(s => s.Title)
             .ToList();
         var activate = args.Action == StrategyBulkAction.Activate;

@@ -185,7 +185,8 @@ public sealed class AutoGapperScanner(
                             description: $"Auto-armed {plan.Class} gapper (+{plan.Signals.GapPercent:0.#}% @ ${plan.Signals.Price:0.##}).",
                             scriptJson: canon,
                             author: StrategyRepository.AutoGapperAuthor,
-                            ct: ct);
+                            ct: ct,
+                            kind: StrategyRepository.KindGapper);
                         var mut = await strategyRepo.SetActiveAsync(created.Id, true, userId, ct);
                         if (mut == StrategyMutation.Ok) { strategyId = created.Id; armed++; }
                         else skipReason = $"activate:{mut}";

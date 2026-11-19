@@ -260,7 +260,7 @@
 | [`settings list`](#settings-list) | Read | List the app's runtime settings with current value, default, range and meaning. |
 | [`settings set`](#settings-set) | Write | Change one runtime setting (type- and range-checked; unknown and internal keys refused). |
 | [`strategy activate`](#strategy-activate) | Money | Hand a strategy to the Monitor. A Live strategy needs a confirmation code. |
-| [`strategy bulk`](#strategy-bulk) | Money | Activate or deactivate many strategies at once (--all, --symbol, --mode). Live activations need one confirmation code for the batch. |
+| [`strategy bulk`](#strategy-bulk) | Money | Activate or deactivate many strategies at once (--all, --symbol, --mode, --kind). Live activations need one confirmation code for the batch. |
 | [`strategy clone`](#strategy-clone) | Write | Copy a strategy (optionally onto another symbol) as a new, inactive Sandbox strategy. |
 | [`strategy create`](#strategy-create) | Write | Create a strategy from IdiotScript or canonical JSON after validating it. It starts inactive in Sandbox. |
 | [`strategy deactivate`](#strategy-deactivate) | Write | Stop the Monitor evaluating a strategy (refused while it holds a position). |
@@ -4611,7 +4611,7 @@ Usage: idiotproof research gappers explore --command <string> [--split <string>]
 Risk: read
 
 Parameters:
-      --command <string>   build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow), tradeflow (retail imbalance collapse vs the high, H17) regsho-pull (Nasdaq and NYSE Reg SHO threshold lists and FINRA daily short volume, 2021-10-01..2026-11-06, resumable), alarms (alarm-time scoring 06:00-09:10 of count-CUSUM and rank-k onset rules vs gainers + news: hit rate, lead to +20%, false alarms per 100 mornings, per fold) or exit-routes (clock exit routes 09:15/09:20, opg limit by 09:27 with a 09:30:05 fallback, 09:31, 09:44, 09:50 with or without the LULD 09:44 exit, alone and with the drift-change and giveback overlays, plus the $1k/$5k/$25k participation capacity curve; default --times 08:30), fade-short (short at 09:45 the names whose premarket high was +30/50/100% and that are still +20% but under 10/5/0% from the 09:30 open, cover by 15:55 or 11:00 with optional stop and VWAP reclaim, net of the frozen cost model, borrow, SSR and Reg SHO variants, against a random short), fade-short-deep (IP-T479: the top fade short and its +50% variant on train: deflated Sharpe vs the ledger, time-of-day profile and MAE timing, MAE-aware exits, shortability tiers, tail sizing, squeeze predictors), alarm-ride (IP-T483: long only, buy the R4 alarm alone, gated by the boosted top k or by fresh news, marketable or a passive -1% limit, sold by take-profit x stop x time-stop/velocity brackets or lottery trailing exits, net at the frozen cost and 0.5x/0.25x spread), watchlist (IP-T484: runner anatomy (+50/+100/+300% by the 04:00-16:00 high), a D-1 16:00 watchlist (boosted, logistic, point score, recall/precision@10/20/50/100, prerequisite and catalyst lifts), all-day ignition (k x trailing 30-min volume, 2% session-high break, gap caps) and the ride (stops, trails, half, cooling exits) net at the frozen cost and 0.5x/0.25x spread), split-days-pull (IP-T490: raw 04:00-20:00 minute bars for D-1..D+10 of every train reverse split, inferred ratio change and excluded unexplained > +200% move, resumable) or split-days (IP-T490: runs by day offset, ratio, announcement, float and promotion profile on those days, and a long calendar / ignition entry x ride grid net at the frozen cost and 0.5x/0.25x spread). (required)
+      --command <string>   build (cache the train panel at the decision times), visibility (how early a gapper is visible), models (learners and feature-block ablation), exits (when velocity runs out), news (news ride by catalyst type, age and direction), fade (extension from the open vs how the day ends) entries (buy now, VWAP pullback or premarket-high breakout after a detection, net of cost), corobs (look-alike neighbour counts x feature subsets), ssr (cache Rule 201 from daily bars for the short-sale block), float-import (shares outstanding from SEC companyfacts.zip for the float proxy), tradeflow-pull (SIP trades on train gapper mornings, 08:00-10:30, as minute flow), tradeflow (retail imbalance collapse vs the high, H17) regsho-pull (Nasdaq and NYSE Reg SHO threshold lists and FINRA daily short volume, 2021-10-01..2026-11-06, resumable), alarms (alarm-time scoring 06:00-09:10 of count-CUSUM and rank-k onset rules vs gainers + news: hit rate, lead to +20%, false alarms per 100 mornings, per fold) or exit-routes (clock exit routes 09:15/09:20, opg limit by 09:27 with a 09:30:05 fallback, 09:31, 09:44, 09:50 with or without the LULD 09:44 exit, alone and with the drift-change and giveback overlays, plus the $1k/$5k/$25k participation capacity curve; default --times 08:30), fade-short (short at 09:45 the names whose premarket high was +30/50/100% and that are still +20% but under 10/5/0% from the 09:30 open, cover by 15:55 or 11:00 with optional stop and VWAP reclaim, net of the frozen cost model, borrow, SSR and Reg SHO variants, against a random short), fade-short-deep (IP-T479: the top fade short and its +50% variant on train: deflated Sharpe vs the ledger, time-of-day profile and MAE timing, MAE-aware exits, shortability tiers, tail sizing, squeeze predictors), alarm-ride (IP-T483: long only, buy the R4 alarm alone, gated by the boosted top k or by fresh news, marketable or a passive -1% limit, sold by take-profit x stop x time-stop/velocity brackets or lottery trailing exits, net at the frozen cost and 0.5x/0.25x spread), watchlist (IP-T484: runner anatomy (+50/+100/+300% by the 04:00-16:00 high), a D-1 16:00 watchlist (boosted, logistic, point score, recall/precision@10/20/50/100, prerequisite and catalyst lifts), all-day ignition (k x trailing 30-min volume, 2% session-high break, gap caps) and the ride (stops, trails, half, cooling exits) net at the frozen cost and 0.5x/0.25x spread), split-days-pull (IP-T490: raw 04:00-20:00 minute bars for D-1..D+10 of every train reverse split, inferred ratio change and excluded unexplained > +200% move, resumable) or split-days (IP-T490: runs by day offset, ratio, announcement, float and promotion profile on those days, and a long calendar / ignition entry x ride grid net at the frozen cost and 0.5x/0.25x spread), auctions-pull (IP-T472: Alpaca opening/closing auction prints for train Tier20+ gapper days and their controls, one file per day, resumable, paused through premarket) or auctions (official crosses vs the 09:30 bar open and 15:59 bar close, cross size vs volume), quotes-pull (IP-T472: NBBO within 60 s of every simulated entry and exit of the 08:30 buy-now entries pool, resumable, paused through premarket) or quotes-check (frozen cost model charge vs the quoted spread at those fills). (required)
       --split <string>     Must be train: the exploratory round never reads validation or holdout. (default: train)
       --times <string>     Decision times, comma-separated ("08:00,08:30"); default every frozen decision time (models and exits default to 08:00).
       --force              build: rebuild decision times already cached. (default: false)
@@ -5094,11 +5094,11 @@ Examples:
 ### strategy bulk
 
 ```text
-Activate or deactivate many strategies at once (--all, --symbol, --mode). Live activations need one confirmation code for the batch.
+Activate or deactivate many strategies at once (--all, --symbol, --mode, --kind). Live activations need one confirmation code for the batch.
 
 Deactivation skips strategies holding a position (that would orphan the exit). Activation skips quarantined and soft-deleted strategies; when the batch would turn on any Live strategy, nothing happens until you re-run with the confirmation code, which is bound to exactly that batch.
 
-Usage: idiotproof strategy bulk <action> [--all] [--symbol <string>] [--mode <sandbox|paper|live>]
+Usage: idiotproof strategy bulk <action> [--all] [--symbol <string>] [--mode <sandbox|paper|live>] [--kind <string>]
 Risk: money
 
 Parameters:
@@ -5106,10 +5106,12 @@ Parameters:
       --all                        Every strategy you own (soft-deleted ones excluded). (default: false)
       --symbol <string>            Only strategies on this symbol.
       --mode <sandbox|paper|live>  Only strategies in this broker mode (sandbox, paper, live).
+      --kind <string>              Only strategies of this kind (gapper, momentum, exhaustion, ...; `none` = no kind); case-insensitive.
 
 Examples:
   idiotproof strategy bulk deactivate --all
   idiotproof strategy bulk activate --symbol NVDA --mode paper
+  idiotproof strategy bulk deactivate --kind gapper --mode paper
 ```
 
 ### strategy clone
@@ -5119,7 +5121,7 @@ Copy a strategy (optionally onto another symbol) as a new, inactive Sandbox stra
 
 The copy gets the same canon (re-validated), never the original's position, history or Live routing. Cloning onto another symbol warns about fixed prices that belonged to the original's chart.
 
-Usage: idiotproof strategy clone <strategy> [--symbol <string>] [--title <string>] [--mode <sandbox|paper|live>]
+Usage: idiotproof strategy clone <strategy> [--symbol <string>] [--title <string>] [--mode <sandbox|paper|live>] [--kind <string>]
 Risk: write
 
 Parameters:
@@ -5127,10 +5129,13 @@ Parameters:
       --symbol <string>            Trade a different symbol with the same rules.
       --title <string>             Title for the copy (default: "<title> (copy)").
   -m, --mode <sandbox|paper|live>  Broker mode for the copy: sandbox (default) or paper. (default: sandbox)
+      --kind <string>              Kind for the copy (e.g. gapper, momentum), at most 24 characters (default: the original's kind).
 
 Examples:
   idiotproof strategy clone NVDA
   idiotproof strategy clone NVDA --symbol AMD --title "AMD VWAP reclaim"
+  idiotproof strategy clone NVDA --kind momentum
+      The copy's kind; without --kind it keeps the original's.
 ```
 
 ### strategy create
@@ -5140,7 +5145,7 @@ Create a strategy from IdiotScript or canonical JSON after validating it. It sta
 
 Exactly one of --script or --canon. A strategy with no size buys 1 share. Errors (no stop, stop on the wrong side of the target, a broken canon) stop the save; warnings are shown.
 
-Usage: idiotproof strategy create [--script <string>] [--canon <string>] [--title <string>] [--ticker <string>] [--description <string>] [--mode <sandbox|paper|live>] [--dry-run]
+Usage: idiotproof strategy create [--script <string>] [--canon <string>] [--title <string>] [--ticker <string>] [--description <string>] [--mode <sandbox|paper|live>] [--kind <string>] [--dry-run]
 Risk: write
 
 Parameters:
@@ -5150,12 +5155,15 @@ Parameters:
       --ticker <string>            Symbol to use when the script doesn't name one.
       --description <string>       Free-form description stored with the strategy.
   -m, --mode <sandbox|paper|live>  Broker mode: sandbox (default) or paper. Live is a separate, confirmed step. (default: sandbox)
+      --kind <string>              What kind of strategy this is (e.g. gapper, momentum), stored lower-case, at most 24 characters; tools select by it (`strategy list --kind`). Default: none.
       --dry-run                    Validate and show the stamp without saving anything. (default: false)
 
 Examples:
   idiotproof strategy create --script "Stock.Ticker(\"NVDA\").IsAboveVwap().Long().StopLoss(170).TakeProfit(190).Build()"
   idiotproof strategy create --canon - --mode paper
       Reads canonical JSON from stdin.
+  idiotproof strategy create --script - --mode paper --kind gapper
+      Tags the strategy as a gapper so `strategy list --kind gapper` (and the daily retirement job) finds it.
 ```
 
 ### strategy deactivate
@@ -5344,7 +5352,7 @@ Examples:
 ```text
 List your strategies with mode, position and live condition progress.
 
-Usage: idiotproof strategy list [--active] [--symbol <string>] [--mode <sandbox|paper|live>] [--deleted]
+Usage: idiotproof strategy list [--active] [--symbol <string>] [--mode <sandbox|paper|live>] [--deleted] [--kind <string>]
 Risk: read
 
 Parameters:
@@ -5352,10 +5360,13 @@ Parameters:
       --symbol <string>            Only this symbol.
       --mode <sandbox|paper|live>  Only this broker mode (sandbox, paper, live).
       --deleted                    Include soft-deleted strategies (hidden by default). (default: false)
+      --kind <string>              Only strategies of this kind (gapper, momentum, exhaustion, or any kind given at create); case-insensitive. `none` lists the ones with no kind.
 
 Examples:
   idiotproof strategy list
   idiotproof strategy list --active --mode live
+  idiotproof strategy list --kind gapper --mode paper --json
+      Every paper gapper strategy, as JSON rows carrying their kind.
 ```
 
 ### strategy mode

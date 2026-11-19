@@ -13,6 +13,10 @@
 
     -Before limits it to strategies created before that time (ET); the default retires every flat one, which
     is right after 09:30 because every gapper's sell-by (09:28) has passed.
+
+    A gapper strategy is one whose kind is "gapper" (IP-T593: `strategy list --kind gapper`), so a renamed one
+    is still retired. An older Hub that does not know --kind (refuses it, or ignores it and returns rows with
+    no kind) falls back to the title match ('Gapper' in the title) until the Hub is redeployed.
 #>
 param(
     [string]$Cli = 'C:\Apps\IdiotProof\Cli\idiotproof.exe',
@@ -29,9 +33,18 @@ function Log([string]$line) { Add-Content -Path $log -Value $line -Encoding UTF8
 $job = 'IdiotProof.GapperRetire'
 
 Log "$(Stamp) [$job] start (pid $PID)$(if ($DryRun) { ' dry run' })"
-try { $list = (& $Cli strategy list --mode paper --json 2>$null | Out-String | ConvertFrom-Json).data }
-catch { Log "$(Stamp) [$job] strategy list failed: $($_.Exception.Message)"; exit 1 }
-if ($null -eq $list) { Log "$(Stamp) [$job] strategy list returned nothing (Hub down?)"; exit 1 }
+function List([string[]]$extra) {
+    try { & $Cli strategy list --mode paper @extra --json 2>$null | Out-String | ConvertFrom-Json }
+    catch { Log "$(Stamp) [$job] strategy list $($extra -join ' ') failed: $($_.Exception.Message)"; $null }
+}
+# Select by kind; an older Hub refuses --kind (usage error) or ignores it (rows carry no kind): match titles then.
+$byKind = $true
+$result = List @('--kind', 'gapper')
+if ($null -eq $result -or $result.status -ne 'ok') { $byKind = $false; $result = List @() }
+if ($null -eq $result -or $result.status -ne 'ok' -or $null -eq $result.data) { Log "$(Stamp) [$job] strategy list returned nothing (Hub down?)"; exit 1 }
+$list = @($result.data)
+if ($byKind -and $list.Count -gt 0 -and -not @($list | Where-Object { $_.PSObject.Properties['kind'] }).Count) { $byKind = $false }
+if (-not $byKind) { Log "    this Hub has no strategy kind yet; selecting gappers by 'Gapper' in the title" }
 
 # Strategy ids are UUIDv7: the first 48 bits are the creation time in Unix milliseconds.
 function Created([string]$id) {
@@ -39,7 +52,8 @@ function Created([string]$id) {
     [TimeZoneInfo]::ConvertTimeFromUtc([DateTimeOffset]::FromUnixTimeMilliseconds($ms).UtcDateTime, $et)
 }
 
-$gappers = @($list | Where-Object { $_.title -match 'Gapper' -and $_.mode -eq 'Paper' -and (Created $_.id) -lt $Before })
+function IsGapper($s) { if ($byKind) { $s.kind -eq 'gapper' } else { $s.title -match 'Gapper' } }
+$gappers = @($list | Where-Object { (IsGapper $_) -and $_.mode -eq 'Paper' -and (Created $_.id) -lt $Before })
 $held = @($gappers | Where-Object { $_.position -ne 0 })
 $retire = @($gappers | Where-Object { $_.position -eq 0 })
 $done = 0; $failed = 0

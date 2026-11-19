@@ -143,7 +143,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
     public async Task<Strategy> CreateAsync(Guid ownerUserId, string title, string symbol,
         string scriptText, string? description = null, string? workspaceId = null,
         string? scriptJson = null, string? author = null, string? originTranscript = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, string? kind = null)
     {
         var now = DateTime.UtcNow;
         var strategy = new Strategy
@@ -153,6 +153,7 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
             Title       = title,
             Description = description,
             Author      = author,
+            Kind        = NormalizeKind(kind),
             OriginTranscript = originTranscript,
             Symbol      = symbol.ToUpperInvariant(),
             ScriptText  = scriptText,
@@ -171,6 +172,21 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         db.Strategies.Add(strategy);
         await db.SaveChangesAsync(ct);
         return strategy;
+    }
+
+    /// <summary>Well-known <see cref="Strategy.Kind"/> values (IP-T593).</summary>
+    public const string KindGapper = "gapper";
+    /// <inheritdoc cref="KindGapper"/>
+    public const string KindMomentum = "momentum";
+    /// <inheritdoc cref="KindGapper"/>
+    public const string KindExhaustion = "exhaustion";
+
+    /// <summary>Trims and lower-cases a kind; blank → null. Longer than 24 characters is cut.</summary>
+    public static string? NormalizeKind(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind)) return null;
+        var k = kind.Trim().ToLowerInvariant();
+        return k.Length > 24 ? k[..24] : k;
     }
 
     /// <summary>Text → model → canonical JSON. Null when the text doesn't parse at all.</summary>

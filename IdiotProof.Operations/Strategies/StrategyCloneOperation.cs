@@ -16,17 +16,22 @@ public sealed record StrategyCloneArgs
 
     [Option("mode", Description = "Broker mode for the copy: sandbox (default) or paper.", Short = 'm')]
     public BrokerMode Mode { get; init; } = BrokerMode.Sandbox;
+
+    [Option("kind", Description = "Kind for the copy (e.g. gapper, momentum), at most 24 characters (default: the original's kind).", Example = "momentum")]
+    public string? Kind { get; init; }
 }
 
 [Operation("strategy clone", Summary = "Copy a strategy (optionally onto another symbol) as a new, inactive Sandbox strategy.", Risk = OperationRisk.Write,
     Description = "The copy gets the same canon (re-validated), never the original's position, history or Live routing. Cloning onto another symbol warns about fixed prices that belonged to the original's chart.")]
 [Example("idiotproof strategy clone NVDA")]
 [Example("idiotproof strategy clone NVDA --symbol AMD --title \"AMD VWAP reclaim\"")]
+[Example("idiotproof strategy clone NVDA --kind momentum", Description = "The copy's kind; without --kind it keeps the original's.")]
 public sealed class StrategyCloneOperation : IOperation<StrategyCloneArgs>
 {
     public async Task<OperationResult> ExecuteAsync(StrategyCloneArgs args, OperationContext ctx)
     {
         StrategyDrafts.RequireStartMode(args.Mode);
+        var kind = StrategyDrafts.RequireKind(args.Kind);
         var s = await StrategyRefs.ResolveAsync(ctx, args.Strategy);
         var def = StrategyDrafts.Copy(StrategyRefs.RequireDefinition(s));
 
@@ -46,12 +51,13 @@ public sealed class StrategyCloneOperation : IOperation<StrategyCloneArgs>
         var title = args.Title ?? $"{StrategyArchive.Unmark(s.Title)} (copy)";
         if (!string.Equals(def.Symbol, s.Symbol, StringComparison.OrdinalIgnoreCase) && args.Title is null)
             title = $"{def.Symbol} — {StrategyArchive.Unmark(s.Title)}";
-        var created = await StrategyDrafts.SaveAsync(ctx, def, title, args.Mode, "clone", description: s.Description, author: s.Author);
+        var created = await StrategyDrafts.SaveAsync(ctx, def, title, args.Mode, "clone", description: s.Description, author: s.Author,
+            kind: kind ?? s.Kind);
         var shortId = StrategyRefs.ShortGuid(created.Id);
         var human = $"Cloned {s.Symbol} '{s.Title}' ({StrategyRefs.ShortGuid(s.Id)}) → {def.Symbol} '{created.Title}' as {shortId} ({v.StampId}), inactive, {args.Mode}." +
                     string.Concat(notes.Select(n => "\nNote: " + n)) +
                     $"\nActivate it with `idiotproof strategy activate {shortId}`.";
-        return OperationResult.Ok(new { created.Id, Short = shortId, From = s.Id, Stamp = v.StampId, def.Symbol, created.Title, Mode = args.Mode.ToString(), Notes = notes }, human);
+        return OperationResult.Ok(new { created.Id, Short = shortId, From = s.Id, Stamp = v.StampId, def.Symbol, created.Title, Mode = args.Mode.ToString(), created.Kind, Notes = notes }, human);
     }
 
     /// <summary>Absolute price levels the strategy carries (stop, target, ladder, entry/level conditions).</summary>

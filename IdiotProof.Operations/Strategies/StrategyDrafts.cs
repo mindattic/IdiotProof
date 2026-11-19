@@ -226,7 +226,7 @@ public static class StrategyDrafts
     /// Live: going live is the separate, confirmed <c>strategy mode</c> step).
     /// </summary>
     public static async Task<Strategy> SaveAsync(OperationContext ctx, StrategyDefinition def, string? title, BrokerMode mode,
-        string authorSuffix, string? description = null, string? originTranscript = null, string? author = null)
+        string authorSuffix, string? description = null, string? originTranscript = null, string? author = null, string? kind = null)
     {
         if (mode == BrokerMode.Live)
             throw OperationException.Usage("New strategies start in sandbox or paper. Go live with `idiotproof strategy mode <id> live` (it asks for confirmation).");
@@ -235,7 +235,7 @@ public static class StrategyDrafts
         var created = await repo.CreateAsync(owner, TitleFor(def, title), def.Symbol, def.ToScript(),
             description: description, scriptJson: StrategyJson.Serialize(def),
             author: author ?? $"{ctx.Caller.ToString().ToLowerInvariant()}-{authorSuffix}",
-            originTranscript: originTranscript, ct: ctx.CancellationToken);
+            originTranscript: originTranscript, ct: ctx.CancellationToken, kind: kind);
         await repo.SetBrokerModeAsync([created.Id], mode.ToString(), owner, ctx.CancellationToken);
         created.BrokerMode = mode.ToString();
         return created;
@@ -246,6 +246,17 @@ public static class StrategyDrafts
     {
         var t = !string.IsNullOrWhiteSpace(title) ? title.Trim() : !string.IsNullOrWhiteSpace(def.Name) ? def.Name!.Trim() : $"{def.Symbol} strategy";
         return t.Length > 200 ? t[..200] : t;
+    }
+
+    /// <summary>The <c>--kind</c> value trimmed and lower-cased (null when blank); a usage error when it is
+    /// longer than 24 characters or holds anything but letters, digits, '-' and '_' (IP-T593).</summary>
+    public static string? RequireKind(string? kind)
+    {
+        var k = StrategyRepository.NormalizeKind(kind);
+        if (k is null) return null;
+        if (kind!.Trim().Length > 24 || !k.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
+            throw OperationException.Usage($"--kind must be at most 24 letters, digits, '-' or '_' (got \"{kind.Trim()}\"), e.g. gapper or momentum.");
+        return k;
     }
 
     /// <summary>A usage error unless the mode is one a new strategy may start in.</summary>

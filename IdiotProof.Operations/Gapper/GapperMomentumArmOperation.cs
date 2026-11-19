@@ -47,7 +47,7 @@ public sealed class GapperMomentumArmOperation : IOperation<GapperMomentumArmArg
     {
         var repo = ctx.Get<StrategyRepository>();
         var stale = (await repo.GetAllForUserAsync(owner, ctx.CancellationToken))
-            .Where(s => s.IsActive && s.PositionQty == 0 && s.Title.StartsWith(TitlePrefix, StringComparison.Ordinal)
+            .Where(s => s.IsActive && s.PositionQty == 0 && IsMomentumPick(s)
                         && (keepCreatedOn is not { } keep || DateOnly.FromDateTime(EasternClock.ToEastern(s.CreatedUtc)) != keep))
             .ToList();
         var done = new List<string>();
@@ -55,6 +55,10 @@ public sealed class GapperMomentumArmOperation : IOperation<GapperMomentumArmArg
             if ((await StrategyActivateOperation.SetActiveAsync(ctx, s, false)).IsOk) done.Add(s.Symbol);
         return done;
     }
+
+    /// <summary>A Momentum pick strategy: kind "momentum" (IP-T593), or a row saved before kinds existed by its title.</summary>
+    private static bool IsMomentumPick(IdiotProof.Core.Data.Strategy s) =>
+        s.Kind is { } k ? k == StrategyRepository.KindMomentum : s.Title.StartsWith(TitlePrefix, StringComparison.Ordinal);
 
     public static string Script(string symbol, decimal pmHigh) =>
         $"Stock.Ticker(\"{symbol}\").Name(\"{TitlePrefix} {symbol} PM-high break\").Session(TradingSession.RTH).RequireEntryWindow(\"09:30\", \"15:30\")" +
@@ -94,7 +98,7 @@ public sealed class GapperMomentumArmOperation : IOperation<GapperMomentumArmArg
             return OperationResult.Ok(new { Session = d, Picks = 0 }, $"No Momentum. picks recorded for {d:yyyy-MM-dd} (run the tracker's import + extract after his video).");
 
         var existing = args.DryRun ? [] : (await ctx.Get<StrategyRepository>().GetAllForUserAsync(owner, ctx.CancellationToken))
-            .Where(s => s.CreatedUtc >= ctx.UtcNow.AddHours(-18) && s.Title.StartsWith(TitlePrefix, StringComparison.Ordinal)).Select(s => s.Symbol).ToHashSet(StringComparer.Ordinal);
+            .Where(s => s.CreatedUtc >= ctx.UtcNow.AddHours(-18) && IsMomentumPick(s)).Select(s => s.Symbol).ToHashSet(StringComparer.Ordinal);
         var bars = ctx.Get<IHistoricalBarStore>();
         var table = new TextTable { MaxWidth = ctx.Width }.Column("rank", Align.Right).Column("sym").Column("pm high", Align.Right).Column("result");
         var rows = new List<object>();
@@ -122,7 +126,8 @@ public sealed class GapperMomentumArmOperation : IOperation<GapperMomentumArmArg
                 else
                 {
                     var created = await StrategyDrafts.SaveAsync(ctx, def, $"{TitlePrefix} {sym} {d:yyyy-MM-dd} PM-high break", BrokerMode.Paper, "momentum-arm",
-                        $"IP-T502 amendment 04 forward test: Momentum. pick #{rank} for {d:yyyy-MM-dd}, premarket high {pmh}.");
+                        $"IP-T502 amendment 04 forward test: Momentum. pick #{rank} for {d:yyyy-MM-dd}, premarket high {pmh}.",
+                        kind: StrategyRepository.KindMomentum);
                     saved++;
                     result = $"saved {StrategyRefs.ShortGuid(created.Id)} (paper)";
                     if (args.Activate)

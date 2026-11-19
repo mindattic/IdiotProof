@@ -156,7 +156,8 @@ Test projects: `IdiotProof.Engine.Tests`, `IdiotProof.Indicators.Tests`, `IdiotP
   run-up, days since reverse split / 424B / S-1, latest catalyst), plus an `Extra` dictionary for
   registered literature features.
 - SQL entities (`IdiotProof.Core/Data`, namespace `IdiotProof.Core.Data`): `CommandLedgerEntry` (one row per CLI/MCP call), `PendingConfirmation` (Live codes), `Strategy` (owner, author, `BrokerMode`,
-  `ScriptJson` canon + `ScriptText` view, `OriginTranscript`, open-position bookkeeping),
+  `Kind` (`gapper`, `momentum`, `exhaustion`, null = hand-made; set by the creating code path, `strategy list --kind`
+  selects by it, IP-T593), `ScriptJson` canon + `ScriptText` view, `OriginTranscript`, open-position bookkeeping),
   `ConditionProgress`, `TradeDiaryEntry`, `AuditLog`, `UserApiKeys` (encrypted at rest),
   `UserPreferences`, `ReplayRun`/`ReplayTrade`/`ReplayBar`, `ResearchClaim`,
   `InsiderTransaction`, `TrackedTicker`, `BlockedEmailDomain`, `SettingsKv`, `Workspaces`,

@@ -82,11 +82,15 @@ public sealed record StrategyListArgs
 
     [Option("deleted", Description = "Include soft-deleted strategies (hidden by default).")]
     public bool Deleted { get; init; }
+
+    [Option("kind", Description = "Only strategies of this kind (gapper, momentum, exhaustion, or any kind given at create); case-insensitive. `none` lists the ones with no kind.", Example = "gapper")]
+    public string? Kind { get; init; }
 }
 
 [Operation("strategy list", Summary = "List your strategies with mode, position and live condition progress.", Risk = OperationRisk.Read)]
 [Example("idiotproof strategy list")]
 [Example("idiotproof strategy list --active --mode live")]
+[Example("idiotproof strategy list --kind gapper --mode paper --json", Description = "Every paper gapper strategy, as JSON rows carrying their kind.")]
 public sealed class StrategyListOperation : IOperation<StrategyListArgs>
 {
     public async Task<OperationResult> ExecuteAsync(StrategyListArgs args, OperationContext ctx)
@@ -97,6 +101,7 @@ public sealed class StrategyListOperation : IOperation<StrategyListArgs>
             .Where(s => args.Deleted || !StrategyArchive.IsDeleted(s))
             .Where(s => args.Symbol is null || s.Symbol.Equals(args.Symbol, StringComparison.OrdinalIgnoreCase))
             .Where(s => args.Mode is null || OrderIntent.ParseMode(s.BrokerMode) == args.Mode)
+            .Where(s => MatchesKind(s, args.Kind))
             .OrderByDescending(s => s.IsActive).ThenBy(s => s.Symbol).ThenBy(s => s.Title)
             .ToList();
         var progress = await ctx.Get<ConditionProgressRepository>().GetForStrategyIdsAsync(rows.Select(r => r.Id), ctx.CancellationToken);
@@ -108,6 +113,7 @@ public sealed class StrategyListOperation : IOperation<StrategyListArgs>
             Stamp = StrategyRefs.StampId(s),
             s.Symbol,
             s.Title,
+            s.Kind,
             Mode = OrderIntent.ParseMode(s.BrokerMode).ToString(),
             s.IsActive,
             Position = s.PositionQty,
@@ -127,6 +133,16 @@ public sealed class StrategyListOperation : IOperation<StrategyListArgs>
         var active = items.Count(i => i.IsActive);
         return OperationResult.Ok(items, table.Render() + $"\n{items.Count} strategies, {active} active.");
     }
+
+    /// <summary>True when no kind filter is given, the row has that kind, or the filter is "none" and the row has no kind.</summary>
+    internal static bool MatchesKind(Strategy s, string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind)) return true;
+        var k = kind.Trim();
+        return k.Equals("none", StringComparison.OrdinalIgnoreCase)
+            ? string.IsNullOrEmpty(s.Kind)
+            : string.Equals(s.Kind, k, StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 [Operation("strategy show", Summary = "Everything about one strategy: settings, script, position, progress.", Risk = OperationRisk.Read)]
@@ -145,6 +161,7 @@ public sealed class StrategyShowOperation : IOperation<StrategyRefArgs>
             .Add("stamp", load.Definition?.ShortId() ?? "(quarantined)")
             .Add("title", s.Title)
             .Add("symbol", s.Symbol)
+            .Add("kind", s.Kind ?? "—")
             .Add("mode", OrderIntent.ParseMode(s.BrokerMode).ToString())
             .Add("active", s.IsActive ? "yes — the Monitor evaluates it every tick" : "no")
             .Add("position", s.PositionQty == 0 ? "flat" : $"{s.PositionQty} @ {Fmt.Money(s.LastEntryPrice ?? 0)} since {Fmt.Et(s.EntryFilledUtc)}");
@@ -159,7 +176,7 @@ public sealed class StrategyShowOperation : IOperation<StrategyRefArgs>
         var script = load.Definition?.ToScript() ?? s.ScriptText;
         return OperationResult.Ok(new
         {
-            s.Id, Stamp = load.Definition?.ShortId(), s.Title, s.Symbol, Mode = OrderIntent.ParseMode(s.BrokerMode).ToString(),
+            s.Id, Stamp = load.Definition?.ShortId(), s.Title, s.Symbol, s.Kind, Mode = OrderIntent.ParseMode(s.BrokerMode).ToString(),
             s.IsActive, s.PositionQty, s.LastEntryPrice, s.EntryFilledUtc, s.FireCount, s.LastFiredUtc,
             s.StepIndex, StepCount = load.Definition?.StepCount, s.AwaitingTransition, s.StepArmedUtc,
             Progress = progress is null ? null : new { progress.PassedCount, progress.TotalCount, progress.FirstFailingVerb, progress.EvaluatedUtc },
