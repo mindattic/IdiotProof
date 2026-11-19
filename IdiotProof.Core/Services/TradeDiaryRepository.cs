@@ -96,6 +96,32 @@ public sealed class TradeDiaryRepository(IDbContextFactory<AppDbContext> dbFacto
     }
 
     /// <summary>
+    /// Corrects the strategy's latest Closed row that an earlier reconcile booked as <c>ReconciledFlat</c> (no price, P&amp;L 0)
+    /// to the real exit fill (IP-T597). No-op when there is no such row.
+    /// </summary>
+    public async Task CorrectReconciledExitAsync(
+        Guid strategyId, decimal exitPrice, string exitReason, string? exitOrderId,
+        decimal realizedPnL, decimal soldQty, DateTime exitUtc, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var row = await db.TradeDiary
+            .Where(t => t.StrategyId == strategyId && t.Status == TradeDiaryStatus.Closed && t.ExitReason == "ReconciledFlat")
+            .OrderByDescending(t => t.EntryUtc)
+            .FirstOrDefaultAsync(ct);
+        if (row is null) return;
+        if (soldQty > 0 && soldQty != row.Quantity) row.Quantity = soldQty;
+        row.ExitUtc       = exitUtc;
+        row.ExitPrice     = exitPrice;
+        row.ExitReason    = exitReason;
+        row.ExitOrderId   = exitOrderId;
+        row.RealizedPnL   = realizedPnL;
+        var cost = row.EntryPrice * row.Quantity;
+        row.ReturnPercent = cost > 0m ? Math.Round(realizedPnL / cost * 100m, 4) : 0m;
+        row.UpdatedUtc    = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
     /// Adds one scale-out rung's realized P&amp;L to the strategy's open row, which stays open for
     /// the remaining shares; <see cref="CloseAsync"/> adds the final exit to it (IP-T573).
     /// </summary>

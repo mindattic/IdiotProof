@@ -17,6 +17,9 @@ public sealed record PositionsReconcileArgs
 
     [Option("apply", Description = "Clear phantom rows (booked but the broker is flat): book each strategy's own filled exit orders from the broker, else flat as reconciled. Never places an order.")]
     public bool Apply { get; init; }
+
+    [Option("rebook", Description = "Re-book strategies an earlier --apply closed flat as reconciled (P&L 0) at their own filled exit orders. Reads orders, never places one.")]
+    public bool Rebook { get; init; }
 }
 
 /// <summary>How a symbol's broker quantity compares with what the owner's strategies book.</summary>
@@ -94,6 +97,12 @@ public sealed class PositionsReconcileOperation : IOperation<PositionsReconcileA
         var strategies = await ctx.Get<StrategyRepository>().GetAllForUserAsync(owner, ctx.CancellationToken);
         var accounts = await BrokerPositions.LoadAsync(ctx, args.Mode);
 
+        if (args.Rebook)
+        {
+            var rebooked = await RebookFlatAsync(ctx, owner, args.Mode, strategies);
+            return OperationResult.Ok(new { rebooked = rebooked.Count, lines = rebooked }, rebooked.Count == 0 ? "Nothing to re-book." : string.Join("\n", rebooked));
+        }
+
         var table = new TextTable { MaxWidth = ctx.Width }
             .Column("Account").Column("Symbol").Column("Broker", Align.Right).Column("Booked", Align.Right)
             .Column("Diff", Align.Right).Column("Status").Column("Strategies", maxWidth: 30).Column("Note", maxWidth: 60);
@@ -145,17 +154,15 @@ public sealed class PositionsReconcileOperation : IOperation<PositionsReconcileA
         return OperationResult.Ok(new { agree = ok, disagree = problems, cleared = cleared.Count, rows = data, notes }, string.Join("\n", parts));
     }
 
-    /// <summary>
-    /// Clears one phantom (booked, broker flat): finds this strategy's own filled exit orders (client id
-    /// <c>ipx-&lt;strategy id&gt;-…</c>) at the broker since its entry and books the exit at their fill price;
-    /// with none, books it flat as reconciled at the entry price (P&amp;L 0). Reads orders, never places one.
-    /// </summary>
-    private static async Task<string> ClearPhantomAsync(OperationContext ctx, Guid owner, BrokerMode mode, Strategy s)
+    /// <summary>Alpaca's <c>after</c> filter accepts only <c>yyyy-MM-ddTHH:mm:ssZ</c>: UTC, no fractional seconds, no offset (IP-T597).</summary>
+    internal static string AlpacaAfter(DateTime t) =>
+        t.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>This strategy's own filled <c>ipx-</c> closing orders at the broker since <paramref name="since"/>: total qty, notional, last fill time and its order id (read-only).</summary>
+    private static async Task<(decimal Qty, decimal Notional, DateTime? LastFill, string? OrderId, string? Error)> FindExitFillsAsync(
+        OperationContext ctx, Guid owner, BrokerMode mode, Strategy s, string prefix, string closingSide, DateTime since)
     {
         var ct = ctx.CancellationToken;
-        var closingSide = s.PositionQty < 0 ? "buy" : "sell";
-        var prefix = $"ipx-{s.Id:N}-";
-        var since = (s.EntryFilledUtc ?? DateTime.UtcNow.AddDays(-2)).AddMinutes(-5);
         decimal qty = 0m, notional = 0m;
         DateTime? lastFill = null;
         string? orderId = null;
@@ -166,7 +173,7 @@ public sealed class PositionsReconcileOperation : IOperation<PositionsReconcileA
             var json = await api.GetAsync("/v2/orders", new Dictionary<string, string?>
             {
                 ["status"] = "all", ["symbols"] = s.Symbol.ToUpperInvariant(), ["limit"] = "500", ["nested"] = "false", ["direction"] = "asc",
-                ["after"] = since.ToString("o", System.Globalization.CultureInfo.InvariantCulture),
+                ["after"] = AlpacaAfter(since),
             }, ct);
             if (json.ValueKind == System.Text.Json.JsonValueKind.Array)
                 foreach (var o in json.EnumerateArray().Select(Orders.OrderView.Parse))
@@ -184,6 +191,55 @@ public sealed class PositionsReconcileOperation : IOperation<PositionsReconcileA
         {
             lookupError = ex.Message;
         }
+        return (qty, notional, lastFill, orderId, lookupError);
+    }
+
+    /// <summary>
+    /// Re-books strategies an earlier <c>--apply</c> closed flat as <c>ReconciledFlat</c> (P&amp;L 0, no price) because the
+    /// order lookup failed (IP-T597): looks up each one's own filled exit orders and corrects the strategy's last exit and
+    /// its diary row to the real fill. Reads orders, never places one; a strategy with still no fill is left as it was.
+    /// </summary>
+    private static async Task<List<string>> RebookFlatAsync(OperationContext ctx, Guid owner, AccountScope scope, IEnumerable<Strategy> all)
+    {
+        var lines = new List<string>();
+        var strategies = ctx.Get<StrategyRepository>();
+        var diary = ctx.Get<TradeDiaryRepository>();
+        var ct = ctx.CancellationToken;
+        foreach (var s in all.Where(x => x.PositionQty == 0 && x.LastExitReason == "ReconciledFlat" && x.LastEntryPrice is > 0m))
+        {
+            var mode = OrderIntent.ParseMode(s.BrokerMode);
+            if (mode == BrokerMode.Sandbox) continue;
+            if (scope == AccountScope.Paper && mode != BrokerMode.Paper) continue;
+            if (scope == AccountScope.Live && mode != BrokerMode.Live) continue;
+            var since = (s.EntryFilledUtc ?? s.LastExitedUtc?.AddDays(-2) ?? DateTime.UtcNow.AddDays(-2)).AddMinutes(-5);
+            var (qty, notional, lastFill, orderId, err) = await FindExitFillsAsync(ctx, owner, mode, s, $"ipx-{s.Id:N}-", "sell", since);
+            if (qty <= 0m) { lines.Add($"[{s.Title}] {s.Symbol} stays flat as reconciled: no filled exit of this strategy found" + (err is null ? "." : $" (order lookup failed: {err}).")); continue; }
+            var entry = s.LastEntryPrice!.Value;
+            var price = Math.Round(notional / qty, 4);
+            var exitUtc = lastFill ?? s.LastExitedUtc ?? DateTime.UtcNow;
+            var realized = Math.Round((price - entry) * qty, 2);
+            await strategies.CorrectExitAsync(s.Id, price, "Reconciled", exitUtc, ct);
+            await diary.CorrectReconciledExitAsync(s.Id, price, "Reconciled", orderId, realized, qty, exitUtc, ct);
+            var text = $"[{s.Title}] {s.Symbol} re-booked at its own filled exit order {orderId} ({Fmt.Number(qty)} @ {price:0.00##}, P&L {realized:+0.00;-0.00}).";
+            try { await ctx.Get<AuditLogRepository>().LogAsync("position-rebooked", text, owner, ct: ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { }
+            lines.Add(text);
+        }
+        return lines;
+    }
+
+    /// <summary>
+    /// Clears one phantom (booked, broker flat): finds this strategy's own filled exit orders (client id
+    /// <c>ipx-&lt;strategy id&gt;-…</c>) at the broker since its entry and books the exit at their fill price;
+    /// with none, books it flat as reconciled at the entry price (P&amp;L 0). Reads orders, never places one.
+    /// </summary>
+    private static async Task<string> ClearPhantomAsync(OperationContext ctx, Guid owner, BrokerMode mode, Strategy s)
+    {
+        var ct = ctx.CancellationToken;
+        var closingSide = s.PositionQty < 0 ? "buy" : "sell";
+        var prefix = $"ipx-{s.Id:N}-";
+        var since = (s.EntryFilledUtc ?? DateTime.UtcNow.AddDays(-2)).AddMinutes(-5);
+        var (qty, notional, lastFill, orderId, lookupError) = await FindExitFillsAsync(ctx, owner, mode, s, prefix, closingSide, since);
 
         var strategies = ctx.Get<StrategyRepository>();
         var diary = ctx.Get<TradeDiaryRepository>();

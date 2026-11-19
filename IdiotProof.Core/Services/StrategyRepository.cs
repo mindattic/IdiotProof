@@ -595,6 +595,19 @@ public sealed class StrategyRepository(IDbContextFactory<AppDbContext> dbFactory
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>Corrects an already-flat strategy's last exit (price, reason, time) without touching its position or step state (IP-T597).</summary>
+    public async Task CorrectExitAsync(Guid id, decimal exitPrice, string reason, DateTime exitedUtc, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var strategy = await db.Strategies.FirstOrDefaultAsync(s => s.Id == id && s.PositionQty == 0, ct);
+        if (strategy is null) return;
+        strategy.LastExitPrice  = exitPrice;
+        strategy.LastExitReason = reason;
+        strategy.LastExitedUtc  = exitedUtc;
+        strategy.UpdatedUtc     = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
     /// <summary>Arms step <paramref name="nextIndex"/> of a sequence: its ThenWhen held while flat.</summary>
     public async Task AdvanceStepAsync(Guid id, int nextIndex, DateTime utcNow, CancellationToken ct = default)
     {
