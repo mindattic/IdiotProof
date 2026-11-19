@@ -1,0 +1,14 @@
+stage: explore-split-days-pull
+started: 2026-11-09 15:01:48 ET
+seconds: 757
+status: Ok
+message: 
+
+command:        split-days-pull
+report:         none
+trials logged:  0
+ledger total:   5153
+minutes:        12.62
+events: 735 recorded reverse split (Alpaca corporate action), 70 inferred ratio change (no split on record), 90 unexplained > +200% close move (excluded day)
+symbol-days wanted (D-1..D+10, split-adjusted prior close $0.10-$20, train only): 10,387; on file before: 79; written now: 10,308 (755 requests)
+symbol-days with at least one minute bar: 10,273 (98.9%)

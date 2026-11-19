@@ -1,0 +1,30 @@
+{
+  "symbol": "AAPL",
+  "strategy": "AAPL",
+  "date": "2026-05-28",
+  "baseConditions": [
+    "IsPriceBetween(1, 100000)"
+  ],
+  "blocks": [
+    {
+      "block": 0,
+      "branches": [
+        {
+          "branch": 0,
+          "label": "If",
+          "condition": "IsAboveVwap()",
+          "overrides": "StopLossPercent(1).TrailingStopLoss(0.5)",
+          "barsTaken": 198,
+          "tradesEntered": 1
+        },
+        {
+          "branch": 1,
+          "label": "Else",
+          "overrides": "StopLossPercent(2)",
+          "barsTaken": 192,
+          "tradesEntered": 0
+        }
+      ]
+    }
+  ]
+}

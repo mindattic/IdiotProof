@@ -1,0 +1,61 @@
+{
+  "writtenUtc": "2026-11-06T21:40:07.1859187Z",
+  "smoke": true,
+  "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+  "head": "0ca607f9040fb3717a657674caf13596b4d84d7f",
+  "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+  "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+  "splits": {
+    "smoke": {
+      "universeDays": 6,
+      "candidates": 2,
+      "gappers": {
+        "tier20": 0,
+        "tier50": 0,
+        "tier100": 0,
+        "premarket": 0,
+        "open": 0,
+        "tier20TouchedBelowFloor": 0
+      },
+      "controls": 0,
+      "excluded": 0,
+      "excludedByReason": {},
+      "symbols": 2,
+      "candidateSymbols": 1,
+      "firstDate": "2026-11-03",
+      "lastDate": "2026-11-05"
+    }
+  },
+  "cikCoverage": {
+    "candidateSymbols": 1,
+    "mapped": 1,
+    "coveragePct": 100,
+    "fromCompanyTickers": 2,
+    "fromForm4": 0,
+    "fromIssuerName": 0,
+    "h8Dropped": false
+  },
+  "universeBuild": {
+    "from": "2026-11-03",
+    "to": "2026-11-05",
+    "dailyFrom": "2026-09-04",
+    "dailyTo": "2026-11-05",
+    "assets": 3,
+    "symbolsWithBars": 3,
+    "reusedTickerSymbols": 0,
+    "dailyBarCalls": 1,
+    "splitCalls": 1,
+    "keySource": "host AppSettings",
+    "minutes": 0.06,
+    "builtUtc": "2026-11-06T21:39:49.2816487Z"
+  },
+  "pull": {
+    "barsCalls": 8,
+    "symbolDaysWritten": 8,
+    "events": 0,
+    "controls": 0,
+    "barCoveragePct": 100,
+    "sipShare": 1,
+    "minutes": 0.04
+  }
+}

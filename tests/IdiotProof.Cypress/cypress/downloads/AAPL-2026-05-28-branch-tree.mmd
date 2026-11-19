@@ -1,0 +1,10 @@
+flowchart TD
+  start["AAPL · AAPL · 2026-05-28"]
+  base["IsPriceBetween(1, 100000)"]
+  start --> base
+  b0{"If block 1"}
+  base --> b0
+  b0_0["If: StopLossPercent(1).TrailingStopLoss(0.5)<br/>198 bars · 1 trades"]
+  b0 -->|"IsAboveVwap()"| b0_0
+  b0_1["Else: StopLossPercent(2)<br/>192 bars · 0 trades"]
+  b0 -->|"otherwise"| b0_1

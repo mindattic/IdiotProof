@@ -1,0 +1,21 @@
+{
+  "multiplier": 9.39340522666859,
+  "statistic": "median",
+  "n": 339,
+  "eventsRequested": 500,
+  "eventsSampled": 500,
+  "eventsWithoutSpreadEstimate": 1,
+  "eventsWithoutQuotes": 160,
+  "split": "train",
+  "tier": "Tier20",
+  "atEt": "08:00",
+  "toleranceSeconds": 60,
+  "order": "(D, symbol) ascending",
+  "quoteSource": "/v2/stocks/{s}/quotes feed=sip",
+  "computedUtc": "2026-11-09T08:18:58.5391366Z",
+  "gitHash": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+  "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+  "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+  "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+  "forced": false
+}

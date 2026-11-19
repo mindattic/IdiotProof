@@ -1,0 +1,130 @@
+{
+  "writtenUtc": "2026-11-09T03:09:52.2165389Z",
+  "smoke": false,
+  "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+  "head": "5517f7f8c501866aa6bb6e7162e4bb89b30ed2bc",
+  "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+  "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+  "splits": {
+    "holdout": {
+      "universeDays": 714512,
+      "candidates": 56009,
+      "gappers": {
+        "tier20": 5880,
+        "tier50": 1668,
+        "tier100": 522,
+        "premarket": 3443,
+        "open": 2437,
+        "tier20TouchedBelowFloor": 1116
+      },
+      "controls": 5880,
+      "excluded": 13384,
+      "excludedByReason": {
+        "unexplained-move": 4269,
+        "split-window": 9115
+      },
+      "symbols": 5061,
+      "candidateSymbols": 4442,
+      "firstDate": "2025-11-03",
+      "lastDate": "2026-10-30"
+    },
+    "none": {
+      "universeDays": 2266,
+      "candidates": 145,
+      "gappers": {
+        "tier20": 16,
+        "tier50": 6,
+        "tier100": 0,
+        "premarket": 5,
+        "open": 11,
+        "tier20TouchedBelowFloor": 2
+      },
+      "controls": 16,
+      "excluded": 39,
+      "excludedByReason": {
+        "unexplained-move": 19,
+        "split-window": 20
+      },
+      "symbols": 2305,
+      "candidateSymbols": 145,
+      "firstDate": "2024-11-01",
+      "lastDate": "2024-11-01"
+    },
+    "train": {
+      "universeDays": 1669297,
+      "candidates": 105964,
+      "gappers": {
+        "tier20": 6855,
+        "tier50": 1922,
+        "tier100": 557,
+        "premarket": 3365,
+        "open": 3490,
+        "tier20TouchedBelowFloor": 2682
+      },
+      "controls": 6855,
+      "excluded": 14682,
+      "excludedByReason": {
+        "unexplained-move": 7105,
+        "split-window": 7577
+      },
+      "symbols": 4796,
+      "candidateSymbols": 4375,
+      "firstDate": "2021-11-01",
+      "lastDate": "2024-10-31"
+    },
+    "validation": {
+      "universeDays": 640612,
+      "candidates": 51797,
+      "gappers": {
+        "tier20": 5679,
+        "tier50": 1685,
+        "tier100": 560,
+        "premarket": 3237,
+        "open": 2442,
+        "tier20TouchedBelowFloor": 1500
+      },
+      "controls": 5679,
+      "excluded": 10119,
+      "excludedByReason": {
+        "unexplained-move": 4740,
+        "split-window": 5379
+      },
+      "symbols": 4442,
+      "candidateSymbols": 4061,
+      "firstDate": "2024-11-04",
+      "lastDate": "2025-10-31"
+    }
+  },
+  "cikCoverage": {
+    "candidateSymbols": 6018,
+    "mapped": 5038,
+    "coveragePct": 83.72,
+    "fromCompanyTickers": 2,
+    "fromForm4": 0,
+    "fromIssuerName": 0,
+    "h8Dropped": false
+  },
+  "universeBuild": {
+    "from": "2021-11-01",
+    "to": "2026-10-30",
+    "dailyFrom": "2021-09-01",
+    "dailyTo": "2026-11-06",
+    "assets": 32439,
+    "symbolsWithBars": 13646,
+    "reusedTickerSymbols": 125,
+    "dailyBarCalls": 8941,
+    "splitCalls": 649,
+    "keySource": "host AppSettings",
+    "minutes": 80.59,
+    "builtUtc": "2026-11-06T23:11:04.1224533Z"
+  },
+  "pull": {
+    "barsCalls": 0,
+    "symbolDaysWritten": 0,
+    "events": 23730,
+    "controls": 18430,
+    "barCoveragePct": 100,
+    "sipShare": 1,
+    "minutes": 14.6
+  }
+}

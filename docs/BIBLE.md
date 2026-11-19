@@ -788,6 +788,18 @@ InvariantCulture), and parsed (tolerantly, for now) only for hand-typed input an
 with no canon. LLM boundaries emit structured JSON against a schema, never DSL text.
 Attribution metadata (`Author`, `OriginTranscript`) is not part of the canon. ("Parse, don't
 validate"; no shotgun parsing on the money path. Verified by `StrategyJsonTests`.)
+The one automatic way out of quarantine is a repair the Monitor makes itself, and only when nothing
+can be lost: the strategy is flat (no position, no working order of its own, at step 1 of its
+sequence), its stored script has no error diagnostics, and the canon re-derived from that script
+passes the strict reader, is for the same symbol, session, direction and size, and has every exit
+rule and no fewer conditions, branches, targets or steps than the stored canon (which must be a
+schema-1 JSON object, so it can be counted); the repository makes the write
+([IP-LAW-11](#IP-LAW-11)) with a `strategy-repaired` audit row holding the quarantine reason and
+the canon before and after, one attempt per quarantine reason, Paper and Sandbox strategies only
+unless `quarantine.autorepair.live` is true, and not at all when `quarantine.autorepair.enabled`
+is false — in every other case the strategy stays quarantined and `strategy quarantine` says what
+blocks it and shows the proposed repair. (`IdiotProof.Core/Services/CanonRepair.cs`;
+`CanonRepairTests`.)
 
 ### {#IP-LAW-9} Synthetic data never drives a real order
 When the market-data feed is Mock, every non-Sandbox entry is refused — Monitor fires, manual
@@ -840,18 +852,6 @@ and replays exactly what was previewed — an edited, swapped, expired or reused
 nothing. Several Live actions (close-all) share one code bound to exactly that set. The web
 confirms Live with the owner's password elevation (re-checked on the server) instead of a code;
 the Monitor needs none, because activating a strategy in Live was the confirmed act. Non-order
-The one automatic way out of quarantine is a repair the Monitor makes itself, and only when nothing
-can be lost: the strategy is flat (no position, no working order of its own, at step 1 of its
-sequence), its stored script has no error diagnostics, and the canon re-derived from that script
-passes the strict reader, is for the same symbol, session, direction and size, and has every exit
-rule and no fewer conditions, branches, targets or steps than the stored canon (which must be a
-schema-1 JSON object, so it can be counted); the repository makes the write
-([IP-LAW-11](#IP-LAW-11)) with a `strategy-repaired` audit row holding the quarantine reason and
-the canon before and after, one attempt per quarantine reason, Paper and Sandbox strategies only
-unless `quarantine.autorepair.live` is true, and not at all when `quarantine.autorepair.enabled`
-is false — in every other case the strategy stays quarantined and `strategy quarantine` says what
-blocks it and shows the proposed repair. (`IdiotProof.Core/Services/CanonRepair.cs`;
-`CanonRepairTests`.)
 Live mutations that move money (funding, transfers) use the same `ConfirmationStore` codes.
 (`IdiotProof.Core/Trading/ConfirmationStore.cs`; `MoneyPathLawTests`,
 `TransactionGatewayTests`.)
@@ -1003,6 +1003,8 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
 - **ConditionProgress** — the SQL row (`N/M`, first failing verb) the Monitor upserts per tick
   and `strategy progress` reads.
 - **Quarantine** — a strategy whose canon cannot be fully understood; never evaluated, reason shown.
+  The Monitor lifts it by itself only through a lossless, audited canon repair of a flat strategy
+  ([IP-LAW-8](#IP-LAW-8)); `strategy quarantine` lists the rest with what blocks each one.
 - **Sandbox broker** — the always-registered simulated broker (instant fills into an in-memory
   position book) that is the safe default in `BrokerRouter`.
 - **BrokerMode** — a strategy's own routing choice: Paper, Live or Sandbox.
@@ -1053,8 +1055,6 @@ underscore fields). Anything not proven by a test is `🟡`/`⬜`. (Inherits [HO
   *possibility* of a move. Inflates when the stock runs, decays to zero by expiration. Selling the
   contract while it is high is the trade; it is what evaporates if you wait for reality.
 - **Breakeven** — the underlying price at expiration where the trade nets zero (`K + premium` for
-  The Monitor lifts it by itself only through a lossless, audited canon repair of a flat strategy
-  ([IP-LAW-8](#IP-LAW-8)); `strategy quarantine` lists the rest with what blocks each one.
   a call, `K − premium` for a put). Only matters if you hold to expiration.
 - **DTE** — calendar days to expiration.
 - **IV (implied volatility)** — the volatility that makes the Black-Scholes price equal the live

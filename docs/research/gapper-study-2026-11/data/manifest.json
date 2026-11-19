@@ -1,0 +1,29 @@
+{
+  "writtenUtc": "2026-11-09T09:29:27.1805224Z",
+  "head": "22a90dfb46eb7c3ece43eaeb3be3bbfe59eb46b4",
+  "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+  "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+  "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+  "holdoutIncluded": false,
+  "hash": "SHA-256 over the data rows (header excluded), one row per line with LF",
+  "files": [
+    {
+      "name": "events.csv",
+      "rows": 16734,
+      "sha256": "87caeadba934b0fe71fc6a43dbaec2013bb29d45577a268a45447353f176aa64",
+      "bytes": 2097953
+    },
+    {
+      "name": "snapshots.csv",
+      "rows": 2853795,
+      "sha256": "b459f58fd8ced5a287c4736d8f5d50afa3cb96ef37614d5464606cc8261e9d9a",
+      "bytes": 1646393346
+    },
+    {
+      "name": "labels.csv",
+      "rows": 2853795,
+      "sha256": "308410b713a21cf77535690e9b3d5b2fba2bf5bfc4183f8f1ca6b38220ef454e",
+      "bytes": 821374208
+    }
+  ]
+}

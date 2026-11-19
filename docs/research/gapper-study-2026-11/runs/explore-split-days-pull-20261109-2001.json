@@ -1,0 +1,19 @@
+{
+  "stage": "explore-split-days-pull",
+  "startedUtc": "2026-11-09T20:01:48.741957Z",
+  "seconds": 757.1827902,
+  "status": "Ok",
+  "Message": null,
+  "data": {
+    "Command": "split-days-pull",
+    "ReportFile": null,
+    "Trials": 0,
+    "LedgerTotal": 5153,
+    "Lines": [
+      "events: 735 recorded reverse split (Alpaca corporate action), 70 inferred ratio change (no split on record), 90 unexplained \u003E \u002B200% close move (excluded day)",
+      "symbol-days wanted (D-1..D\u002B10, split-adjusted prior close $0.10-$20, train only): 10,387; on file before: 79; written now: 10,308 (755 requests)",
+      "symbol-days with at least one minute bar: 10,273 (98.9%)"
+    ],
+    "Minutes": 12.62
+  }
+}
