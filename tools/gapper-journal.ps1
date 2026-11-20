@@ -134,10 +134,26 @@ if ($Review) {
     Share { $_.catalyst -eq 'no catalyst (market beta)' } 'no catalyst found'
     Share { $_.ignitionEt -and $_.ignitionEt -lt '09:30' } 'ignition before 09:30'
     Share { $_.hodEt -and $_.hodEt -lt '09:30' } 'high of day before 09:30'
+    Share { $_.lateRunner } 'late runner: first +20% in 09:30-15:59, none before (amendment 09)'
+    Share { $_.hodEt -and $_.hodEt -ge '16:00' } 'high of day in the post-market (16:00-20:00)'
+    Share { $null -ne $_.catalystToFirst20Min -and [double]$_.catalystToFirst20Min -lt 0 -and -not $_.catalystBeforeClose } 'first +20% before a fresh catalyst was published'
     Share { $_.r4Alarm } 'R4 alarm 06:00-09:10'
     Share { $_.radarRank } 'on the evening radar (top 300)'
     Share { $_.armed } 'armed'
     Share { $_.entered } 'entered'
+    $out.Add('')
+    $out.Add('## Timing across the day (04:00-20:00, IP-T604)')
+    $out.Add('')
+    $out.Add('Rows from sessions journaled before IP-T604 have no all-day fields and count as "unknown".')
+    $out.Add('')
+    $out.Add('| Session of first +20% | n | Median run | Median catalyst to first +20% (fresh catalysts, min) | Median last print vs high | High in the same session | Entered |')
+    $out.Add('|---|---:|---:|---:|---:|---:|---:|')
+    $order = @('premarket (04:00-09:29)', 'open (09:30-09:44)', 'morning (09:45-11:59)', 'midday (12:00-13:59)', 'afternoon (14:00-15:59)', 'post-market (16:00-19:59)')
+    foreach ($g in ($rows | Group-Object { if ($_.first20Session) { $_.first20Session } elseif ($_.PSObject.Properties['first20Session']) { 'never +20%' } else { 'unknown' } } | Sort-Object { $i = [array]::IndexOf($order, $_.Name); if ($i -lt 0) { 99 } else { $i } })) {
+        $c2f = @($g.Group | Where-Object { $null -ne $_.catalystToFirst20Min -and -not $_.catalystBeforeClose } | ForEach-Object { [double]$_.catalystToFirst20Min })
+        $same = @($g.Group | Where-Object { $_.hodSession -and $_.hodSession -eq $_.first20Session }).Count
+        $out.Add("| $($g.Name) | $($g.Count) | $(Pct (Median @($g.Group | ForEach-Object { [double]$_.runPct }))) | $(Num (Median $c2f) '0') | $(Pct (Median @($g.Group | Where-Object { $null -ne $_.fadeToLastPct } | ForEach-Object { [double]$_.fadeToLastPct }))) | $same | $(@($g.Group | Where-Object { $_.entered }).Count) |")
+    }
     $out.Add('')
     $out.Add('## Our entries vs the runners')
     $out.Add('')
@@ -261,6 +277,15 @@ $rows = foreach ($d in @($study.stockDays)) {
         recentDilutionFiling = [bool]$d.recentDilutionFiling; priorTopMoverDays = $d.priorTopMoverDays
         foreignFiler = [bool]$d.foreignFiler; country = $d.country
         pmHighEt = $d.pmHighEt; pmHighGain = $d.pmHighGain; ignitionEt = $d.ignitionEt; hodEt = $d.hodEt
+        # the whole 04:00-20:00 day (IP-T604, amendment 09); null when the Hub's case study predates IP-T604
+        first10Et = $d.first10Et; first20Et = $d.first20Et; first20Session = $d.first20Session; hodSession = $d.hodSession
+        lateRunner = [bool]$d.lateRunner; reach20Pre0930 = [bool]$d.reach20Pre0930
+        moveStartEt = $d.moveStartEt; moveStartGain = $d.moveStartGain; moveStartVolRatioTod = $d.moveStartVolRatioTod
+        reach20AfterMoveStart = $d.reach20AfterMoveStart; moveStartToFirst20Min = $d.moveStartToFirst20Min
+        # signed like catalystToIgnitionMin: negative = the move came first
+        catalystToFirst20Min = $d.catalystToFirst20Min; catalystToMoveStartMin = $d.catalystToMoveStartMin; catalystBeforeClose = [bool]$d.catalystBeforeClose
+        rthHighEt = $d.rthHighEt; postHighEt = $d.postHighEt; postHighGain = $d.postHighGain
+        lastEt = $d.lastEt; fadeToLastPct = $d.fadeToLastPct; hodToPullback10Min = $d.hodToPullback10Min
         # the 1-minute path's high (04:00-20:00) when there are bars; the daily bar alone misses premarket highs
         runPct = if ($null -ne $d.runPct) { $d.runPct } else { $d.dailyHighGain }; fadeToClosePct = $d.fadeToClosePct; closeGain = $d.closeGain
         r4Status = $d.r4.status; r4Alarm = [bool]$d.r4.alarmEt; r4AlarmEt = $d.r4.alarmEt; r4Hit = [bool]$d.r4.hit
@@ -312,6 +337,16 @@ function Table($set) {
         $md.Add("| $($r.rank) | $($r.symbol) | $($r.catalyst) | $(if ($r.catalystEt) { $r.catalystEt.Substring(5) } else { '-' }) | $(Num $r.catalystToIgnitionMin '0') | $(Num $r.priorClose '0.####') | $(Shares $r.sharesOutstanding) | $rsTxt | $($r.priorTopMoverDays) | $(if ($r.ignitionEt) { $r.ignitionEt } else { '-' }) | $(if ($r.hodEt) { $r.hodEt } else { '-' }) | $(Pct $r.runPct) | $(Pct $r.fadeToClosePct) | $r4 | $(if ($r.radarRank) { "$($r.radarRank)" } else { '-' }) | $(if ($r.armed) { 'yes' } else { 'no' }) | $entry | $exit | $(Pct $r.paperPlPct) |")
     }
 }
+function TimingTable($set) {
+    $md.Add('| # | Symbol | First +10% | First +20% | Session | Late runner | Move start (gain) | +20% after start (min) | Catalyst to first +20% (min; < 0 moved first) | Catalyst to move start (min) | RTH high | HOD | Post-market high | Last print vs high | High to -10% (min) |')
+    $md.Add('|---:|---|---|---|---|---|---|---|---:|---:|---|---|---|---:|---:|')
+    foreach ($r in $set) {
+        $ms = if ($r.moveStartEt) { "$($r.moveStartEt) ($(Pct $r.moveStartGain))" } else { '-' }
+        $after = if ($null -eq $r.reach20AfterMoveStart) { '-' } elseif ($r.reach20AfterMoveStart) { "yes ($(Num $r.moveStartToFirst20Min '0'))" } else { 'no' }
+        $post = if ($r.postHighEt) { "$($r.postHighEt) $(Pct $r.postHighGain)" } else { '-' }
+        $md.Add("| $($r.rank) | $($r.symbol) | $(if ($r.first10Et) { $r.first10Et } else { '-' }) | $(if ($r.first20Et) { $r.first20Et } else { '-' }) | $(if ($r.first20Session) { $r.first20Session } else { 'never' }) | $(if ($r.lateRunner) { 'yes' } else { 'no' }) | $ms | $after | $(Num $r.catalystToFirst20Min '0') | $(Num $r.catalystToMoveStartMin '0') | $(if ($r.rthHighEt) { $r.rthHighEt } else { '-' }) | $(if ($r.hodEt) { $r.hodEt } else { '-' }) | $post | $(Pct $r.fadeToLastPct) | $(Num $r.hodToPullback10Min '0') |")
+    }
+}
 $md.Add('## Runners')
 $md.Add('')
 Table $ranked
@@ -323,9 +358,16 @@ if ($extraRows.Count) {
     Table $extraRows
 }
 $md.Add('')
+$md.Add('## All-day timing (04:00-20:00)')
+$md.Add('')
+$md.Add("Late runners (no +20% before 09:30, +20% in 09:30-15:59; amendment 09): $(@($ranked | Where-Object { $_.lateRunner }).Count) of $($ranked.Count). First +20% by session: $((@($ranked | Where-Object { $_.first20Session } | Group-Object first20Session | ForEach-Object { "$($_.Name) $($_.Count)" }) -join ', ')). Moved before a fresh catalyst (published after the prior close, first +20% before it): $(@($ranked | Where-Object { $null -ne $_.catalystToFirst20Min -and [double]$_.catalystToFirst20Min -lt 0 -and -not $_.catalystBeforeClose }).Count). Move start = amendment 09's m0 (first abnormal-volume regular-hours minute closing above the prior close before any +20% high).")
+$md.Add('')
+TimingTable $ranked
+if ($extraRows.Count) { $md.Add(''); $md.Add('Named:'); $md.Add(''); TimingTable $extraRows }
+$md.Add('')
 $md.Add('## Post-mortem (by hand)')
 $md.Add('')
-$md.Add('Per runner: the catalyst in a line (type, source, how fast it reached the tape), timing vs the first move, what in the prior profile stood out, why the radar ranked or missed it, and what our paper strategy did and why.')
+$md.Add('Per runner: the catalyst in a line (type, source, how fast it reached the tape), timing vs the first move across the whole day (premarket, regular hours or post-market; a late runner per amendment 09?), what in the prior profile stood out, why the radar ranked or missed it, and what our paper strategy did and why.')
 $md.Add('')
 foreach ($r in $ranked) { $md.Add("- **$($r.symbol)**: ") }
 $md.Add('')

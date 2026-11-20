@@ -27,7 +27,12 @@ the morning's fills.
    - `research gappers casestudy --from D --to D --top 20 --extra D:<names>`: per runner the catalyst (Alpaca
      news D-2..D with publish minute, EDGAR filings with acceptance time), prior profile (shares out, reverse
      splits, dilution filings, prior top-mover days, foreign filer), the 1-minute path (premarket high,
-     ignition, high of day, fade) and the R4 alarm check. Its output moves to `data/D.casestudy.json` and
+     ignition, high of day, fade) and the R4 alarm check. Since IP-T604 the path covers the whole 04:00-20:00
+     day: first +10% and +20% touches and the session of the first +20% (premarket, open, morning, midday,
+     afternoon, post-market), [amendment 09](../amendment-09.md)'s late-runner label and move start (m0: the
+     first abnormal-volume regular-hours minute closing above the prior close before any +20% high, with the
+     gain, volume ratio and halts at it and whether +20% followed), the post-market high, the last print and
+     minutes from the high to a 10% pullback. Its output moves to `data/D.casestudy.json` and
      `data/D.casestudy.md` (the full dossiers).
    - `gapper radar --date D --top 300`: the radar as known at 20:00 ET the evening before, which is what the
      morning arming used. A runner with no rank was not on our radar.
@@ -36,15 +41,17 @@ the morning's fills.
    - `orders list --status all --mode paper --limit 500`: D's fills per symbol give the entry, exit and
      paper P/L (percent per trade, not dollars: one share each).
 
-   It writes `D.json` (the merged rows, the review's input) and `D.md` (scoreboard and runner table plus empty
-   post-mortem sections). An existing `D.md` is kept; `-Force` rewrites it and loses the hand-written part. `-ReuseCaseStudy`
+   It writes `D.json` (the merged rows, the review's input) and `D.md` (scoreboard, runner table, an all-day
+   timing table with signed catalyst-to-first-+20% and catalyst-to-move-start minutes, plus empty post-mortem
+   sections). The all-day fields need a Hub published from IP-T604 or later; with an older Hub they are blank. An existing `D.md` is kept; `-Force` rewrites it and loses the hand-written part. `-ReuseCaseStudy`
    skips the case study when `data/D.casestudy.json` is already there (it takes several minutes).
    If the Hub is restarting or Alpaca rate-limits (429), each command is retried up to 4 times a minute apart.
 3. Write the post-mortem in `D.md`, one bullet per runner:
    - **Catalyst:** type, source, publish time vs the first move (did the move start before the news reached
      the tape: a leak, a promotion, sympathy?). "No catalyst" is a finding: say what else might explain it
      (sector sympathy, a promotion list, a recent reverse split, a halt cycle).
-   - **Timing:** ignition and high of day against the catalyst; premarket or regular hours.
+   - **Timing:** first +20%, move start, ignition and high of day against the catalyst, across the whole day:
+     premarket, regular hours (a late runner under amendment 09?) or post-market.
    - **Prior profile:** what stood out (tiny float, fresh reverse split, repeat runner, recent offering).
    - **Radar:** ranked (and where) or missed, and which evening sign it had or lacked.
    - **Us:** armed, entered, when against the ignition, the exit and why; the divergences already logged in
@@ -59,7 +66,8 @@ the morning's fills.
    ```
    aggregates the last 10 `D.json` files into `review-<first>_<last>.generated.md`: per session (runners, on
    radar, R4 hits, armed, entered, paper P/L), by catalyst type (run, catalyst-to-ignition, fade, our result),
-   prior-profile and timing shares, and every entry we made against its runner's ignition. Named extras are
+   prior-profile and timing shares, timing across the day by the session of the first +20% (late runners,
+   post-market highs, moves before a fresh catalyst), and every entry we made against its runner's ignition. Named extras are
    left out of the counts.
 2. Write `review-NN.md` (01, 02, ...) by hand from that table and the ten "Patterns" sections:
    - each pattern seen in 3 or more sessions, with the sessions and names it rests on;

@@ -59,7 +59,9 @@ public sealed class GapperCaseStudyOperation : IOperation<GapperCaseStudyArgs>
 /// the catalyst (Alpaca news D-2..D with publish minute, EDGAR filings D-5..D with acceptance time), the
 /// prior profile (ADV, XBRL shares outstanding adjusted for later splits, reverse splits and whether they were
 /// announced, dilution filings in the last 90 days, prior top-mover days inside the window, foreign filer),
-/// the 1-minute path (premarket high, ignition, high of day, VWAP loss, volume climax, halts, D+1/D+2) and
+/// the 1-minute path (premarket high, ignition, high of day, VWAP loss, volume climax, halts, D+1/D+2; since IP-T604
+/// also the whole 04:00-20:00 day: first +10%/+20% touches and their session, amendment 09's move start and late-runner
+/// label, the post-market high, the last print and the fade from the high) and
 /// whether amendment 04's R4 alarm would have fired 06:00-09:10 on a reconstructed morning cross-section.
 /// Event metadata (split dates, filing dates, news) may be read up to 120 days back for the selected names;
 /// prices, volumes and rankings never are.
@@ -248,6 +250,32 @@ internal static class CaseStudyCommand
         public double? IgnitionToHodMin { get; set; }
         public double? RthHigh { get; set; }
         public string? RthHighEt { get; set; }
+        // all-day timing 04:00-20:00 (IP-T604; definitions in amendment 09)
+        public string? First10Et { get; set; }
+        public string? First20Et { get; set; }
+        public string? First20Session { get; set; }
+        public string? HodSession { get; set; }
+        public bool Reach20Pre0930 { get; set; }
+        public bool Reach20Rth { get; set; }
+        /// <summary>Amendment 09's late runner: no +20% touch before 09:30, one in 09:30-15:59.</summary>
+        public bool LateRunner { get; set; }
+        public string? MoveStartEt { get; set; }
+        public double? MoveStartGain { get; set; }
+        public double? MoveStartVolRatioTod { get; set; }
+        public int HaltsBeforeMoveStart { get; set; }
+        public bool? Reach20AfterMoveStart { get; set; }
+        public double? MoveStartToFirst20Min { get; set; }
+        public string? MoveStartNote { get; set; }
+        public double? CatalystToFirst20Min { get; set; }
+        public double? CatalystToMoveStartMin { get; set; }
+        public double? PostHigh { get; set; }
+        public double? PostHighGain { get; set; }
+        public string? PostHighEt { get; set; }
+        public double? LastPrice { get; set; }
+        public string? LastEt { get; set; }
+        public double? LastGain { get; set; }
+        public double? FadeToLastPct { get; set; }
+        public double? HodToPullback10Min { get; set; }
         public double Close { get; set; }
         public double CloseGain { get; set; }
         public double? D1Close { get; set; }
@@ -459,6 +487,7 @@ internal static class CaseStudyCommand
         var profile = TimeOfDayProfile.Load(s.Paths.ProfileFile(false));
         var amendment = s.Amendment ?? throw new InvalidOperationException("Amendment 01's population sample is required for the R4 cross-section.");
         var r4 = new Dictionary<(string, DateOnly), R4Check>();
+        var advDecileOf = new Dictionary<(string, DateOnly), int>();
         var r4Days = new List<object>();
         var windowDays = MarketCalendar.TradingDays(OpenedFrom, todayEt);
         foreach (var day in selected.GroupBy(r => r.D).OrderBy(g => g.Key))
@@ -497,6 +526,7 @@ internal static class CaseStudyCommand
                     Symbol = r.Symbol, DateEt = d, AdjPrevClose = (decimal)r.AdjPrev, Adv20Dollars = (decimal)r.Adv, Adv20Shares = (decimal)r.AdvShares, Sessions = r.Sessions,
                     IsCandidate = true, AdvDecile = advSorted.Count == 0 ? 0 : Math.Min(9, below * 10 / advSorted.Count),
                 };
+                advDecileOf[(r.Symbol, d)] = u.AdvDecile;
                 var inPop = members.Any(m => m.Symbol == r.Symbol && m.ExcludedReason is null);
                 r4[(r.Symbol, d)] = new R4Check { InPopulation = inPop };
                 popu.Add((u, 1, false));
@@ -572,7 +602,7 @@ internal static class CaseStudyCommand
             dz.Partial = r.D == todayEt && MinuteBarMath.ToEastern(nowUtc).TimeOfDay < new TimeSpan(16, 5, 0);
             if (qqq is not null && qqq.Index(r.D) is var qi and > 0) dz.QqqDayPct = Math.Round(qqq.Bars[qi].Close / qqq.Bars[qi - 1].Close - 1, 4);
             if (series.GetValueOrDefault("SPY") is { } spy && spy.Index(r.D) is var si and > 0) dz.SpyDayPct = Math.Round(spy.Bars[si].Close / spy.Bars[si - 1].Close - 1, 4);
-            PricePath(dz, r, bars, se, todayEt, nowUtc, halts);
+            PricePath(dz, r, bars, se, todayEt, nowUtc, halts, profile, advDecileOf.TryGetValue((r.Symbol, r.D), out var dec) ? dec : null);
             Profile(dz, r, se, subs.GetValueOrDefault(r.Symbol), facts.GetValueOrDefault(r.Symbol), cikBySymbol.GetValueOrDefault(r.Symbol), splitCache.GetValueOrDefault(r.Symbol) ?? [],
                 newsCache.Peek(r.Symbol), eligible, names);
             await FilingsAsync(dz, r, subs.GetValueOrDefault(r.Symbol), headers, headerCache, http, edgarGate, ct);
@@ -909,7 +939,7 @@ internal static class CaseStudyCommand
         dz.PriorTopMoverDays = eligible.Count(x => x.Symbol == r.Symbol && prior.Contains(x.D) && !x.Dropped && x.Rank <= 20 && x.Gain >= 0.25);
     }
 
-    private static void PricePath(Dossier dz, Row r, List<Candle> bars, Series se, DateOnly todayEt, DateTime nowUtc, HaltHistory halts)
+    private static void PricePath(Dossier dz, Row r, List<Candle> bars, Series se, DateOnly todayEt, DateTime nowUtc, HaltHistory halts, TimeOfDayProfile? profile, int? advDecile)
     {
         double prev = r.AdjPrev;
         var start = MinuteBarMath.ToUtc(r.D, SessionStart);
@@ -989,7 +1019,9 @@ internal static class CaseStudyCommand
             double second = double.NaN;
             for (int i = pull + 1; i < Math.Min(n, rthEnd); i++) if (!double.IsNaN(hi[i]) && (double.IsNaN(second) || hi[i] > second)) second = hi[i];
             if (!double.IsNaN(second)) { dz.SecondaryHighPctOfHod = Math.Round(second / hodPx, 3); dz.LowerHigh = second >= hodPx * 0.85 && second < hodPx; }
+            dz.HodToPullback10Min = pull - hod;
         }
+        AllDayTiming(dz, r, vol, hi, cl, hod, hodPx, start, halts, profile, advDecile);
         var hodUtc = start.AddMinutes(hod);
         foreach (var h in halts.Between(r.Symbol, MinuteBarMath.ToUtc(r.D, SessionStart), MinuteBarMath.ToUtc(r.D, SessionEnd)))
             dz.Halts.Add(new Halt { Time = EtMin(h.HaltUtc)[11..], Reason = h.Reason, Resume = h.ResumeTradeUtc is { } rt ? EtMin(rt)[11..] : null });
@@ -1020,6 +1052,87 @@ internal static class CaseStudyCommand
             dz.RunGivenBackByD2 = hodPx > prev ? Math.Round((hodPx - b2.Close * f2) / (hodPx - prev), 3) : null;
         }
     }
+
+    /// <summary>
+    /// IP-T604: the day's timing from 04:00 to 20:00, not only the morning. First +10% / +20% touches and their session,
+    /// the regular-hours reach, amendment 09's move start (m0) with what was known at it, the post-market high, the last
+    /// print and how fast the high gave back 10%. Arrays are per minute from 04:00 (index i = the minute starting
+    /// 04:00 + i). Descriptive: on the opened window this tests nothing.
+    /// </summary>
+    private static void AllDayTiming(Dossier dz, Row r, double[] vol, double[] hi, double[] cl, int hod, double hodPx, DateTime startUtc, HaltHistory halts, TimeOfDayProfile? profile, int? advDecile)
+    {
+        double prev = r.AdjPrev;
+        int n = hi.Length;
+        int rth = (int)(RthOpen - SessionStart).TotalMinutes, rthEnd = (int)(RthClose - SessionStart).TotalMinutes;
+        string T(int i) => (SessionStart + TimeSpan.FromMinutes(i)).ToString(@"hh\:mm", CultureInfo.InvariantCulture);
+        int First(double gain, int from, int to)
+        {
+            for (int i = from; i < to; i++) if (!double.IsNaN(hi[i]) && hi[i] / prev - 1 >= gain) return i;
+            return -1;
+        }
+
+        int f10 = First(0.10, 0, n), f20 = First(0.20, 0, n);
+        if (f10 >= 0) dz.First10Et = T(f10);
+        if (f20 >= 0) { dz.First20Et = T(f20); dz.First20Session = SessionOf(dz.First20Et); }
+        dz.HodSession = SessionOf(dz.HodEt);
+        dz.Reach20Pre0930 = f20 >= 0 && f20 < rth;
+        int f20Rth = First(0.20, rth, rthEnd);
+        dz.Reach20Rth = f20Rth >= 0;
+        dz.LateRunner = !dz.Reach20Pre0930 && dz.Reach20Rth;
+
+        // amendment 09's move start m0: the first regular-hours minute (09:30-15:59) whose volume is abnormal by the protocol's
+        // rule (>= 5x ADV20 shares x the time-of-day profile's share for that minute, ADV$ decile), whose close is above the prior
+        // close, and before which no high reached +20%. Decision time = the end of m0; the label reads the minutes after it.
+        if (dz.Reach20Pre0930) dz.MoveStartNote = "already +20% before 09:30 (outside amendment 09's population)";
+        else if (advDecile is not { } dec || r.AdvShares <= 0) dz.MoveStartNote = "no ADV decile or ADV shares (move start not computable)";
+        else
+        {
+            double cum = 0;
+            for (int i = 0; i < rth; i++) cum += vol[i];
+            bool reached = false;
+            for (int i = rth; i < rthEnd && !reached; i++)
+            {
+                cum += vol[i];
+                var endEt = SessionStart + TimeSpan.FromMinutes(i + 1);
+                double expected = r.AdvShares * (profile?.MinuteFractionAt(dec, endEt) ?? 0);
+                if (expected > 0 && vol[i] >= 5 * expected && !double.IsNaN(cl[i]) && cl[i] > prev)
+                {
+                    dz.MoveStartEt = T(i);
+                    dz.MoveStartGain = Math.Round(cl[i] / prev - 1, 4);
+                    dz.MoveStartVolRatioTod = profile?.VolRatioTod(cum, r.AdvShares, dec, endEt) is { } vr && double.IsFinite(vr) ? Math.Round(vr, 2) : null;
+                    dz.HaltsBeforeMoveStart = halts.Between(r.Symbol, startUtc, startUtc.AddMinutes(i + 1)).Count();
+                    int after = First(0.20, i + 1, rthEnd);
+                    dz.Reach20AfterMoveStart = after >= 0;
+                    if (after >= 0) dz.MoveStartToFirst20Min = after - i;
+                    break;
+                }
+                if (!double.IsNaN(hi[i]) && hi[i] / prev - 1 >= 0.20) reached = true;
+            }
+            if (dz.MoveStartEt is null) dz.MoveStartNote = profile is null ? "no time-of-day profile" : "no abnormal-volume up minute 09:30-15:59 before +20%";
+        }
+
+        double postHigh = double.NaN; int postI = -1;
+        for (int i = rthEnd; i < n; i++) if (!double.IsNaN(hi[i]) && (double.IsNaN(postHigh) || hi[i] > postHigh)) { postHigh = hi[i]; postI = i; }
+        if (postI >= 0) { dz.PostHigh = Round(postHigh, 4); dz.PostHighEt = T(postI); dz.PostHighGain = Math.Round(postHigh / prev - 1, 4); }
+        int last = Array.FindLastIndex(cl, x => !double.IsNaN(x));
+        if (last >= 0)
+        {
+            dz.LastPrice = Round(cl[last], 4); dz.LastEt = T(last);
+            dz.LastGain = Math.Round(cl[last] / prev - 1, 4);
+            if (hod >= 0 && hodPx > 0) dz.FadeToLastPct = Math.Round(cl[last] / hodPx - 1, 4);
+        }
+    }
+
+    /// <summary>Session bucket of an ET minute ("hh:mm") across the whole 04:00-20:00 day (amendment 09's buckets).</summary>
+    private static string? SessionOf(string? et)
+    {
+        if (et is null) return null;
+        var t = TimeSpan.Parse(et, CultureInfo.InvariantCulture);
+        return t < RthOpen ? "premarket (04:00-09:29)" : t < new TimeSpan(9, 45, 0) ? "open (09:30-09:44)" : t < new TimeSpan(12, 0, 0) ? "morning (09:45-11:59)"
+            : t < new TimeSpan(14, 0, 0) ? "midday (12:00-13:59)" : t < RthClose ? "afternoon (14:00-15:59)" : "post-market (16:00-19:59)";
+    }
+
+    private static readonly string[] SessionOrder = ["premarket (04:00-09:29)", "open (09:30-09:44)", "morning (09:45-11:59)", "midday (12:00-13:59)", "afternoon (14:00-15:59)", "post-market (16:00-19:59)"];
 
     /// <summary>
     /// A news item is about the company when it tags at most four symbols, or its headline names the ticker or the first
@@ -1089,6 +1202,9 @@ internal static class CaseStudyCommand
                 // minutes to the high only for a catalyst published since the prior close (a days-old filing or split date is not a trigger time)
                 if (dz.HodEt is not null && u <= hodUtc && !dz.CatalystBeforeClose) dz.CatalystToHodMin = Math.Round((hodUtc - u).TotalMinutes);
                 if (ignUtc is { } ig && u <= ig) dz.CatalystToIgnitionMin = Math.Round((ig - u).TotalMinutes);
+                // signed (IP-T604): negative = the move came before the catalyst reached our sources
+                if (dz.First20Et is { } f20) dz.CatalystToFirst20Min = Math.Round((MinuteBarMath.ToUtc(r.D, TimeSpan.Parse(f20, CultureInfo.InvariantCulture)) - u).TotalMinutes);
+                if (dz.MoveStartEt is { } ms) dz.CatalystToMoveStartMin = Math.Round((MinuteBarMath.ToUtc(r.D, TimeSpan.Parse(ms, CultureInfo.InvariantCulture)) - u).TotalMinutes);
             }
         }
     }
@@ -1142,6 +1258,18 @@ internal static class CaseStudyCommand
                 afterHours = ds.Count(x => Bucket(x.IgnitionEt) == "after hours"),
                 medianIgnitionToHodMin = Median(ds.Select(x => x.IgnitionToHodMin)),
                 hodBuckets = ds.GroupBy(x => Bucket(x.HodEt)).ToDictionary(g => g.Key, g => g.Count()),
+            },
+            allDay = new
+            {
+                first20BySession = SessionOrder.Append("never +20%").ToDictionary(k => k, k => ds.Count(x => (x.First20Session ?? "never +20%") == k)),
+                hodBySession = SessionOrder.Append("none").ToDictionary(k => k, k => ds.Count(x => (x.HodSession ?? "none") == k)),
+                reach20Pre0930 = ds.Count(x => x.Reach20Pre0930), lateRunners = ds.Count(x => x.LateRunner),
+                moveStartFound = ds.Count(x => x.MoveStartEt is not null), reach20AfterMoveStart = ds.Count(x => x.Reach20AfterMoveStart == true),
+                medianMoveStartGain = Median(ds.Select(x => x.MoveStartGain)), medianMoveStartToFirst20Min = Median(ds.Select(x => x.MoveStartToFirst20Min)),
+                movedBeforeCatalyst = ds.Count(x => x.CatalystToFirst20Min < 0 && !x.CatalystBeforeClose),
+                medianFreshCatalystToFirst20Min = Median(ds.Where(x => !x.CatalystBeforeClose).Select(x => x.CatalystToFirst20Min)),
+                postMarketHigh = ds.Count(x => x.HodSession?.StartsWith("post", StringComparison.Ordinal) == true),
+                medianFadeToLast = Median(ds.Select(x => x.FadeToLastPct)), medianHodToPullback10Min = Median(ds.Select(x => x.HodToPullback10Min)),
             },
             top = new
             {
@@ -1219,6 +1347,15 @@ internal static class CaseStudyCommand
         foreach (var d in all)
             sb.AppendLine($"| {d.Date} | {d.Rank}{(d.Named ? " (named)" : "")} | {d.Symbol} | {d.Catalyst} | {d.CatalystEt?[5..] ?? "-"} | {d.PriorClose:0.00##} | {P(d.RunPct)} | {d.HodEt ?? "-"} | {d.IgnitionEt ?? "-"} | {P(d.FadeToClosePct)} | {P(d.FadeToD2Pct)}{(d.D2Partial ? "*" : "")} | {(d.LastReverseSplit is { } rs && d.DaysSinceReverseSplit <= 60 ? $"{d.DaysSinceReverseSplit}d 1:{rs.Ratio:0.##}" : "-")} | {(d.SharesOutstanding is { } so ? M(so) : "-")} | {R4Short(d.R4)} |");
         sb.AppendLine();
+        sb.AppendLine("## All-day timing (04:00-20:00)");
+        sb.AppendLine();
+        sb.AppendLine("First touches over the split-adjusted prior close; move start = amendment 09's m0 (first abnormal-volume regular-hours minute closing above the prior close before any +20% high); catalyst to first +20% is signed (< 0: the move came first).");
+        sb.AppendLine();
+        sb.AppendLine("| Date | # | Symbol | First +10% | First +20% | Session of first +20% | Late runner | Move start (gain, vol ratio) | +20% after start (min) | Catalyst to first +20% (min) | RTH high | HOD (session) | Post-market high | Last print vs high | High to -10% (min) |");
+        sb.AppendLine("|---|---:|---|---|---|---|---|---|---|---:|---|---|---|---:|---:|");
+        foreach (var d in all)
+            sb.AppendLine($"| {d.Date} | {d.Rank}{(d.Named ? " (named)" : "")} | {d.Symbol} | {d.First10Et ?? "-"} | {d.First20Et ?? "-"} | {d.First20Session ?? "never"} | {(d.LateRunner ? "yes" : "no")} | {(d.MoveStartEt is { } ms ? $"{ms} ({P(d.MoveStartGain)}, {(d.MoveStartVolRatioTod is { } vr ? $"{vr:0.0}x" : "-")})" : "-")} | {(d.Reach20AfterMoveStart is null ? "-" : d.Reach20AfterMoveStart == true ? $"yes ({N(d.MoveStartToFirst20Min)})" : "no")} | {N(d.CatalystToFirst20Min)} | {(d.RthHighEt is { } rh ? $"{rh} {P(d.RthHigh / d.PriorClose - 1)}" : "-")} | {d.HodEt ?? "-"} ({d.HodSession?.Split(' ')[0] ?? "-"}) | {(d.PostHighEt is { } ph ? $"{ph} {P(d.PostHighGain)}" : "-")} | {P(d.FadeToLastPct)} | {N(d.HodToPullback10Min)} |");
+        sb.AppendLine();
         sb.AppendLine("## Dossiers");
         foreach (var d in all)
         {
@@ -1227,6 +1364,7 @@ internal static class CaseStudyCommand
             sb.AppendLine();
             sb.AppendLine($"- **Catalyst: {d.Catalyst}**{(d.CatalystEt is { } ce ? $" at {ce} ET" : "")}{(d.CatalystSource is { } cs ? $" ({cs})" : "")}: \"{d.CatalystHeadline}\"{(d.CatalystViaReaction ? " (reason stated in a reaction article)" : "")}{(d.CatalystBeforeClose ? " (published before the prior close)" : "")}; catalyst to high {N(d.CatalystToHodMin)} min.");
             sb.AppendLine($"- **Run:** prior close ${d.PriorClose:0.00##} -> high ${d.Hod:0.00##} at {d.HodEt ?? "-"} ({P(d.RunPct)}; regular-hours high ${d.RthHigh:0.00##} at {d.RthHighEt ?? "-"}); premarket high {P(d.PmHighGain)} at {d.PmHighEt ?? "-"} on {M(d.PmVolume)} sh; open {P(d.OpenGain)}; ignition {d.IgnitionEt ?? "none"}{(d.IgnitionIsFirstPrint ? " (already >= +20% at the first print)" : d.IgnitionVolMultiple is { } iv ? $" ({iv:0}x the trailing 30-min volume)" : "")}, {N(d.IgnitionToHodMin)} min to the high; close ${d.Close:0.00##} ({P(d.CloseGain)}){(d.Partial ? " (partial session)" : "")}; ${M(d.DayDollarVolume)} traded.");
+            sb.AppendLine($"- **Timing (04:00-20:00):** first +10% {d.First10Et ?? "never"}, first +20% {d.First20Et ?? "never"}{(d.First20Session is { } fs ? $" ({fs})" : "")}{(d.LateRunner ? ", a late runner (amendment 09)" : "")}; move start {(d.MoveStartEt is { } ms ? $"{ms} at {P(d.MoveStartGain)} (vol ratio {(d.MoveStartVolRatioTod is { } msVr ? $"{msVr:0.0}x" : "n/a")}, {d.HaltsBeforeMoveStart} halts before), {(d.Reach20AfterMoveStart == true ? $"+20% {N(d.MoveStartToFirst20Min)} min later" : "no +20% after it")}" : d.MoveStartNote ?? "-")}; catalyst to first +20% {N(d.CatalystToFirst20Min)} min, to move start {N(d.CatalystToMoveStartMin)} min; high of day in the {d.HodSession ?? "-"} session; post-market high {(d.PostHighEt is { } ph ? $"{P(d.PostHighGain)} at {ph}" : "none")}; last print {(d.LastEt is { } le ? $"{le} {P(d.LastGain)} ({P(d.FadeToLastPct)} from the high)" : "-")}; high to -10% {(d.HodToPullback10Min is { } pb ? $"{pb:0} min" : "never")}.");
             sb.AppendLine($"- **Fade:** close {P(d.FadeToClosePct)} from the high, D+1 {P(d.FadeToD1Pct)}{(d.D1Partial ? " (partial)" : "")}, D+2 {P(d.FadeToD2Pct)}{(d.D2Partial ? " (partial)" : "")}; run given back {P(d.RunGivenBackByClose)} by the close, {P(d.RunGivenBackByD2)} by D+2; D+1 higher high: {(d.D1Close is null ? "-" : d.D1HigherHigh ? "yes" : "no")}.");
             sb.AppendLine($"- **Top:** VWAP lost {(d.VwapLossEt is { } v ? $"{v} ({d.HodToVwapLossMin} min after the high)" : "never after the high")}; volume climax at the top: {(d.VolumeClimaxAtTop ? "yes" : "no")}; lower-high retest after a 10% pullback: {(d.SecondaryHighPctOfHod is { } sh ? $"{sh:P0} of the high{(d.LowerHigh ? " (lower high)" : "")}" : "no 10% pullback")}; halts: {(d.Halts.Count == 0 ? "none" : string.Join(", ", d.Halts.Take(8).Select(h => $"{h.Time} {h.Reason}")) + (d.Halts.Count > 8 ? $" (+{d.Halts.Count - 8})" : ""))}.");
             sb.AppendLine($"- **Profile:** ADV ${M(d.Adv20Dollars)} over {d.AdvSessions} window sessions; shares outstanding {(d.SharesOutstanding is { } so ? M(so) + $" as of {d.SharesAsOf}" : "unknown")}; {(d.LastReverseSplit is { } rs ? $"last reverse split 1:{rs.Ratio:0.##} on {rs.ExDate} ({d.DaysSinceReverseSplit} sessions before; {(rs.AnnouncedEt is { } ae ? $"announced {ae} ET, {rs.AnnouncedDaysBefore} days before" : "no announcement found in Alpaca news")}; {rs.Source})" : "no reverse split found in the lookback")}; dilution filings in 90 days: {(d.DilutionFilings90d.Count == 0 ? "none" : string.Join(", ", d.DilutionFilings90d.Take(8)))}{(d.ElocMention ? "; equity-line mention in news" : "")}; prior top-mover days {d.PriorTopMoverDays} of {d.PriorTopMoverWindowSessions} window sessions; {(d.Adr ? "ADR/ADS; " : "")}{(d.ForeignFiler ? "foreign filer; " : "")}{(string.IsNullOrWhiteSpace(d.Country) ? "country unknown" : d.Country)}; QQQ {P(d.QqqDayPct)}, SPY {P(d.SpyDayPct)} on the day.");
