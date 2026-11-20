@@ -1,0 +1,40 @@
+{
+  "id": "A11",
+  "version": 1,
+  "registeredUtc": "2026-11-20T10:30:00Z",
+  "ticket": "IP-T619",
+  "registeredBeforeResults": "When this file was committed no A11 number of any kind existed: no trade had been simulated with a liquidity filter applied, and the code that would apply it (a filter added to research gappers explore --command late-runner-ride, or a new command) had not been written. What existed: amendment 10's single train run (runs/explore/late-runner-ride-20261120-0743.*, IP-T617), which failed decisively on all 4 exit configurations (-3.12% to -3.44%/trade, DSR 0.000, SPA p 1.000, 0 of 5 folds positive) with a mean round-trip cost of 2.83% (median 2.58%) and velocity-death as the dominant exit (170-252 of 389 entries per configuration, more than any other exit reason). Amendment 10's own stop rule required a fresh amendment, registered before any of its numbers, for a different entry or exit idea; this is that amendment. The liquidity threshold below is a round, pre-specified number chosen for a reason that needs no data (a common minimum liquidity screen), not fit to amendment 10's trades, costs or returns in any way; no score distribution, cost distribution or outcome was consulted to pick it.",
+  "question": "Amendment 10 found the frozen cost model's round-trip cost (2.83% mean, spread-dominated) swamps the move-start edge, and that most entries die to velocity-death within minutes rather than reaching target or stop. Both point at the same mechanism: thin, illiquid move starts carry both the highest spread cost and the highest odds of being a false start. Does restricting entries to move starts with at least $2,000,000 of 20-day average dollar volume -- leaving the score threshold, exit ladder and cost model exactly as amendment 10 tested them -- net at least +1.0%/trade after costs?",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json", "amendment-01.json", "amendment-02.json", "amendment-03.json", "amendment-04.json", "amendment-09.json", "amendment-10.json"],
+  "population": "Amendment 10's population exactly (GapperExploreStage.A09RowsAsync via the amendment-10 entry rule), with one added restriction: logAdv20Dollars (amendment 09's own feature, already computed per row) corresponds to at least $2,000,000 of 20-day average dollar volume. Every other population, score, entry and no-trade rule is amendment 10's, unchanged.",
+  "score": "Amendment 10's score exactly: s = the H27 full-feature model's predicted probability of y at the end of m0, pooled out-of-fold on train (amendment 09's five month blocks), fit-on-train-only on validation and holdout. Not refit, not re-thresholded.",
+  "entry": {
+    "signal": "s >= 0.50 at the end of m0 (amendment 10's threshold, unchanged -- not re-tuned, so the liquidity filter's effect is isolated as the only new variable) AND logAdv20Dollars corresponds to at least $2,000,000 of 20-day average dollar volume at m0.",
+    "fill": "amendment 10's fill rule, unchanged: the open of the first bar with volume starting at or after the end of m0.",
+    "noTrade": "amendment 10's no-trade rules, unchanged (no qualifying bar before sell-by; fill already >= +20% over prior close), plus: logAdv20Dollars below the $2,000,000 threshold. One trade per symbol-day at most. Long only."
+  },
+  "hypotheses": [
+    {
+      "id": "H30",
+      "primary": true,
+      "family": "F11",
+      "test": "a11-liquidity-filtered-ride",
+      "claim": "Buying a late runner's move start when the H27 model rates it more likely than not to reach +20% (s >= 0.50) and its 20-day average dollar volume is at least $2,000,000, then exiting on amendment 10's frozen ladder (target label20, sell-by 15:55 ET -- the single configuration amendment 10's own selection rule favored), nets at least +1.0%/trade after the frozen cost model over amendment 10's population.",
+      "configuration": { "scoreThreshold": 0.50, "advDollarFloor": 2000000, "profitTarget": "label20", "timeStop": "15:55", "velocityDeathWindow": 3, "stopLossPct": 10, "vwapLossExit": true },
+      "exitLadder": "Amendment 10's exitLadder text exactly, unchanged (GapperRuleSimulator, H12/H18's frozen ladder), at the single configuration above only -- one configuration, not a grid, so this amendment spends one trial, not four.",
+      "costModel": "Amendment 10's costModel exactly, unchanged (H18's GapperCostModel.Estimate, frozen).",
+      "method": "Weighted as amendment 01, scored exactly as H18's ScoreWeightedGrid applied to a single configuration: the weighted mean net return per trade and its day-clustered bootstrap 95% interval (WeightedPopulation.Mean, params.statistics bootstrapDraws/seed/ciLevel), DSR at the unweighted trade count (a single-configuration family; DSR over 1 trial), per-fold weighted means over amendment 09's five month blocks. minTrades and minDays count unweighted trades and are lower than amendment 10's (the liquidity filter is expected to shrink the entry count materially; a smaller sample is accepted as the honest cost of testing this mechanism, not relaxed because of any number already seen).",
+      "minEffect": { "meanNetPctPerTrade": 1.0, "clusteredLowerBoundAbove": 0.0, "minTrades": 60, "minDays": 20 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    }
+  ],
+  "decisionRules": {
+    "trainPass": "H30 passes train only if the weighted mean net >= +1.0%/trade, a day-clustered lower bound > 0, >= 60 unweighted trades on >= 20 days, DSR >= params.statistics.dsrMin (0.95), and a positive weighted mean net in at least 3 of the 5 month-block folds. Anything less is a fail on train. A single configuration has no SPA/reality-check multiple-comparison correction to apply (nothing else is compared against it); DSR alone governs the one-trial deflation.",
+    "onTrainFail": "Stop. Validation is not read and no other liquidity floor, score threshold, exit or cost model is tried under this amendment: amendment 09's move-start signal stays real; this specific liquidity-filtered entry/exit is reported as not tradable. A further idea needs its own new amendment, registered before any of its numbers, and counts this amendment's 1 trial in its own deflation.",
+    "validation": "Only after a train pass: written into amendment-11.md as a dated note before the validation run, and validation is read once (research gappers test --hypothesis H30 --split validation), with the model fit on all train rows and the liquidity floor carried unchanged, never re-chosen on validation. Pass on validation: the same minimums (mean >= +1.0%/trade, lower bound > 0, >= 60 trades on >= 20 days) plus DSR >= 0.95.",
+    "corrections": "A11 is corrected as its own set (family F11, one hypothesis); it never enters the frozen A01-A10 corrections or the Holm set, and changes none of their numbers.",
+    "promotion": "A pass on train and validation still trades nothing: the single holdout run (frozen and A01-A11 together, only with the user's explicit go-ahead) must net >= +0.5%/trade with a lower bound > 0, then params.promotion.paperShadowTradingDays (20) sessions of paper shadow. Only then could a paper-only regular-hours template be offered, and only the user enables it. This amendment never arms, sizes, places or exits an order.",
+    "killCriterion": "A11 neither triggers nor lifts the H11/H11p kill criterion and does not change amendment 09's or amendment 10's verdicts, whatever its result.",
+    "reporting": "The A11 result is reported, pass or fail: trades, days, weighted mean net, interval, exit reasons, per-fold means, mean round-trip cost; how many amendment-10-eligible move starts were lost to the liquidity floor; DSR and the pass/fail against minEffect."
+  }
+}
