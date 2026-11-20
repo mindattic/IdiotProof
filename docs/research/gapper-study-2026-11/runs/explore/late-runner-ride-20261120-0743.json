@@ -1,0 +1,177 @@
+{
+  "amendment": "A10",
+  "hypothesis": "H29",
+  "train": {
+    "from": "2021-11-01",
+    "to": "2024-10-31"
+  },
+  "entries": {
+    "moveStarts": 180303,
+    "unscored": 0,
+    "threshold": 0.5,
+    "signals": 437,
+    "noEntry": 0,
+    "alreadyAt20": 48,
+    "entries": 389,
+    "noSnapshot": 0,
+    "csMissing": 8,
+    "meanRoundTripCost": 0.02825620668606915,
+    "medianRoundTripCost": 0.025833342099767117
+  },
+  "costModel": {
+    "spreadMultiplier": 9.39340522666859,
+    "spreadMultiplierSource": "spread-multiplier.json",
+    "notional": 1000,
+    "floor": 0.005
+  },
+  "exitLadder": {
+    "stopPct": 10,
+    "vwapLossExit": true,
+    "velocityDeathWindow": 3,
+    "latestSellBy": "15:55"
+  },
+  "configs": [
+    {
+      "label": "s\u003E=threshold target none timeStop 15:55",
+      "target": "none",
+      "timeStop": "15:55",
+      "trades": 389,
+      "days": 257,
+      "meanNetPct": -3.407573753801505,
+      "lowPct": -4.184594576535026,
+      "highPct": -2.6998532793529524,
+      "meanGrossPct": -0.5680974373155427,
+      "sharpe": -0.6633859080117116,
+      "dsr": 2.0760177473808196E-23,
+      "naiveP": 1,
+      "q": 1,
+      "foldMeansPct": [
+        -1.9327006820032546,
+        -2.811476760840816,
+        -3.018227827809373,
+        -3.510060210060529,
+        -5.125766461969891
+      ],
+      "exits": {
+        "velocity-death": 252,
+        "vwap-loss": 113,
+        "stop": 15,
+        "sell-by": 9
+      },
+      "selected": false
+    },
+    {
+      "label": "s\u003E=threshold target none timeStop entry\u002B60m",
+      "target": "none",
+      "timeStop": "entry\u002B60m",
+      "trades": 389,
+      "days": 257,
+      "meanNetPct": -3.4429419602447315,
+      "lowPct": -4.220585852029481,
+      "highPct": -2.7380098129004704,
+      "meanGrossPct": -0.6034656437587682,
+      "sharpe": -0.6742481425428516,
+      "dsr": 1.4271863046545366E-23,
+      "naiveP": 1,
+      "q": 1,
+      "foldMeansPct": [
+        -2.0285530535251275,
+        -2.9470679013692003,
+        -3.024787675637381,
+        -3.510060210060529,
+        -5.182588635653043
+      ],
+      "exits": {
+        "velocity-death": 245,
+        "vwap-loss": 108,
+        "sell-by": 21,
+        "stop": 15
+      },
+      "selected": false
+    },
+    {
+      "label": "s\u003E=threshold target label20 timeStop 15:55",
+      "target": "label20",
+      "timeStop": "15:55",
+      "trades": 389,
+      "days": 257,
+      "meanNetPct": -3.1202774552123165,
+      "lowPct": -3.89559093996427,
+      "highPct": -2.4395107198304147,
+      "meanGrossPct": -0.2808011387263546,
+      "sharpe": -0.6715246124717177,
+      "dsr": 4.770338580718084E-35,
+      "naiveP": 1,
+      "q": 1,
+      "foldMeansPct": [
+        -1.6609325185212094,
+        -2.4429724884274484,
+        -2.5506657461813558,
+        -3.255658654822406,
+        -5.185665040646971
+      ],
+      "exits": {
+        "velocity-death": 170,
+        "target \u002B20%": 112,
+        "vwap-loss": 85,
+        "stop": 13,
+        "sell-by": 9
+      },
+      "selected": true
+    },
+    {
+      "label": "s\u003E=threshold target label20 timeStop entry\u002B60m",
+      "target": "label20",
+      "timeStop": "entry\u002B60m",
+      "trades": 389,
+      "days": 257,
+      "meanNetPct": -3.159977468231388,
+      "lowPct": -3.9377705724355843,
+      "highPct": -2.484568386726895,
+      "meanGrossPct": -0.32050115174542604,
+      "sharpe": -0.6848504147545991,
+      "dsr": 1.0327126896979992E-35,
+      "naiveP": 1,
+      "q": 1,
+      "foldMeansPct": [
+        -1.756784890043082,
+        -2.578563628955833,
+        -2.567847085839403,
+        -3.255658654822406,
+        -5.242487214330123
+      ],
+      "exits": {
+        "velocity-death": 165,
+        "target \u002B20%": 110,
+        "vwap-loss": 80,
+        "sell-by": 21,
+        "stop": 13
+      },
+      "selected": false
+    }
+  ],
+  "realityCheck": {
+    "whiteP": 1,
+    "spaP": 1,
+    "best": "s\u003E=threshold target label20 timeStop 15:55",
+    "resamples": 1000
+  },
+  "selected": "s\u003E=threshold target label20 timeStop 15:55",
+  "worthTrading": {
+    "meanNetPctPerTrade": 1,
+    "clusteredLowerBoundAbove": 0,
+    "minTrades": 150,
+    "minDays": 40,
+    "spaAlpha": 0.05,
+    "dsrMin": 0.95,
+    "minFoldsPositive": 3
+  },
+  "pass": false,
+  "failures": [
+    "mean -3.12% \u003C \u002B1.0%",
+    "lower bound -3.90% not \u003E 0",
+    "SPA p 1.000 not \u003C 0.05",
+    "DSR 0.000 \u003C 0.95",
+    "0 of 5 folds positive \u003C 3"
+  ]
+}
