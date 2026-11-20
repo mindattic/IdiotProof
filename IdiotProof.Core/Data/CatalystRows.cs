@@ -76,6 +76,85 @@ public sealed class CatalystEvent
 
     /// <summary>True when written by the backfill (ReceivedUtc == PublishedUtc, so latency is unknown).</summary>
     public bool Backfilled { get; set; }
+
+    /// <summary>
+    /// IP-T602: the earliest instant any intake source showed this story to us (min of its sightings' SeenUtc); null on
+    /// rows from before sightings existed (read <see cref="ReceivedUtc"/>).
+    /// </summary>
+    public DateTime? FirstSeenUtc { get; set; }
+
+    /// <summary>IP-T602: the source whose sighting is <see cref="FirstSeenUtc"/> ("alpaca-news", "prnewswire", ...).</summary>
+    [MaxLength(32)] public string? FirstSeenSource { get; set; }
+
+    /// <summary>
+    /// IP-T602: set when this row is a later copy of a story another row already holds (same symbol, similar headline,
+    /// inside the window): that row's id. Alpaca news and EDGAR keep their own rows; the press-release wires merge into the story.
+    /// </summary>
+    public Guid? StoryId { get; set; }
+}
+
+/// <summary>
+/// One source seeing one story (IP-T602): the "who knew first" measurement. Every intake source that carries the story
+/// gets a row on the story's first event, with the time the source stamped it and the time we saw it.
+/// </summary>
+public sealed class CatalystSighting
+{
+    [Key] public Guid Id { get; set; } = Guid.CreateVersion7();
+
+    /// <summary>The story's event (the row other copies point at with <see cref="CatalystEvent.StoryId"/>).</summary>
+    public Guid EventId { get; set; }
+
+    [MaxLength(32)] public string Source { get; set; } = "";
+    [MaxLength(64)] public string ExternalId { get; set; } = "";
+
+    /// <summary>When the source says it published the item.</summary>
+    public DateTime PublishedUtc { get; set; }
+
+    /// <summary>When this process first saw the item from this source.</summary>
+    public DateTime SeenUtc { get; set; }
+
+    [MaxLength(300)] public string Headline { get; set; } = "";
+    [MaxLength(1000)] public string? Url { get; set; }
+
+    /// <summary>Headline similarity to the story's event (1 = the event's own item).</summary>
+    public double Similarity { get; set; } = 1;
+
+    public bool Backfilled { get; set; }
+}
+
+/// <summary>
+/// One social-attention reading (IP-T602): StockTwits trending rank, StockTwits per-symbol message count, or a Reddit
+/// subreddit's mention count, over a window. A time series, not a catalyst; <see cref="FirstSeenUtc"/> is the first
+/// reading for this source/channel/symbol in the ET day.
+/// </summary>
+public sealed class SocialSignal
+{
+    [Key] public Guid Id { get; set; } = Guid.CreateVersion7();
+
+    /// <summary>"stocktwits-trending" | "stocktwits-messages" | "reddit".</summary>
+    [MaxLength(32)] public string Source { get; set; } = "";
+
+    /// <summary>The subreddit for Reddit; null otherwise.</summary>
+    [MaxLength(64)] public string? Channel { get; set; }
+
+    [MaxLength(16)] public string Symbol { get; set; } = "";
+
+    public DateTime ObservedUtc { get; set; }
+    public int WindowMinutes { get; set; }
+
+    /// <summary>Messages or mentions in the window (1 for a trending-list presence).</summary>
+    public int Count { get; set; }
+
+    /// <summary>True when <see cref="Count"/> hit the page the source returns (the real count is at least this).</summary>
+    public bool Capped { get; set; }
+
+    /// <summary>Trending rank (1 = top), when the source ranks.</summary>
+    public int? Rank { get; set; }
+
+    /// <summary>The source's own score (StockTwits trending_score), when it gives one.</summary>
+    public double? Score { get; set; }
+
+    public DateTime FirstSeenUtc { get; set; }
 }
 
 /// <summary>One (event, symbol) pair so every symbol an item names is queryable, not only the primary.</summary>

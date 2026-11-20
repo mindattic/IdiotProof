@@ -47,6 +47,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ScanRun>              ScanRuns             => Set<ScanRun>();
     public DbSet<CatalystEvent>        CatalystEvents       => Set<CatalystEvent>();
     public DbSet<CatalystEventSymbol>  CatalystEventSymbols => Set<CatalystEventSymbol>();
+    public DbSet<CatalystSighting>     CatalystSightings    => Set<CatalystSighting>();
+    public DbSet<SocialSignal>         SocialSignals        => Set<SocialSignal>();
     public DbSet<GapperStudyDailyBar>  GapperStudyDailyBars => Set<GapperStudyDailyBar>();
     public DbSet<GapperStudySplit>     GapperStudySplits    => Set<GapperStudySplit>();
     public DbSet<GapperStudyCikMap>    GapperStudyCikMap    => Set<GapperStudyCikMap>();
@@ -272,12 +274,26 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options)
             e.HasIndex(x => new { x.Source, x.ExternalId }).IsUnique();
             e.HasIndex(x => new { x.PrimarySymbol, x.PublishedUtc });
             e.HasIndex(x => x.ReceivedUtc);
+            e.HasIndex(x => x.StoryId);
         });
         b.Entity<CatalystEventSymbol>(e =>
         {
             e.HasKey(x => new { x.EventId, x.Symbol });
             e.HasIndex(x => x.Symbol);
             e.HasOne<CatalystEvent>().WithMany().HasForeignKey(x => x.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+        // IP-T602: who knew first (one row per source per story) and the social-attention time series.
+        b.Entity<CatalystSighting>(e =>
+        {
+            e.HasIndex(x => new { x.Source, x.ExternalId }).IsUnique();
+            e.HasIndex(x => x.EventId);
+            e.HasIndex(x => x.SeenUtc);
+            e.HasOne<CatalystEvent>().WithMany().HasForeignKey(x => x.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+        b.Entity<SocialSignal>(e =>
+        {
+            e.HasIndex(x => new { x.Symbol, x.ObservedUtc });
+            e.HasIndex(x => new { x.Source, x.ObservedUtc });
         });
 
         // Gapper study (IP-T442): research-DB panel tables; minute bars live in the file store.

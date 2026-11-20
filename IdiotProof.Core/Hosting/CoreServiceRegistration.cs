@@ -193,6 +193,11 @@ public static class CoreServiceRegistration
             c.Timeout = TimeSpan.FromSeconds(15);
         });
         services.AddHttpClient("usspends", c => c.Timeout = TimeSpan.FromSeconds(15));
+        services.AddHttpClient(IdiotProof.Core.Catalysts.WireFeedPoller.HttpClientName, c =>
+        {
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("IdiotProof/1 (research@idiotproof.app)");
+            c.Timeout = TimeSpan.FromSeconds(15);
+        });
         services.AddScoped<EdgarService>();
         services.AddScoped<Form4Parser>();
         services.AddScoped<UsSpendsService>();
@@ -223,6 +228,16 @@ public static class CoreServiceRegistration
         services.AddScoped<IdiotProof.Core.Catalysts.CatalystBackfillService>();
         services.AddScoped<IdiotProof.Core.Catalysts.CatalystLookup>();
         services.AddScoped<IdiotProof.Core.Catalysts.CatalystReclassifier>();
+
+        // ── Extra catalyst-intake sources (IP-T602): wires + social, each off until its switch/key says otherwise ──
+        services.AddSingleton<IdiotProof.Core.Catalysts.CatalystSourceSettings>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.CatalystSourceState>();
+        services.AddSingleton(sp => new IdiotProof.Core.Catalysts.CatalystSourceKeys(
+            IdiotProof.Core.Fundamentals.FundamentalsKeys.Default(sp.GetService<IConfiguration>()).Get));
+        services.AddSingleton<IdiotProof.Core.Catalysts.WireFeedPoller>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.SocialSignalWriter>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.StockTwitsPoller>();
+        services.AddSingleton<IdiotProof.Core.Catalysts.RedditPoller>();
 
         // ── Formation recorder (IP-T443): settings, status and the snapshot sink every host can read; the worker is hosted with the Monitor ──
         services.AddSingleton<IdiotProof.Core.Monitoring.Formation.FormationSettings>();

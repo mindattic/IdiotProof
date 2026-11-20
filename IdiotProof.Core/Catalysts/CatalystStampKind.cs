@@ -22,6 +22,8 @@ public static class CatalystStampKind
     public static string Classify(string source, string? sourceName, string? url)
     {
         if (string.Equals(source, CatalystIntake.Edgar, StringComparison.OrdinalIgnoreCase)) return Realtime;
+        // IP-T602: read straight off the wire's own feed, so its pubDate is the release time, not an ingestion bound.
+        if (CatalystSources.IsWire(source)) return Realtime;
         var name = (sourceName ?? "").Trim();
         if (BatchSources.Any(b => name.Contains(b, StringComparison.OrdinalIgnoreCase))) return Batch;
         if (RealtimeSources.Any(r => name.Contains(r, StringComparison.OrdinalIgnoreCase))) return Realtime;

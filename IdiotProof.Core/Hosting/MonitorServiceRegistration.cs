@@ -58,6 +58,10 @@ public static class MonitorServiceRegistration
         services.AddHostedService<IdiotProof.Core.Catalysts.CatalystIntakeWorker>();
         services.AddHostedService(sp => sp.GetRequiredService<IdiotProof.Core.Catalysts.CatalystClassifier>());
 
+        // Extra catalyst-intake sources (IP-T602): press-release wires + StockTwits/Reddit, each off until its own
+        // switch (and Vault key, where it needs one) says otherwise; same intake.enabled + leader gate as above.
+        services.AddHostedService<IdiotProof.Core.Catalysts.CatalystSourcesWorker>();
+
         // Formation recorder (IP-T443): idle unless SettingsKv formation.enabled = "true"; leader-only, paper-only,
         // 03:55-09:45 ET weekdays; research rows through IGapperSnapshotSink only, never an arm. Also runs the
         // scheduled `gapper auto` pass when gapper.auto.scheduledEt is set.

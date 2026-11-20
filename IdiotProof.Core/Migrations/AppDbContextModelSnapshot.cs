@@ -17,7 +17,7 @@ namespace IdiotProof.Core.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.14")
+                .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -350,6 +350,13 @@ namespace IdiotProof.Core.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<string>("FirstSeenSource")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime?>("FirstSeenUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("FormType")
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
@@ -436,6 +443,9 @@ namespace IdiotProof.Core.Migrations
                         .HasMaxLength(12)
                         .HasColumnType("nvarchar(12)");
 
+                    b.Property<Guid?>("StoryId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("SymbolsJson")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -448,6 +458,8 @@ namespace IdiotProof.Core.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ReceivedUtc");
+
+                    b.HasIndex("StoryId");
 
                     b.HasIndex("PrimarySymbol", "PublishedUtc");
 
@@ -471,6 +483,58 @@ namespace IdiotProof.Core.Migrations
                     b.HasIndex("Symbol");
 
                     b.ToTable("CatalystEventSymbols");
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.CatalystSighting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Backfilled")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Headline")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("PublishedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("SeenUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double>("Similarity")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("SeenUtc");
+
+                    b.HasIndex("Source", "ExternalId")
+                        .IsUnique();
+
+                    b.ToTable("CatalystSightings");
                 });
 
             modelBuilder.Entity("IdiotProof.Core.Data.CommandLedgerEntry", b =>
@@ -2655,6 +2719,56 @@ namespace IdiotProof.Core.Migrations
                     b.ToTable("SettingsKv");
                 });
 
+            modelBuilder.Entity("IdiotProof.Core.Data.SocialSignal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Capped")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Channel")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FirstSeenUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ObservedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("Rank")
+                        .HasColumnType("int");
+
+                    b.Property<double?>("Score")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int>("WindowMinutes")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Source", "ObservedUtc");
+
+                    b.HasIndex("Symbol", "ObservedUtc");
+
+                    b.ToTable("SocialSignals");
+                });
+
             modelBuilder.Entity("IdiotProof.Core.Data.SourceTrustScore", b =>
                 {
                     b.Property<string>("SourceName")
@@ -3487,6 +3601,15 @@ namespace IdiotProof.Core.Migrations
                 });
 
             modelBuilder.Entity("IdiotProof.Core.Data.CatalystEventSymbol", b =>
+                {
+                    b.HasOne("IdiotProof.Core.Data.CatalystEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IdiotProof.Core.Data.CatalystSighting", b =>
                 {
                     b.HasOne("IdiotProof.Core.Data.CatalystEvent", null)
                         .WithMany()

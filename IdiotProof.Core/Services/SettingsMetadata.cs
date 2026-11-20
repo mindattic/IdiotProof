@@ -107,6 +107,8 @@ public static class SettingsMetadata
         new(IdiotProof.Core.Catalysts.CatalystIntakeSettings.LlmDailyBudgetKey, SettingKind.Int,
             "Catalyst intake (IP-T447): live Haiku classification calls allowed per ET day; every attempt counts; 0 = none. The backfill has its own per-run budget.",
             IdiotProof.Core.Catalysts.CatalystIntakeSettings.DefaultLlmDailyBudget.ToString(CultureInfo.InvariantCulture), Min: 0m, Max: 100000m),
+        // IP-T602: one on/off switch and one URL override per extra intake source (wires and social).
+        .. IdiotProof.Core.Catalysts.CatalystSources.SettingDefinitions(),
         new(IdiotProof.Core.Monitoring.Formation.FormationSettings.TodProfilePathKey, SettingKind.Text,
             "Formation recorder (IP-T447): full path of the gapper study's time-of-day volume profile (docs/research/gapper-study-2026-11/data/tod-profile.json). Unset = VolRatioTod stays null live."),
         new(IdiotProof.Core.Monitoring.Formation.FormationSettings.TodDecileEdgesDollarsKey, SettingKind.Text,

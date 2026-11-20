@@ -20,6 +20,9 @@ public sealed record CatalystIntake(
 {
     public const string AlpacaNews = "alpaca-news";
     public const string Edgar = "edgar";
+
+    /// <summary>Alpaca news and EDGAR keep a row per item even when another source already holds the story (IP-T602); the wires merge.</summary>
+    public static bool KeepsOwnRow(string source) => source is AlpacaNews or Edgar;
 }
 
 /// <summary>Parses the news stream's <c>{"T":"n",...}</c> messages and the REST <c>news[]</c> items (same shape).</summary>

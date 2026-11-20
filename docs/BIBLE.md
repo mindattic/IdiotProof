@@ -551,7 +551,7 @@ gated by `catalyst.intake.llmClassify` and capped at `catalyst.intake.llmDailyBu
 per ET day (default 500; every attempt counts, seeded from today's classified rows after a
 restart; over-budget ids stay unclassified for the backfill). `CatalystBackfillService` replays Alpaca news (paged, by
 date range) and EDGAR filings by date range through the same ingestor, pre-classifier and scorer,
-so history and live rows agree. Operations: `catalyst list|show|score|intake-status|backfill|reclassify`.
+so history and live rows agree. Operations: `catalyst list|show|score|intake-status|sources|backfill|reclassify`.
 Everything is off by default behind `catalyst.intake.enabled|ownerUserId|edgarPolling|llmClassify`
 (`SettingsKv`, `CatalystIntakeSettings`), needs an owner GUID with Alpaca data keys, audits
 `catalyst-intake-start|stop|error`, and backs off 5 minutes after a refusal. The worker holds no
@@ -559,6 +559,24 @@ broker client and places nothing. Nothing in the trading path reads these rows y
 panel still sees only candles. Not built: the live `GapperFormationWorker` (04:00–09:45 ET
 snapshot recorder), the `formation-trigger.json` arming rule, and the CATALYST/MOMENTUM facts in
 `LlmVotingService.BuildSignalContext`.
+
+**Extra intake sources (IP-T602): press-release wires and social attention, "who knew first."**
+A leader-only `CatalystSourcesWorker` runs beside `CatalystIntakeWorker` (same gate:
+`catalyst.intake.enabled` and the leader lease) polling five wire feeds — PR Newswire, Business Wire,
+GlobeNewswire, ACCESS Newswire, Newsfile — each with its own `catalyst.intake.sources.<name>` on/off
+switch and `.url` override, through `WireFeedPoller` (conditional GET, 429 backoff via
+`HttpRateLimitRetry`). A wire item with a US ticker goes through the same `CatalystIngestor`; one that
+matches an existing story (same symbol, a similar headline, inside a window) becomes a
+`CatalystSighting` on that story instead of a new row, and the story's `CatalystEvent.FirstSeenUtc` /
+`FirstSeenSource` stay the *earliest* sighting — the measurement the owner asked for after VIVS and SEAT
+moved 17–61 minutes before their catalyst reached Alpaca news/EDGAR (2026-11-19). Alpaca news and EDGAR
+keep their own rows and link to a story a wire started via `CatalystEvent.StoryId`. StockTwits (trending
+symbols, no key) and Reddit (subreddit mention counts, app-only OAuth via Vault `reddit-client-id` /
+`reddit-client-secret`) are social-attention sources: their readings are `SocialSignal` time series, never
+catalysts, with their own per-source `FirstSeenUtc` for the ET day. `catalyst sources` shows every
+source's switch, Vault key status and session counts (never a key). Float/short-interest vendor reads
+(IP-T603, `fundamentals show|status`) are current values, not point-in-time history, so they and these
+new sources are candidate study features, not validated ones, until a pre-registered amendment uses them.
 
 **Formation alert (IP-T447): the study's detector, watch-only.** No trading rule on formation
 snapshots survived validation (H12 -3.45%/trade, H12p -3.93%, H18 -2.36%), so `formation-trigger.json`

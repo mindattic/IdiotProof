@@ -237,6 +237,63 @@ public sealed class CatalystIntakeStatusOperation : IOperation<NoArgs>
     }
 }
 
+[Operation("catalyst sources", Summary = "Every IP-T602 intake source (press-release wires, StockTwits, Reddit): on/off, Vault key, last poll and session counts; never shows a key.", Risk = OperationRisk.Read)]
+[Example("idiotproof catalyst sources")]
+public sealed class CatalystSourcesOperation : IOperation<NoArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(NoArgs args, OperationContext ctx)
+    {
+        var sourceSettings = ctx.Services.GetService<CatalystSourceSettings>();
+        var keys = ctx.Services.GetService<CatalystSourceKeys>();
+        var state = ctx.Services.GetService<CatalystSourceState>()?.Snapshot();
+        var configs = sourceSettings is null ? null : await sourceSettings.ReadAsync(ctx.CancellationToken);
+
+        var rows = CatalystSources.All.Select(info =>
+        {
+            var cfg = configs?.GetValueOrDefault(info.Name);
+            var missingKey = keys?.Missing(info);
+            var snap = state?.FirstOrDefault(s => string.Equals(s.Name, info.Name, StringComparison.OrdinalIgnoreCase));
+            var status =
+                cfg is null ? "on" + (info.DefaultOn ? "" : " (default)") :
+                !cfg.Enabled ? $"off ({info.EnabledKey})" :
+                missingKey is { } entry ? $"no key in Vault: {entry}" :
+                snap?.Status ?? "on";
+            return new
+            {
+                source = info.Name,
+                vendor = info.DisplayName,
+                kind = info.Kind.ToString().ToLowerInvariant(),
+                enabled = cfg?.Enabled ?? info.DefaultOn,
+                status,
+                urls = cfg?.Urls ?? info.DefaultUrls,
+                vault_entries = info.VaultEntries,
+                polls = snap?.Polls ?? 0,
+                items_seen = snap?.ItemsSeen ?? 0,
+                inserted = snap?.Inserted ?? 0,
+                merged = snap?.Merged ?? 0,
+                signals = snap?.Signals ?? 0,
+                last_poll_et = Fmt.Et(snap?.LastPollUtc, null),
+                last_error = snap?.LastError,
+            };
+        }).ToList();
+
+        var table = new TextTable { MaxWidth = ctx.Width }
+            .Column("source").Column("kind").Column("status", maxWidth: 48).Column("items").Column("inserted/merged").Column("signals");
+        foreach (var r in rows) table.Row(r.source, r.kind, r.status, r.items_seen.ToString(), $"{r.inserted}/{r.merged}", r.signals.ToString());
+        var lines = new List<string>
+        {
+            sourceSettings is null
+                ? "Not hosted here: these sources run beside the Monitor leader; this Hub does not host it."
+                : "Each source runs only while catalyst.intake.enabled is on and this Hub leads (see `catalyst intake-status`).",
+            "",
+            table.Render(),
+            "",
+            "A wire's items become catalyst events (or sightings of a story another source already carries, the \"who knew first\" measurement). Social readings are time series (SocialSignal), never catalysts.",
+        };
+        return OperationResult.Ok(new { sources = rows }, string.Join("\n", lines));
+    }
+}
+
 public sealed record CatalystBackfillArgs
 {
     [Option("symbols", Description = "Comma-separated symbols to backfill.", Required = true)]
