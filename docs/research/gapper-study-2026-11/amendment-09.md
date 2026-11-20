@@ -131,3 +131,36 @@ reading the stored T2 bars and the snapshot stage's catalyst and structure input
 IP-T604; it is a follow-up ticket and must implement exactly the definitions above. Any definition that turns
 out not to be computable from the store is corrected in a dated note in this file before the first run, as
 amendment 08 did, never after a number is seen.
+
+**Implementation note, 2026-11-19 (IP-T605), written with the code and before its first run; no train or
+validation number had been computed.** The command is `research gappers explore --command late-runners`. No
+definition, threshold or hypothesis above changes; these are the readings the code takes where the text leaves a
+choice, and one computability correction:
+
+1. *Early-close sessions are left out and counted* (correction). On the 13:00 sessions (July 3, Black Friday,
+   Christmas Eve) the bars 13:00-15:59 are post-market, so "09:30-15:59" would read after-hours prints as regular
+   hours. About three train sessions a year.
+2. *Bars reach 16:00* = the day has a stored bar starting at or after 15:59 (so one ends at or after 16:00).
+3. *Amendment 08 group* of feature 6 = amendment 08's day rule over the fresh items at m0 (the highest-priority
+   type among them, coverage ignored), mapped as the case study groups its catalysts: real company event =
+   outside investment / PIPE, acquisition target, acquirer, merger, earnings beat / miss / report, guidance,
+   FDA / clinical, uplisting, listing compliance, buyback; story or PR = contract / partnership, analyst upgrade,
+   theme pivot, other; offering = offering / dilution; reverse split = reverse split / ADS ratio; none = no fresh
+   item. It enters the model as four 0/1 columns (none = all zero). The LOI flag is not used.
+4. *Month-blocked folds* = the 36 train months in order cut into five contiguous blocks (8, 7, 7, 7, 7 months).
+   No embargo (y is same-day).
+5. *Bootstrap* resamples whole days of the pooled out-of-fold rows with the fitted scores held fixed (the models
+   are not refit per draw); each draw's AUCs and lift are weighted (amendment 01 weights x the day's draw count).
+   One-sided p = (1 + draws at or below the null) / (draws + 1). A pass needs the bound and BH q < 0.05.
+6. *Missing share* for the 50% drop rule is the unweighted share of the m0 rows; an imputed value is the fitting
+   rows' weighted mean (`FitWeighted` treats a missing value as the training mean).
+7. *haltBeforeStart* counts a proxy gap only when its empty minutes lie between 09:30 and the start of m0;
+   activity starts at the first abnormal-volume minute from 04:00, as in the labeler.
+8. *sharesOutstanding* comes from the SEC companyfacts file `explore float-import` writes (latest value filed
+   before D, through the study's CIK map); a symbol without one is missing.
+9. *D1* counts candidate days (the census) whose minute bars print +20% 04:00-19:59; the run is the day's high
+   04:00-19:59 over the prior close. *D2*: signed minutes = the time point (start of the first +20% minute, end of
+   m0) minus the latest fresh item at or before it, or, with none before it, minus the first fresh item after it
+   by 20:00 (negative). *D3* is weighted.
+10. *Validation* is not read by this command: the explore stage refuses every split but train. A hypothesis that
+    passes on train gets its single validation run in a follow-up ticket, under the same definitions.

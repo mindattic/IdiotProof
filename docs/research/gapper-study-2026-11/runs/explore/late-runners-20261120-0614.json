@@ -1,0 +1,447 @@
+{
+  "population": {
+    "populationRows": 261809,
+    "candidateRows": 105964,
+    "earlyClose": 1479,
+    "noBars": 1312,
+    "notReaching1600": 8903,
+    "computed": 250115,
+    "withM0": 180303,
+    "withM0Candidates": 83357,
+    "positives": 11292
+  },
+  "d1": {
+    "censusDays": 19175,
+    "sampleOnlyDaysWith20": 274,
+    "lateRunners": 11898,
+    "pre0930": 5815,
+    "post": 1462,
+    "byStartSession": [
+      {
+        "startSession": "premarket (04:00-09:29)",
+        "days": 5815,
+        "share": 0.3032594524119948,
+        "medianRun": 0.40456647398843937,
+        "medianFadeTo1600": -0.2100840336134454,
+        "medianFadeToLast": -0.2111368909512762,
+        "medianMinutesFirst20ToHigh": 16
+      },
+      {
+        "startSession": "open (09:30-09:44)",
+        "days": 1409,
+        "share": 0.07348109517601042,
+        "medianRun": 0.2902644230769229,
+        "medianFadeTo1600": -0.10439431852958658,
+        "medianFadeToLast": -0.101050929668553,
+        "medianMinutesFirst20ToHigh": 19
+      },
+      {
+        "startSession": "morning (09:45-11:59)",
+        "days": 4950,
+        "share": 0.258148631029987,
+        "medianRun": 0.28205128205128194,
+        "medianFadeTo1600": -0.09352303154953623,
+        "medianFadeToLast": -0.09015238974832596,
+        "medianMinutesFirst20ToHigh": 35
+      },
+      {
+        "startSession": "midday (12:00-13:59)",
+        "days": 2761,
+        "share": 0.1439895697522816,
+        "medianRun": 0.2597731958762888,
+        "medianFadeTo1600": -0.0724509803921568,
+        "medianFadeToLast": -0.06934306569343074,
+        "medianMinutesFirst20ToHigh": 34
+      },
+      {
+        "startSession": "afternoon (14:00-15:59)",
+        "days": 2778,
+        "share": 0.1448761408083442,
+        "medianRun": 0.2442654301361178,
+        "medianFadeTo1600": -0.047661256086945936,
+        "medianFadeToLast": -0.050201763907734065,
+        "medianMinutesFirst20ToHigh": 12
+      },
+      {
+        "startSession": "post-market (16:00-19:59)",
+        "days": 1462,
+        "share": 0.07624511082138201,
+        "medianRun": 0.24366897691807088,
+        "medianFadeTo1600": -0.10617957430125619,
+        "medianFadeToLast": -0.05091895151137671,
+        "medianMinutesFirst20ToHigh": 2
+      }
+    ],
+    "hodShare": [
+      0.2103259452411995,
+      0.049335071707953065,
+      0.2084485006518905,
+      0.14466753585397654,
+      0.2072490221642764,
+      0.17997392438070403
+    ],
+    "cross": [
+      [
+        4033,
+        368,
+        665,
+        243,
+        264,
+        242
+      ],
+      [
+        0,
+        578,
+        462,
+        129,
+        144,
+        96
+      ],
+      [
+        0,
+        0,
+        2870,
+        852,
+        730,
+        498
+      ],
+      [
+        0,
+        0,
+        0,
+        1550,
+        797,
+        414
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        2039,
+        739
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1462
+      ]
+    ]
+  },
+  "d2": {
+    "lateRunners": 11898,
+    "withM0": 11339,
+    "noFreshShare": 0.6847369305765675,
+    "toFirst20": {
+      "n": 3751,
+      "median": 155.78333333333333,
+      "p25": 12.283333333333333,
+      "p75": 537.9749999999999,
+      "negative": 788
+    },
+    "toM0": {
+      "n": 3580,
+      "median": 90.18333333333334,
+      "p25": -22.454166666666666,
+      "p75": 719.1833333333333,
+      "negative": 1045
+    },
+    "groupsAtM0": {
+      "real company event": 1259,
+      "story or PR": 1035,
+      "offering": 193,
+      "reverse split": 48,
+      "none": 8804
+    }
+  },
+  "d3": [
+    {
+      "group": "all with m0",
+      "days": 180184,
+      "weighted": 1052131,
+      "medianFwdHigh": 0.00960866947621919,
+      "meanFwdHigh": 0.019867059542629368,
+      "meanFwdHighLo": 0.019526199470577415,
+      "meanFwdHighHi": 0.02020791961468132,
+      "medianFwdClose": -0.0006244579358197777,
+      "meanFwdClose": -0.00048191112304771613,
+      "meanFwdCloseLo": -0.0011270408839423925,
+      "meanFwdCloseHi": 0.00016321863784696017
+    },
+    {
+      "group": "y = 1 (\u002B20% after m0)",
+      "days": 11292,
+      "weighted": 11292,
+      "medianFwdHigh": 0.1918951132300355,
+      "meanFwdHigh": 0.23158570732804837,
+      "meanFwdHighLo": 0.22703955552241878,
+      "meanFwdHighHi": 0.23613185913367796,
+      "medianFwdClose": 0.10640000000000005,
+      "meanFwdClose": 0.1124146126198333,
+      "meanFwdCloseLo": 0.1093680768140674,
+      "meanFwdCloseHi": 0.11546114842559921
+    },
+    {
+      "group": "y = 0",
+      "days": 168892,
+      "weighted": 1040839,
+      "medianFwdHigh": 0.00943396226415083,
+      "meanFwdHigh": 0.017570136607580836,
+      "meanFwdHighLo": 0.017252768803009102,
+      "meanFwdHighHi": 0.01788750441215257,
+      "medianFwdClose": -0.000750880840986401,
+      "meanFwdClose": -0.0017067187504565796,
+      "meanFwdCloseLo": -0.0023405568946560976,
+      "meanFwdCloseHi": -0.0010728806062570615
+    }
+  ],
+  "fullModel": {
+    "features": [
+      "gainAtStart",
+      "volRatioTod",
+      "minutesSinceOpen",
+      "pmHighGain",
+      "highSoFarGain",
+      "freshCatalyst",
+      "group.realCompanyEvent",
+      "group.storyOrPr",
+      "group.offering",
+      "group.reverseSplit",
+      "haltBeforeStart",
+      "logAdv20Dollars",
+      "logPrevClose",
+      "reverseSplitWithin60d",
+      "offering424BorS1Within90d",
+      "priorTopMoverDays",
+      "logSharesOutstanding",
+      "pmHighGain.missing",
+      "logSharesOutstanding.missing"
+    ],
+    "weights": [
+      0.058597137868951106,
+      0.02014748871702098,
+      -0.11309802913444936,
+      0.22887569645545558,
+      0.05148163857024647,
+      0.049180575044216614,
+      0.07828252341747119,
+      0.0031389219939707024,
+      0.007307646478471584,
+      0.011191125735846354,
+      -0.00861317387654961,
+      -0.010156446196553315,
+      -0.09941944591986109,
+      0.026061288628215818,
+      0.044449867737156125,
+      0.2361031981027862,
+      -0.05432621704651579,
+      -0.08995817323536286,
+      -0.00045127862683694633
+    ],
+    "means": [
+      0.015117338260831807,
+      1.2129910195501796,
+      83.22221050761908,
+      0.019656992860637663,
+      0.02500864731760534,
+      0.06223683698116577,
+      0.018175048465212854,
+      0.03904667192873975,
+      0.004013992935144474,
+      0.0010011236520686881,
+      0.021768265520028647,
+      14.922267647290688,
+      1.9137898927835941,
+      0.004098528044284999,
+      0.14095517074667296,
+      0.19027333335233,
+      18.138472515943278,
+      0.5099708686314905,
+      0.3079737504238628
+    ],
+    "stds": [
+      0.2178934129780355,
+      6.2697133328633905,
+      84.69113295420051,
+      0.03108416008623558,
+      0.2186084002385311,
+      0.24158520878511078,
+      0.13358411611602639,
+      0.19370603847074339,
+      0.06322879720397252,
+      0.031624696101337585,
+      0.14592603652631075,
+      1.5914007197331763,
+      0.9422881200350205,
+      0.06388841923349808,
+      0.3479753016902913,
+      0.6423960919773294,
+      1.685604048079826,
+      0.49990057189278503,
+      0.4616556286602851
+    ],
+    "bias": -3.6627178079561724
+  },
+  "hypotheses": {
+    "h1": {
+      "aucFull": 0.9232536293161162,
+      "aucBase": 0.8299442638757851,
+      "difference": 0.09330936544033108,
+      "low": 0.08728161553952607,
+      "high": 0.09901066165396144,
+      "p": 9.999000099990002E-05,
+      "q": 9.999000099990002E-05,
+      "pass": true,
+      "folds": [
+        0.027639141447474924,
+        0.04488371270399316,
+        0.05043226168948556,
+        0.037856930208503226,
+        0.0262713522025525
+      ],
+      "days": 750,
+      "draws": 10000,
+      "rows": 180303
+    },
+    "h2": {
+      "rateFresh": 0.03847445210915085,
+      "rateNone": 0.008883887559214943,
+      "lift": 4.330812592201559,
+      "low": 4.095440383119036,
+      "high": 4.5762380514897405,
+      "p": 9.999000099990002E-05,
+      "q": 9.999000099990002E-05,
+      "pass": true,
+      "folds": [
+        3.694942391039134,
+        4.485646517837277,
+        4.606963820002721,
+        4.796250167187903,
+        4.215659473473072
+      ],
+      "days": 750,
+      "draws": 10000,
+      "rows": 180303
+    },
+    "features": [
+      {
+        "feature": "gainAtStart",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "volRatioTod",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "minutesSinceOpen",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "pmHighGain",
+        "missing": 0.4136148594310688,
+        "dropped": false,
+        "indicator": true
+      },
+      {
+        "feature": "highSoFarGain",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "freshCatalyst",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "catalystAgeMin",
+        "missing": 0.8985984703526841,
+        "dropped": true,
+        "indicator": false
+      },
+      {
+        "feature": "group.realCompanyEvent",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "group.storyOrPr",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "group.offering",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "group.reverseSplit",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "haltBeforeStart",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "logAdv20Dollars",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "logPrevClose",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "reverseSplitWithin60d",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "offering424BorS1Within90d",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "priorTopMoverDays",
+        "missing": 0,
+        "dropped": false,
+        "indicator": false
+      },
+      {
+        "feature": "logSharesOutstanding",
+        "missing": 0.2708274404752001,
+        "dropped": false,
+        "indicator": true
+      }
+    ],
+    "folds": [
+      "fold 1: 2021-11..2022-06",
+      "fold 2: 2022-07..2023-01",
+      "fold 3: 2023-02..2023-08",
+      "fold 4: 2023-09..2024-03",
+      "fold 5: 2024-04..2024-10"
+    ]
+  }
+}
