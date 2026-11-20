@@ -124,7 +124,9 @@ public sealed class CatalystListOperation : IOperation<CatalystListArgs>
             .Column("score", Align.Right).Column("src").Column("headline", maxWidth: 70);
         foreach (var e in rows)
             table.Row(CatalystReads.Short(e.Id), Fmt.Et(e.PublishedUtc), CatalystReads.Lag(e), e.PrimarySymbol, CatalystReads.Type(e), CatalystReads.Dir(e.Direction),
-                e.CatalystScore.ToString("0.#", CultureInfo.InvariantCulture), e.Source == CatalystIntake.Edgar ? $"edgar {e.FormType}" : "news", e.Headline);
+                e.CatalystScore.ToString("0.#", CultureInfo.InvariantCulture),
+                e.Source == CatalystIntake.Edgar ? $"edgar {e.FormType}" : e.Source == CatalystIntake.AlpacaNews ? "news" : e.Source, // IP-T602: a wire keeps its own name, not "news"
+                e.Headline);
         return OperationResult.Ok(rows.Select(CatalystReads.Row).ToList(),
             $"Catalyst events since {ctx.Et(since)}{(symbol is null ? "" : $" for {symbol}")}:\n{table.Render()}\n{rows.Count} event(s). `idiotproof catalyst show <id>` explains one.");
     }
