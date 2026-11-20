@@ -155,8 +155,10 @@ public sealed class PositionsReconcileOperation : IOperation<PositionsReconcileA
     }
 
     /// <summary>Alpaca's <c>after</c> filter accepts only <c>yyyy-MM-ddTHH:mm:ssZ</c>: UTC, no fractional seconds, no offset (IP-T597).</summary>
+    /// SQL hands back UTC times with Kind Unspecified; those are UTC already, so only a Local time is converted
+    /// (ToUniversalTime on Unspecified shifted the window by the machine's offset and skipped the exits).
     internal static string AlpacaAfter(DateTime t) =>
-        t.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        (t.Kind == DateTimeKind.Local ? t.ToUniversalTime() : DateTime.SpecifyKind(t, DateTimeKind.Utc)).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>This strategy's own filled <c>ipx-</c> closing orders at the broker since <paramref name="since"/>: total qty, notional, last fill time and its order id (read-only).</summary>
     private static async Task<(decimal Qty, decimal Notional, DateTime? LastFill, string? OrderId, string? Error)> FindExitFillsAsync(
