@@ -28,10 +28,13 @@ namespace IdiotProof.Core.Research.Gappers.Explore;
 /// </summary>
 internal static class A09DbExtensions
 {
-    /// <summary>Sets the context's command timeout and returns it, for one long research scan.</summary>
+    /// <summary>
+    /// Sets the context's command timeout and returns it, for one long research scan. Relational-only (throws
+    /// against the EF InMemory provider the unit tests use), so a no-op there (IP-T610).
+    /// </summary>
     public static AppDbContext WithCommandTimeout(this AppDbContext db, TimeSpan timeout)
     {
-        db.Database.SetCommandTimeout(timeout);
+        if (db.Database.IsRelational()) db.Database.SetCommandTimeout(timeout);
         return db;
     }
 }
@@ -121,7 +124,7 @@ public sealed partial class GapperExploreStage
         void AddItem(string sym, A09Item it) { if (!items.TryGetValue(sym, out var l)) items[sym] = l = []; l.Add(it); }
         await using (var db = await s.Db.CreateDbContextAsync(ct))
         {
-            db.Database.SetCommandTimeout(TimeSpan.FromMinutes(15));   // whole-train scans of the filing index and news
+            if (db.Database.IsRelational()) db.Database.SetCommandTimeout(TimeSpan.FromMinutes(15));   // whole-train scans of the filing index and news (IP-T610: InMemory-safe)
             var news = new Dictionary<Guid, A09Item>();
             await foreach (var e in db.CatalystEvents.AsNoTracking().Where(e => e.PublishedUtc > lo && e.PublishedUtc <= hi)
                                .Select(e => new { e.Id, e.PublishedUtc, e.Headline, e.PreClass }).AsAsyncEnumerable().WithCancellation(ct))

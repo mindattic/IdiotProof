@@ -136,8 +136,9 @@ public sealed class GapperStudyServices(
         // Nearly every explore/label/snapshot stage calls this first; the shared research DB (local SQL Server) can run
         // minutes behind under overnight maintenance contention, and ADO.NET's ~30 s default command timeout turned a
         // slow query into a hard failure well before the DB itself gave up (observed 2026-11-19/20, IP-T605). Other
-        // stages in this file already learned to extend theirs for the same reason.
-        db.Database.SetCommandTimeout(TimeSpan.FromMinutes(10));
+        // stages in this file already learned to extend theirs for the same reason. SetCommandTimeout is relational-
+        // only and throws against the EF InMemory provider the unit tests use (IP-T610), so it's guarded.
+        if (db.Database.IsRelational()) db.Database.SetCommandTimeout(TimeSpan.FromMinutes(10));
         var q = db.GapperStudyUniverseDays.AsNoTracking().Where(r => r.Split == split && r.ExcludedReason == null);
         if (from is { } f) q = q.Where(r => r.DateEt >= f);
         if (to is { } t) q = q.Where(r => r.DateEt <= t);
