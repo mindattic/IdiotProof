@@ -1,0 +1,47 @@
+{
+  "id": "A10",
+  "version": 1,
+  "registeredUtc": "2026-11-20T07:27:00Z",
+  "ticket": "IP-T617",
+  "registeredBeforeResults": "When this file was committed no A10 number of any kind existed: no trade had been simulated, no cost computed and no H27 score distribution (how many move starts clear the threshold) had been looked at, on any split, and the code that runs A10 (research gappers explore --command late-runner-ride) had not been written. What existed: amendment 09's train exploration (runs/explore/late-runners-20261120-0614.*, IP-T605) and its single validation read (IP-T616), which established only that the move-start pattern is real (H27 AUC difference +0.0152 [+0.0056, +0.0235], H28 lift 3.22x on validation) and specified no entry, exit, cost or sizing; amendment 09's descriptive D3 (gross path from the next bar's open to 16:00, no exit rule, no costs). Every entry, exit, cost and threshold choice below is fixed here and is not revised after any A10 number is seen. Validation and holdout are not read by the train exploration.",
+  "question": "Amendment 09 showed that everything knowable at a late runner's move start m0 ranks the days that go on to +20% (H27) and that a fresh catalyst raises the odds (H28). Does buying the move starts the H27 model rates more likely than not to reach +20%, and selling on the study's frozen exit ladder, make money after the frozen cost model in regular hours?",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json", "amendment-01.json", "amendment-02.json", "amendment-03.json", "amendment-04.json", "amendment-09.json"],
+  "population": "Amendment 09's rows exactly (GapperExploreStage.A09RowsAsync): amendment 01's population of the split under test (candidates at weight 1, the seeded sample at its weight; excluded, split-window and early-close days out; days whose bars do not reach 16:00 out), restricted to symbol-days with a move start m0 (first 09:30-15:59 ET minute with abnormal volume and a close above the prior close, before any +20% high).",
+  "score": "s = the H27 full-feature model's predicted probability of y at the end of m0: LogisticRegression.FitWeighted defaults on amendment 09's eleven features with the kept/dropped/missing-indicator selection made once on all train rows (GapperExploreStage.A09Features). On train, s is out of fold: amendment 09's five contiguous month blocks, each block scored by the model fit on the other four (the exact pooled out-of-fold scores the A09-H1 train run used), so no row is scored by a model that saw its own months. On validation and holdout, s comes from the one model fit on all train rows (H27's own convention), never refit on the split under test.",
+  "entry": {
+    "signal": "s >= 0.50 at the end of m0. One fixed threshold, chosen now for a reason that needs no data: the model rates reaching +20% more likely than not. Not chosen from any score distribution (none was looked at). Top-k per day was rejected: ranking a day's move starts needs the m0s that happen later that day (look-ahead).",
+    "fill": "the open of the first bar with volume starting at or after the end of m0 (the protocol's nextBarOpenAfterT; the bar at m0 is never traded), as GapperRuleSimulator enters",
+    "noTrade": "no such bar before the configuration's sell-by; or the entry open is already >= 1.20 x the split-adjusted prior close (the +20% the signal predicts has already happened at the fill: the playbook's already-happened rule). One trade per symbol-day at most (m0 is once per day). Long only."
+  },
+  "hypotheses": [
+    {
+      "id": "H29",
+      "primary": true,
+      "family": "F10",
+      "test": "a10-late-runner-ride-grid",
+      "claim": "Buying a late runner's move start when the H27 model rates reaching +20% more likely than not (s >= 0.50), and exiting on the frozen ladder, nets at least +1.0%/trade after the frozen cost model over amendment 09's population, on a grid of 4 exit configurations.",
+      "grid": {
+        "scoreThreshold": 0.50,
+        "profitTarget": ["none", "label20"],
+        "timeStop": ["15:55", "entry+60m"],
+        "velocityDeathWindow": 3,
+        "stopLossPct": 10,
+        "vwapLossExit": true
+      },
+      "exitLadder": "GapperRuleSimulator unchanged (H12/H18's frozen ladder): intrabar stop 10% under the entry (fill at the stop, or the bar's open if it gapped through), VWAP loss on (04:00-anchored, after params.labels.vwap.minConsecutiveAboveBeforeLoss closes above), velocity death on the 3-minute velocity (params.labels.velocityDeath arm and bar count), sell-by at the configuration's time stop, signal exits filling at the next real bar's open (halt fills by the bar-gap rule). timeStop 15:55 = sell-by 15:55 ET; entry+60m = sell-by at the entry bar's start + 60 minutes, capped at 15:55 ET. profitTarget label20 = a resting sell at 1.20 x the split-adjusted prior close (the level y predicts): the first bar from the entry bar on, starting before the ladder's own exit bar, whose high reaches it fills at the target, or at that bar's open when the open is already above it; a bar that also hits the stop counts as the stop (the ladder's exit bar is excluded, so stop wins any tie). none = the ladder alone.",
+      "costModel": "Exactly H18's: GapperCostModel.Estimate once per round trip with spread = the prior-days Corwin-Schultz estimate (snapshot extra csSpreadPrior of the same symbol-day's 08:00 panel row; prior days only) x the calibrated spread multiplier (GapperSpreadMultiplier.Resolve, calibrated once on premarket quotes and applied unchanged to these regular-hours fills, which if anything over-charges a regular-hours spread), half per side; square-root impact per side with ADV = cumulative volume 04:00 to the entry bar's start, sigma20 = stdev of the prior 20 daily log returns, notional params.costModel.impact.tradeNotionalUsd ($1,000), impact constant params value; round trip floored at params.costModel.roundTripFloor (0.5%). A missing Corwin-Schultz estimate contributes no spread (the model's own rule; the floor still applies) and is counted.",
+      "method": "Weighted as amendment 01 and scored exactly as H12p/H18's ScoreWeightedGrid: per configuration the weighted mean net return per trade and its day-clustered bootstrap 95% interval (WeightedPopulation.Mean, params.statistics bootstrapDraws/seed/ciLevel), DSR at the unweighted trade count over the 4 configurations, White's reality check / SPA on the per-day weighted mean net return per population cell (zero where a configuration did not trade). Selection on train: the highest weighted lower bound among configurations with >= minTrades unweighted trades (then the higher mean). minTrades and minDays count unweighted trades. Per-fold weighted means over amendment 09's five month blocks are reported for every configuration.",
+      "minEffect": { "meanNetPctPerTrade": 1.0, "clusteredLowerBoundAbove": 0.0, "minTrades": 150, "minDays": 40 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    }
+  ],
+  "decisionRules": {
+    "trainPass": "H29 passes train only if the selected configuration has a weighted mean net >= +1.0%/trade, a day-clustered lower bound > 0, >= 150 unweighted trades on >= 40 days, SPA p < params.statistics.spaAlpha (0.05), DSR >= params.statistics.dsrMin (0.95), and a positive weighted mean net in at least 3 of the 5 month-block folds. Anything less is a fail on train.",
+    "onTrainFail": "Stop. Validation is not read and no other threshold, target, time stop, stop size or cost model is tried under this amendment: the move-start signal stays real (amendment 09), and this entry/exit is reported as not tradable. A different entry or exit idea needs its own new amendment, registered before any of its numbers, and counts this amendment's 4 trials in its own deflation.",
+    "validation": "Only after a train pass: the configuration train selected is written into amendment-10.md as a dated note before the validation run, and validation is read once (GapperTestStage, research gappers test --hypothesis H29 --split validation, implemented then under exactly these definitions), with the model fit on all train rows and the carried configuration, never re-chosen on validation. Pass on validation: the same minimums (mean >= +1.0%/trade, lower bound > 0, >= 150 trades on >= 40 days) plus SPA p < 0.05 and DSR >= 0.95.",
+    "corrections": "A10 is corrected as its own set (family F10, one hypothesis); it never enters the frozen, A01-A09 corrections or the Holm set, and changes none of their numbers.",
+    "promotion": "A pass on train and validation still trades nothing: the single holdout run (frozen and A01-A10 together, only with the user's explicit go-ahead) must net >= +0.5%/trade with a lower bound > 0, then params.promotion.paperShadowTradingDays (20) sessions of paper shadow. Only then could a paper-only regular-hours template be offered, and only the user enables it. This amendment never arms, sizes, places or exits an order.",
+    "killCriterion": "A10 neither triggers nor lifts the H11/H11p kill criterion and does not change amendment 09's verdicts, whatever its result.",
+    "reporting": "Every A10 result is reported, pass or fail: per configuration trades, days, weighted mean net, interval, exit reasons, per-fold means, mean round-trip cost; the count of move starts at or above the threshold and how many were lost to each no-trade rule; SPA, DSR and the selection."
+  }
+}
