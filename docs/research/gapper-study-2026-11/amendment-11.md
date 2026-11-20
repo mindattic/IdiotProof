@@ -80,3 +80,19 @@ because of any number already seen.
 The liquidity filter is not implemented: `research gappers explore --command late-runner-ride` has no ADV floor
 option today. Adding it (reading amendment 09's own logAdv20Dollars feature already computed per row, no new
 data pull needed) and running it once on train is the next step under IP-T619, following this registration.
+
+## Train result (2026-11-20, IP-T619)
+
+**H30 fails on train**: of amendment 10's 437 signals, 137 (31%) fell below the $2,000,000 ADV floor, leaving
+300; 271 entries after the no-trade rules. Mean net -3.13% [-4.10%, -2.26%], DSR 0.000, 0 of 5 month-block folds
+positive. Full report: `runs/explore/late-runner-ride-liquidity-20261120-1026.md`.
+
+This is nearly identical to amendment 10's unfiltered -3.12% -- removing the thinnest third of entries barely
+moved the result at all. That rules out the mechanism this amendment bet on: it is not that illiquid names alone
+drag the average down with outsized cost or outsized false-start odds. Velocity death stayed the dominant exit
+(128 of 271, 47%, versus amendment 10's 44%) in about the same proportion as before, filtered or not. The honest
+reading is that most of these move starts -- liquid or thin -- are false starts the velocity-death rule correctly
+cuts off, not that the signal is somehow fine except for a liquidity confound. Per this amendment's own stop
+rule: validation is not read, and no other liquidity floor, score threshold, exit or cost model is tried under
+amendment 11. A further idea needs its own new amendment with a different mechanism -- not another liquidity
+cut.

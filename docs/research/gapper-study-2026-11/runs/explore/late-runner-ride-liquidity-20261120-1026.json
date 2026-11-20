@@ -1,0 +1,73 @@
+{
+  "amendment": "A11",
+  "hypothesis": "H30",
+  "train": {
+    "from": "2021-11-01",
+    "to": "2024-10-31"
+  },
+  "entries": {
+    "moveStarts": 180303,
+    "unscored": 0,
+    "threshold": 0.5,
+    "advFloor": 2000000,
+    "afterScore": 437,
+    "belowLiquidity": 137,
+    "signals": 300,
+    "noEntry": 0,
+    "alreadyAt20": 29,
+    "entries": 271,
+    "noSnapshot": 0,
+    "csMissing": 0,
+    "meanRoundTripCost": 0.027866892734442504,
+    "medianRoundTripCost": 0.025959285719461423
+  },
+  "costModel": {
+    "spreadMultiplier": 9.39340522666859,
+    "spreadMultiplierSource": "spread-multiplier.json",
+    "notional": 1000,
+    "floor": 0.005
+  },
+  "exitLadder": {
+    "stopPct": 10,
+    "vwapLossExit": true,
+    "velocityDeathWindow": 3,
+    "sellBy": "15:55"
+  },
+  "trades": 271,
+  "days": 202,
+  "meanNetPct": -3.131594121904743,
+  "lowPct": -4.097752749212976,
+  "highPct": -2.260958244159705,
+  "meanGrossPct": -0.3203312283281304,
+  "sharpe": -0.6818235913380172,
+  "dsr": 2.2417379814630745E-26,
+  "foldMeansPct": [
+    -2.2618403840816876,
+    -1.4925118983045453,
+    -2.218371447374949,
+    -3.4357104589599943,
+    -4.967479288032392
+  ],
+  "exits": {
+    "velocity-death": 128,
+    "target \u002B20%": 86,
+    "vwap-loss": 48,
+    "stop": 8,
+    "sell-by": 1
+  },
+  "worthTrading": {
+    "meanNetPctPerTrade": 1,
+    "clusteredLowerBoundAbove": 0,
+    "minTrades": 60,
+    "minDays": 20,
+    "dsrMin": 0.95,
+    "minFoldsPositive": 3
+  },
+  "pass": false,
+  "failures": [
+    "mean -3.13% \u003C \u002B1.0%",
+    "lower bound -4.10% not \u003E 0",
+    "DSR 0.000 \u003C 0.95",
+    "0 of 5 folds positive \u003C 3"
+  ]
+}
