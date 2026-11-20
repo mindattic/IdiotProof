@@ -88,13 +88,13 @@ public static class CoreServiceRegistration
         // How long a first connection waits for a database resuming from auto-pause (Database:ConnectRetry, IP-T542).
         SqlConnect.Configure(configuration);
         services.AddSingleton(new IdiotProofDatabase(connectionString));
-        // Retries transient SQL errors (SqlServerTransientExceptionDetector's list includes -2,
+        // Retries transient SQL errors, 6 tries / 30 s max delay so a serverless research DB resuming from auto-pause (40613) is ridden out (IP-T600) (SqlServerTransientExceptionDetector's list includes -2,
         // the "Execution Timeout Expired" the Monitor's pause-flag poll hit under heavy local
         // load) instead of surfacing them straight to a caller that already assumes a lost read
         // just means "not paused" (MonitorPauseFlag.IsPausedAsync). Safe repo-wide: nothing here
         // opens an explicit BeginTransactionAsync for EF's execution strategy to conflict with.
         services.AddDbContextFactory<AppDbContext>(o => o.UseSqlServer(connectionString,
-            sql => sql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorNumbersToAdd: null)));
+            sql => sql.EnableRetryOnFailure(maxRetryCount: 6, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: new[] { 40613, 40197, 40501, 49918, 49919, 49920 })));
         services.AddScoped<AppDbContext>(sp => sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext());
 
         // ── Permanent market history (IP-T454): its own database, IdiotProof_History on Azure SQL (CloudDatabases.History) unless
