@@ -75,7 +75,7 @@ public sealed partial class GapperPullStage
             {
                 var http = httpFactory.CreateClient(p.DataTiers.EdgarHttpClientName);
                 http.Timeout = TimeSpan.FromMinutes(10);
-                using var resp = await http.GetAsync(EdgarFormIndex.Url(year, quarter), HttpCompletionOption.ResponseHeadersRead, c);
+                using var resp = await HttpRateLimitRetry.SendAsync(() => http.GetAsync(EdgarFormIndex.Url(year, quarter), HttpCompletionOption.ResponseHeadersRead, c), c);
                 resp.EnsureSuccessStatusCode();
                 using var stream = await resp.Content.ReadAsStreamAsync(c);
                 using var reader = new StreamReader(stream);

@@ -77,7 +77,7 @@ public sealed class EdgarTickerMap(IHttpClientFactory httpFactory, EdgarRateGate
             var json = await gate.RunAsync(async c =>
             {
                 var http = httpFactory.CreateClient("edgar");
-                using var resp = await http.GetAsync(Url, c);
+                using var resp = await IdiotProof.Core.Services.HttpRateLimitRetry.SendAsync(() => http.GetAsync(Url, c), c);
                 resp.EnsureSuccessStatusCode();
                 return await resp.Content.ReadAsStringAsync(c);
             }, ct);

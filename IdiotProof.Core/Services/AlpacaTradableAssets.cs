@@ -65,7 +65,7 @@ public static class AlpacaTradableAssets
         using var http = new HttpClient { BaseAddress = new Uri(PaperTradingBase), Timeout = TimeSpan.FromMinutes(2) };
         http.DefaultRequestHeaders.Add("APCA-API-KEY-ID", keyId);
         http.DefaultRequestHeaders.Add("APCA-API-SECRET-KEY", secret);
-        using var resp = await http.GetAsync("v2/assets?asset_class=us_equity&status=active", ct);
+        using var resp = await HttpRateLimitRetry.SendAsync(() => http.GetAsync("v2/assets?asset_class=us_equity&status=active", ct), ct);
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadAsStringAsync(ct);
     }
