@@ -84,7 +84,7 @@ public sealed partial class GapperExploreStage
 
     private sealed record A09Item(DateTime Utc, int Bits);
 
-    private sealed class A09Day
+    internal sealed class A09Day
     {
         public string Symbol = "";
         public DateOnly Day;
@@ -100,20 +100,34 @@ public sealed partial class GapperExploreStage
 
     private async Task<(List<string>, int, string?)> LateRunnersAsync(ExploreRequest req, CancellationToken ct)
     {
-        var p = s.Params;
-        var train = p.Split("train");
         var profilePath = s.Paths.ProfileFile(false);
         if (!File.Exists(profilePath)) return ([$"{profilePath} is missing: run `snapshot train` first so the time-of-day profile is fit"], 0, null);
+        var (all, train, populationCount, candidateCount, noBars, short16, earlyClose) = await A09RowsAsync("train", req.Parallelism, ct);
+        return A09Report(all, populationCount, candidateCount, noBars, short16, earlyClose, train);
+    }
+
+    /// <summary>
+    /// Amendment 09's rows (m0, label y, the eleven features at m0) for one split, read-only: candidates (census, weight
+    /// 1) plus amendment 01's seeded sample (its weight) of that split's universe days. Shared by the train-only explore
+    /// command above and <c>GapperTestStage</c>'s A09-H1/H2 validation dispatch (IP-T616), which calls this once for
+    /// "train" (to fit) and once for the split under test (to score); the two are the same call with a different split.
+    /// </summary>
+    internal async Task<(List<A09Day> Rows, GapperStudyParams.SplitRange Range, int PopulationRows, int CandidateRows, int NoBars, int Short16, int EarlyClose)> A09RowsAsync(
+        string split, int parallelism, CancellationToken ct)
+    {
+        var p = s.Params;
+        var train = p.Split(split);
+        var profilePath = s.Paths.ProfileFile(false);
         var profile = TimeOfDayProfile.Load(profilePath);
         var amendment = s.Amendment ?? throw new InvalidOperationException("Amendment 01's population sample is required (amendment-01.json).");
 
         // ── population: candidates (census, weight 1) + amendment 01's seeded sample (its weight); excluded days are already out ──
-        var population = (await s.StudyDaysAsync("train", null, null, ct))
+        var population = (await s.StudyDaysAsync(split, null, null, ct))
             .Select(u => (U: u, Sampled: !u.IsCandidate && amendment.IsSampleMember(u.Symbol, u.DateEt)))
             .Where(x => x.U.IsCandidate || x.Sampled).ToList();
-        if (population.Any(x => x.U.DateEt < train.From || x.U.DateEt > train.To || !string.Equals(x.U.Split, "train", StringComparison.Ordinal)))
-            throw new InvalidOperationException("A symbol-day outside the train split reached the late-runner stage; refusing to continue.");
-        s.Logger.LogInformation("[{Now}] explore late-runners: {Rows} train population symbol-days ({Cand} candidates)", GapperStudyServices.Et(s.UtcNow), population.Count, population.Count(x => x.U.IsCandidate));
+        if (population.Any(x => x.U.DateEt < train.From || x.U.DateEt > train.To || !string.Equals(x.U.Split, split, StringComparison.Ordinal)))
+            throw new InvalidOperationException($"A symbol-day outside the {split} split reached the late-runner stage; refusing to continue.");
+        s.Logger.LogInformation("[{Now}] explore late-runners: {Rows} {Split} population symbol-days ({Cand} candidates)", GapperStudyServices.Et(s.UtcNow), population.Count, split, population.Count(x => x.U.IsCandidate));
 
         // ── event inputs for the whole train window (read once) ──
         var lo = MinuteBarMath.ToUtc(MarketCalendar.PreviousTradingDay(train.From), new TimeSpan(16, 0, 0));
@@ -184,7 +198,7 @@ public sealed partial class GapperExploreStage
                     if (!daily.TryGetValue(b.Symbol, out var m)) daily[b.Symbol] = m = [];
                     m[b.DateEt] = ((double)b.High, (double)b.Close);
                 }
-            Parallel.ForEach(batch, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, req.Parallelism), CancellationToken = ct }, group =>
+            Parallel.ForEach(batch, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, parallelism), CancellationToken = ct }, group =>
             {
                 var sym = group.Key;
                 var symItems = items.GetValueOrDefault(sym) ?? [];
@@ -207,7 +221,7 @@ public sealed partial class GapperExploreStage
             s.Logger.LogInformation("[{Now}] explore late-runners: {Done}/{Total} symbols, {Rows} days computed", GapperStudyServices.Et(s.UtcNow), done, bySymbol.Count, results.Count);
         }
         var all = results.OrderBy(d => d.Day).ThenBy(d => d.Symbol, StringComparer.Ordinal).ToList();
-        return A09Report(all, population.Count, population.Count(x => x.U.IsCandidate), noBars, short16, earlyClose, train);
+        return (all, train, population.Count, population.Count(x => x.U.IsCandidate), noBars, short16, earlyClose);
     }
 
     /// <summary>
@@ -469,6 +483,25 @@ public sealed partial class GapperExploreStage
         return double.NaN;
     }
 
+    /// <summary>
+    /// Which of the eleven features to fit on and how (IP-T616): a feature missing on more than half of <paramref
+    /// name="rows"/> (meant to be train rows -- the selection is made once, on train, and reused unchanged when
+    /// scoring another split) is dropped; every other feature with a missing value gets a 0/1 indicator alongside it.
+    /// </summary>
+    internal static (List<string> Names, List<int> Kept, List<int> Dropped, List<int> Indicators, double[] Missing) A09Features(List<A09Day> rows, int n)
+    {
+        var missing = Enumerable.Range(0, A09FeatureNames.Length).Select(j => n == 0 ? 0 : (double)rows.Count(r => double.IsNaN(r.X[j])) / n).ToArray();
+        var kept = Enumerable.Range(0, A09FeatureNames.Length).Where(j => missing[j] <= 0.5).ToList();
+        var dropped = Enumerable.Range(0, A09FeatureNames.Length).Where(j => missing[j] > 0.5).ToList();
+        var indicators = kept.Where(j => missing[j] > 0).ToList();
+        var names = kept.Select(j => A09FeatureNames[j]).Concat(indicators.Select(j => A09FeatureNames[j] + ".missing")).ToList();
+        return (names, kept, dropped, indicators, missing);
+    }
+
+    /// <summary>One row's feature vector under a <see cref="A09Features"/> selection: the kept raw values, then one 0/1 missing indicator per feature that had any.</summary>
+    internal static double[] A09FullVector(A09Day r, List<int> kept, List<int> indicators) =>
+        kept.Select(j => r.X[j]).Concat(indicators.Select(j => double.IsNaN(r.X[j]) ? 1.0 : 0.0)).ToArray();
+
     private (List<string>, int, string?) A09Report(List<A09Day> all, int populationRows, int candidateRows, int noBars, int short16, int earlyClose, GapperStudyParams.SplitRange train)
     {
         var p = s.Params;
@@ -625,13 +658,10 @@ public sealed partial class GapperExploreStage
         double ci = p.Statistics.CiLevel > 0 ? p.Statistics.CiLevel : 0.95;
 
         // Missing data: a feature missing on more than half the rows is dropped; every other feature with a missing value gets a 0/1 indicator
-        // (the value itself is imputed with the fitting rows' weighted mean by LogisticRegression.FitWeighted).
-        var missing = Enumerable.Range(0, A09FeatureNames.Length).Select(j => n == 0 ? 0 : (double)rows.Count(r => double.IsNaN(r.X[j])) / n).ToArray();
-        var kept = Enumerable.Range(0, A09FeatureNames.Length).Where(j => missing[j] <= 0.5).ToList();
-        var dropped = Enumerable.Range(0, A09FeatureNames.Length).Where(j => missing[j] > 0.5).ToList();
-        var indicators = kept.Where(j => missing[j] > 0).ToList();
-        var names = kept.Select(j => A09FeatureNames[j]).Concat(indicators.Select(j => A09FeatureNames[j] + ".missing")).ToList();
-        double[] Full(A09Day r) => kept.Select(j => r.X[j]).Concat(indicators.Select(j => double.IsNaN(r.X[j]) ? 1.0 : 0.0)).ToArray();
+        // (the value itself is imputed with the fitting rows' weighted mean by LogisticRegression.FitWeighted). Selected on train only
+        // (A09Features), even when scoring another split (IP-T616): redoing the selection on validation would leak it.
+        var (names, kept, dropped, indicators, missing) = A09Features(rows, n);
+        double[] Full(A09Day r) => A09FullVector(r, kept, indicators);
         double[] Base(A09Day r) => [r.X[0]];
         var fullX = rows.Select(Full).ToArray();
         var baseX = rows.Select(Base).ToArray();

@@ -164,3 +164,13 @@ choice, and one computability correction:
    by 20:00 (negative). *D3* is weighted.
 10. *Validation* is not read by this command: the explore stage refuses every split but train. A hypothesis that
     passes on train gets its single validation run in a follow-up ticket, under the same definitions.
+
+**Validation result, 2026-11-20 (IP-T616), the single read.** Both models fit on train, scored on validation's
+246 days (never read before this run): `idiotproof research gappers test --hypothesis H27,H28 --split validation`
+(amendment-09.json registers H27/H28 for GapperTestStage; `GapperExploreStage.A09RowsAsync` is the same row
+computation this command uses, now shared rather than duplicated, IP-T616). **A09-H1 (H27) supported**: weighted
+AUC difference +0.0152 [+0.0056, +0.0235], p=0.0026, q=0.0026 (same sign as train's +0.093, smaller as expected on
+unseen data). **A09-H2 (H28) supported**: weighted lift 3.22x [2.96, 3.48], p=0.0002, q=0.0004 (same sign as
+train's 4.33x). Both hold on data neither the hypothesis nor the model ever saw. Per "What a pass does and does
+not allow" above: this is evidence the late-runner pattern is real, not a trading rule -- no entry, exit, cost
+model or sizing has been specified, and the holdout stays unopened.

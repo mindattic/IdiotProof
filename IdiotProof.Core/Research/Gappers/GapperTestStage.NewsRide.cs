@@ -41,6 +41,8 @@ public sealed partial class GapperTestStage
         _ when IsCorobsTest(a.Test) => DispatchCorobsAsync(h, a, run, split, ct),
         HypothesisCorrections.AlarmHitTest => AlarmHitAsync(h, run, split, ct),
         HypothesisCorrections.AlarmLeadTest => AlarmLeadAsync(h, run, split, ct),
+        "a09-move-start-auc" => A09AucAsync(h, run, split, ct),
+        "a09-catalyst-lift" => A09LiftAsync(h, run, split, ct),
         _ => Unknown(h, run),
     };
 

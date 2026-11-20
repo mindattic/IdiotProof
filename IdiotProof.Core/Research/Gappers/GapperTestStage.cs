@@ -23,7 +23,7 @@ public sealed record TestStageResult(string Split, List<HypothesisRun> Runs, str
 /// with the frozen cost model, SPA and DSR), corrects within family (BH) and across primaries
 /// (Holm), writes one run file per hypothesis, and opens the holdout once through <see cref="HoldoutLock"/>.
 /// </summary>
-public sealed partial class GapperTestStage(GapperStudyServices s, GapperStudyPanel panel)
+public sealed partial class GapperTestStage(GapperStudyServices s, GapperStudyPanel panel, IdiotProof.Core.Research.Gappers.Explore.GapperExploreStage explore)
 {
     public const string Stage = "test";
     private const int MinDays = 5;

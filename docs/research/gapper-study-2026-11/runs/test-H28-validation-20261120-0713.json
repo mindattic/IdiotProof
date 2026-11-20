@@ -1,0 +1,67 @@
+{
+  "id": "H28",
+  "family": "F09",
+  "primary": true,
+  "test": "a09-catalyst-lift",
+  "claim": "A fresh catalyst reaching our sources right at the move start raises the odds of reaching \u002B20%: the weighted lift of P(y | fresh catalyst at m0) over P(y | none), on the split under test, is above 1.",
+  "minEffect": {
+    "lift": 1
+  },
+  "split": "validation",
+  "smoke": false,
+  "inputs": {
+    "n": 75726,
+    "days": 246,
+    "firstDate": "2024-11-04",
+    "lastDate": "2025-10-31",
+    "population": "late-runner move starts, validation split",
+    "featureColumns": [
+      "freshCatalyst (X[5])"
+    ],
+    "labelColumns": [
+      "y"
+    ],
+    "frozenCommit": "13f145219f97c40fb346d68336c31dfa59d3eba0",
+    "head": "683ad9569aab9192593534c40474f92eaa188c26",
+    "hypothesesSha256": "645648b68f770bc2de2822d4e199a153589504ae05039839f99b2007ca3b9bd6",
+    "paramsSha256": "872f3294a26b331f667f05bda7a3d632457bc3bdcc94a48de38b8dbee51f47ba",
+    "postRegistrationFeaturesUsed": [],
+    "amendmentId": "A09",
+    "amendmentSha256": "c09db3bd4ec093c01cc31c1bdcc73b9e9bfbb7e5e8c577413bdbc0494b7abeb4"
+  },
+  "parts": [
+    {
+      "name": "lift",
+      "effectName": "lift",
+      "effect": 3.2186317367815263,
+      "minEffect": 1,
+      "direction": "AtLeast",
+      "meetsMinimum": true,
+      "rawP": 0.00019998000199980003,
+      "familyQ": 0.00039996000399960006,
+      "ciLow": 2.960250365190444,
+      "ciHigh": 3.4767237477984723,
+      "n": 7376,
+      "days": 246,
+      "verdict": "supported",
+      "verdictFixed": false,
+      "reasons": [
+        "verdict: effect 3.219 vs 1 (AtLeast), q 4.0e-4 vs 0.05"
+      ],
+      "statistic": {
+        "rateFresh": 0.053954207654967994,
+        "rateNone": 0.0167630881900517,
+        "scoredOn": "validation",
+        "pRule": "day-clustered bootstrap of the weighted group rate minus the weighted base rate"
+      },
+      "hasInterval": true
+    }
+  ],
+  "verdict": "supported",
+  "reasons": [],
+  "correctionScope": "BH within family and Holm across the 2 hypothesis run(s) of this invocation; the report re-corrects across the latest run of every hypothesis; amendment A09 corrected as its own set",
+  "computedUtc": "2026-11-20T07:13:52.9853888Z",
+  "seconds": 306.1,
+  "file": "D:\\Projects\\MindAttic\\IdiotProof\\docs\\research\\gapper-study-2026-11\\runs\\test-H28-validation-20261120-0713.json",
+  "holmInputP": 0.00019998000199980003
+}

@@ -1,0 +1,50 @@
+{
+  "id": "A09",
+  "version": 1,
+  "registeredUtc": "2026-11-20T06:36:30Z",
+  "ticket": "IP-T616",
+  "registeredBeforeResults": "When this file was committed, A09-H1 and A09-H2 had been computed on train only (research gappers explore --command late-runners, runs/explore/late-runners-20261120-0614.md/.json, IP-T605): both passed (A09-H1 weighted AUC difference +0.093 [+0.087, +0.099], A09-H2 weighted lift 4.331 [4.095, 4.576], both p=0.0001, BH q=0.0001 < 0.05). Validation and holdout have never been read for either. The definitions, feature list, model, folds and bootstrap below are exactly amendment-09.md's own dated implementation note (2026-11-19, written with the code before the train run) and the frozen amendment-09.md hypothesis text (2026-11-07); nothing here was chosen or adjusted after seeing the train numbers. This file only puts those same definitions into the machine-readable form GapperTestStage needs to score a split other than train.",
+  "question": "At the moment a stock's intraday move actually starts (after staying under +20% since the prior close), does everything knowable then -- not just how far it is already up -- predict whether it reaches +20%? And does a catalyst freshly reaching our sources right at that moment raise the odds?",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json", "amendment-01.json", "amendment-02.json", "amendment-03.json", "amendment-04.json"],
+  "population": "Amendment 01's population over train's universe days (candidates at weight 1, the seeded sample at its weight); here, over whichever split is under test. A (symbol, day) enters only once it reaches its move start m0: the first regular-hours (09:30-15:59 ET) minute with abnormal volume (>= params.features.abnormalVolumeMultiple x the time-of-day profile) whose close is above the prior close, before any +20% high and before an early close day's post-market bars. No m0, no row.",
+  "label": "y = the day reaches +20% over the split-adjusted prior close (bar highs) strictly after m0, by 20:00 ET.",
+  "features": "The eleven features at m0 (amendment-09.md, GapperExploreStage.A09FeatureNames): gainAtStart, volRatioTod, minutesSinceOpen, pmHighGain, highSoFarGain, freshCatalyst, catalystAgeMin, four 0/1 columns for the amendment 08 catalyst group at m0 (real company event / story or PR / offering / reverse split; none = all zero), haltBeforeStart, logAdv20Dollars, logPrevClose, reverseSplitWithin60d, offering424BorS1Within90d, priorTopMoverDays, logSharesOutstanding. A feature missing on more than half of train is dropped before fitting; every other feature with any missing value on train gets a 0/1 missing indicator alongside it (GapperExploreStage.A09Features); the same kept/dropped/indicator selection, made once on train, is reused unchanged when scoring another split -- redoing the selection on validation would leak it.",
+  "method": "A09-H1: two weighted logistic regressions (LogisticRegression.FitWeighted, L2 1.0, 500 epochs, rate 0.1, features standardized on the fitting rows) fit once on every train row under test -- the full eleven-feature model, and a one-feature model of gainAtStart alone -- then both score every row of the split under test (never refit on it, the same train-fit/out-of-sample-score convention H11p already uses). Weighted AUC of each, compared by WeightedAuc.CompareByDay: day-clustered bootstrap (params.statistics.bootstrapDraws draws, seed, ciLevel) of the full AUC minus the gainAtStart-alone AUC, over the split's own rows and days. A09-H2: WeightedPopulation.Lift of y given freshCatalyst at m0 (X[5] > 0.5) vs not, on the split's own rows, same day-clustered bootstrap. One Benjamini-Hochberg family (F09) over the two, as the train run itself used; no Holm (neither re-asks a frozen Holm-listed hypothesis).",
+  "hypotheses": [
+    {
+      "id": "H27",
+      "primary": true,
+      "family": "F09",
+      "test": "a09-move-start-auc",
+      "claim": "Everything knowable at a late runner's move start predicts reaching +20% better than knowing only how far it is already up: the weighted AUC of the eleven-feature model (fit on train) minus the gainAtStart-alone model (fit on train), both scored on the split under test, is above 0.",
+      "minEffect": { "aucDifference": 0 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    },
+    {
+      "id": "H28",
+      "primary": true,
+      "family": "F09",
+      "test": "a09-catalyst-lift",
+      "claim": "A fresh catalyst reaching our sources right at the move start raises the odds of reaching +20%: the weighted lift of P(y | fresh catalyst at m0) over P(y | none), on the split under test, is above 1.",
+      "minEffect": { "lift": 1 },
+      "splitsAllowed": ["train", "validation", "holdout"]
+    }
+  ],
+  "trainReference": {
+    "note": "H27/H28's own exploratory numbers (research gappers explore --command late-runners, 5-fold pooled out-of-fold); GapperTestStage's train-split invocation of H27/H28 fits and scores in-sample instead (its own convention for a train-split call) and so reads smaller in degree, same sign: aucDifference 0.034, lift 3.587 (runs/test-H27/H28-train-20261120-0701.json).",
+    "H27": { "aucFull": 0.923, "aucGainAtStartOnly": 0.830, "difference": 0.093, "low": 0.087, "high": 0.099, "p": 0.0001, "q": 0.0001 },
+    "H28": { "rateFresh": 0.038, "rateNone": 0.009, "lift": 4.331, "low": 4.095, "high": 4.576, "p": 0.0001, "q": 0.0001 }
+  },
+  "validationReference": {
+    "note": "The single validation read (2026-11-20, IP-T616), both models fit on train, scored on validation (246 days, never read before): same sign as train on both, supported.",
+    "H27": { "aucFull": 0.901, "aucGainAtStartOnly": 0.886, "difference": 0.0152, "low": 0.0056, "high": 0.0235, "p": 0.0026, "q": 0.0026, "verdict": "supported", "n": 75726, "days": 246 },
+    "H28": { "rateFresh": 0.0540, "rateNone": 0.0168, "lift": 3.219, "low": 2.960, "high": 3.477, "p": 0.0002, "q": 0.0004, "verdict": "supported", "n": 7376, "days": 246 }
+  },
+  "decisionRules": {
+    "trainRun": "The train run (research gappers explore --command late-runners) stands as the exploration result. GapperTestStage's own train-split invocation of H27/H28 fits and scores the identical train rows in-sample (the test stage's own established convention for a train-split call, GapperTestStage.TrainRowsAsync), so it checks the pipeline runs correctly end-to-end, not that it reproduces the exploration's pooled out-of-fold number -- an in-sample AUC difference of 0.034 and lift of 3.587 against the exploration's 0.093/4.331 is expected (same sign, different degree; verified 2026-11-20) and carries no verdict weight regardless.",
+    "promotion": "A supported H27 and H28 on validation and on the holdout is evidence the late-runner pattern is real and learnable, not that a trading rule exists: no entry, exit, cost model, sizing or timing has been specified or tested here, and 62% of train +20% days first cross it during regular hours after staying under it premarket (the current Gapper templates sell by 09:28 and would miss most of them). A regular-hours entry/exit rule is its own, separate, future amendment with its own cost model, exit ladder and paper shadow -- this amendment never arms, sizes or exits a trade.",
+    "killCriterion": "A09 neither triggers nor lifts the H11/H11p kill criterion (a different question: formation detection at 08:00, not the regular-hours move-start question here).",
+    "holdout": "The single holdout test invocation runs frozen and A01-A09 hypotheses together; it requires the user's explicit go-ahead and the holdout has never been opened for any hypothesis.",
+    "reporting": "Every A09 result is reported, pass or fail, with both models' AUC, the lift's two rates, and which features were dropped for missingness on that run's training data."
+  }
+}
