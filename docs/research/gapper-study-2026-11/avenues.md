@@ -176,6 +176,16 @@ Track 5 exhaustion candidate), `publicFloatUsd` (feeds A2's baby-shelf cap).
 
 **Effort.** Low: one bulk ZIP, a parser, `GapperStudySharesOutstanding`. **Tracks:** 2, 5.
 
+### A3b. Vendor float and short interest (IP-T603)
+
+`idiotproof fundamentals show <SYM>` reads float, shares outstanding, short interest, short % of float and
+days to cover from Polygon, Financial Modeling Prep or Finviz Elite (each off until its key is in Vault;
+`fundamentals status`). The runner journal adds float / short % float / days-to-cover columns when a source
+is configured. These are **current vendor reads, not point-in-time history**: using them on past train days
+would leak today's float into old rows. Float and short interest stay a **candidate feature** until an
+amendment pre-registers how they are measured live (forward journal sessions only, or a point-in-time
+source such as A3 XBRL / A5b FINRA for history) and what result would count.
+
 ## A4. Alpaca SIP trades and quotes (trade-level microstructure)
 
 **What.** The study uses minute bars plus one 08:00 quote. Trade-level SIP data adds what bars hide:

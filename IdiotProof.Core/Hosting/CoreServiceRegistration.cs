@@ -122,6 +122,10 @@ public static class CoreServiceRegistration
         services.AddSingleton<IdiotProof.Core.Monitoring.Formation.FormationDetectorScorer>();
         services.AddSingleton<IdiotProof.Core.Monitoring.Formation.FormationReferenceSource>();
 
+        // IP-T603: float / short interest / shares outstanding from FMP, Polygon or Finviz Elite, each off until its key is in Vault.
+        services.AddSingleton(sp => IdiotProof.Core.Fundamentals.FundamentalsService.Create(
+            configuration, sp.GetService<IHttpClientFactory>(), sp.GetService<TimeProvider>()));
+
         // ── Engine: storage, AppSettings overlay chain, workspaces, audit logger ──
         // The SQL workspace store is registered first so the engine's TryAdd keeps it.
         services.AddSingleton<IWorkspaceStore>(sp =>

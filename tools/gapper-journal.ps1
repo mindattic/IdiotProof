@@ -263,8 +263,19 @@ function MinBetween([string]$a, $b) {
     [int]([datetime]$b - $day.Add([TimeSpan]::Parse($a, $inv))).TotalMinutes
 }
 
+# Float / short interest (IP-T603): only when a vendor key is in Vault; blank otherwise. Current vendor reads,
+# not point-in-time history, so a candidate study feature only (pre-register before use).
+$fundOn = $false
+try { $fs = & $Cli fundamentals status --json 2>$null | Out-String | ConvertFrom-Json; $fundOn = [bool]$fs.data.configured } catch { }
+function Prop($o, [string[]]$names) { if ($null -eq $o) { return $null }; foreach ($n in $names) { $p = $o.PSObject.Properties[$n]; if ($p) { return $p.Value } }; $null }
+function Fundamentals([string]$sym) {
+    if (-not $fundOn) { return $null }
+    try { $r = & $Cli fundamentals show $sym --json 2>$null | Out-String | ConvertFrom-Json; Prop $r.data @('snapshot') } catch { $null }
+}
+
 $rows = foreach ($d in @($study.stockDays)) {
     $t = Trade $d.symbol
+    $f = Fundamentals $d.symbol
     $rs = $d.lastReverseSplit
     [pscustomobject][ordered]@{
         rank = $d.rank; symbol = $d.symbol; named = [bool]$d.named; name = $d.name
@@ -296,6 +307,8 @@ $rows = foreach ($d in @($study.stockDays)) {
         entryVsIgnitionMin = if ($t) { MinBetween $d.ignitionEt $t.EntryEt } else { $null }
         exitEt = if ($t -and $t.ExitEt) { $t.ExitEt.ToString('HH:mm') } else { $null }; exit = if ($t -and $t.Exit) { [Math]::Round($t.Exit, 4) } else { $null }
         paperPlPct = if ($t -and $null -ne $t.PlPct) { [Math]::Round($t.PlPct, 4) } else { $null }; stillOpen = if ($t) { $t.Open } else { $false }
+        floatShares = Prop $f @('floatShares', 'float_shares', 'FloatShares'); shortPctFloat = Prop $f @('shortPercentOfFloat', 'short_percent_of_float', 'ShortPercentOfFloat')
+        daysToCover = Prop $f @('daysToCover', 'days_to_cover', 'DaysToCover'); fundamentalsSource = Prop $f @('source', 'Source')
     }
 }
 $rows = @($rows)
@@ -327,14 +340,14 @@ $md.Add("- R4 alarm 06:00-09:10: $(@($ranked | Where-Object { $_.r4Alarm }).Coun
 $md.Add("- Armed: $(@($ranked | Where-Object { $_.armed }).Count); entered: $(@($ranked | Where-Object { $_.entered }).Count).")
 $md.Add('')
 function Table($set) {
-    $md.Add('| # | Symbol | Catalyst | Catalyst ET | Catalyst to ignition (min; < 0 moved first) | Prior close | Shares out | Reverse split | Prior top-mover days | Ignition | HOD | Run | Close vs high | R4 | Radar | Armed | Entry | Exit | Paper P/L |')
-    $md.Add('|---:|---|---|---|---:|---:|---:|---|---:|---|---|---:|---:|---|---:|---|---|---|---:|')
+    $md.Add('| # | Symbol | Catalyst | Catalyst ET | Catalyst to ignition (min; < 0 moved first) | Prior close | Shares out | Float | Short % float | Days to cover | Reverse split | Prior top-mover days | Ignition | HOD | Run | Close vs high | R4 | Radar | Armed | Entry | Exit | Paper P/L |')
+    $md.Add('|---:|---|---|---|---:|---:|---:|---:|---:|---:|---|---:|---|---|---:|---:|---|---:|---|---|---|---:|')
     foreach ($r in $set) {
         $rsTxt = if ($r.reverseSplit) { "$($r.reverseSplit) ($($r.daysSinceReverseSplit)d)" } else { '-' }
         $entry = if ($r.entered) { "$($r.entryEt) @ $(Num $r.entry '0.####')$(if ($r.buys -gt 1) { " ($($r.buys) buys, avg)" })" } else { '-' }
         $exit = if ($r.exitEt) { "$($r.exitEt) @ $(Num $r.exit '0.####')" } elseif ($r.entered) { 'open' } else { '-' }
         $r4 = if ($r.r4Hit) { "$($r.r4AlarmEt) hit" } elseif ($r.r4Alarm) { $r.r4AlarmEt } else { 'none' }
-        $md.Add("| $($r.rank) | $($r.symbol) | $($r.catalyst) | $(if ($r.catalystEt) { $r.catalystEt.Substring(5) } else { '-' }) | $(Num $r.catalystToIgnitionMin '0') | $(Num $r.priorClose '0.####') | $(Shares $r.sharesOutstanding) | $rsTxt | $($r.priorTopMoverDays) | $(if ($r.ignitionEt) { $r.ignitionEt } else { '-' }) | $(if ($r.hodEt) { $r.hodEt } else { '-' }) | $(Pct $r.runPct) | $(Pct $r.fadeToClosePct) | $r4 | $(if ($r.radarRank) { "$($r.radarRank)" } else { '-' }) | $(if ($r.armed) { 'yes' } else { 'no' }) | $entry | $exit | $(Pct $r.paperPlPct) |")
+        $md.Add("| $($r.rank) | $($r.symbol) | $($r.catalyst) | $(if ($r.catalystEt) { $r.catalystEt.Substring(5) } else { '-' }) | $(Num $r.catalystToIgnitionMin '0') | $(Num $r.priorClose '0.####') | $(Shares $r.sharesOutstanding) | $(Shares $r.floatShares) | $(if ($null -ne $r.shortPctFloat) { (Num $r.shortPctFloat '0.#') + '%' } else { '-' }) | $(Num $r.daysToCover '0.#') | $rsTxt | $($r.priorTopMoverDays) | $(if ($r.ignitionEt) { $r.ignitionEt } else { '-' }) | $(if ($r.hodEt) { $r.hodEt } else { '-' }) | $(Pct $r.runPct) | $(Pct $r.fadeToClosePct) | $r4 | $(if ($r.radarRank) { "$($r.radarRank)" } else { '-' }) | $(if ($r.armed) { 'yes' } else { 'no' }) | $entry | $exit | $(Pct $r.paperPlPct) |")
     }
 }
 function TimingTable($set) {
