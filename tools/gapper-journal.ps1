@@ -280,6 +280,8 @@ $rows = foreach ($d in @($study.stockDays)) {
     [pscustomobject][ordered]@{
         rank = $d.rank; symbol = $d.symbol; named = [bool]$d.named; name = $d.name
         catalyst = $d.catalyst; group = $d.group; catalystEt = $d.catalystEt; catalystHeadline = $d.catalystHeadline
+        # "who knew first" (IP-T607): null before IP-T602 (2026-11-19) or for a symbol/day the live intake never saw
+        catalystFirstSeenEt = $d.catalystFirstSeenEt; catalystFirstSeenSource = $d.catalystFirstSeenSource
         # signed: negative = the move started before the catalyst was published (leak, promotion, sympathy?)
         catalystToIgnitionMin = if ($d.catalystEt -and $d.ignitionEt) { [int]($day.Add([TimeSpan]::Parse($d.ignitionEt, $inv)) - [datetime]::ParseExact($d.catalystEt, 'yyyy-MM-dd HH:mm', $inv)).TotalMinutes } else { $null }
         catalystToHodMin = $d.catalystToHodMin
@@ -378,6 +380,17 @@ $md.Add('')
 TimingTable $ranked
 if ($extraRows.Count) { $md.Add(''); $md.Add('Named:'); $md.Add(''); TimingTable $extraRows }
 $md.Add('')
+$firstSeenRows = @($rows | Where-Object { $_.catalystFirstSeenSource })
+if ($firstSeenRows.Count) {
+    $md.Add('## Who knew first (IP-T607)')
+    $md.Add('')
+    $md.Add("$($firstSeenRows.Count) of $($rows.Count) runner(s) had a live-intake sighting (IP-T602, wires/EDGAR/Alpaca news since 2026-11-19); everyone else is from before the sources existed or was never seen by them.")
+    $md.Add('')
+    $md.Add('| # | Symbol | First seen | Source |')
+    $md.Add('|---:|---|---|---|')
+    foreach ($r in $firstSeenRows) { $md.Add("| $($r.rank) | $($r.symbol) | $($r.catalystFirstSeenEt) | $($r.catalystFirstSeenSource) |") }
+    $md.Add('')
+}
 $md.Add('## Post-mortem (by hand)')
 $md.Add('')
 $md.Add('Per runner: the catalyst in a line (type, source, how fast it reached the tape), timing vs the first move across the whole day (premarket, regular hours or post-market; a late runner per amendment 09?), what in the prior profile stood out, why the radar ranked or missed it, and what our paper strategy did and why.')

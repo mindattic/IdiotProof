@@ -140,6 +140,24 @@ internal static class CaseStudyCommand
         public bool Reaction { get; init; }
     }
 
+    /// <summary>One source's sighting of the catalyst's own story (IP-T607, off IdiotProof.Core.Data.CatalystSighting + the story event's own row).</summary>
+    private sealed class CatalystSightingNote
+    {
+        public string Source { get; init; } = "";
+        public string SeenEt { get; init; } = "";
+        /// <summary>Minutes after the earliest sighting (0 for whichever source was first).</summary>
+        public double LagMin { get; init; }
+    }
+
+    /// <summary>One social-attention reading for the symbol that day (IP-T607, off IdiotProof.Core.Data.SocialSignal).</summary>
+    private sealed class SocialSignalNote
+    {
+        public string Source { get; init; } = "";
+        public string? Channel { get; init; }
+        public string FirstSeenEt { get; init; } = "";
+        public int Count { get; init; }
+    }
+
     private sealed class FilingItem
     {
         public string Form { get; init; } = "";
@@ -209,6 +227,12 @@ internal static class CaseStudyCommand
         public double? CatalystToIgnitionMin { get; set; }
         public bool PostSplit0To10 { get; set; }
         public string Group { get; set; } = "";
+        // "who knew first" (IP-T607, off IP-T602's live intake rows; empty before 2026-11-19 or for a symbol/day the
+        // intake never saw -- the Alpaca/EDGAR catalyst above is derived independently and always available)
+        public string? CatalystFirstSeenEt { get; set; }
+        public string? CatalystFirstSeenSource { get; set; }
+        public List<CatalystSightingNote> CatalystSightings { get; set; } = [];
+        public List<SocialSignalNote> SocialSignals { get; set; } = [];
         // prior profile
         public double PriorClose { get; set; }
         public double Adv20Dollars { get; set; }
@@ -483,6 +507,12 @@ internal static class CaseStudyCommand
         foreach (var g in selected.GroupBy(r => r.Symbol))
             await newsCache.GetAsync(g.Key, MinuteBarMath.ToUtc(g.Min(r => r.D).AddDays(-MetadataLookbackDays + 30), TimeSpan.Zero), MinuteBarMath.ToUtc(g.Max(r => r.D), SessionEnd), ct);
 
+        // 8b. "Who knew first" (IP-T607): the live intake's own sightings, D-2..D, for the selected names. Empty before
+        // the sources existed (IP-T602, 2026-11-19) or for a symbol/day the intake never saw; the Alpaca/EDGAR catalyst
+        // above is derived independently of this and always available.
+        var sightingsBySymbolDay = await SightingsAsync(s.Db, selected, ct);
+        var socialBySymbolDay = await SocialSignalsAsync(s.Db, selected, ct);
+
         // 9. R4 on a reconstructed morning cross-section.
         var profile = TimeOfDayProfile.Load(s.Paths.ProfileFile(false));
         var amendment = s.Amendment ?? throw new InvalidOperationException("Amendment 01's population sample is required for the R4 cross-section.");
@@ -607,6 +637,7 @@ internal static class CaseStudyCommand
                 newsCache.Peek(r.Symbol), eligible, names);
             await FilingsAsync(dz, r, subs.GetValueOrDefault(r.Symbol), headers, headerCache, http, edgarGate, ct);
             Catalyst(dz, r, newsCache.Peek(r.Symbol));
+            FirstSeen(dz, sightingsBySymbolDay.GetValueOrDefault((r.Symbol, r.D)), socialBySymbolDay.GetValueOrDefault((r.Symbol, r.D)));
             dz.R4 = r4.GetValueOrDefault((r.Symbol, r.D)) ?? new R4Check { Status = "not computed" };
             if (dz.R4.AlarmEt is { } ae && dz.HodEt is { } he) dz.R4.LeadToHodMin = (int)(TimeSpan.Parse(he, CultureInfo.InvariantCulture) - TimeSpan.Parse(ae, CultureInfo.InvariantCulture)).TotalMinutes;
             dossiers.Add(dz);
@@ -1209,6 +1240,84 @@ internal static class CaseStudyCommand
         }
     }
 
+    /// <summary>
+    /// Every source's sighting of every live-intake catalyst story for the selected (symbol, day) pairs, D-2..D
+    /// (IP-T607): the story event's own (Source, ReceivedUtc) as its first sighting, plus each
+    /// <see cref="CatalystSighting"/> row pointed at it. Empty before IP-T602 (2026-11-19) or for a day the intake
+    /// never ran. Keyed loosely to the day: a story seen D-2..D on the run's own catalyst window counts for that day.
+    /// </summary>
+    private static async Task<Dictionary<(string Symbol, DateOnly Day), List<CatalystSightingNote>>> SightingsAsync(
+        IDbContextFactory<AppDbContext> dbFactory, List<Row> selected, CancellationToken ct)
+    {
+        var result = new Dictionary<(string, DateOnly), List<CatalystSightingNote>>();
+        var symbols = selected.Select(r => r.Symbol).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (symbols.Count == 0) return result;
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var from = MinuteBarMath.ToUtc(selected.Min(r => r.D).AddDays(-2), TimeSpan.Zero);
+        var to = MinuteBarMath.ToUtc(selected.Max(r => r.D), SessionEnd);
+        var events = await db.CatalystEvents.AsNoTracking()
+            .Where(e => symbols.Contains(e.PrimarySymbol) && e.ReceivedUtc >= from && e.ReceivedUtc <= to)
+            .Select(e => new { e.Id, e.PrimarySymbol, e.Source, e.ReceivedUtc }).ToListAsync(ct);
+        if (events.Count == 0) return result;
+        var ids = events.Select(e => e.Id).ToList();
+        var sightings = await db.CatalystSightings.AsNoTracking().Where(s2 => ids.Contains(s2.EventId))
+            .Select(s2 => new { s2.EventId, s2.Source, s2.SeenUtc }).ToListAsync(ct);
+        foreach (var r in selected)
+        {
+            var d0 = MinuteBarMath.ToUtc(r.D.AddDays(-2), TimeSpan.Zero);
+            var d1 = MinuteBarMath.ToUtc(r.D, SessionEnd);
+            var mine = events.Where(e => string.Equals(e.PrimarySymbol, r.Symbol, StringComparison.OrdinalIgnoreCase) && e.ReceivedUtc >= d0 && e.ReceivedUtc <= d1).ToList();
+            if (mine.Count == 0) continue;
+            var all = mine.Select(e => (Source: e.Source, At: e.ReceivedUtc))
+                .Concat(sightings.Where(s2 => mine.Any(e => e.Id == s2.EventId)).Select(s2 => (Source: s2.Source, At: s2.SeenUtc)))
+                .OrderBy(x => x.At).ToList();
+            if (all.Count == 0) continue;
+            var first = all[0].At;
+            result[(r.Symbol, r.D)] = all.Select(x => new CatalystSightingNote
+            {
+                Source = x.Source, SeenEt = EtMin(x.At), LagMin = Math.Round((x.At - first).TotalMinutes, 1),
+            }).ToList();
+        }
+        return result;
+    }
+
+    /// <summary>StockTwits/Reddit attention for the selected (symbol, day) pairs, D-2..D (IP-T607); empty the same way.</summary>
+    private static async Task<Dictionary<(string Symbol, DateOnly Day), List<SocialSignalNote>>> SocialSignalsAsync(
+        IDbContextFactory<AppDbContext> dbFactory, List<Row> selected, CancellationToken ct)
+    {
+        var result = new Dictionary<(string, DateOnly), List<SocialSignalNote>>();
+        var symbols = selected.Select(r => r.Symbol).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (symbols.Count == 0) return result;
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var from = MinuteBarMath.ToUtc(selected.Min(r => r.D).AddDays(-2), TimeSpan.Zero);
+        var to = MinuteBarMath.ToUtc(selected.Max(r => r.D), SessionEnd);
+        var rows = await db.SocialSignals.AsNoTracking()
+            .Where(x => symbols.Contains(x.Symbol) && x.ObservedUtc >= from && x.ObservedUtc <= to)
+            .GroupBy(x => new { x.Symbol, x.Source, x.Channel })
+            .Select(g => new { g.Key.Symbol, g.Key.Source, g.Key.Channel, FirstSeenUtc = g.Min(x => x.FirstSeenUtc), Count = g.Sum(x => x.Count) })
+            .ToListAsync(ct);
+        foreach (var r in selected)
+        {
+            var d0 = MinuteBarMath.ToUtc(r.D.AddDays(-2), TimeSpan.Zero);
+            var d1 = MinuteBarMath.ToUtc(r.D, SessionEnd);
+            var mine = rows.Where(x => string.Equals(x.Symbol, r.Symbol, StringComparison.OrdinalIgnoreCase) && x.FirstSeenUtc >= d0 && x.FirstSeenUtc <= d1).ToList();
+            if (mine.Count == 0) continue;
+            result[(r.Symbol, r.D)] = mine.Select(x => new SocialSignalNote { Source = x.Source, Channel = x.Channel, FirstSeenEt = EtMin(x.FirstSeenUtc), Count = x.Count }).ToList();
+        }
+        return result;
+    }
+
+    private static void FirstSeen(Dossier dz, List<CatalystSightingNote>? sightings, List<SocialSignalNote>? social)
+    {
+        if (sightings is { Count: > 0 })
+        {
+            dz.CatalystSightings = sightings;
+            var first = sightings[0];
+            dz.CatalystFirstSeenEt = first.SeenEt; dz.CatalystFirstSeenSource = first.Source;
+        }
+        if (social is { Count: > 0 }) dz.SocialSignals = social;
+    }
+
     // ── Summary and markdown ─────────────────────────────────────────────
 
     private static object Summarize(List<Dossier> ds)
@@ -1270,6 +1379,14 @@ internal static class CaseStudyCommand
                 medianFreshCatalystToFirst20Min = Median(ds.Where(x => !x.CatalystBeforeClose).Select(x => x.CatalystToFirst20Min)),
                 postMarketHigh = ds.Count(x => x.HodSession?.StartsWith("post", StringComparison.Ordinal) == true),
                 medianFadeToLast = Median(ds.Select(x => x.FadeToLastPct)), medianHodToPullback10Min = Median(ds.Select(x => x.HodToPullback10Min)),
+            },
+            // "who knew first" (IP-T607): only live-intake days (IP-T602, 2026-11-19 on) have any rows here.
+            firstSeen = new
+            {
+                withSightings = ds.Count(x => x.CatalystSightings.Count > 0),
+                multiSource = ds.Count(x => x.CatalystSightings.Count > 1),
+                withSocialSignal = ds.Count(x => x.SocialSignals.Count > 0),
+                bySource = ds.Where(x => x.CatalystFirstSeenSource is not null).GroupBy(x => x.CatalystFirstSeenSource).OrderByDescending(g => g.Count()).ToDictionary(g => g.Key!, g => g.Count()),
             },
             top = new
             {
@@ -1363,6 +1480,7 @@ internal static class CaseStudyCommand
             sb.AppendLine($"### {d.Date} {d.Symbol} (#{d.Rank}{(d.Named ? ", named" : "")}) - {d.Name}");
             sb.AppendLine();
             sb.AppendLine($"- **Catalyst: {d.Catalyst}**{(d.CatalystEt is { } ce ? $" at {ce} ET" : "")}{(d.CatalystSource is { } cs ? $" ({cs})" : "")}: \"{d.CatalystHeadline}\"{(d.CatalystViaReaction ? " (reason stated in a reaction article)" : "")}{(d.CatalystBeforeClose ? " (published before the prior close)" : "")}; catalyst to high {N(d.CatalystToHodMin)} min.");
+            if (d.CatalystSightings.Count > 0) sb.AppendLine($"- **Who knew first (IP-T607):** first seen by {d.CatalystFirstSeenSource} at {d.CatalystFirstSeenEt} ET; " + string.Join(", ", d.CatalystSightings.Skip(1).Select(x => $"{x.Source} +{x.LagMin:0.#} min")) + (d.SocialSignals.Count > 0 ? "; social: " + string.Join(", ", d.SocialSignals.Select(x => $"{x.Source}{(x.Channel is { } ch ? $"/{ch}" : "")} {x.Count} by {x.FirstSeenEt}")) : "") + ".");
             sb.AppendLine($"- **Run:** prior close ${d.PriorClose:0.00##} -> high ${d.Hod:0.00##} at {d.HodEt ?? "-"} ({P(d.RunPct)}; regular-hours high ${d.RthHigh:0.00##} at {d.RthHighEt ?? "-"}); premarket high {P(d.PmHighGain)} at {d.PmHighEt ?? "-"} on {M(d.PmVolume)} sh; open {P(d.OpenGain)}; ignition {d.IgnitionEt ?? "none"}{(d.IgnitionIsFirstPrint ? " (already >= +20% at the first print)" : d.IgnitionVolMultiple is { } iv ? $" ({iv:0}x the trailing 30-min volume)" : "")}, {N(d.IgnitionToHodMin)} min to the high; close ${d.Close:0.00##} ({P(d.CloseGain)}){(d.Partial ? " (partial session)" : "")}; ${M(d.DayDollarVolume)} traded.");
             sb.AppendLine($"- **Timing (04:00-20:00):** first +10% {d.First10Et ?? "never"}, first +20% {d.First20Et ?? "never"}{(d.First20Session is { } fs ? $" ({fs})" : "")}{(d.LateRunner ? ", a late runner (amendment 09)" : "")}; move start {(d.MoveStartEt is { } ms ? $"{ms} at {P(d.MoveStartGain)} (vol ratio {(d.MoveStartVolRatioTod is { } msVr ? $"{msVr:0.0}x" : "n/a")}, {d.HaltsBeforeMoveStart} halts before), {(d.Reach20AfterMoveStart == true ? $"+20% {N(d.MoveStartToFirst20Min)} min later" : "no +20% after it")}" : d.MoveStartNote ?? "-")}; catalyst to first +20% {N(d.CatalystToFirst20Min)} min, to move start {N(d.CatalystToMoveStartMin)} min; high of day in the {d.HodSession ?? "-"} session; post-market high {(d.PostHighEt is { } ph ? $"{P(d.PostHighGain)} at {ph}" : "none")}; last print {(d.LastEt is { } le ? $"{le} {P(d.LastGain)} ({P(d.FadeToLastPct)} from the high)" : "-")}; high to -10% {(d.HodToPullback10Min is { } pb ? $"{pb:0} min" : "never")}.");
             sb.AppendLine($"- **Fade:** close {P(d.FadeToClosePct)} from the high, D+1 {P(d.FadeToD1Pct)}{(d.D1Partial ? " (partial)" : "")}, D+2 {P(d.FadeToD2Pct)}{(d.D2Partial ? " (partial)" : "")}; run given back {P(d.RunGivenBackByClose)} by the close, {P(d.RunGivenBackByD2)} by D+2; D+1 higher high: {(d.D1Close is null ? "-" : d.D1HigherHigh ? "yes" : "no")}.");
