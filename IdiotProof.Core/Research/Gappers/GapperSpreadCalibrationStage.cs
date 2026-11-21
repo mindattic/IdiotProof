@@ -84,6 +84,19 @@ public static class GapperSpreadMultiplier
         return value is { } v && double.IsFinite(v) && v > 0 ? (v, FileName) : (null, $"{FileName} holds no usable multiplier");
     }
 
+    public const string A12FileName = "spread-multiplier-a12.json";
+
+    /// <summary>Amendment 12's per-session multipliers (IP-T625), only for tests registered after it that name it; never the frozen model's.</summary>
+    public static (GapperSessionMultipliers? Multipliers, string Source) ResolveA12(GapperStudyPaths paths)
+    {
+        var file = Path.Combine(paths.DataDir, A12FileName);
+        if (!System.IO.File.Exists(file)) return (null, $"{A12FileName} missing: amendment 12's calibration has not run (tools/gapper-study/a12_calibrate.py)");
+        var doc = JsonNode.Parse(System.IO.File.ReadAllText(file)) as JsonObject;
+        static double? Usable(JsonNode? n) => n?.GetValue<double?>() is { } v && double.IsFinite(v) && v > 0 ? v : null;
+        var m = new GapperSessionMultipliers(Usable(doc?["premarket"]), Usable(doc?["regular"]));
+        return m.Premarket is null && m.Regular is null ? (null, $"{A12FileName} holds no accepted session multiplier") : (m, A12FileName);
+    }
+
     /// <summary>The frozen calibration recipe (params.costModel.spread.calibration).</summary>
     public sealed record Recipe(int Events, string Split, string Tier, string AtEt, int ToleranceSeconds, string Statistic, string Order);
 

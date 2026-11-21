@@ -1,0 +1,47 @@
+{
+  "entry": {
+    "legs": 45744,
+    "withQuotes": 35585,
+    "relAtMedian": 0.012376237623762552,
+    "relAtWeighted": 0.011299435028248598,
+    "relWindowMedian": 0.012422360248447215,
+    "chargedSpreadMedian": 0.004397698984950225
+  },
+  "exit": {
+    "legs": 45744,
+    "withQuotes": 41377,
+    "relAtMedian": 0.008810572687224679,
+    "relAtWeighted": 0.006734006734006709,
+    "relWindowMedian": 0.008810572687224679,
+    "chargedSpreadMedian": 0.004397698984950225
+  },
+  "perTrade": [
+    {
+      "window": "all",
+      "trades": 32760,
+      "quotedRoundTripMedian": 0.011494591647263413,
+      "modelSpreadMedian": 0.0039873099871859915,
+      "ratioMedian": 2.813552331675654,
+      "quotedPlusImpactMedian": 0.029010538017960375,
+      "modelRoundTripMedian": 0.021672632364960732
+    },
+    {
+      "window": "exit before 09:30",
+      "trades": 14101,
+      "quotedRoundTripMedian": 0.011267774542833252,
+      "modelSpreadMedian": 0.006874487470942106,
+      "ratioMedian": 1.45162582970197,
+      "quotedPlusImpactMedian": 0.02589246633107169,
+      "modelRoundTripMedian": 0.02303881200502792
+    },
+    {
+      "window": "exit 09:30 or later",
+      "trades": 18659,
+      "quotedRoundTripMedian": 0.011675675675675613,
+      "modelSpreadMedian": 0.002501045718108524,
+      "ratioMedian": 4.97925002807949,
+      "quotedPlusImpactMedian": 0.03196119939670777,
+      "modelRoundTripMedian": 0.020768989482845734
+    }
+  ]
+}

@@ -61,3 +61,29 @@ That needs depth data and its own amendment.
 
 A calibration is not a hypothesis test: no trial is logged, no family is corrected, and the kill criterion is
 untouched. A12 trades nothing and changes no live template, radar weight or sell-by.
+
+## Result (2026-11-21 05:28 ET, IP-T625)
+
+Run once at `3a58ac7f`, the registration commit (`runs/explore/a12-calibration-20261121-1028.md`; the values are in
+`data/spread-multiplier-a12.json`). Of 97,026 rows on file, 5,538 duplicates were dropped and 76,689 legs were eligible.
+Excluded: 14,464 with no quote, 312 with no model spread, 19 quoted wider than 50%, 4 outside both sessions.
+
+| session | legs (entry / exit) | days | A12 multiplier | over the frozen 9.393 | weighted mean quoted spread | weighted mean frozen charge |
+|---|---|---|---|---|---|---|
+| premarket | 48,191 (30,767 / 17,424) | 755 | **21.703** | 2.31x | 1.70% | 0.74% |
+| regular | 28,498 (4,673 / 23,825) | 755 | **42.880** | 4.57x | 1.56% | 0.34% |
+
+Both sessions clear the 1,000-leg and 100-day minimums and are accepted. On the 32,630 trades with both legs
+eligible, the weighted mean quoted round-trip spread is 1.59%. The frozen model charged 0.54%, and A12 charges 1.55%.
+The descriptive medians of quoted/cs (17.3 premarket, 37.5 regular) sit below the ratios of sums, as expected for a
+right-skewed cost.
+
+The de-duplicated quotes-check rerun (`runs/explore/quotes-check-20261121-1028.md`, on the Hub published with
+`3627fcce`) changes the leg counts only: 45,744 per leg instead of 48,513. Every per-trade figure is unchanged,
+because trades were already paired from one row per leg: 2.81x overall, 1.45x for exits before 09:30, 4.98x at or
+after 09:30.
+
+**In code.** `GapperSpreadMultiplier.ResolveA12` reads the file, and
+`GapperQuotedSpread.Estimate`/`Reprice` (`IdiotProof.Evidence/Gappers/GapperQuotedSpread.cs`) price a trade
+with the mean of its legs' session multipliers. No frozen command calls them. A later trading amendment opts in by
+naming `"costModel": "A12"`, and its own explore code calls `Reprice` after simulating each trade.

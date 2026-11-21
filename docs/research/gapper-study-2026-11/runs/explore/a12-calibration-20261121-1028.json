@@ -1,0 +1,59 @@
+{
+  "amendment": "A12",
+  "ticket": "IP-T625",
+  "premarket": 21.70307567924591,
+  "regular": 42.87977466355295,
+  "statistic": "amendment-01-weighted ratio of sums: sum(w x quoted rel spread at fill) / sum(w x prior-days Corwin-Schultz), per leg session (ET 04:00-09:29 premarket, 09:30-15:59 regular)",
+  "frozenMultiplier": 9.39340522666859,
+  "sessions": {
+    "premarket": {
+      "multiplier": 21.70307567924591,
+      "computed": 21.70307567924591,
+      "rejected": false,
+      "legs": 48191,
+      "days": 755,
+      "entryLegs": 30767,
+      "exitLegs": 17424,
+      "overFrozen": 2.310458790559704,
+      "medianQuotedOverCs": 17.318608819028384,
+      "weightedMeanQuoted": 0.0169843323622028,
+      "weightedMeanFrozenCharge": 0.007351064832490888
+    },
+    "regular": {
+      "multiplier": 42.87977466355295,
+      "computed": 42.87977466355295,
+      "rejected": false,
+      "legs": 28498,
+      "days": 755,
+      "entryLegs": 4673,
+      "exitLegs": 23825,
+      "overFrozen": 4.564880746527789,
+      "medianQuotedOverCs": 37.47870083047316,
+      "weightedMeanQuoted": 0.015642115076920187,
+      "weightedMeanFrozenCharge": 0.003426620747720107
+    }
+  },
+  "tradeCheck": {
+    "trades": 32630,
+    "weightedMeanQuotedRoundTripSpread": 0.015932588769081314,
+    "weightedMeanFrozenSpread": 0.005363266004304959,
+    "weightedMeanA12Spread": 0.015486691508119635
+  },
+  "rowsOnFile": 97026,
+  "duplicateRowsDropped": 5538,
+  "legsUsed": 76689,
+  "excluded": {
+    "weight": 0,
+    "noModelSpread": 312,
+    "noQuote": 14464,
+    "quotedOver50pct": 19,
+    "outsideSessions": 4
+  },
+  "maxQuotedSpread": 0.5,
+  "minLegs": 1000,
+  "minDays": 100,
+  "csv": "D:\\IdiotProofData\\gapper-study\\quotes\\entries-0830-buy-now.csv",
+  "csvSha256": "7decbbf2c4abebda29412342e191f3bed80465c37c6f96bf44ecc3ff6cc5fe94",
+  "gitHead": "3a58ac7ff836deb0409b7549358ffdf6b6022e33",
+  "computedUtc": "2026-11-21T10:28:24Z"
+}
