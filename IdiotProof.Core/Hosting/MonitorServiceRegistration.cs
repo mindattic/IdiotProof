@@ -40,6 +40,11 @@ public static class MonitorServiceRegistration
         // on Azure SQL Database.
         services.AddSingleton<IdiotProof.Core.History.HistoryWakeKeeper>();
 
+        // Idle sleep froze the box mid-premarket and cost the lease (IP-T624): hold the system awake while the Monitor is
+        // hosted. Registered before MonitorWorker so it starts first and is released last.
+        services.TryAddSingleton<ISystemSleepBlocker, WindowsSystemSleepBlocker>();
+        services.AddHostedService<MonitorKeepAwake>();
+
         services.AddHostedService<MonitorWorker>();
 
         // Texts the owner (SMTP, not SQL) when the Monitor stops evaluating (IP-T359).

@@ -86,6 +86,48 @@ public sealed class MonitorHostingTests
     }
 
     [Test]
+    public void AddIdiotProofMonitor_HoldsTheSystemAwake_StartingBeforeTheMonitorWorker()
+    {
+        var hosted = Graph().Where(d => d.ServiceType == typeof(IHostedService)).Select(d => d.ImplementationType).ToList();
+        Assert.That(hosted.IndexOf(typeof(MonitorKeepAwake)), Is.GreaterThanOrEqualTo(0));
+        Assert.That(hosted.IndexOf(typeof(MonitorKeepAwake)), Is.LessThan(hosted.IndexOf(typeof(MonitorWorker))));
+    }
+
+    private sealed class RecordingBlocker(bool grants) : ISystemSleepBlocker
+    {
+        public List<string> Calls { get; } = [];
+        public bool Acquire(string reason) { Calls.Add("acquire:" + reason); return grants; }
+        public void Release() => Calls.Add("release");
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task MonitorKeepAwake_AcquiresOnStart_ReleasesOnStop(bool grants)
+    {
+        var blocker = new RecordingBlocker(grants);
+        var keepAwake = new MonitorKeepAwake(blocker, Microsoft.Extensions.Logging.Abstractions.NullLogger<MonitorKeepAwake>.Instance);
+
+        await keepAwake.StartAsync(CancellationToken.None);
+        await keepAwake.StopAsync(CancellationToken.None);
+
+        Assert.That(blocker.Calls, Is.EqualTo(new[] { "acquire:" + MonitorKeepAwake.Reason, "release" }));
+    }
+
+    [Test]
+    public void WindowsSystemSleepBlocker_HoldsAPowerRequestUntilReleased()
+    {
+        using var blocker = new WindowsSystemSleepBlocker();
+        var acquired = blocker.Acquire("IdiotProof test");
+        Assert.That(acquired, Is.EqualTo(OperatingSystem.IsWindows()));
+        Assert.That(blocker.IsHeld, Is.EqualTo(acquired));
+        Assert.That(blocker.Acquire("IdiotProof test"), Is.EqualTo(acquired), "a second acquire reuses the held request");
+
+        blocker.Release();
+        Assert.That(blocker.IsHeld, Is.False);
+        blocker.Release();
+    }
+
+    [Test]
     public void RuntimeState_TracksLeaseTicksFailuresAndStop()
     {
         var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(new DateTimeOffset(2026, 10, 30, 14, 0, 0, TimeSpan.Zero));
