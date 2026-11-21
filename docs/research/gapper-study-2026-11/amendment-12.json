@@ -1,0 +1,32 @@
+{
+  "id": "A12",
+  "version": 1,
+  "registeredUtc": "2026-11-21T10:35:00Z",
+  "ticket": "IP-T625",
+  "registeredBeforeResults": "When this file was committed no A12 number existed: no session multiplier had been computed by any method, and the script that computes it (tools/gapper-study/a12_calibrate.py) is committed together with this file and had never been run. What already existed, and is named here so nothing is hidden: the descriptive quotes-check run of 2026-11-20 (runs/explore/quotes-check-20261120-1532.md, IP-T472), whose per-trade medians were quoted/model 2.81x overall, 1.45x for exits before 09:30 and 4.98x for exits at or after 09:30, computed on a file that held 5,538 duplicated legs (IP-T618, fixed in 3627fcce). Those medians are of a different statistic (median of per-trade ratios, unweighted, before de-duplication) than the one registered below (amendment-01-weighted ratio of sums per leg session, de-duplicated). The statistic below was chosen for a reason that needs no data: every A01-A11 trading test is scored on a weighted mean net return per trade, and a single scalar on Corwin-Schultz reproduces the weighted mean quoted spread of the calibration legs exactly only when it is the weighted ratio of sums; a median of ratios does not. The 50% exclusion cap and the 1,000-leg / 100-day minimums are round numbers fixed now, not read off any distribution.",
+  "question": "Not a hypothesis test. A12 replaces the frozen cost model's single premarket spread multiplier (data/spread-multiplier.json, 9.393 x prior-days Corwin-Schultz, calibrated once at 08:00 quotes on 500 Tier20 train events) with two multipliers calibrated from the NBBO actually quoted at simulated fills, one for legs before 09:30 ET and one for legs at or after 09:30 ET, for use by trading tests registered after this amendment.",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json", "data/spread-multiplier.json", "amendment-01.json", "amendment-02.json", "amendment-03.json", "amendment-04.json", "amendment-09.json", "amendment-10.json", "amendment-11.json"],
+  "calibration": {
+    "source": "D:\\IdiotProofData\\gapper-study\\quotes\\entries-0830-buy-now.csv (explore quotes-pull, IP-T472; train only, holdout and validation never quoted)",
+    "script": "tools/gapper-study/a12_calibrate.py, committed with this file and run once after it",
+    "deduplication": "One row per (symbol, date, leg); the first row on file wins, exactly as GapperExploreStage.ReadQuoteEvents does since 3627fcce.",
+    "legEligibility": "weight > 0; charged_spread finite and > 0 (a prior-days Corwin-Schultz estimate existed); rel_spread_at finite and >= 0 (a valid NBBO quote at or before the fill, else the first in the +-60 s window, as quotes-pull recorded it); rel_spread_at <= 0.50 (a quoted spread wider than 50% of mid is treated as no real market and excluded; the count excluded is reported).",
+    "corwinSchultz": "cs = charged_spread / frozenMultiplier, where frozenMultiplier is data/spread-multiplier.json's multiplier (the value quotes-pull charged with).",
+    "session": "From the leg's at_utc converted to America/New_York: premarket if 04:00 <= ET < 09:30, regular if 09:30 <= ET < 16:00; any other leg is excluded and counted.",
+    "statistic": "Per session s: m_s = sum(weight * rel_spread_at) / sum(weight * cs) over that session's eligible legs (amendment-01 weights). Weighted ratio of sums, not a median.",
+    "descriptiveOnly": "Reported beside m_s and never used to choose it: legs, distinct days, legs excluded per rule, the unweighted median of rel_spread_at/cs per session, m_s / frozenMultiplier, and, over trades with both legs eligible, the weighted mean quoted round-trip spread ((entry + exit)/2) against the weighted mean spread charged by the frozen model and by A12.",
+    "rejection": "A session's multiplier is rejected (left unset, and no A12-priced test may simulate a leg in that session) if that session has fewer than 1,000 eligible legs or fewer than 100 distinct trading days, or if m_s is not finite and > 0. The script is run once; a different statistic, cap, minimum or source needs a new amendment.",
+    "output": "docs/research/gapper-study-2026-11/data/spread-multiplier-a12.json ({premarket, regular, statistic, counts, csvSha256, gitHead, computedUtc}) and runs/explore/a12-calibration-<stamp>.md/.json."
+  },
+  "application": {
+    "model": "The frozen GapperCostModel.Estimate, unchanged in form (spread + 2 x square-root impact, floored at params roundTripFloor), with its spread multiplier replaced per trade by (m_session(entry) + m_session(exit)) / 2: half the spread is paid on each side, so the round-trip spread is cs x m_entry / 2 + cs x m_exit / 2. Impact, notional, floor and halt rule are unchanged.",
+    "exitSession": "The exit session is only known after the exit is simulated, so an A12-priced test simulates the trade (GapperRuleSimulator) and then re-prices it with GapperQuotedSpread.Reprice (net = gross - A12 round trip); exits that the simulator decides on net return are not affected because the frozen ladder decides on price, not on net.",
+    "scope": "Only trading tests registered after this file. A test opts in by naming \"costModel\": \"A12\" in its own amendment. Every A01-A11 command keeps the frozen multiplier and every A01-A11 verdict stands as reported; nothing frozen is re-read under A12.",
+    "notCovered": "Impact is not recalibrated: quotes-pull records touch size, not book depth, so the square-root impact term stays the frozen one (the quotes-check run's touch depth of about 0.02x of a $1,000 notional says impact may also be understated; that needs its own amendment and depth data)."
+  },
+  "hypotheses": [],
+  "decisionRules": {
+    "noTrial": "A calibration is not a test: no trial is logged, no family is corrected, the kill criterion is untouched.",
+    "promotion": "A12 trades nothing, arms nothing and changes no live template, radar weight or sell-by."
+  }
+}
