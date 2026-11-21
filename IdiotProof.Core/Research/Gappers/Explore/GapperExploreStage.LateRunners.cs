@@ -294,23 +294,11 @@ public sealed partial class GapperExploreStage
         if (day.Pre0930 || u.Adv20Shares <= 0) return day;
         double adv = (double)u.Adv20Shares;
         int dec = u.AdvDecile;
-        double cum = 0;
-        for (int i = 0; i < A09Rth; i++) cum += v[i];
-        bool reached = false;
-        for (int i = A09Rth; i < A09RthEnd && !reached; i++)
-        {
-            cum += v[i];
-            var endEt = MinuteBarMath.SessionStartEt + TimeSpan.FromMinutes(i + 1);
-            double expected = adv * profile.MinuteFractionAt(dec, endEt);
-            if (expected > 0 && v[i] >= multiple * expected && !double.IsNaN(c[i]) && c[i] > prev)
-            {
-                day.M0 = i;
-                break;
-            }
-            if (!double.IsNaN(h[i]) && h[i] / prev - 1 >= A09Level) reached = true;
-        }
+        day.M0 = MoveStartRule.Find(v, c, h, prev, adv, dec, profile, multiple, A09Level, A09Rth, A09RthEnd);
         if (day.M0 < 0) return day;
         int m0 = day.M0;
+        double cum = 0;
+        for (int i = 0; i <= m0; i++) cum += v[i];
         var m0End = start.AddMinutes(m0 + 1);
         day.Y = First(A09Level, m0 + 1, A09RthEnd) >= 0;
         day.CatToM0 = Signed(fresh, m0End);

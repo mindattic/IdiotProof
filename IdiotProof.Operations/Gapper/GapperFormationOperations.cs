@@ -226,3 +226,41 @@ public sealed class GapperFormationShadowOperation : IOperation<GapperFormationS
         return OperationResult.Ok(r, text.ToString());
     }
 }
+
+public sealed record GapperFormationMoveStartsArgs
+{
+    [Option("from", Description = "First session, yyyy-MM-dd (default: the first move-start row).")]
+    public DateOnly? From { get; init; }
+
+    [Option("to", Description = "Last session, yyyy-MM-dd (default: the latest).")]
+    public DateOnly? To { get; init; }
+}
+
+[Operation("gapper formation move-starts", Summary = "The move-start watch's alerts (IP-T628): every live amendment 09 move start (m0) with its close over the prior close, volume multiple, fresh-catalyst flag and detection lag, labeled afterwards with amendment 09's y (+20% over the prior close after m0, before 16:00 ET), and the forward hit rate split by fresh catalyst. Watch only. Read-only.", Risk = OperationRisk.Read)]
+[Example("idiotproof gapper formation move-starts")]
+[Example("idiotproof gapper formation move-starts --from 2026-11-23 --to 2026-11-23")]
+public sealed class GapperFormationMoveStartsOperation : IOperation<GapperFormationMoveStartsArgs>
+{
+    public async Task<OperationResult> ExecuteAsync(GapperFormationMoveStartsArgs args, OperationContext ctx)
+    {
+        var r = await ctx.Get<MoveStartShadowReport>().RunAsync(args.From, args.To, ctx.CancellationToken);
+        static string P(double? v) => v is { } x ? x.ToString("0.0%", CultureInfo.InvariantCulture) : "-";
+        static string Rate(MoveStartRate m) => $"{m.Hits} of {m.Labeled} labeled ({P(m.Rate)}), {m.Alerts} alert(s)";
+        if (r.Rows.Count == 0)
+            return OperationResult.Ok(r, "No move-start alerts yet. The watch records them 09:30-16:00 ET when formation.enabled and formation.moveStart.enabled are on and this Hub leads the Monitor.");
+        var table = new TextTable { MaxWidth = ctx.Width }
+            .Column("day").Column("sym").Column("m0 end").Column("gain", Align.Right).Column("vol×", Align.Right).Column("fresh")
+            .Column("lag min", Align.Right).Column("+20%").Column("max after", Align.Right);
+        foreach (var x in r.Rows)
+            table.Row(x.DateEt.ToString("MM-dd", CultureInfo.InvariantCulture), x.Symbol, x.M0EndEt, FormationViews.Signed(x.Gain * 100, 1),
+                FormationViews.Num(x.VolumeMultiple), x.FreshCatalyst ? "yes" : "no", FormationViews.Num(x.DetectionLagMinutes),
+                x.Hit is null ? "pending" : x.Hit.Value ? $"yes {x.First20Et}" : "no", FormationViews.Signed(x.MaxGainAfter * 100, 1));
+        var kv = new KeyValueBlock()
+            .Add("Sessions", $"{r.From:yyyy-MM-dd} .. {r.To:yyyy-MM-dd}")
+            .Add("Reached +20% after m0", Rate(r.All))
+            .Add("With a fresh catalyst", Rate(r.Fresh))
+            .Add("Without", Rate(r.NoFresh));
+        return OperationResult.Ok(r, kv.Render() + "\n" + table.Render() +
+            "\nWatch only: amendment 09 validated the signal (A09-H1, A09-H2); no ride off it survived (H29, H30), so nothing is armed. Live universe and live pre-classes differ from the study's, so these rates describe, they do not test.");
+    }
+}

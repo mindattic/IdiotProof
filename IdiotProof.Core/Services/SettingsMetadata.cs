@@ -113,6 +113,8 @@ public static class SettingsMetadata
             "Formation recorder (IP-T447): full path of the gapper study's time-of-day volume profile (docs/research/gapper-study-2026-11/data/tod-profile.json). Unset = VolRatioTod stays null live."),
         new(IdiotProof.Core.Monitoring.Formation.FormationSettings.TodDecileEdgesDollarsKey, SettingKind.Text,
             "Formation recorder: the study's 9 ADV20 dollar-volume decile edges (USD, comma-separated, ascending), so a live symbol lands in the same profile decile the study's universe gave it. Wins over formation.todDecileEdges."),
+        new(IdiotProof.Core.Monitoring.Formation.FormationSettings.MoveStartEnabledKey, SettingKind.Bool,
+            "Move-start watch (IP-T628): from 09:30 to 16:00 ET the leader records amendment 09's move start (m0) for the formation universe as Source=live-m0 shadow rows and a move-start-alert audit row. Watch only, never an order; needs formation.enabled, owner, paper, and the TOD profile + decile edges.", "false"),
         new(IdiotProof.Core.Monitoring.Formation.FormationSettings.TodDecileEdgesKey, SettingKind.Text,
             "Formation recorder: ADV20 share-volume decile edges (comma-separated, ascending); an approximation used only while formation.todDecileEdgesDollars is unset."),
         new("decay.be-bex.latest", SettingKind.Json, "BE/BEX decay scanner: its latest reading (written by the scanner).", Internal: true),

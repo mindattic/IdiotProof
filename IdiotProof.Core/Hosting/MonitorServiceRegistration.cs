@@ -76,6 +76,11 @@ public static class MonitorServiceRegistration
         services.AddScoped<IdiotProof.Core.Monitoring.Formation.GapperFormationScanner>();
         services.AddHostedService<IdiotProof.Core.Monitoring.Formation.GapperFormationWorker>();
 
+        // Move-start watch (IP-T628): idle unless formation.enabled and formation.moveStart.enabled; leader-only, paper-only,
+        // 09:30-16:00 ET weekdays; amendment 09's m0 as shadow rows + an audit alert, never an order.
+        services.TryAddSingleton<IdiotProof.Core.Monitoring.Formation.MoveStartShadowStore>();
+        services.AddHostedService<IdiotProof.Core.Monitoring.Formation.MoveStartWatchWorker>();
+
         // Fade-short borrow pilot (IP-T480): idle unless SettingsKv fadeShort.pilot.enabled = "true"; leader-only,
         // paper-only, 09:40 and 09:46 ET weekdays. NO ORDERS: Alpaca is reached only through the GET-only
         // IFadeShortBorrowReader (asset, advisory locate quote, bars, movers); rows go to FadeShortBorrowObservations.

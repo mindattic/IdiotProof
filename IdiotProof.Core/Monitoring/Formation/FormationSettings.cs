@@ -33,6 +33,9 @@ public sealed record FormationConfig
     public bool ArmingEnabled { get; init; }
     public TimeSpan? ScheduledAutoEt { get; init; }
 
+    /// <summary>Amendment 09's regular-hours move start (m0) as a watch-only shadow and alert (IP-T628); never an order.</summary>
+    public bool MoveStartEnabled { get; init; }
+
     public bool IsPaper => string.Equals(BrokerMode.Trim(), "paper", StringComparison.OrdinalIgnoreCase);
 }
 
@@ -62,6 +65,7 @@ public sealed class FormationSettings(SettingsRepository settings, TimeProvider 
     public const string RetentionDaysKey = "formation.retentionDays";
     public const string ArmingEnabledKey = "formation.arming.enabled";
     public const string ScheduledAutoEtKey = "gapper.auto.scheduledEt";
+    public const string MoveStartEnabledKey = "formation.moveStart.enabled";
 
     public static readonly TimeSpan Ttl = TimeSpan.FromSeconds(15);
 
@@ -99,6 +103,7 @@ public sealed class FormationSettings(SettingsRepository settings, TimeProvider 
             RetentionDays = Math.Clamp(await settings.GetIntAsync(RetentionDaysKey, ct) ?? defaults.RetentionDays, 1, 3650),
             ArmingEnabled = await settings.GetBoolAsync(ArmingEnabledKey, ct) ?? false,
             ScheduledAutoEt = ParseTime(await settings.GetAsync(ScheduledAutoEtKey, ct)),
+            MoveStartEnabled = await settings.GetBoolAsync(MoveStartEnabledKey, ct) ?? false,
         };
         lock (gate)
         {

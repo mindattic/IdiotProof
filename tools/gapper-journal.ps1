@@ -314,11 +314,16 @@ $rows = foreach ($d in @($study.stockDays)) {
     }
 }
 $rows = @($rows)
+# IP-T628: the live move-start watch (amendment 09's m0, watch only) for this session and cumulatively; an older Hub without it just skips.
+$moveStarts = $null; $moveStartsAll = $null
+try { $moveStarts = Hub @('gapper', 'formation', 'move-starts', '--from', $Date, '--to', $Date) 1; $moveStartsAll = Hub @('gapper', 'formation', 'move-starts') 1 }
+catch { Write-Warning "move-start watch not read: $($_.Exception.Message)" }
 $journal = [ordered]@{
     label = 'case study (opened window, not a test)'; ticket = 'IP-T592'; date = $Date; generatedEt = (NowEt).ToString('yyyy-MM-dd HH:mm')
     top = $Top; named = $named; radarAsOf = $radar.as_of_utc; radarTop = $RadarTop
     armedWindowEt = "$($armStart.ToString('MM-dd HH:mm')) .. $($armEnd.ToString('MM-dd HH:mm'))"
     caseStudy = "data/$Date.casestudy.json"; runners = $rows
+    moveStarts = if ($moveStarts) { @(Prop $moveStarts @('rows', 'Rows')) } else { $null }
 }
 [IO.File]::WriteAllText($jsonOut, ($journal | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding $false))
 Protect-AccountIds $jsonOut
@@ -389,6 +394,24 @@ if ($firstSeenRows.Count) {
     $md.Add('| # | Symbol | First seen | Source |')
     $md.Add('|---:|---|---|---|')
     foreach ($r in $firstSeenRows) { $md.Add("| $($r.rank) | $($r.symbol) | $($r.catalystFirstSeenEt) | $($r.catalystFirstSeenSource) |") }
+    $md.Add('')
+}
+if ($moveStartsAll) {
+    function MsRate($m) { $l = [int](Prop $m @('labeled', 'Labeled')); $h = [int](Prop $m @('hits', 'Hits')); "$h of $l$(if ($l) { ' (' + ([double]$h / $l).ToString('0%', $inv) + ')' })" }
+    $dayRows = @(if ($moveStarts) { Prop $moveStarts @('rows', 'Rows') })
+    $md.Add('## Move-start watch (IP-T628)')
+    $md.Add('')
+    $md.Add("Live amendment 09 move starts (m0), watch only. Today: $($dayRows.Count) alert(s), reached +20% after m0: $(if ($moveStarts) { MsRate (Prop $moveStarts @('all', 'All')) } else { '-' }). Since the watch began: $(MsRate (Prop $moveStartsAll @('all', 'All'))); with a fresh catalyst $(MsRate (Prop $moveStartsAll @('fresh', 'Fresh'))), without $(MsRate (Prop $moveStartsAll @('noFresh', 'no_fresh', 'NoFresh'))). Descriptive, not a test of A09.")
+    if ($dayRows.Count) {
+        $md.Add('')
+        $md.Add('| Symbol | m0 end | Gain | Vol x | Fresh catalyst | Seen after (min) | +20% after m0 | Max after |')
+        $md.Add('|---|---|---:|---:|---|---:|---|---:|')
+        foreach ($x in $dayRows) {
+            $hit = Prop $x @('hit', 'Hit')
+            $hitText = if ($null -eq $hit) { 'pending' } elseif ($hit) { "yes $(Prop $x @('first20Et', 'first20_et', 'First20Et'))" } else { 'no' }
+            $md.Add("| $(Prop $x @('symbol', 'Symbol')) | $(Prop $x @('m0EndEt', 'm0_end_et', 'M0EndEt')) | $(Pct (Prop $x @('gain', 'Gain'))) | $(Num (Prop $x @('volumeMultiple', 'volume_multiple', 'VolumeMultiple')) '0.0') | $(if (Prop $x @('freshCatalyst', 'fresh_catalyst', 'FreshCatalyst')) { 'yes' } else { 'no' }) | $(Num (Prop $x @('detectionLagMinutes', 'detection_lag_minutes', 'DetectionLagMinutes')) '0.#') | $hitText | $(Pct (Prop $x @('maxGainAfter', 'max_gain_after', 'MaxGainAfter'))) |")
+        }
+    }
     $md.Add('')
 }
 $md.Add('## Post-mortem (by hand)')

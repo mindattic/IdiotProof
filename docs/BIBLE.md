@@ -591,6 +591,11 @@ the reverse-split and 424B/S-1 ages the study's did, read from the permanent his
 (gapper study amendment 06): detector AUC minus benchmark AUC, day-clustered 95% lower bound > 0, and
 no input missing live 20 points more often than in training. `VolRatioTod` needs
 `formation.todProfilePath` and decile edges set, or the drift check fails on it.
+**Move-start watch (IP-T628), watch-only.** Amendment 09's validated move start (m0, A09-H1/H2) runs live from
+09:30 to 16:00 ET behind `formation.moveStart.enabled`: `MoveStartRule` (the one m0 definition the A09 explore
+stage and the case study also call) over the formation universe writes one `Source = live-m0` row per symbol-day
+and a `move-start-alert` audit row, never an order (no ride off m0 survived: H29, H30). `gapper formation
+move-starts` labels each with A09's y and reports forward hit rates; the runner journal carries the section.
 
 **Gapper study (IP-T442, in progress).** Pre-registered 2026-11-06, before any bar, article or
 filing was pulled: `docs/research/gapper-study-2026-11/protocol.md` (frozen), `hypotheses.json`

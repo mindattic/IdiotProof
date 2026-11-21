@@ -1118,28 +1118,21 @@ internal static class CaseStudyCommand
         else if (advDecile is not { } dec || r.AdvShares <= 0) dz.MoveStartNote = "no ADV decile or ADV shares (move start not computable)";
         else
         {
-            double cum = 0;
-            for (int i = 0; i < rth; i++) cum += vol[i];
-            bool reached = false;
-            for (int i = rth; i < rthEnd && !reached; i++)
+            int i = profile is null ? -1 : MoveStartRule.Find(vol, cl, hi, prev, r.AdvShares, dec, profile, 5, MoveStartRule.Level, rth, rthEnd);
+            if (i >= 0)
             {
-                cum += vol[i];
+                double cum = 0;
+                for (int k = 0; k <= i; k++) cum += vol[k];
                 var endEt = SessionStart + TimeSpan.FromMinutes(i + 1);
-                double expected = r.AdvShares * (profile?.MinuteFractionAt(dec, endEt) ?? 0);
-                if (expected > 0 && vol[i] >= 5 * expected && !double.IsNaN(cl[i]) && cl[i] > prev)
-                {
-                    dz.MoveStartEt = T(i);
-                    dz.MoveStartGain = Math.Round(cl[i] / prev - 1, 4);
-                    dz.MoveStartVolRatioTod = profile?.VolRatioTod(cum, r.AdvShares, dec, endEt) is { } vr && double.IsFinite(vr) ? Math.Round(vr, 2) : null;
-                    dz.HaltsBeforeMoveStart = halts.Between(r.Symbol, startUtc, startUtc.AddMinutes(i + 1)).Count();
-                    int after = First(0.20, i + 1, rthEnd);
-                    dz.Reach20AfterMoveStart = after >= 0;
-                    if (after >= 0) dz.MoveStartToFirst20Min = after - i;
-                    break;
-                }
-                if (!double.IsNaN(hi[i]) && hi[i] / prev - 1 >= 0.20) reached = true;
+                dz.MoveStartEt = T(i);
+                dz.MoveStartGain = Math.Round(cl[i] / prev - 1, 4);
+                dz.MoveStartVolRatioTod = profile!.VolRatioTod(cum, r.AdvShares, dec, endEt) is { } vr && double.IsFinite(vr) ? Math.Round(vr, 2) : null;
+                dz.HaltsBeforeMoveStart = halts.Between(r.Symbol, startUtc, startUtc.AddMinutes(i + 1)).Count();
+                int after = First(0.20, i + 1, rthEnd);
+                dz.Reach20AfterMoveStart = after >= 0;
+                if (after >= 0) dz.MoveStartToFirst20Min = after - i;
             }
-            if (dz.MoveStartEt is null) dz.MoveStartNote = profile is null ? "no time-of-day profile" : "no abnormal-volume up minute 09:30-15:59 before +20%";
+            else dz.MoveStartNote = profile is null ? "no time-of-day profile" : "no abnormal-volume up minute 09:30-15:59 before +20%";
         }
 
         double postHigh = double.NaN; int postI = -1;

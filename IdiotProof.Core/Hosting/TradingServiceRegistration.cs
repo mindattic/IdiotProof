@@ -7,6 +7,7 @@ using IdiotProof.Core.Services;
 using IdiotProof.Core.Data;
 using IdiotProof.Core.Evidence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace IdiotProof.Core.Hosting;
 
 /// <summary>
@@ -63,6 +64,9 @@ public static class TradingServiceRegistration
             BarCache(sp), sp.GetRequiredService<IMarketDataFeed>(), splits: Splits(sp)));
         // IP-T447: the formation alert's paper-shadow report reads labeled bars, so it lives with the bar store.
         services.AddScoped<IdiotProof.Core.Monitoring.Formation.FormationShadowReport>();
+        // IP-T628: the move-start watch's shadow rows and their forward hit-rate report.
+        services.TryAddSingleton<IdiotProof.Core.Monitoring.Formation.MoveStartShadowStore>();
+        services.AddScoped<IdiotProof.Core.Monitoring.Formation.MoveStartShadowReport>();
         services.AddSingleton(sp => CreateRouter(sp.GetRequiredService<AppSettings>()));
         services.AddSingleton<UserBrokerResolver>();
         // Every order — Monitor, manual, options, flatten — goes through the gateway.
