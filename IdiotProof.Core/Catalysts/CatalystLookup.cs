@@ -35,13 +35,20 @@ public sealed class CatalystLookup(IDbContextFactory<AppDbContext> dbFactory)
     public async Task<List<Monitoring.Formation.CatalystSymbolHit>> RecentSymbolsAsync(DateTime sinceUtc, int max = 5000, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        return await db.CatalystEventSymbols.AsNoTracking()
-            .Join(db.CatalystEvents.AsNoTracking().Where(e => e.PublishedUtc >= sinceUtc), s => s.EventId, e => e.Id,
-                (s, e) => new Monitoring.Formation.CatalystSymbolHit(s.Symbol, e.CatalystScore, e.Direction, e.PublishedUtc, e.Headline, e.PreClass, e.SourceTier))
-            .OrderByDescending(h => h.PublishedUtc)
-            .Take(Math.Clamp(max, 1, 50_000))
-            .ToListAsync(ct);
+        var rows = await RecentSymbolsQuery(db, sinceUtc, max).ToListAsync(ct);
+        return rows.Select(x => new Monitoring.Formation.CatalystSymbolHit(x.Symbol, x.CatalystScore, x.Direction, x.PublishedUtc, x.Headline, x.PreClass, x.SourceTier)).ToList();
     }
+
+    internal sealed record RecentSymbolRow(string Symbol, double CatalystScore, int Direction, DateTime PublishedUtc, string Headline, string PreClass, int SourceTier);
+
+    // Order and limit on the entity columns before projecting: EF cannot translate an OrderBy on a constructed record (IP-T627).
+    internal static IQueryable<RecentSymbolRow> RecentSymbolsQuery(AppDbContext db, DateTime sinceUtc, int max) =>
+        db.CatalystEventSymbols.AsNoTracking()
+            .Join(db.CatalystEvents.AsNoTracking().Where(e => e.PublishedUtc >= sinceUtc), s => s.EventId, e => e.Id,
+                (s, e) => new { s.Symbol, e.CatalystScore, e.Direction, e.PublishedUtc, e.Headline, e.PreClass, e.SourceTier })
+            .OrderByDescending(x => x.PublishedUtc)
+            .Take(Math.Clamp(max, 1, 50_000))
+            .Select(x => new RecentSymbolRow(x.Symbol, x.CatalystScore, x.Direction, x.PublishedUtc, x.Headline, x.PreClass, x.SourceTier));
 
     private static IQueryable<CatalystEvent> Events(AppDbContext db, List<string> syms) =>
         db.CatalystEvents.AsNoTracking()
