@@ -96,3 +96,56 @@ cuts off, not that the signal is somehow fine except for a liquidity confound. P
 rule: validation is not read, and no other liquidity floor, score threshold, exit or cost model is tried under
 amendment 11. A further idea needs its own new amendment with a different mechanism -- not another liquidity
 cut.
+
+## Closing note (2026-11-21): where the late-runner line stands, and candidate next steps
+
+Written after the train result, so nothing below is pre-registered. Nothing is run or registered here.
+Each option needs its own amendment, committed before any of its numbers exist, and choosing one is the
+owner's call.
+
+**Where it stands.** The signal is real: amendment 09 passed on train and validation (A09-H1, A09-H2). Two
+rides off it failed on train, H29 (no filter) at −3.12%/trade and H30 (an ADV floor of at least $2M) at
+−3.13%/trade, and velocity death was the most common exit both times. With H12/H12p, H18, amendment 04's
+entry rules and amendment 07's templates, every long trading rule this study has tried now loses
+roughly 3-8%/trade after costs. Per the decision rules above, amendment 11 is closed. No other liquidity
+floor, score threshold or exit is tried under it.
+
+**The cost model is too generous, which strengthens every failure.** The quotes-check run (IP-T472,
+`runs/explore/quotes-check-20261120-1532.md`, train, descriptive) priced 32,760 simulated 08:30 buy-now
+trades against the quoted SIP NBBO within ±60 s of each fill. The quoted round-trip spread was a median
+2.81x the frozen model's (4.98x for exits at or after 09:30, 1.45x before), and touch depth was about 0.02x
+of notional. No strategy verdict in A01-A11 passed, so none flips. Every refuted rule is only more refuted.
+Two caveats for the record:
+(1) H14 (undecided, selling at the 09:30 open vs at 09:15) compares two exit times whose quoted
+spreads differ far more than the model assumes, so its small positive paired difference is likely
+overstated.
+(2) Amendment 07's spread sensitivities (0.5x and 0.25x) went the wrong way. The honest sensitivity
+is 2-5x.
+Detection results (H11/H11p, A04's R4, A09) involve no costs and are unaffected.
+
+**Candidate next steps, ranked (not registered):**
+
+1. **Re-price trading tests with quoted costs before any further trading amendment.** Register an amendment
+   that replaces the frozen spread multiplier, for new tests only and with no frozen verdict re-read, with
+   one calibrated from the quotes already on disk (`D:\IdiotProofData\gapper-study\quotes\`), split by
+   session (before vs after 09:30). Plain reason: any future long rule clearing +1%/trade under the old model
+   could be an artifact of undercharging. This costs no new data and protects every later test.
+2. **Detection only: does an active ATM or shelf predict velocity death?** (avenues A2.) Velocity death is
+   the dominant exit in H29 and H30, and an issuer with an active ATM and fresh shelf capacity selling into
+   the spike is the clearest economic mechanism the avenues survey names for it. The playbook's rule is
+   that a new method gets a detection-only amendment first, so ask whether ATM status at m0 lowers the
+   odds of reaching +20% after the move start. Do not trade it yet. Medium effort (6-K/424B/S-3 parsing
+   exists in part).
+3. **Detection only: halt and LULD confirmation of the move start** (avenues A1). Does an up-halt within N
+   minutes after m0 separate real starts from false ones? The halt data is exact, second-stamped and cheap.
+   Today's runners were halt-heavy (MSS 6, MACI 5, AKAN 5, ZJK 4).
+4. **Stop the ride and put the A09 signal to use as a watch-only alert.** Feed the move-start detector into
+   the existing formation alert and paper shadow (IP-T447) as information, with no order, and let the
+   runner journal (IP-T592) measure forward hit rates. This is the cheapest option and consistent with what
+   the study has shown: detection works and riding doesn't.
+5. **Not recommended: another entry or exit variant of the same ride** (different threshold, target,
+   sell-by or fill). H29 and H30 differed only in a filter and landed within 0.01%. Another tweak of this
+   kind is a forking-paths search, not a new mechanism.
+
+Recommendation: 1 then 4 now (cheap, protective, no new trading risk), with 2 as the next real research
+question if the owner wants to keep looking for a tradable long rule.
