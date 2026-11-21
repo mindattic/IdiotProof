@@ -191,11 +191,13 @@ public static class VaultOwner
                      configuration?["Hub:DefaultOwner"],
                  })
             if (Guid.TryParse(candidate, out var id)) return id;
-        return FromCliConfig(cliConfigFile ?? CliConfigFile);
+        return SavedCliOwner(cliConfigFile);
     }
 
-    private static Guid? FromCliConfig(string file)
+    /// <summary>The owner saved by <c>idiotproof users use</c>, or null when none is saved or the file is unreadable.</summary>
+    public static Guid? SavedCliOwner(string? cliConfigFile = null)
     {
+        var file = cliConfigFile ?? CliConfigFile;
         try
         {
             if (!File.Exists(file)) return null;

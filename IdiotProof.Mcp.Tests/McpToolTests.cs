@@ -136,6 +136,58 @@ public sealed class McpToolTests
     }
 
     [Test]
+    public async Task HubTool_SendsTheOwnerSavedByUsersUse_ReadPerCall()
+    {
+        Environment.SetEnvironmentVariable(HubWire.KeyEnvVar, "test-key");
+        try
+        {
+            var handler = new Recording();
+            var hub = new HubInvoker(HubInvoker.CreateClient(new Uri("http://127.0.0.1:5910/"), handler));
+            Guid? saved = null;
+            var tool = new HubTool(ToolSpec.FromOperation(Op("positions list", "read")), hub, () => saved);
+
+            await tool.InvokeAsync(new ModelContextProtocol.Server.RequestContext<CallToolRequestParams>(null!, new JsonRpcRequest { Method = "tools/call" }, new CallToolRequestParams { Name = "positions_list" }));
+            var unsaved = JsonSerializer.Deserialize<HubOperationRequest>(handler.Body!, OperationJson.Options)!;
+
+            saved = Guid.Parse("a99504c3-0759-4256-8abb-a1f5c643808c");
+            await tool.InvokeAsync(new ModelContextProtocol.Server.RequestContext<CallToolRequestParams>(null!, new JsonRpcRequest { Method = "tools/call" }, new CallToolRequestParams { Name = "positions_list" }));
+            var named = JsonSerializer.Deserialize<HubOperationRequest>(handler.Body!, OperationJson.Options)!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(unsaved.OwnerId, Is.Null, "nothing saved: the Hub's own default decides");
+                Assert.That(named.OwnerId, Is.EqualTo(saved), "a newly saved owner applies on the next call");
+                Assert.That(named.Caller, Is.EqualTo(OperationCaller.Mcp));
+            });
+        }
+        finally { Environment.SetEnvironmentVariable(HubWire.KeyEnvVar, null); }
+    }
+
+    [Test]
+    public void SavedCliOwner_ReadsTheUsersUseFile_AndIsNullWhenAbsentOrBroken()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "ip-owner-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "cli.json");
+            var missing = IdiotProof.Core.Services.VaultOwner.SavedCliOwner(file);
+            File.WriteAllText(file, "{\"owner\": \"a99504c3-0759-4256-8abb-a1f5c643808c\"}");
+            var saved = IdiotProof.Core.Services.VaultOwner.SavedCliOwner(file);
+            File.WriteAllText(file, "{not json");
+            var broken = IdiotProof.Core.Services.VaultOwner.SavedCliOwner(file);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(missing, Is.Null);
+                Assert.That(saved, Is.EqualTo(Guid.Parse("a99504c3-0759-4256-8abb-a1f5c643808c")));
+                Assert.That(broken, Is.Null);
+            });
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Test]
     public void ToolDocs_ListEveryTool()
     {
         var tools = ToolSpec.FromCatalog(Catalog());

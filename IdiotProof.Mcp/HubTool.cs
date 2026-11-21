@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using IdiotProof.Core.Hosting;
+using IdiotProof.Core.Services;
 using IdiotProof.Operations;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -11,9 +12,13 @@ namespace IdiotProof.Mcp;
 /// <summary>
 /// An MCP tool that forwards its call to the Hub as one operation. The tool list is generated, so
 /// adding an <c>[Operation]</c> anywhere in the Hub adds a tool here with no MCP code at all.
+/// Like the CLI, each call names the owner saved by <c>idiotproof users use</c> (read per call, so a
+/// change applies without restarting); with none saved the Hub's own default applies.
 /// </summary>
-public sealed class HubTool(ToolSpec spec, HubInvoker hub) : McpServerTool
+public sealed class HubTool(ToolSpec spec, HubInvoker hub, Func<Guid?>? savedOwner = null) : McpServerTool
 {
+    private readonly Func<Guid?> owner = savedOwner ?? (() => VaultOwner.SavedCliOwner());
+
     public ToolSpec Spec => spec;
 
     public override Tool ProtocolTool { get; } = new()
@@ -57,6 +62,7 @@ public sealed class HubTool(ToolSpec spec, HubInvoker hub) : McpServerTool
             Args = JsonSerializer.SerializeToElement(args),
             Caller = OperationCaller.Mcp,
             Output = OutputMode.Human,
+            OwnerId = owner(),
             ConfirmationCode = confirmation,
         }, cancellationToken);
 
