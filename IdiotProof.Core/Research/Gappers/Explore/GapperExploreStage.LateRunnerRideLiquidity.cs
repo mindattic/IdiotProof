@@ -32,7 +32,7 @@ public sealed partial class GapperExploreStage
         // ── the registration, read from amendment-11.json (nothing here is chosen in code) ──
         var a11 = s.Amendments.FirstOrDefault(a => a.Id == "A11") ?? throw new InvalidOperationException("amendment-11.json (A11) is not registered.");
         var h = a11.Find("H30") ?? throw new InvalidOperationException("amendment-11.json registers no H30.");
-        var cfg = h.Grid ?? throw new InvalidDataException("H30 registers no configuration.");
+        var cfg = h.Grid ?? throw new InvalidDataException("amendment-11.json's H30 has no \"grid\" object (its single configuration: scoreThreshold, advDollarFloor, profitTarget, timeStop, velocityDeathWindow, stopLossPct, vwapLossExit).");
         double threshold = cfg.GetProperty("scoreThreshold").GetDouble();
         double advFloor = cfg.GetProperty("advDollarFloor").GetDouble();
         double logAdvFloor = Math.Log(advFloor);
