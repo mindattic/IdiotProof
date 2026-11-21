@@ -19,7 +19,7 @@ public sealed partial class GapperExploreStage
 
     private string QuoteFile() => Path.Combine(QuoteDir(), QuoteTradeSet + ".csv");
 
-    private sealed record QuoteEvent(string Symbol, DateOnly Day, string Leg, DateTime AtUtc, double Weight, double Fill, double ChargedSpread, double ChargedImpactSide, double ChargedRoundTrip,
+    internal sealed record QuoteEvent(string Symbol, DateOnly Day, string Leg, DateTime AtUtc, double Weight, double Fill, double ChargedSpread, double ChargedImpactSide, double ChargedRoundTrip,
         int Quotes, double RelAt, double RelMedian, double BidAt, double AskAt, double BidSizeAt, double AskSizeAt);
 
     /// <summary>
@@ -50,10 +50,12 @@ public sealed partial class GapperExploreStage
 
         var file = QuoteFile();
         Directory.CreateDirectory(QuoteDir());
+        using var writer = ResumableCsvFile.TryAcquireWriter(file);
+        if (writer is null) return ([$"another `explore quotes-pull` is already writing {file}; let it finish (rerun afterwards to resume)"], 0, null);
         var done = File.Exists(file)
-            ? File.ReadLines(file).Skip(1).Select(l => l.Split(',')).Where(f => f.Length >= 3).Select(f => $"{f[0]}|{f[1]}|{f[2]}").ToHashSet(StringComparer.Ordinal)
+            ? ResumableCsvFile.ReadLines(file).Skip(1).Select(l => l.Split(',')).Where(f => f.Length >= 3).Select(f => $"{f[0]}|{f[1]}|{f[2]}").ToHashSet(StringComparer.Ordinal)
             : new HashSet<string>(StringComparer.Ordinal);
-        if (!File.Exists(file)) await File.WriteAllTextAsync(file, QuoteHeader + "\n", ct);
+        if (!File.Exists(file)) await ResumableCsvFile.AppendAsync(file, QuoteHeader + "\n", ct);
         s.Logger.LogInformation("[{Now}] explore quotes-pull: {Pool:N0} mornings in the pool, {Done:N0} legs already on file", GapperStudyServices.Et(s.UtcNow), pool.Count, done.Count);
 
         var keys = await s.ResolveKeysAsync(req.Owner, ct);
@@ -105,22 +107,24 @@ public sealed partial class GapperExploreStage
                     $"{symbol},{day:yyyy-MM-dd},{leg},{at:yyyy-MM-ddTHH:mm:ssZ},{t.Weights[r]:R},{fill:R},{cost.Spread:R},{cost.ImpactPerSide:R},{cost.RoundTrip:R},{valid.Count},{(has ? Rel(atQuote) : double.NaN):R},{median:R},{(has ? atQuote.Bid : double.NaN):R},{(has ? atQuote.Ask : double.NaN):R},{(has ? atQuote.BidSize : double.NaN):R},{(has ? atQuote.AskSize : double.NaN):R}\n"));
                 legs++;
             }
-            if (sb.Length > 0) await File.AppendAllTextAsync(file, sb.ToString(), ct);
+            if (sb.Length > 0) await ResumableCsvFile.AppendAsync(file, sb.ToString(), ct);
             if (trades % 100 == 0)
                 s.Logger.LogInformation("[{Now}] explore quotes-pull: {Trades:N0} trades, {Legs:N0} legs written, {Calls:N0} quote calls ({Day})", GapperStudyServices.Et(s.UtcNow), trades, legs, calls, day);
         }
         return ([$"{legs:N0} legs of {trades:N0} simulated trades written to {file} ({calls:N0} quote calls, {failed:N0} failed and left for a rerun); spread multiplier {multiplier:0.###} ({source})"], 0, file);
     }
 
-    private static List<QuoteEvent> ReadQuoteEvents(string file)
+    internal static List<QuoteEvent> ReadQuoteEvents(string file)
     {
         static double D(string v) => double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : double.NaN;
         var list = new List<QuoteEvent>();
-        foreach (var line in File.ReadLines(file).Skip(1))
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var line in ResumableCsvFile.ReadLines(file).Skip(1))
         {
             var f = line.Split(',');
             if (f.Length != 16 || !DateOnly.TryParseExact(f[1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day)
-                || !DateTime.TryParse(f[3], CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var at)) continue;
+                || !DateTime.TryParse(f[3], CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var at)
+                || !seen.Add($"{f[0]}|{f[1]}|{f[2]}")) continue;
             list.Add(new QuoteEvent(f[0], day, f[2], at, D(f[4]), D(f[5]), D(f[6]), D(f[7]), D(f[8]), int.TryParse(f[9], CultureInfo.InvariantCulture, out var n) ? n : 0,
                 D(f[10]), D(f[11]), D(f[12]), D(f[13]), D(f[14]), D(f[15])));
         }
