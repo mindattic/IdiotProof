@@ -1,0 +1,21 @@
+﻿{
+    "protocolVersion":  "1.2",
+    "code":  "bright-lemurs",
+    "updatedAt":  "2026-11-22T07:44:36.0967794Z",
+    "savedBy":  "pdftransferjr@mindattic.com",
+    "repo":  {
+                 "name":  "IdiotProof",
+                 "path":  "D:\\Projects\\MindAttic\\IdiotProof",
+                 "worktree":  false,
+                 "mainRepo":  "D:\\Projects\\MindAttic\\IdiotProof",
+                 "branch":  "main"
+             },
+    "task":  "IP-T632: figure out why gappers gap — backfill the month of history missed since the 5-year pull, keep crunching for cause-and-effect patterns",
+    "decisions":  "Registered amendments 13 (close-to-open evening-list hold, H31), 14 (cause census of D-1 conditions before a gapper day), 15 (foreign-issuer tag, 6-K/F-1/F-3) in docs/research/gapper-study-2026-11/ before any of their numbers existed, per the research playbook. A13 failed on train (net +2.77% but misses 4/8 criteria; its positive mean was an artifact of reverse splits missing from GapperStudySplits, filed as IP-T633 fix). A14\u0027s headline: \u0027it already ran\u0027 (ranYesterday/ranLast5/bigRunner60) explains 56% of G20 and ~72% of G50/G100 days; best recipes reach P(G20) 22-25%/P(G50) 6-9% (lift 22-26); only 6.8%/2.8%/2.2% of G20/G50/G100 days carry zero tags (24%/11%/10% once 4 broad/price-tier tags are excluded post hoc); split artifacts don\u0027t change the ranking. Runner journal (IP-T592) backfilled for the missed sessions 2026-11-10..11-18 from saved case studies (fixed two crashes in tools/gapper-journal.ps1: radar skipped outside the DB online window, unparseable UTC timestamps); review-01.md written, proposing candidate C1 (foreign-filer tag, now A15) and C2 (feed top recipes into the radar as a watch-only alert — needs owner go-ahead, not yet done). Confirmed IdiotProof_History and IdiotProof_Research_GAP live on Azure SQL since IP-T545; local localhost/LocalDB copies are stale snapshots (memory note project_market_history_store.md corrected).",
+    "state":  "Market-wide daily bars for 2026-11-06..11-20 pulled and imported into the permanent Azure history store (98,441 new daily bars + 69 splits pulled; 142,337 rows written to IdiotProof_History); gapper-candidate minute bars for that window pulled (25,361 rows, 100% SIP). Two jobs were mid-run when this session was interrupted and have just been restarted in the background: (1) \u0027history import --minutes\u0027 then \u0027history backfill --reference --days 16\u0027 (log D:\\IdiotProofData\\gapper-study\\logs\\backfill-T632-resume-*.log, task b4acdcrar) — minute-bar import into History and the EDGAR filings reference pass for the missed window; (2) \u0027research gappers pull --tier edgar-dilution\u0027 (log D:\\IdiotProofData\\gapper-study\\logs\\edgar-dilution-T632-resume.log, task bazoq8421) — pulls 6-K/F-1/F-1A/F-3/F-3A filings that amendment 15\u0027s foreign-issuer analysis needs; amendment 15 itself (the actual census script/run) has not been written yet — it depends on this pull finishing. All code/doc changes through commit eeb774c2 are committed and pushed to origin/main. IP-T633 (splits table gap) and IP-T632 (this ticket) are both open.",
+    "next":  "1) Check on task b4acdcrar and bazoq8421 (history import --minutes / --reference, and the edgar-dilution pull) — if either is still running, wait for completion; if either stalled (no Hub log movement for 15+ min), investigate as was done before (Hub process may need confirming alive via hub_ping, or the CLI process may be orphaned and need Stop-Process + retry). 2) Once edgar-dilution lands, write tools/gapper-study/a15_foreign_issuers.py per amendment-15.json (join 6-K/F-1/F-3 filings by CIK via GapperStudyCikMap onto the A14 population; report per-tag lift, events-vs-controls, pairings with A14\u0027s top tags, fresh6K among no-news G20 days), run once, append its Train result section to amendment-15.md, commit. 3) Ask the owner whether to proceed with review-01\u0027s candidate C2 (feed the A14 recipes into the evening radar as a watch-only alert) since it changes live radar behavior. 4) Continue the runner journal nightly per IP-T592 going forward. 5) IP-T633 (splits table repair) is filed but unworked — pick it up or hand it off.",
+    "queued":  [
+
+               ],
+    "universe":  ""
+}
