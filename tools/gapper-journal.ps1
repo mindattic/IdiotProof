@@ -52,7 +52,11 @@ New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
 $et = [TimeZoneInfo]::FindSystemTimeZoneById('Eastern Standard Time')
 $inv = [Globalization.CultureInfo]::InvariantCulture
 function NowEt { [TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, $et) }
-function ToEt($dto) { [TimeZoneInfo]::ConvertTimeFromUtc(([DateTimeOffset]::Parse([string]$dto, $inv)).UtcDateTime, $et) }
+function ToEt($dto) {
+    $parsed = [DateTimeOffset]::MinValue
+    if (-not [DateTimeOffset]::TryParse([string]$dto, $inv, [System.Globalization.DateTimeStyles]::AssumeUniversal, [ref]$parsed)) { return $null }
+    [TimeZoneInfo]::ConvertTimeFromUtc($parsed.UtcDateTime, $et)
+}
 function Pct($x) { if ($null -eq $x) { '-' } else { $v = [double]$x * 100; ('{0}{1:0}%' -f $(if ($v -gt 0) { '+' } else { '' }), $v) } }
 function Num($x, [string]$f = '0.##') { if ($null -eq $x) { '-' } else { ([double]$x).ToString($f, $inv) } }
 function Shares($x) {
@@ -208,7 +212,8 @@ $study = Get-Content $csJson -Raw -Encoding UTF8 | ConvertFrom-Json
 $radar = Hub @('gapper', 'radar', '--date', $Date, '--top', "$RadarTop")
 $radarRank = @{}; $radarPts = @{}
 $k = 0
-foreach ($r in @($radar.rows)) { $k++; if (-not $radarRank.ContainsKey($r.symbol)) { $radarRank[$r.symbol] = $k; $radarPts[$r.symbol] = $r.points } }
+if ($radar.skipped) { Write-Warning "radar skipped ($($radar.reason)): the Radar column stays blank; rerun with -Force -ReuseCaseStudy inside the database online window to fill it" }
+foreach ($r in @($radar.rows | Where-Object { $_ -and $_.symbol })) { $k++; if (-not $radarRank.ContainsKey($r.symbol)) { $radarRank[$r.symbol] = $k; $radarPts[$r.symbol] = $r.points } }
 
 # 3. Armed: paper gapper strategies created in the 48 h before D 09:30 ET (ids are UUIDv7: creation time in the first 48 bits).
 "strategies..."
@@ -337,7 +342,7 @@ $md.Add("# Runner journal $Date")
 $md.Add('')
 $cmdLine = "tools/gapper-journal.ps1 -Date $Date"
 if ($named.Count) { $cmdLine += ' -Extra "' + ($named -join ',') + '"' }
-$md.Add("Case study (opened window, not a test), IP-T592. Generated $($journal.generatedEt) ET by ``$cmdLine``; the post-mortem sections are written by hand. Times ET. Sources: [case study](data/$Date.casestudy.md) ([json](data/$Date.casestudy.json)), the radar as known at $((ToEt $radar.as_of_utc).ToString('MM-dd HH:mm')) ET (top $RadarTop), paper gapper strategies created $($journal.armedWindowEt) ET, the paper account's fills on $Date.")
+$md.Add("Case study (opened window, not a test), IP-T592. Generated $($journal.generatedEt) ET by ``$cmdLine``; the post-mortem sections are written by hand. Times ET. Sources: [case study](data/$Date.casestudy.md) ([json](data/$Date.casestudy.json)), $(if ($radar.as_of_utc) { "the radar as known at $((ToEt $radar.as_of_utc).ToString('MM-dd HH:mm')) ET (top $RadarTop)" } else { "no radar (skipped: $($radar.reason))" }), paper gapper strategies created $($journal.armedWindowEt) ET, the paper account's fills on $Date.")
 $md.Add('')
 $md.Add('## Scoreboard')
 $md.Add('')
