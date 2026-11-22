@@ -1,0 +1,23 @@
+{
+  "id": "A15",
+  "version": 1,
+  "registeredUtc": "2026-11-22T03:40:00Z",
+  "ticket": "IP-T632",
+  "registeredBeforeResults": "No 6-K, F-1 or F-3 filing had been pulled into the study when this was committed (the edgar tier's forms exclude them; D:/IdiotProofData/edgar-dilution did not exist), so no foreign-issuer count existed on any split. Known: review-01's 47% foreign filers among 180 recent runner-days (opened window) and amendment 14's train result.",
+  "kind": "descriptive, detection only",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json", "amendment-01.json", "amendment-13.json", "amendment-14.json"],
+  "data": "research gappers pull --tier edgar-dilution (6-K, F-1, F-1/A, F-3, F-3/A with acceptance times), joined by CIK via GapperStudyCikMap",
+  "tags": {
+    "foreignIssuer": "6-K, F-1, F-1/A, F-3 or F-3/A by the symbol's CIK accepted in the 365 calendar days through D-1 16:00 ET (no acceptance time: 17:30 ET on the filing date); no CIK = unknown",
+    "fresh6K": "a 6-K accepted after D-1 16:00 ET and before 04:00 ET on D"
+  },
+  "population": "amendment-14.json population, outcomes G20/G50/G100, evaluation windows and statistics, unchanged",
+  "reported": [
+    "per-tag table with unknown-CIK share",
+    "foreignIssuer on frozen train Tier20/50/100 events vs matched controls",
+    "foreignIssuer paired with each A14 universe tag, and in triples with A14's top 10 stable pairs",
+    "fresh6K among G20 days with no stored Alpaca news item"
+  ],
+  "statistics": "day-clustered bootstrap 95% (10,000 single tags / 2,000 combinations, seed 1337), BH q < 0.05 over A15's own trials, frozen and split-sensitivity (IP-T633) versions both reported",
+  "decisionRules": { "verdict": "none (descriptive)", "validation": "not read", "ledger": "every tag and combination is a trial", "promotion": "none" }
+}
