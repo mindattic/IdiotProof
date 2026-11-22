@@ -85,3 +85,32 @@ combination is a candidate for a later detection or trading amendment, registere
 Descriptive: no pass or fail, no kill criterion, no correction shared with A01-A13. Validation is not read.
 If the unexplained remainder of G50 days is above 30%, the next data ticket is the one that could shrink it
 (sympathy groups by SIC code, a promotion-list or social feed, 6-K coverage), named in the result.
+
+## Train result (2026-11-22, IP-T632)
+
+Full report: `runs/explore/a14-cause-census-20261122-0259.md`. The base rates over 1,663,526 eligible
+symbol-days are P(G20) 0.96%, P(G50) 0.15% and P(G100) 0.05%.
+
+- **"It already ran" dominates.** The first three steps of the exclusive hierarchy are ranYesterday (lift 14.7),
+  ranLast5 (7.9) and bigRunner60 (5.4). Together they hold 56% of G20 days and 71-73% of G50 and G100 days. Next
+  come crashedLast5 (11.5), volumeSurge (7.5), closedStrong (7.2), ssrD1 (5.9) and reverseSplit90 (5.5).
+  Against matched controls, subDollar, lowPriceLowAdv and hotTape do not separate gapper days at all (ratio 1.0):
+  their lift is price-tier selection.
+- **The best recipes reach P(G20) 22-25% and P(G50) 6-9%**, a lift of 22-26 on G20 and up to 61 on G50. Top
+  by G50: ranLast5 + volumeSurge + subDollar (776 days, P(G50) 9.3%, P(G100) 3.7%). Each recipe covers only
+  1-4% of G20 days. 407 of the 409 combinations pass "stable", so the flag does not discriminate.
+- **Unexplained remainder.** No tag at all: 6.8% / 2.8% / 2.2% of G20 / G50 / G100 days, against 37% of all
+  days. With the four broad tags left out (post hoc), it is 24% / 11% / 10%, against 79% of days. That is under
+  the 30% follow-up trigger, so no data ticket is named.
+- **News and insiders.** Fresh overnight news has lift 6.6 but is on only 9% of G20 days. 64% of G20 days have
+  no stored news item from D-5 to 04:00 on D. Form 4 purchases have no lift (1.0).
+- **Split artifacts (IP-T633).** 16 of the 20 largest D-high ratios are unrecorded reverse splits. A non-frozen
+  sensitivity drops 70 such days, all G100; it changes no ranking and moves no headline by more than a few
+  tenths of a point.
+- **Deviations.** insiderBuy30 is in the stratified table only, because Form 4 detail exists only around candidate
+  and sample days. hotTape uses strictly above the expanding 75th percentile; the threshold was changed once,
+  before any result was read. The script reads read-only CSV exports. Its 852 trials, together with A13's 9, went
+  into the ledger as ids 5668-6528.
+
+A G20 high-water mark is not a trade: a name that ran yesterday swings 20% intraday today in both directions.
+Nothing here is a strategy until a later amendment tests a recipe with entries, exits and the A12 cost.
