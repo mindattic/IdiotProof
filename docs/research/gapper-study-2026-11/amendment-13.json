@@ -1,0 +1,83 @@
+{
+  "id": "A13",
+  "version": 1,
+  "registeredUtc": "2026-11-21T15:30:00Z",
+  "ticket": "IP-T632",
+  "registeredBeforeResults": "When this file was committed no A13 number of any kind existed: no close-to-open return had been computed for any list on any split, and tools/gapper-study/a13_overnight.py had not been written. Known at that moment and possibly related: the D-1 16:00 boosted AUC 0.899 and precision@10 0.163 for reach20By0945 (runs/explore/visibility-20261109-1604.md), the watchlist's recall of +100% runners (watchlist-20261109-1945.md), the repeat-runner rate (7.1% of +100% runners run +100% again within 5 sessions), 'buying gappers already up 20% at the open loses 5.2% by the close', and the auctions run's open-cross versus 09:30-bar-open comparison. None of these is an overnight return.",
+  "question": "Does buying a small evening list at the D-1 daily close and selling at the D daily open net at least +1.0%/trade after costs? Every long rule tested so far bought after the move was visible and held intraday; the cited literature (Berkman et al. 2012; Lou, Polk & Skouras 2019) says attention stocks earn overnight and give back intraday. The close-to-open leg has never been tested here.",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json", "amendment-01.json", "amendment-02.json", "amendment-03.json", "amendment-04.json", "amendment-09.json", "amendment-10.json", "amendment-11.json", "amendment-12.json"],
+  "data": {
+    "tables": ["GapperStudyDailyBars", "GapperStudySplits"],
+    "noCandidateSelection": true,
+    "weights": "none (whole universe, equal weight per trade)"
+  },
+  "trade": {
+    "signalDay": "S = D-1",
+    "entry": "S daily close",
+    "exit": "D daily open, D = the symbol's next daily bar; a later next bar within 5 sessions exits at its open; none within 5 sessions = -100%",
+    "splitAdjusted": true,
+    "longOnly": true
+  },
+  "eligibilityAtS": {
+    "closeMinInclusive": 0.10,
+    "closeMaxExclusive": 20.00,
+    "adv20DollarMin": 300000,
+    "minSessionsOfLast20": 5,
+    "splitExclusion": "no split ex-date from S-25 calendar days through D",
+    "unadjustedSplitGuard": "params.universe.unadjustedSplitGuard",
+    "signalDays": { "from": "2021-11-01", "to": "2024-10-30" }
+  },
+  "statedLookAhead": "Signals use the complete S daily bar and the fill is that bar's close; a market-on-close order must be entered by about 15:50 ET. The leak favours the rule, so a fail is decisive and a pass requires the minute-level replication in decisionRules.",
+  "signals": {
+    "S1": "S volume >= 3 x 20-session average share volume; rank by S close / prior close - 1, descending",
+    "S2": "S1's volume rule AND S close / prior close - 1 >= 0.20 AND S close >= low + 0.75 x (high - low); rank as S1",
+    "S3": {
+      "model": "LightGBM binary classifier",
+      "label": "D open / S close - 1 >= 0.10 (split-adjusted)",
+      "params": { "n_estimators": 300, "learning_rate": 0.05, "num_leaves": 31, "min_child_samples": 200, "colsample_bytree": 0.8, "random_state": 1337 },
+      "folds": [
+        { "fit": ["2021-11-01", "2022-10-31"], "eval": ["2022-11-01", "2023-04-30"] },
+        { "fit": ["2021-11-01", "2023-04-30"], "eval": ["2023-05-01", "2023-10-31"] },
+        { "fit": ["2021-11-01", "2023-10-31"], "eval": ["2023-11-01", "2024-04-30"] },
+        { "fit": ["2021-11-01", "2024-04-30"], "eval": ["2024-05-01", "2024-10-30"] }
+      ],
+      "embargoSessions": 5,
+      "features": ["ret1", "ret2", "ret5", "ret20", "gapS", "intradayS", "rangeS", "closeLocationS", "volRatioS", "volRatioS1", "logPrice", "logAdv20Dollars", "sigma20", "maxRet10", "maxRet60", "sessionsSinceUp50 (cap 250)", "countUp20Last20", "corwinSchultz20", "dayOfWeek", "daysSinceReverseSplit (cap 365, none 366)", "lastReverseSplitRatio", "sessionsSinceFirstBar (cap 500)", "eligibleSymbolsUp20OnS"]
+    },
+    "listSizes": [5, 10, 20]
+  },
+  "costModel": {
+    "name": "A13-auction-conservative",
+    "roundTrip": "max(classic Corwin-Schultz spread over the 20 sessions through S, 0.010) + 2 x TradingCosts.SquareRootImpact(shares = 1000 / S close, adv = 20-session average share volume, sigma = 20-session sigma, params impact constant)",
+    "whyNotA12": "A12's multipliers scale the minute-bar Corwin-Schultz feature held only on candidate and sample days",
+    "reportedOnly": ["gross mean (break-even cost)", "net at 2x cost", "net at a flat 3%"]
+  },
+  "hypotheses": [
+    {
+      "id": "H31",
+      "primary": true,
+      "family": "F13",
+      "test": "a13-overnight-hold",
+      "claim": "The train-selected configuration (highest day-clustered lower bound among those with >= 150 trades on >= 40 days) nets >= +1.0%/trade after the A13 cost.",
+      "minEffect": { "meanNetPctPerTrade": 1.0, "clusteredLowerBoundAbove": 0.0, "minTrades": 150, "minDays": 40, "foldsPositive": "3 of 4", "leaveOneMonthOutLowerBoundAbove": 0.0, "spaPBelow": 0.05, "dsrMin": 0.95 },
+      "method": "Equal weight per trade on the four evaluation windows; day-clustered bootstrap (10,000 draws, seed 1337, 95%); SPA across the nine configurations; DSR at the ledger's trial count after the run.",
+      "splitsAllowed": ["train", "validation", "holdout"]
+    },
+    {
+      "id": "H32",
+      "primary": false,
+      "family": "F13",
+      "test": "a13-overnight-anatomy",
+      "claim": "Descriptive: the share and mean of trades opening >= +10%, >= +20%, <= -10%, <= -20%, the same base rates over all eligible symbol-days, and top-1%/top-5% P&L concentration. No verdict.",
+      "splitsAllowed": ["train"]
+    }
+  ],
+  "decisionRules": {
+    "onTrainFail": "Stop. Validation is not read; no other signal, list size, exit or cost is tried under A13.",
+    "validation": "Only after a train pass, noted in amendment-13.md first; read once, S3 fit on all of train, the selected configuration unchanged, the same minimums.",
+    "afterValidationPass": "Minute-level replication (signals through 15:50 ET, closing-cross entry, opening-cross exit, quoted spreads for traded symbol-days) under its own amendment before anything else.",
+    "corrections": "Own family F13; never enters the frozen A01-A12 corrections or Holm set.",
+    "promotion": "Single holdout run only with the owner's explicit go-ahead, then 20 paper-shadow sessions; only the owner enables anything. This amendment never arms, sizes, places or exits an order.",
+    "killCriterion": "Unaffected."
+  }
+}

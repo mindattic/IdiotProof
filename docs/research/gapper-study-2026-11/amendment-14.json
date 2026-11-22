@@ -1,0 +1,50 @@
+{
+  "id": "A14",
+  "version": 1,
+  "registeredUtc": "2026-11-21T15:30:00Z",
+  "ticket": "IP-T632",
+  "registeredBeforeResults": "When this file was committed no A14 number existed: no tag had been counted on any split and tools/gapper-study/a14_cause_census.py had not been written. Known at that moment: amendment 08's census by stored catalyst (59% of train gapper days with no stored item, 11.7% coverage only), the 08:00 feature-block ablation and top features by gain (runs/explore/models-20261109-1619.md), H15's repeat-runner lift, and the watchlist's strongest inputs as listed in gapper-anatomy-and-tradability.md.",
+  "question": "Which conditions knowable at the D-1 close are over-represented before a gapper day, how much does each and each combination raise the odds, and how many gapper days does no condition explain?",
+  "kind": "descriptive, detection only; no trade is simulated",
+  "frozenFilesUnchanged": ["protocol.md", "hypotheses.json", "params.json", "amendment-01.json", "amendment-02.json", "amendment-03.json", "amendment-04.json", "amendment-09.json", "amendment-10.json", "amendment-11.json", "amendment-12.json", "amendment-13.json"],
+  "population": "Every symbol-day D eligible at the D-1 close by amendment-13.json eligibilityAtS, D in 2021-11-01..2024-10-31 (train).",
+  "outcomes": {
+    "G20": "D daily high / split-adjusted D-1 close - 1 >= 0.20",
+    "G50": ">= 0.50",
+    "G100": ">= 1.00",
+    "note": "Regular-hours daily bars; premarket-only spikes are not counted. Recovery of the frozen train Tier20 events is reported."
+  },
+  "tags": {
+    "ranYesterday": "D-1 high / D-2 close - 1 >= 0.20",
+    "ranLast5": "any of D-5..D-2 with high / prior close - 1 >= 0.20",
+    "bigRunner60": "any of D-60..D-6 with high / prior close - 1 >= 0.50",
+    "closedStrong": "D-1 close / D-2 close - 1 >= 0.10 AND D-1 close >= low + 0.75 x (high - low)",
+    "volumeSurge": "D-1 volume >= 5 x 20-session average volume",
+    "reverseSplit90": "reverse split ex-date within the 90 calendar days through D-1",
+    "newListing180": "first daily bar within 180 calendar days of D",
+    "subDollar": "D-1 close < 1.00",
+    "lowPriceLowAdv": "D-1 close < 5.00 AND 20-session dollar volume < 2,000,000",
+    "ssrD1": "D-1 low <= 0.9 x D-2 close",
+    "crashedLast5": "any close-to-close return <= -0.30 in D-5..D-1",
+    "hotTape": "count of eligible symbols with ranYesterday on that date in the top quarter of train dates up to then (expanding quantile)",
+    "dilutionFiling90": "S-1, S-3, 424B3, 424B4 or 424B5 for the symbol's CIK accepted in the 90 days through D-1 16:00 ET; no CIK = unknown",
+    "eightK5": "8-K or 8-K/A accepted in the 5 calendar days through D-1 16:00 ET; no CIK = unknown",
+    "insiderBuy30": "Form 4 transaction code P in the 30 days through D-1",
+    "tinyShares": "latest XBRL shares outstanding filed before D-1 < 10,000,000 where held; otherwise unknown"
+  },
+  "newsTags": {
+    "scope": "candidate days plus amendment 01's sample only, with its weights (stored news exists only around those days)",
+    "freshNews": "a non-coverage stored item published after D-1 16:00 ET and before 04:00 ET on D",
+    "staleNews5": "a non-coverage stored item in D-5..D-1 16:00 ET and no freshNews"
+  },
+  "combinations": { "sizes": [2, 3], "minEligibleDays": 500, "stable": "overall lift lower bound > 2 AND P(G20) above the base rate in all four evaluation windows" },
+  "statistics": { "interval": "day-clustered bootstrap, 95%, 2,000 draws for combinations and 10,000 for single tags, seed 1337", "correction": "Benjamini-Hochberg q < 0.05 across every tag and combination, one-sided P(G20 | set) > base rate", "evaluationWindows": "amendment-13.json signals.S3.folds eval ranges" },
+  "reported": ["per-tag table", "combination table with stability", "unexplained remainder and exclusive hierarchy", "frozen train Tier20/50/100 events versus matched controls", "news table"],
+  "decisionRules": {
+    "verdict": "none (descriptive)",
+    "validation": "not read",
+    "ledger": "every tag and combination tested is a ledger trial",
+    "promotion": "nothing is promoted; a stable combination is a candidate for a later amendment registered before its own numbers",
+    "followUp": "if more than 30% of G50 days carry no tag, the result names the data ticket that could shrink the remainder"
+  }
+}
