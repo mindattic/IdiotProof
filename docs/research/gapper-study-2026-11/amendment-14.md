@@ -114,3 +114,5 @@ symbol-days are P(G20) 0.96%, P(G50) 0.15% and P(G100) 0.05%.
 
 A G20 high-water mark is not a trade: a name that ran yesterday swings 20% intraday today in both directions.
 Nothing here is a strategy until a later amendment tests a recipe with entries, exits and the A12 cost.
+
+Data provenance: the CSVs were exported from the local LocalDB copy of `IdiotProof_Research_GAP`. The live research database has been on Azure SQL since IP-T545. The copy holds exactly the 12,040,511 daily bars that the 2026-11-09 results report freezes as T1, so it is the frozen train snapshot. Rows the Azure database gained after 11-09 are not read.

@@ -140,3 +140,5 @@ What it says: buying the evening list at the close and selling at the open does 
 effect is there in the whole universe (+0.03% to +0.09% per night once the split artifacts are removed), but it is a
 fraction of a 1.7% round trip. The script reads the CSV exports of the frozen tables, not the database, and writes
 its nine trials to `runs/explore/a13-ledger-pending.jsonl`, which is merged into the ledger with amendment 14's.
+
+Data provenance: the CSVs were exported from the local LocalDB copy of `IdiotProof_Research_GAP`. The live research database has been on Azure SQL since IP-T545. The copy holds exactly the 12,040,511 daily bars that the 2026-11-09 results report freezes as T1, so it is the frozen train snapshot. Rows the Azure database gained after 11-09 are not read.
