@@ -121,3 +121,22 @@ Whether Alpaca accepts `cls` and `opg` orders on these names is unverified and i
 `runs/explore/a13-overnight-<stamp>.md/.json` and appends the nine trials to `runs/explore/ledger.jsonl`). It
 refuses any signal day outside train. A pass would have to be re-implemented in the shared C# library
 (`IdiotProof.Evidence/Gappers/`) before validation counts toward promotion: the playbook's one-code-path rule.
+
+## Train result (2026-11-22, IP-T632)
+
+**H31 fails on train** (`runs/explore/a13-overnight-20261122-0249.md`). The rule picked S3 top20 (the learned evening
+list): 10,040 trades on 502 days, gross +6.75%, A13 cost 3.97%, net +2.77% [-0.48%, +6.78%]. It misses four of the
+eight criteria: the lower bound, leave-one-month-out (-1.08%), SPA p 0.182 and DSR 0.000. The plain lists lose
+outright: S1 top gainers -2.2% to -5.2% net, S2 closed-strong about -2.5%. Per the stop rule, validation is not read.
+
+**The positive gross mean is a data hole, not an overnight edge.** 23 list trades "return" +500% to +9,990%
+overnight (DVLT, BINI, EMPD, FFAI x2, ...). Every one checked is a reverse split with no row in `GapperStudySplits`,
+probably recorded under the company's earlier ticker. With the 148 moves past the frozen split-guard bounds dropped
+(a sensitivity, not the verdict), S3 top20 is -3.27% net [-3.62%, -2.92%] on +0.71% gross, and all nine
+configurations are negative. The model's AUC of 0.87 is partly learning which sub-$0.20 stocks are about to reverse
+split. The table gap is filed as IP-T633: it biases any daily-bar return across a split day in earlier runs too.
+
+What it says: buying the evening list at the close and selling at the open does not pay. The literature's overnight
+effect is there in the whole universe (+0.03% to +0.09% per night once the split artifacts are removed), but it is a
+fraction of a 1.7% round trip. The script reads the CSV exports of the frozen tables, not the database, and writes
+its nine trials to `runs/explore/a13-ledger-pending.jsonl`, which is merged into the ledger with amendment 14's.
