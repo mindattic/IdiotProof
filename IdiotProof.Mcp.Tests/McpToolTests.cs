@@ -146,11 +146,11 @@ public sealed class McpToolTests
             Guid? saved = null;
             var tool = new HubTool(ToolSpec.FromOperation(Op("positions list", "read")), hub, () => saved);
 
-            await tool.InvokeAsync(new ModelContextProtocol.Server.RequestContext<CallToolRequestParams>(null!, new JsonRpcRequest { Method = "tools/call" }, new CallToolRequestParams { Name = "positions_list" }));
+            await tool.CallAsync(new CallToolRequestParams { Name = "positions_list" });
             var unsaved = JsonSerializer.Deserialize<HubOperationRequest>(handler.Body!, OperationJson.Options)!;
 
             saved = Guid.Parse("a99504c3-0759-4256-8abb-a1f5c643808c");
-            await tool.InvokeAsync(new ModelContextProtocol.Server.RequestContext<CallToolRequestParams>(null!, new JsonRpcRequest { Method = "tools/call" }, new CallToolRequestParams { Name = "positions_list" }));
+            await tool.CallAsync(new CallToolRequestParams { Name = "positions_list" });
             var named = JsonSerializer.Deserialize<HubOperationRequest>(handler.Body!, OperationJson.Options)!;
 
             Assert.Multiple(() =>

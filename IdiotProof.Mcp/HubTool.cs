@@ -40,10 +40,14 @@ public sealed class HubTool(ToolSpec spec, HubInvoker hub, Func<Guid?>? savedOwn
 
     public override async ValueTask<CallToolResult> InvokeAsync(
         RequestContext<CallToolRequestParams> request, CancellationToken cancellationToken = default)
+        => await CallAsync(request.Params, cancellationToken);
+
+    /// <summary>The call itself, apart from the MCP request wrapper (which needs a live server to build).</summary>
+    internal async ValueTask<CallToolResult> CallAsync(CallToolRequestParams? parameters, CancellationToken cancellationToken = default)
     {
         var args = new JsonObject();
         string? confirmation = null;
-        if (request.Params?.Arguments is { } supplied)
+        if (parameters?.Arguments is { } supplied)
         {
             foreach (var (key, value) in supplied)
             {
