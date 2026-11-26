@@ -745,6 +745,8 @@ public sealed partial class GapperPullStage(
 
     // ── T6 splits (re-run of the universe stage's pull, for `pull --tier splits`) ──
 
+    private const string FormerSplitsTier = "splits-former";
+
     private async Task<TierSummary> PullSplitsAsync(PullStageRequest req, CallBudget calls, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
@@ -779,6 +781,30 @@ public sealed partial class GapperPullStage(
             await db.SaveChangesAsync(ct);
             await s.MarkAsync(GapperUniverseStage.SplitsTier, chunk.Select(sym => (Key(sym), 0)), ct);
         }
-        return new TierSummary("splits", inserted, callCount, Math.Round(sw.Elapsed.TotalMinutes, 2), symbols.Count == 0 ? null : 100.0, $"{missing.Count} symbols pulled, {symbols.Count - missing.Count} already covered");
+        var coveredFormer = await s.CoveredAsync(FormerSplitsTier, ct);
+        var missingFormer = symbols.Where(x => !coveredFormer.Contains(Key(x))).ToList();
+        int formerInserted = 0;
+        foreach (var chunk in missingFormer.Chunk(50))
+        {
+            if (!calls.Allow()) break;
+            await s.RateGate.WaitAsync(ct);
+            callCount++;
+            var found = await source.GetFormerSymbolSplitsAsync(chunk, from, to, ct);
+            await using var db = await s.Db.CreateDbContextAsync(ct);
+            var chunkList = chunk.ToList();
+            var present = (await db.GapperStudySplits.AsNoTracking().Where(x => chunkList.Contains(x.Symbol)).Select(x => new { x.Symbol, x.ExDate }).ToListAsync(ct)).Select(x => (x.Symbol, x.ExDate)).ToHashSet();
+            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var (sym, list) in found)
+                foreach (var e in list)
+                    if (present.Add((sym, e.ExDate)))
+                    {
+                        db.GapperStudySplits.Add(new GapperStudySplit { Symbol = sym, ExDate = e.ExDate, OldRate = e.OldRate, NewRate = e.NewRate });
+                        formerInserted++;
+                        counts[sym] = counts.GetValueOrDefault(sym) + 1;
+                    }
+            await db.SaveChangesAsync(ct);
+            await s.MarkAsync(FormerSplitsTier, chunk.Select(sym => (Key(sym), counts.GetValueOrDefault(sym))), ct);
+        }
+        return new TierSummary("splits", inserted + formerInserted, callCount, Math.Round(sw.Elapsed.TotalMinutes, 2), symbols.Count == 0 ? null : 100.0, $"{missing.Count} symbols pulled, {symbols.Count - missing.Count} already covered; {formerInserted} rows from former symbols ({missingFormer.Count} symbols checked)");
     }
 }

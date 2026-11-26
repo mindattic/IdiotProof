@@ -67,6 +67,80 @@ public sealed class AlpacaSplitSource : ISplitSource, IDisposable
     public async Task<IReadOnlyList<SplitEvent>> GetMarketSplitsAsync(DateOnly from, DateOnly to, CancellationToken ct = default) =>
         (await FetchAsync(null, from, to, ct).ConfigureAwait(false)).Values.SelectMany(x => x).ToList();
 
+    /// <summary>
+    /// Splits Alpaca filed under a symbol's former tickers (name_change actions followed back, up to three renames),
+    /// returned under the current symbol. A split counts only when its ex-date is on or before the rename's process date. Not cached.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<SplitEvent>>> GetFormerSymbolSplitsAsync(
+        IEnumerable<string> symbols, DateOnly from, DateOnly to, CancellationToken ct = default)
+    {
+        var result = new Dictionary<string, List<SplitEvent>>(StringComparer.OrdinalIgnoreCase);
+        var frontier = symbols.Select(s => s.Trim().ToUpperInvariant()).Where(s => s.Length > 0).Distinct()
+            .ToDictionary(s => s, s => (Former: s, Until: DateOnly.MaxValue), StringComparer.OrdinalIgnoreCase);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        for (int hop = 0; hop < 3 && frontier.Count > 0; hop++)
+        {
+            var byName = frontier.GroupBy(kv => kv.Value.Former, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+            var next = new Dictionary<string, (string Former, DateOnly Until)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var chunk in byName.Keys.Chunk(SymbolsPerRequest))
+                foreach (var (oldSym, newSym, changed) in await FetchNameChangesAsync(chunk, from, today, ct).ConfigureAwait(false))
+                {
+                    if (!byName.TryGetValue(newSym, out var owners)) continue;
+                    foreach (var owner in owners)
+                        if (!next.ContainsKey(owner.Key) && changed <= owner.Value.Until)
+                            next[owner.Key] = (oldSym, changed);
+                }
+            frontier = next;
+            foreach (var chunk in frontier.Values.Select(v => v.Former).Distinct(StringComparer.OrdinalIgnoreCase).Chunk(SymbolsPerRequest))
+            {
+                var fetched = await FetchAsync(chunk, from, to, ct).ConfigureAwait(false);
+                foreach (var (current, link) in frontier)
+                {
+                    if (!fetched.TryGetValue(link.Former, out var list)) continue;
+                    foreach (var e in list.Where(e => e.ExDate <= link.Until))
+                    {
+                        if (!result.TryGetValue(current, out var into)) result[current] = into = new List<SplitEvent>();
+                        into.Add(e with { Symbol = current });
+                    }
+                }
+            }
+        }
+        return result.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<SplitEvent>)kv.Value, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task<List<(string OldSymbol, string NewSymbol, DateOnly Date)>> FetchNameChangesAsync(string[] symbols, DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        var result = new List<(string, string, DateOnly)>();
+        string? page = null;
+        do
+        {
+            var url = "v1/corporate-actions?symbols=" + Uri.EscapeDataString(string.Join(',', symbols))
+                    + "&types=name_change"
+                    + "&start=" + from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                    + "&end=" + to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                    + "&limit=1000" + (page is null ? "" : "&page_token=" + Uri.EscapeDataString(page));
+            using var doc = await GetJsonAsync(url, ct).ConfigureAwait(false);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("corporate_actions", out var groups) && groups.ValueKind == JsonValueKind.Object
+                && groups.TryGetProperty("name_changes", out var arr) && arr.ValueKind == JsonValueKind.Array)
+                foreach (var e in arr.EnumerateArray())
+                {
+                    var oldSym = Text(e, "old_symbol")?.ToUpperInvariant();
+                    var newSym = Text(e, "new_symbol")?.ToUpperInvariant();
+                    var dateText = Text(e, "process_date") ?? Text(e, "effective_date");
+                    if (oldSym is null || newSym is null || oldSym == newSym || !DateOnly.TryParse(dateText, CultureInfo.InvariantCulture, out var date)) continue;
+                    result.Add((oldSym, newSym, date));
+                }
+            page = Text(root, "next_page_token");
+        }
+        while (!string.IsNullOrEmpty(page));
+        return result;
+    }
+
+    private static string? Text(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()) ? v.GetString() : null;
+
     private async Task<Dictionary<string, List<SplitEvent>>> FetchAsync(string[]? symbols, DateOnly from, DateOnly to, CancellationToken ct)
     {
         var result = new Dictionary<string, List<SplitEvent>>(StringComparer.OrdinalIgnoreCase);
