@@ -805,6 +805,22 @@ public sealed partial class GapperPullStage(
             await db.SaveChangesAsync(ct);
             await s.MarkAsync(FormerSplitsTier, chunk.Select(sym => (Key(sym), counts.GetValueOrDefault(sym))), ct);
         }
-        return new TierSummary("splits", inserted + formerInserted, callCount, Math.Round(sw.Elapsed.TotalMinutes, 2), symbols.Count == 0 ? null : 100.0, $"{missing.Count} symbols pulled, {symbols.Count - missing.Count} already covered; {formerInserted} rows from former symbols ({missingFormer.Count} symbols checked)");
+        int detectedInserted = 0;
+        foreach (var chunk in symbols.Chunk(50))
+        {
+            await using var db = await s.Db.CreateDbContextAsync(ct);
+            var chunkList = chunk.ToList();
+            var recorded = (await db.GapperStudySplits.AsNoTracking().Where(x => chunkList.Contains(x.Symbol)).Select(x => new { x.Symbol, x.ExDate }).ToListAsync(ct))
+                .ToLookup(x => x.Symbol, x => x.ExDate);
+            var bars = (await db.GapperStudyDailyBars.AsNoTracking().Where(x => chunkList.Contains(x.Symbol)).ToListAsync(ct)).ToLookup(x => x.Symbol);
+            foreach (var sym in chunk)
+                foreach (var d in GapperSplitDetector.Detect(bars[sym].ToList(), recorded[sym].ToList()))
+                {
+                    db.GapperStudySplits.Add(new GapperStudySplit { Symbol = sym, ExDate = d.ExDate, OldRate = d.OldRate, NewRate = d.NewRate });
+                    detectedInserted++;
+                }
+            await db.SaveChangesAsync(ct);
+        }
+        return new TierSummary("splits", inserted + formerInserted + detectedInserted, callCount, Math.Round(sw.Elapsed.TotalMinutes, 2), symbols.Count == 0 ? null : 100.0, $"{missing.Count} symbols pulled, {symbols.Count - missing.Count} already covered; {formerInserted} rows from former symbols ({missingFormer.Count} symbols checked); {detectedInserted} rows detected from daily bars");
     }
 }
